@@ -80,24 +80,23 @@ except Exception as e:
     redis_available = False
 
 # Initialize dev_mode based on environment
-# Production (REDIS_URL set) defaults to Prod Mode (false) for 30x speed improvement
-# Development (local Redis) defaults to Dev Mode (true) for testing
+# Default to Prod Mode (false) for speed - user can toggle to Dev Mode for AI/RAG
 try:
-    is_production = os.getenv("REDIS_URL") is not None
-    default_mode = "false" if is_production else "true"
+    # Always default to Prod Mode (heuristics only)
+    default_mode = "false"
     
     if redis_available and redis_client:
         # Force default mode on startup
         redis_client.set(DEV_MODE_KEY, default_mode)
-        mode_name = "Prod Mode (heuristic-only, 2.35s)" if is_production else "Dev Mode (AI/RAG, 67s)"
+        mode_name = "Prod Mode (heuristic-only, 2.35s)"
         print(f"🚀 Initialized dev_mode = {default_mode} ({mode_name}) in Redis on startup", flush=True)
     else:
-        in_memory_dev_mode = (default_mode == "true")
-        mode_name = "Prod Mode (heuristic-only)" if is_production else "Dev Mode (AI/RAG)"
+        in_memory_dev_mode = False
+        mode_name = "Prod Mode (heuristic-only)"
         print(f"🚀 Initialized dev_mode = {default_mode} ({mode_name}) in-memory on startup", flush=True)
 except Exception as e:
     print(f"⚠️ Failed to initialize dev_mode: {e}, using default", flush=True)
-    in_memory_dev_mode = not is_production
+    in_memory_dev_mode = False
 
 # WebSocket connection manager
 class ConnectionManager:
