@@ -192,6 +192,20 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
     }
   };
 
+  // Toggle dev mode handler
+  const handleToggleDevMode = async () => {
+    try {
+      const newMode = !devMode;
+      const response = await fetch(API_CONFIG.buildDclUrl(`/toggle_dev_mode?enabled=${newMode}`));
+      const data = await response.json();
+      setDevMode(data.dev_mode);
+      // Notify graph to update
+      window.dispatchEvent(new Event('dcl-state-changed'));
+    } catch (error) {
+      console.error('Error toggling dev mode:', error);
+    }
+  };
+
   return (
     <div className="bg-gray-900 rounded-xl border border-gray-800 p-3 sm:p-6 -mt-[5px]">
       {/* Top-Mounted Progress Bar - Shows only for manual/connection-triggered runs */}
@@ -302,6 +316,27 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
                       <span className="font-mono">{elapsedTime.toFixed(1)}s</span>
                     </div>
                   )}
+                </div>
+
+                {/* Dev Mode / Prod Mode Toggle */}
+                <div className="mt-2 pt-2 border-t border-blue-500/20">
+                  <button
+                    onClick={handleToggleDevMode}
+                    className={`w-full flex items-center justify-between px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all ${
+                      devMode
+                        ? 'bg-amber-600/20 border border-amber-500/40 text-amber-300 hover:bg-amber-600/30'
+                        : 'bg-emerald-600/20 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-600/30'
+                    }`}
+                    title="Toggle between Production Mode (heuristics only) and Dev Mode (AI + RAG active)"
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${devMode ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'}`} />
+                      <span>{devMode ? 'Dev Mode' : 'Prod Mode'}</span>
+                    </div>
+                    <span className="text-[9px] opacity-70">
+                      {devMode ? 'Heuristics Only' : 'Click to toggle'}
+                    </span>
+                  </button>
                 </div>
               </div>
             </div>

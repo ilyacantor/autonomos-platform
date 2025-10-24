@@ -125,7 +125,8 @@ export function initDCLBridge(): void {
 }
 
 function setupDCLBridge(): void {
-  setTimeout(createDevModeToggle, 1000);
+  // Dev Mode toggle now integrated into DCLGraphContainer component
+  // setTimeout(createDevModeToggle, 1000);
 
   (window as any).dclConnect = async function(sources?: string, agents?: string) {
     const sourcesParam = sources || 'dynamics,salesforce,hubspot';
