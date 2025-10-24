@@ -1345,7 +1345,7 @@ def reset_state(exclude_dev_mode=True):
     Args:
         exclude_dev_mode: If True, dev_mode persists across resets
     """
-    global EVENT_LOG, GRAPH_STATE, SOURCES_ADDED, ENTITY_SOURCES, ontology, LLM_CALLS, LLM_TOKENS, SELECTED_AGENTS, SOURCE_SCHEMAS
+    global EVENT_LOG, GRAPH_STATE, SOURCES_ADDED, ENTITY_SOURCES, ontology, LLM_CALLS, LLM_TOKENS, SELECTED_AGENTS, SOURCE_SCHEMAS, RAG_CONTEXT
     EVENT_LOG = []
     GRAPH_STATE = {"nodes": [], "edges": [], "confidence": None, "last_updated": None}
     SOURCES_ADDED = []
@@ -1354,7 +1354,10 @@ def reset_state(exclude_dev_mode=True):
     SOURCE_SCHEMAS = {}
     LLM_CALLS = 0
     LLM_TOKENS = 0
-    # NOTE: Dev mode is preserved by default - it persists across connection rebuilds
+    # Clear RAG retrievals so they update with fresh data on each connection
+    RAG_CONTEXT["retrievals"] = []
+    RAG_CONTEXT["last_retrieval_count"] = 0
+    # NOTE: Dev mode and total_mappings are preserved - they persist across connection rebuilds
     ontology = load_ontology()
     try:
         os.remove(DB_PATH)
