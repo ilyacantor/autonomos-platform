@@ -334,20 +334,6 @@ async def llm_propose(
     
     llm_start = time.time()
     
-    # Skip LLM calls if dev mode is disabled (check Redis for cross-process state)
-    if not get_dev_mode():
-        return None
-    
-    # Check for appropriate API key based on model
-    if llm_model.startswith("gpt"):
-        if not os.getenv("OPENAI_API_KEY"):
-            log(f"⚠️ OPENAI_API_KEY not set - skipping LLM for {source_key}")
-            return None
-    else:
-        if not os.getenv("GEMINI_API_KEY"):
-            log(f"⚠️ GEMINI_API_KEY not set - skipping LLM for {source_key}")
-            return None
-    
     # Initialize RAG engine if not already initialized (for worker processes)
     if rag_engine is None and os.getenv("PINECONE_API_KEY"):
         try:
@@ -356,8 +342,6 @@ async def llm_propose(
             log("✅ RAG Engine initialized in worker process")
         except Exception as e:
             log(f"⚠️ RAG Engine initialization failed in worker: {e}")
-    
-    log(f"🤖 LLM: Starting AI mapping for {source_key} with {llm_model} (RAG engine: {'available' if rag_engine else 'not available'})")
     
     # STREAMING EVENT: RAG retrieval starting
     await ws_manager.broadcast({
@@ -368,7 +352,7 @@ async def llm_propose(
         "timestamp": time.time()
     })
     
-    # Build RAG context if available (PARALLELIZED)
+    # Build RAG context if available (PARALLELIZED) - WORKS IN BOTH DEV AND PROD MODES
     rag_context = ""
     rag_task_start = time.time()
     
@@ -451,6 +435,25 @@ async def llm_propose(
                 RAG_CONTEXT["last_retrieval_count"] = len(top_similar)
         except Exception as e:
             log(f"⚠️ RAG retrieval failed: {e}")
+    
+    # Skip LLM calls if dev mode is disabled (check Redis for cross-process state)
+    # RAG retrieval still happened above for both modes
+    current_dev_mode = get_dev_mode()
+    if not current_dev_mode:
+        log(f"⚡ Prod Mode: RAG retrieval complete, skipping LLM - falling back to heuristics for {source_key}")
+        return None
+    
+    # Check for appropriate API key based on model
+    if llm_model.startswith("gpt"):
+        if not os.getenv("OPENAI_API_KEY"):
+            log(f"⚠️ OPENAI_API_KEY not set - skipping LLM for {source_key}")
+            return None
+    else:
+        if not os.getenv("GEMINI_API_KEY"):
+            log(f"⚠️ GEMINI_API_KEY not set - skipping LLM for {source_key}")
+            return None
+    
+    log(f"🤖 Dev Mode: Starting LLM mapping for {source_key} with {llm_model}")
     
     sys_prompt = (
         "You are a data integration planner. Given an ontology and a set of new tables from a source system, "
