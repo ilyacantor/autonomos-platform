@@ -407,7 +407,7 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
                     Retrieved {dclState.rag.last_retrieval_count} similar mappings:
                   </div>
                   {dclState.rag.retrievals.map((ret: any, i: number) => (
-                    <div key={i} className="mb-2">
+                    <div key={i} className="mb-2 pb-2 border-b border-teal-800/30 last:border-0">
                       <div className="flex justify-between items-start mb-1">
                         <div className="text-white font-semibold text-[11px]">{ret.source_field}</div>
                         <div className="text-[10px] text-white font-bold">
@@ -421,7 +421,7 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
                           style={{ width: `${(ret.similarity * 100).toFixed(0)}%` }}
                         />
                       </div>
-                      <div className="text-[9px] text-teal-400/70">{ret.context}</div>
+                      <div className="text-[9px] text-teal-400/70">from: {ret.source_system || 'unknown'}</div>
                     </div>
                   ))}
                 </>
