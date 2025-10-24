@@ -1,0 +1,32 @@
+#!/bin/bash
+
+echo "Starting AutonomOS Platform..."
+
+# Only start local Redis if REDIS_URL is not set (development mode)
+if [ -z "$REDIS_URL" ]; then
+  echo "Starting local Redis server (development mode)..."
+  redis-server --port 6379 --daemonize yes
+  sleep 2
+else
+  echo "Using external Redis from REDIS_URL (production mode)..."
+fi
+
+echo "Starting RQ worker..."
+python -m app.worker &
+WORKER_PID=$!
+
+sleep 1
+
+# Check if worker is still running
+if kill -0 $WORKER_PID 2>/dev/null; then
+  echo "✅ RQ worker started successfully (PID: $WORKER_PID)"
+else
+  echo "⚠️ RQ worker failed to start (harmless - background tasks won't run)"
+  WORKER_PID=""
+fi
+
+# Trap will kill worker if it started successfully, otherwise just shutdown redis
+trap "if [ -n \"$WORKER_PID\" ] && kill -0 $WORKER_PID 2>/dev/null; then kill $WORKER_PID; fi; redis-cli shutdown 2>/dev/null; exit" SIGINT SIGTERM
+
+echo "Starting FastAPI server..."
+exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-5000} --proxy-headers
