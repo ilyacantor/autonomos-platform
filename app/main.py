@@ -56,13 +56,22 @@ app.add_middleware(
 )
 
 # Use REDIS_URL if available (production), otherwise use host/port (development)
-REDIS_URL = os.getenv("REDIS_URL")
-if REDIS_URL:
-    redis_conn = Redis.from_url(REDIS_URL, decode_responses=False)
-else:
-    redis_conn = Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB)
-
-task_queue = Queue(connection=redis_conn)
+# Redis is optional - if not available, task queue features will be disabled
+redis_conn = None
+task_queue = None
+try:
+    REDIS_URL = os.getenv("REDIS_URL")
+    if REDIS_URL:
+        redis_conn = Redis.from_url(REDIS_URL, decode_responses=False)
+    else:
+        redis_conn = Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB)
+    
+    task_queue = Queue(connection=redis_conn)
+    print("✅ Redis connected successfully")
+except Exception as e:
+    print(f"⚠️ Redis not available: {e}. Task queue features disabled.")
+    redis_conn = None
+    task_queue = None
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(aoa.router, prefix="/api/v1/aoa", tags=["AOA Orchestration"])
@@ -170,6 +179,13 @@ def create_task(
     The task is automatically associated with the authenticated user's tenant.
     """
     db_task = crud.create_task(db, task, current_user.tenant_id)
+    
+    # Only enqueue if Redis/task_queue is available
+    if task_queue is None:
+        raise HTTPException(
+            status_code=503, 
+            detail="Task queue not available. Redis connection required for background tasks."
+        )
     
     try:
         from app.worker import execute_task

@@ -14,8 +14,14 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-redis_conn = Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB)
-task_queue = Queue(connection=redis_conn)
+# Initialize Redis connection (optional)
+redis_conn = None
+task_queue = None
+try:
+    redis_conn = Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB)
+    task_queue = Queue(connection=redis_conn)
+except Exception as e:
+    logger.warning(f"Redis not available in AOA module: {e}")
 
 @router.get("/state")
 async def get_aoa_state(
@@ -74,6 +80,12 @@ def run_aoa_connect(
     task_data = schemas.TaskCreate(payload=task_payload)
     db_task = crud.create_task(db, task_data, current_user.tenant_id)
     
+    if task_queue is None:
+        raise HTTPException(
+            status_code=503, 
+            detail="Task queue not available. Redis connection required for background tasks."
+        )
+    
     try:
         from app.worker import execute_task
         task_queue.enqueue(execute_task, str(db_task.id), job_timeout=300)
@@ -112,6 +124,12 @@ def reset_aoa(
     
     task_data = schemas.TaskCreate(payload=task_payload)
     db_task = crud.create_task(db, task_data, current_user.tenant_id)
+    
+    if task_queue is None:
+        raise HTTPException(
+            status_code=503, 
+            detail="Task queue not available. Redis connection required for background tasks."
+        )
     
     try:
         from app.worker import execute_task
@@ -153,6 +171,12 @@ def toggle_prod_mode(
     
     task_data = schemas.TaskCreate(payload=task_payload)
     db_task = crud.create_task(db, task_data, current_user.tenant_id)
+    
+    if task_queue is None:
+        raise HTTPException(
+            status_code=503, 
+            detail="Task queue not available. Redis connection required for background tasks."
+        )
     
     try:
         from app.worker import execute_task
