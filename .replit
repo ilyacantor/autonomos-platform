@@ -65,3 +65,4 @@ externalPort = 3001
 [deployment]
 run = ["bash", "start.sh"]
 deploymentTarget = "vm"
+build = ["bash", "-c", "cd frontend-backup-for-rebuild && npm install && npm run build && cp -r dist/* ../static/"]
