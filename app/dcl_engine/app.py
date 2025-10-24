@@ -532,6 +532,12 @@ async def llm_propose(
                         stored_count += 1
             if dev_mode:
                 log(f"💾 Stored {stored_count} mappings to RAG (dev mode)")
+                # Update RAG total count after storing
+                try:
+                    stats = rag_engine.get_stats()
+                    RAG_CONTEXT["total_mappings"] = stats.get("total_mappings", 0)
+                except:
+                    pass
             else:
                 log(f"🔒 RAG writes blocked - heuristic mode (retrieved context only)")
         except Exception as e:
