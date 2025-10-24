@@ -334,7 +334,7 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
                       <span>{devMode ? 'Dev Mode' : 'Prod Mode'}</span>
                     </div>
                     <span className="text-[9px] opacity-70">
-                      {devMode ? 'Heuristics Only' : 'Click to toggle'}
+                      {devMode ? 'AI/RAG Active' : 'Heuristics Only'}
                     </span>
                   </button>
                 </div>
