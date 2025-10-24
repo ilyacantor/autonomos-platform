@@ -1390,6 +1390,15 @@ async def broadcast_state_change(event_type: str = "state_update"):
         for agent_id, agent_info in agents_config.get("agents", {}).items():
             agent_consumption[agent_id] = agent_info.get("consumes", [])
         
+        # Filter graph edges for Sankey rendering - exclude join edges to prevent circular references
+        filtered_graph = {
+            "nodes": GRAPH_STATE["nodes"],
+            "edges": [
+                edge for edge in GRAPH_STATE["edges"]
+                if edge.get("type") != "join"  # Only keep hierarchy and dataflow edges
+            ]
+        }
+        
         # Send complete data (frontend has scrolling for unlimited display)
         state_payload = {
             "type": event_type,
@@ -1398,7 +1407,7 @@ async def broadcast_state_change(event_type: str = "state_update"):
                 "sources": SOURCES_ADDED,
                 "agents": SELECTED_AGENTS,
                 "devMode": get_dev_mode(),
-                "graph": GRAPH_STATE,
+                "graph": filtered_graph,  # Send filtered graph instead of raw GRAPH_STATE
                 "llmCalls": LLM_CALLS,
                 "llmTokens": LLM_TOKENS,
                 "ragContext": {
@@ -1534,10 +1543,20 @@ def state():
     for agent_id, agent_info in agents_config.get("agents", {}).items():
         agent_consumption[agent_id] = agent_info.get("consumes", [])
     
+    # Filter graph edges for Sankey rendering - exclude join edges to prevent circular references
+    # D3-sankey requires a directed acyclic graph (DAG), but join edges create bidirectional cycles
+    filtered_graph = {
+        "nodes": GRAPH_STATE["nodes"],
+        "edges": [
+            edge for edge in GRAPH_STATE["edges"]
+            if edge.get("type") != "join"  # Only keep hierarchy and dataflow edges
+        ]
+    }
+    
     return JSONResponse({
         "events": EVENT_LOG,
         "timeline": EVENT_LOG[-5:],
-        "graph": GRAPH_STATE,
+        "graph": filtered_graph,  # Send filtered graph instead of raw GRAPH_STATE
         "preview": {"sources": {}, "ontology": {}},
         "llm": {"calls": LLM_CALLS, "tokens": LLM_TOKENS},
         "auto_ingest_unmapped": AUTO_INGEST_UNMAPPED,
