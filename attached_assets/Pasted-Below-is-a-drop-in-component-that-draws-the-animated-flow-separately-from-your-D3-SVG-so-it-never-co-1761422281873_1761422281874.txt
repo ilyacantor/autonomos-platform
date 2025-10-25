@@ -1,0 +1,116 @@
+Below is a drop-in component that draws the animated flow separately from your D3 SVG so it never conflicts with React or throttled repaints.
+
+🧩 File: frontend/src/components/FlowAnimationLayer.tsx
+import React, { useRef, useEffect } from "react";
+
+/**
+ * FlowAnimationLayer
+ * -------------------
+ * Transparent canvas overlay for smooth, GPU-accelerated edge animation.
+ * Props:
+ *   links: Array<{ x0, y0, x1, y1 }>  // simplified edge coordinates
+ *   isRunning: boolean                // true while DCL is active
+ */
+const FlowAnimationLayer = ({ links = [], isRunning = false }) => {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const animRef = useRef<number | null>(null);
+  const activeRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const resize = () => {
+      const { width, height } = canvas.parentElement!.getBoundingClientRect();
+      canvas.width = width;
+      canvas.height = height;
+    };
+    resize();
+    window.addEventListener("resize", resize);
+
+    let t = 0;
+    const draw = () => {
+      if (!ctx) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.lineWidth = 2;
+      for (const l of links) {
+        // choose color based on layer
+        const isSource = (l.sourceLayer === 0 && l.targetLayer === 1);
+        ctx.strokeStyle = isSource ? "rgba(0,255,136,0.9)" : "rgba(0,200,255,0.7)";
+        const dashLen = 14, gap = 12;
+        const phase = (t * 2) % (dashLen + gap);
+        ctx.setLineDash([dashLen, gap]);
+        ctx.lineDashOffset = -phase;
+        ctx.beginPath();
+        ctx.moveTo(l.x0, l.y0);
+        ctx.lineTo(l.x1, l.y1);
+        ctx.stroke();
+      }
+      if (activeRef.current) {
+        t += 1;
+        animRef.current = requestAnimationFrame(draw);
+      }
+    };
+
+    const start = () => {
+      if (!activeRef.current) {
+        activeRef.current = true;
+        t = 0;
+        animRef.current = requestAnimationFrame(draw);
+      }
+    };
+    const stop = () => {
+      activeRef.current = false;
+      if (animRef.current) cancelAnimationFrame(animRef.current);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    };
+
+    if (isRunning) start();
+    else {
+      // fade-out delay (~2 s) after run stops
+      setTimeout(() => stop(), 2000);
+    }
+
+    return () => {
+      stop();
+      window.removeEventListener("resize", resize);
+    };
+  }, [links, isRunning]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        width: "100%",
+        height: "100%",
+        pointerEvents: "none",
+      }}
+    />
+  );
+};
+
+export default FlowAnimationLayer;
+
+⚙️ Integration inside LiveSankeyGraph.tsx
+
+Add this just after your <svg> container, inside the same wrapping div:
+
+import FlowAnimationLayer from "./FlowAnimationLayer";
+
+// inside the component’s JSX
+<div className="relative w-full h-full">
+  <svg ref={svgRef} className="w-full h-full"></svg>
+  <FlowAnimationLayer links={linkData} isRunning={isRunning} />
+</div>
+
+
+Where:
+
+linkData → the same array used by your D3 Sankey ({ x0, y0, x1, y1, sourceLayer, targetLayer }).
+
+isRunning → your existing flag from dashboard state.

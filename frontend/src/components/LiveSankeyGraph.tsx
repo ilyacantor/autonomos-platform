@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import { sankey as d3Sankey, sankeyLinkHorizontal } from 'd3-sankey';
 import { API_CONFIG } from '../config/api';
+import FlowAnimationLayer from './FlowAnimationLayer';
 
 interface SankeyNode {
   name: string;
@@ -48,6 +49,15 @@ interface GraphState {
   dev_mode: boolean;
 }
 
+interface FlowLink {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+  sourceLayer?: number;
+  targetLayer?: number;
+}
+
 export default function LiveSankeyGraph() {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -55,6 +65,8 @@ export default function LiveSankeyGraph() {
   const [animatingEdges, setAnimatingEdges] = useState<Set<string>>(new Set());
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [isRendering, setIsRendering] = useState(false);
+  const [flowLinks, setFlowLinks] = useState<FlowLink[]>([]);
+  const [isFlowRunning, setIsFlowRunning] = useState(false);
   const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -88,7 +100,11 @@ export default function LiveSankeyGraph() {
     }
 
     rafRef.current = requestAnimationFrame(() => {
-      renderSankey(state, svgRef.current!, containerRef.current!, animatingEdges);
+      const links = renderSankey(state, svgRef.current!, containerRef.current!, animatingEdges);
+      if (links) {
+        setFlowLinks(links);
+        setIsFlowRunning(animatingEdges.size > 0);
+      }
       setIsRendering(false);
     });
 
@@ -154,7 +170,7 @@ export default function LiveSankeyGraph() {
 
   return (
     <div ref={containerRef} className="rounded-xl bg-gray-800/40 border border-gray-700 shadow-sm ring-1 ring-cyan-500/10 p-3 h-full">
-      <div className="w-full h-full overflow-hidden">
+      <div className="relative w-full h-full overflow-hidden">
         {isRendering && containerSize.width === 0 && (
           <div className="flex items-center justify-center h-full">
             <div className="text-sm text-gray-400 animate-pulse">Loading graph...</div>
@@ -166,6 +182,7 @@ export default function LiveSankeyGraph() {
           height="100%"
           style={{ display: 'block', maxWidth: '100%', maxHeight: '100%' }}
         />
+        <FlowAnimationLayer links={flowLinks} isRunning={isFlowRunning} />
       </div>
     </div>
   );
@@ -192,7 +209,7 @@ function renderSankey(
   svgElement: SVGSVGElement,
   container: HTMLDivElement,
   animatingEdges: Set<string>
-) {
+): FlowLink[] | null {
   const svg = d3.select(svgElement);
   svg.selectAll('*').remove();
 
@@ -205,7 +222,7 @@ function renderSankey(
       .attr('fill', '#94a3b8')
       .attr('font-size', '14px')
       .text('No data available. Click "Connect & Map" to start.');
-    return;
+    return null;
   }
 
   const sankeyNodes: SankeyNode[] = [];
@@ -642,6 +659,28 @@ function renderSankey(
     return;
   });
 
+  const flowLinks: FlowLink[] = links.map((link: any, i: number) => {
+    const originalLink = sankeyLinks[i];
+    const sourceNodeData = sankeyNodes[originalLink.source];
+    const targetNodeData = sankeyNodes[originalLink.target];
+    
+    const layerMapping: Record<string, number> = {
+      'source_parent': 0,
+      'source': 1,
+      'ontology': 2,
+      'agent': 3
+    };
+    
+    return {
+      x0: link.source.x1,
+      y0: link.y0,
+      x1: link.target.x0,
+      y1: link.y1,
+      sourceLayer: layerMapping[sourceNodeData?.type] ?? 1,
+      targetLayer: layerMapping[targetNodeData?.type] ?? 1,
+    };
+  });
+
   function getEdgeTooltip(sourceNodeData: SankeyNode | undefined, targetNodeData: SankeyNode | undefined, linkData: SankeyLink): string {
     if (!sourceNodeData || !targetNodeData) return 'Data Flow';
     
@@ -722,4 +761,6 @@ function renderSankey(
     
     return tooltip;
   }
+
+  return flowLinks;
 }
