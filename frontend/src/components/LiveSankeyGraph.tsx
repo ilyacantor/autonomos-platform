@@ -375,59 +375,7 @@ function renderSankey(
     .append('g')
     .attr('transform', `translate(${validWidth / 2}, ${validHeight / 2}) rotate(90) translate(${-validWidth / 2}, ${-validHeight / 2})`);
 
-  // Add SVG defs for glow effect and animated gradient
-  const defs = svg.append('defs');
-  
-  // Glow filter
-  const glowFilter = defs.append('filter')
-    .attr('id', 'edge-glow')
-    .attr('x', '-50%')
-    .attr('y', '-50%')
-    .attr('width', '200%')
-    .attr('height', '200%');
-  
-  glowFilter.append('feGaussianBlur')
-    .attr('stdDeviation', '3')
-    .attr('result', 'coloredBlur');
-  
-  const feMerge = glowFilter.append('feMerge');
-  feMerge.append('feMergeNode').attr('in', 'coloredBlur');
-  feMerge.append('feMergeNode').attr('in', 'SourceGraphic');
-  
-  // Animated flowing gradient
-  const flowGradient = defs.append('linearGradient')
-    .attr('id', 'flow-gradient')
-    .attr('gradientUnits', 'userSpaceOnUse');
-  
-  flowGradient.append('stop')
-    .attr('offset', '0%')
-    .attr('stop-color', 'currentColor')
-    .attr('stop-opacity', '0.3');
-  
-  flowGradient.append('stop')
-    .attr('offset', '50%')
-    .attr('stop-color', 'currentColor')
-    .attr('stop-opacity', '1');
-  
-  flowGradient.append('stop')
-    .attr('offset', '100%')
-    .attr('stop-color', 'currentColor')
-    .attr('stop-opacity', '0.3');
-  
-  // Animate the gradient
-  flowGradient.append('animate')
-    .attr('attributeName', 'x1')
-    .attr('values', '0%;100%;0%')
-    .attr('dur', '3s')
-    .attr('repeatCount', 'indefinite');
-  
-  flowGradient.append('animate')
-    .attr('attributeName', 'x2')
-    .attr('values', '100%;200%;100%')
-    .attr('dur', '3s')
-    .attr('repeatCount', 'indefinite');
-
-  const edgePaths = mainGroup
+  mainGroup
     .append('g')
     .attr('fill', 'none')
     .selectAll('path')
@@ -470,11 +418,6 @@ function renderSankey(
       }
       
       return 0.4;
-    })
-    .attr('filter', (_d: any, i: number) => {
-      const originalLink = sankeyLinks[i];
-      // Apply glow only to dataflow edges, not hierarchy
-      return originalLink?.edgeType === 'hierarchy' ? null : 'url(#edge-glow)';
     })
     .attr('class', (_d: any, i: number) => {
       const originalLink = sankeyLinks[i];
