@@ -7,17 +7,6 @@
     <title>AOS Platform</title>
   </head>
   <body>
-    <div id="ENV_BEACON" style="position:fixed;top:0;left:0;right:0;z-index:99999;padding:6px 10px;font:12px/1.2 monospace;background:#111;border-bottom:1px solid #333;color:#0f0;">
-      HOST:<span id="b_host"></span> • BUILD:<span id="b_build"></span> • STATIC:<span id="b_static"></span>
-    </div>
-    <div style="height:28px"></div>
-    <script>
-      setTimeout(function() {
-        document.getElementById('b_build').textContent = (window.__BUILD_ID__ || 'unknown');
-        document.getElementById('b_static').textContent = '/home/runner/workspace/static';
-        document.getElementById('b_host').textContent = location.host;
-      }, 100);
-    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
