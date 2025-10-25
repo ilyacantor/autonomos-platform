@@ -77,11 +77,16 @@ AutonomOS is built with FastAPI, PostgreSQL, Redis, and Python RQ, implementing 
   - Shows helpful guidance directing users to Connections page when no search active
   - Displays active search query in page description
   - Maintains all existing visualization functionality
+- **Navigation Update:** Removed "Data Lineage" nav item from TopBar
+  - Users access lineage functionality via Connections page search
+  - Data lineage page still accessible programmatically if needed
+  - Cleaner, more streamlined navigation
 
 **Result:**
 - Streamlined UX with single entry point for data operations
 - Data lineage search positioned logically near data source selection
 - Cross-page integration via sessionStorage handoff
+- Simplified navigation with one less top-level menu item
 - No regressions in existing functionality
 
 ### October 24, 2025 - Clean Bounded Graph with 8px Nodes
