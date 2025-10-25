@@ -1,0 +1,106 @@
+You are operating on the current project (AutonomOS).  
+Do NOT modify any frontend, logic, or data.  
+Your sole task is to fix the deployment initialization problem so the app can successfully promote on Replit Autoscale.
+
+OBJECTIVE
+Ensure the FastAPI backend starts correctly on Autoscale by:
+- Listening on host 0.0.0.0
+- Using the environment variable $PORT (not a hardcoded 5000)
+- Providing a quick /health endpoint
+- Verifying that start.sh and .replit both point to the correct run command
+
+REQUIREMENTS
+- No logic, database, or API functionality may be changed.
+- You must produce a verification report at the end confirming readiness for “Promote”.
+- If any destructive change would occur, STOP and summarize before acting.
+
+STEPS
+
+1️⃣ DETECT CURRENT CONFIGURATION
+- Search for uvicorn run commands across the repo.
+- List their host and port parameters.
+- Print contents of:
+  • start.sh  
+  • .replit  
+  • app/main.py (bottom 20 lines)
+- Identify which process actually starts the app in production.
+
+2️⃣ FIX start.sh
+- If start.sh runs uvicorn with 127.0.0.1 or fixed port 5000, replace with:
+
+  ```bash
+  #!/bin/bash
+  echo "Starting AutonomOS backend..."
+  uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-5000}
+Ensure it is executable (chmod +x start.sh).
+
+3️⃣ FIX .replit
+
+Confirm the run command is:
+
+ini
+Copy code
+run = "bash start.sh"
+If not, replace existing run line accordingly.
+
+4️⃣ FIX FastAPI ENTRY POINT
+
+Open app/main.py
+
+Ensure the bottom block is wrapped as:
+
+python
+Copy code
+if __name__ == "__main__":
+    import os, uvicorn
+    uvicorn.run("app.main:app", host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+Add a lightweight health check if missing:
+
+python
+Copy code
+@app.get("/health")
+async def health_check():
+    return {"status": "ok"}
+5️⃣ VALIDATION
+
+Start the app locally inside Replit shell to confirm:
+
+bash
+Copy code
+bash start.sh &
+curl -s http://127.0.0.1:5000/health
+Expect {"status":"ok"}.
+
+Verify console logs show:
+
+arduino
+Copy code
+INFO: Uvicorn running on http://0.0.0.0:<port>
+6️⃣ DEPLOYMENT READINESS CHECK
+
+Confirm environment variable $PORT is detected (print it to console).
+
+Ensure exactly one server process runs on that port.
+
+Produce summary:
+• start.sh path and content
+• .replit run command
+• Confirmed /health returns 200 OK
+• Host = 0.0.0.0
+• Port = $PORT
+
+7️⃣ REPORT
+Output a clean, human-readable “✅ DEPLOYMENT READY” report summarizing:
+
+Host and port binding
+
+Health endpoint status
+
+Files changed
+
+Next step: “Click Publish → Rebuild & Promote”
+
+If any verification fails, print a single clear line with “❌ Reason” and stop before promoting.
+
+yaml
+Copy code

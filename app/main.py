@@ -309,6 +309,11 @@ def cancel_task(
     db_task = crud.get_task(db, task_id, current_user.tenant_id)
     return db_task
 
+@app.get("/health")
+async def health_check():
+    """Primary health check endpoint for Autoscale deployment"""
+    return {"status": "ok"}
+
 @app.get("/health/api")
 def health_api():
     """Health check for the API"""
