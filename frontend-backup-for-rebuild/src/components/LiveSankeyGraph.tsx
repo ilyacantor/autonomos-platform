@@ -3,14 +3,30 @@ import * as d3 from 'd3';
 import { sankey as d3Sankey, sankeyLinkHorizontal } from 'd3-sankey';
 import { API_CONFIG } from '../config/api';
 
+// Custom vertical link path generator for sankey
+function sankeyLinkVertical() {
+  return (d: any) => {
+    const { source, target } = d;
+    const x0 = source.x0 + (source.x1 - source.x0) / 2;
+    const x1 = target.x0 + (target.x1 - target.x0) / 2;
+    const y0 = source.y1;
+    const y1 = target.y0;
+    
+    return `M${x0},${y0}
+            C${x0},${(y0 + y1) / 2}
+             ${x1},${(y0 + y1) / 2}
+             ${x1},${y1}`;
+  };
+}
+
 // Fixed virtual canvas - stable coordinate system regardless of screen size
 const VIRTUAL_WIDTH = 1200;
-const VIRTUAL_HEIGHT = 800;
-const LAYER_POSITIONS = [100, 400, 700, 1050]; // Fixed X positions for 4 layers
-const NODE_WIDTH = 8;
-const NODE_PADDING = 18;
-const PADDING_TOP = 50;
-const PADDING_BOTTOM = 50;
+const VIRTUAL_HEIGHT = 1000;
+const LAYER_POSITIONS = [150, 400, 650, 900]; // Fixed Y positions for 4 vertical layers (top to bottom)
+const NODE_HEIGHT = 8;
+const NODE_PADDING = 25;
+const PADDING_LEFT = 80;
+const PADDING_RIGHT = 80;
 
 interface SankeyNode {
   name: string;
@@ -210,11 +226,11 @@ function renderSankey(
     .attr('preserveAspectRatio', 'xMidYMid meet');
 
   const sankey = d3Sankey<SankeyNode, SankeyLink>()
-    .nodeWidth(NODE_WIDTH)
+    .nodeWidth(NODE_HEIGHT)  // In vertical mode, this is node height
     .nodePadding(NODE_PADDING)
     .extent([
-      [PADDING_TOP, PADDING_TOP],
-      [VIRTUAL_WIDTH - PADDING_BOTTOM, VIRTUAL_HEIGHT - PADDING_BOTTOM],
+      [PADDING_LEFT, PADDING_LEFT],
+      [VIRTUAL_WIDTH - PADDING_RIGHT, VIRTUAL_HEIGHT - PADDING_RIGHT],
     ]);
 
   const graph = sankey({
@@ -231,18 +247,18 @@ function renderSankey(
     'agent':         3
   };
   
-  // Use fixed layer positions - nodes always at same X coordinates
+  // Use fixed layer positions for VERTICAL flow - nodes always at same Y coordinates
   nodes.forEach(node => {
     const nodeData = sankeyNodes.find(n => n.name === node.name);
     if (nodeData && nodeData.type && layerMap[nodeData.type] !== undefined) {
       const layer = layerMap[nodeData.type];
       node.depth = layer;
-      node.x0 = LAYER_POSITIONS[layer];
-      node.x1 = LAYER_POSITIONS[layer] + NODE_WIDTH;
+      node.y0 = LAYER_POSITIONS[layer];
+      node.y1 = LAYER_POSITIONS[layer] + NODE_HEIGHT;
     } else {
       node.depth = 1;
-      node.x0 = LAYER_POSITIONS[1];
-      node.x1 = LAYER_POSITIONS[1] + NODE_WIDTH;
+      node.y0 = LAYER_POSITIONS[1];
+      node.y1 = LAYER_POSITIONS[1] + NODE_HEIGHT;
     }
   });
   
@@ -251,8 +267,9 @@ function renderSankey(
       const source = link.source;
       const target = link.target;
       
-      link.y0 = source.y0 + (source.y1 - source.y0) / 2;
-      link.y1 = target.y0 + (target.y1 - target.y0) / 2;
+      // For vertical flow: links connect horizontally across node centers
+      link.x0 = source.x0 + (source.x1 - source.x0) / 2;
+      link.x1 = target.x0 + (target.x1 - target.x0) / 2;
     });
   };
   
@@ -264,16 +281,16 @@ function renderSankey(
   });
   
   if (ontologyNodesInSankey.length > 1) {
-    const totalOntologyHeight = ontologyNodesInSankey.reduce((sum, n) => sum + (n.y1! - n.y0!), 0);
-    const availableSpace = VIRTUAL_HEIGHT - totalOntologyHeight - (PADDING_TOP + PADDING_BOTTOM);
+    const totalOntologyWidth = ontologyNodesInSankey.reduce((sum, n) => sum + (n.x1! - n.x0!), 0);
+    const availableSpace = VIRTUAL_WIDTH - totalOntologyWidth - (PADDING_LEFT + PADDING_RIGHT);
     const spacing = availableSpace / (ontologyNodesInSankey.length - 1);
     
-    let currentY = PADDING_TOP;
+    let currentX = PADDING_LEFT;
     ontologyNodesInSankey.forEach(node => {
-      const nodeHeight = node.y1! - node.y0!;
-      node.y0 = currentY;
-      node.y1 = currentY + nodeHeight;
-      currentY += nodeHeight + spacing;
+      const nodeWidth = node.x1! - node.x0!;
+      node.x0 = currentX;
+      node.x1 = currentX + nodeWidth;
+      currentX += nodeWidth + spacing;
     });
     
     recalculateLinkPositions();
@@ -285,17 +302,17 @@ function renderSankey(
   });
   
   if (agentNodesInSankey.length > 0) {
-    const totalAgentHeight = agentNodesInSankey.reduce((sum, n) => sum + (n.y1! - n.y0!), 0);
-    const agentSpacing = 40;
+    const totalAgentWidth = agentNodesInSankey.reduce((sum, n) => sum + (n.x1! - n.x0!), 0);
+    const agentSpacing = 50;
     const totalPadding = (agentNodesInSankey.length - 1) * agentSpacing;
-    const centerY = (VIRTUAL_HEIGHT - totalAgentHeight - totalPadding) / 2;
+    const centerX = (VIRTUAL_WIDTH - totalAgentWidth - totalPadding) / 2;
     
-    let currentY = centerY;
+    let currentX = centerX;
     agentNodesInSankey.forEach(node => {
-      const nodeHeight = node.y1! - node.y0!;
-      node.y0 = currentY;
-      node.y1 = currentY + nodeHeight;
-      currentY += nodeHeight + agentSpacing;
+      const nodeWidth = node.x1! - node.x0!;
+      node.x0 = currentX;
+      node.x1 = currentX + nodeWidth;
+      currentX += nodeWidth + agentSpacing;
     });
     
     recalculateLinkPositions();
@@ -334,7 +351,7 @@ function renderSankey(
     .selectAll('path')
     .data(links)
     .join('path')
-    .attr('d', sankeyLinkHorizontal())
+    .attr('d', sankeyLinkVertical())
     .attr('stroke', (d: any, i: number) => {
       const originalLink = sankeyLinks[i];
       
