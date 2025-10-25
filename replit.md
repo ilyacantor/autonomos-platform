@@ -69,8 +69,9 @@ AutonomOS is built with FastAPI, PostgreSQL, Redis, and Python RQ, implementing 
 **Implementation:**
 - **New Component:** Created `AAMContainer.tsx` with iPaaS flow visualization and connection log
   - Purple-themed header with Network icon and updated subtitle: "iPaaS-style integration layer: Connect → Normalize → Unify"
+  - **Website Link:** Top-right corner link "Visit our full website -->" to https://www.autonomos.tech/ with hover effects and external link icon
   - Two-column responsive grid layout (2fr + 1fr) for main content and connection log
-  - Data source logos section showing 8 connected platforms (Salesforce, HubSpot, MongoDB, Supabase, Snowflake, SAP, DataBricks, etc.)
+  - **Data source logos:** 8 connected platforms (Salesforce, HubSpot, MongoDB, Supabase, Snowflake, SAP, DataBricks, etc.) at 128px height (h-32), filling ~2/3 of container
   - Visual flow diagram: Data Sources → AAM Normalize → DCL Mapping → Agents
   - Color-coded flow indicators (purple → cyan → blue) with animated pulse on data sources
   - **Connection Log Panel:**
@@ -87,18 +88,20 @@ AutonomOS is built with FastAPI, PostgreSQL, Redis, and Python RQ, implementing 
 - **Assets:**
   - Logo image stored in `static/assets/data-source-logos.png` (proper permissions: 644)
   - Path corrected from root to /assets/ directory for FastAPI static file serving
-  - 16px height, auto-width, with hover opacity transition
+  - Increased from 64px to 128px height with centered layout and extra padding
 - **Styling Consistency:** Follows established design patterns
   - Same gradient and border styling as DCL and other containers
   - Responsive padding and rounded corners
   - Purple accent color (distinguishes from cyan DCL theme)
-  - ArrowRight icons and status icons from lucide-react
+  - ArrowRight, ExternalLink, and status icons from lucide-react
 
 **Result:**
 - Visual representation of AAM's role as iPaaS integration layer
+- Direct link to company website in prominent top-right location
 - Real-time connection monitoring showing technical API status
 - Clear data flow: disparate sources → normalization → unified DCL → agent consumption
 - Professional presentation of 8 connected data platforms with live status log
+- Large, prominent data source logos (2x original size) for better visibility
 - Scrollable connection log with 20 technical messages (OAuth, rate limits, latency, etc.)
 - Consistent visual hierarchy with DCL positioned below AAM
 - Ready for future AAM functionality expansion (live log streaming, filtering)

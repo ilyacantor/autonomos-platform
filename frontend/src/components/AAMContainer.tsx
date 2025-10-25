@@ -1,4 +1,4 @@
-import { Network, ArrowRight, CheckCircle, AlertCircle, Info } from 'lucide-react';
+import { Network, ArrowRight, CheckCircle, AlertCircle, Info, ExternalLink } from 'lucide-react';
 
 const connectionLogs = [
   { time: '17:02:45', type: 'success', message: 'Salesforce API authenticated successfully via OAuth2' },
@@ -38,6 +38,17 @@ export default function AAMContainer() {
             </p>
           </div>
         </div>
+        
+        <a 
+          href="https://www.autonomos.tech/" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="flex items-center gap-2 text-sm text-purple-400 hover:text-purple-300 transition-colors group"
+        >
+          <span className="font-medium">Visit our full website</span>
+          <ArrowRight className="w-4 h-4" />
+          <ExternalLink className="w-3 h-3 opacity-70 group-hover:opacity-100" />
+        </a>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-6">
@@ -48,11 +59,11 @@ export default function AAMContainer() {
               <span className="text-xs text-slate-500">(8 platforms)</span>
             </div>
             
-            <div className="flex items-center justify-center py-4">
+            <div className="flex items-center justify-center py-6">
               <img 
                 src="/assets/data-source-logos.png" 
                 alt="Connected data sources: Salesforce, HubSpot, MongoDB, Supabase, Snowflake, SAP, DataBricks, and more"
-                className="h-16 w-auto object-contain opacity-90 hover:opacity-100 transition-opacity"
+                className="h-32 w-auto object-contain opacity-90 hover:opacity-100 transition-opacity"
               />
             </div>
           </div>
