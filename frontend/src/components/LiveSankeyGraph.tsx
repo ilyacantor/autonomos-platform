@@ -389,12 +389,6 @@ function renderSankey(
         return '#475569';
       }
       
-      // Vibrant orange for edges from data sources to layer 1
-      const sourceNode = state.graph.nodes.find(n => nodeIndexMap[n.id] === originalLink.source);
-      if (sourceNode && (sourceNode.type === 'source' || sourceNode.type === 'source_parent')) {
-        return '#fb923c';
-      }
-      
       const targetNode = sankeyNodes.find(n => n.name === d.target.name);
       if (targetNode && targetNode.type === 'agent') {
         return '#9333ea';
