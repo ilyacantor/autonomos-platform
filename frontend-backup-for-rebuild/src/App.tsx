@@ -52,10 +52,11 @@ function AppContent() {
     );
   }
 
-  // If legacy mode is enabled, show the legacy UI (no auth required)
-  if (legacyMode) {
-    return <LegacyDCLUI />;
-  }
+  // PINNED: Legacy mode DISABLED - always use modern TopBar layout
+  // if (legacyMode) {
+  //   return <LegacyDCLUI />;
+  // }
+  console.log('[PIN] Legacy UI path BLOCKED - forcing modern TopBar layout');
 
   // Modern mode requires authentication
   if (!isAuthenticated) {

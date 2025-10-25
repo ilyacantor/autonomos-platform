@@ -1,0 +1,75 @@
+You are operating ONLY on the currently running production server. Do not start a dev server.
+
+GOAL
+User reports “no change at all” despite prior validation. We must conclusively prove whether the user’s browser is hitting THIS deployment and force the modern TopBar layout everywhere (no sidebar) for visibility. If any step would be destructive, STOP and report.
+
+A. ADD UNIVERSAL VISUAL BEACON (INDEX SHELL)
+1) Modify the single HTML shell that ALL routes use (the same file currently reported as static/index.html).
+   - Immediately after <body>, inject a fixed banner:
+     <div id="ENV_BEACON" style="position:fixed;top:0;left:0;right:0;z-index:99999;padding:6px 10px;font:12px/1.2 monospace;background:#111;border-bottom:1px solid #333;color:#0f0;">
+       HOST:<span id="b_host"></span> • BUILD:<span id="b_build"></span> • STATIC:<span id="b_static"></span>
+     </div>
+   - Add a small inline script in index.html that sets:
+       document.getElementById('b_build').textContent = (window.__BUILD_ID__ || 'unknown');
+       document.getElementById('b_static').textContent = '<ABSOLUTE STATIC PATH YOU SERVE>';
+       document.getElementById('b_host').textContent = location.host;
+   - Add <div style="height:28px"></div> spacer after the banner so it doesn’t overlap UI.
+
+2) Ensure index.html is the ACTUAL file the server returns for the app root and all SPA routes.
+   - Log the ABSOLUTE path of the returned file on each request.
+
+B. PIN LAYOUT (OVERRIDE ALL FLAGS)
+3) Force the modern layout (TopBar) regardless of:
+   - localStorage/sessionStorage values,
+   - cookies,
+   - env flags (e.g., legacyMode),
+   - per-user/role gates.
+   Implementation:
+   - In the layout selection code (where legacy vs modern is chosen), hardcode legacyMode=false for now.
+   - Add a console.log('[PIN] legacyMode forced OFF') at runtime.
+   - Ensure NO conditional route renders the LegacyDCLUI or Sidebar component for any path.
+
+C. HARD VISIBLE DIFFERENCE
+4) In the TopBar component, append a one-time, obvious marker:
+   <div className="px-2 py-1 border rounded text-xs font-mono">TOPNAV-PROOF</div>
+   Keep this during the test.
+
+D. SERVER-SIDE ECHO & LOGGING
+5) Add/ensure an endpoint GET /__whoami that returns JSON:
+   {
+     "host": request.headers.get('host'),
+     "staticRoot": "<absolute static dir>",
+     "indexServedFrom": "<absolute index path>",
+     "buildId": windowed value if tracked server-side or a server-side timestamp,
+     "commit": best-effort git sha or 'unknown'
+   }
+
+6) Log Host header and resolved index.html absolute path for EVERY app-root request (GET / and SPA fallbacks). Print a single-line concise log:
+   [INDEX] host=<...> index=<abs_path> static=<abs_path>
+
+E. ROUTING & ASSET PARITY CHECK
+7) Print a table summarizing:
+   - Router base (basename if any)
+   - All top-level routes and which layout renders them
+   - Current hashed asset filenames referenced by the served index
+   - SHA256 of each served asset AND of the local disk file they come from (must match)
+
+F. REBUILD + RESTART
+8) Rebuild frontend, copy to the served static path, remove stale assets, restart server.
+
+G. VERIFICATION TASKS (Agent executes & reports)
+9) Curl http://127.0.0.1:5000/ (or actual bound host) and confirm the ENV_BEACON is present in HTML.
+10) Curl /__whoami and include JSON in the report.
+11) Compute and show SHA256 for main JS bundle: on-disk vs over HTTP — must match.
+12) Screenshot or text-capture the first 10 lines of index.html as served (to show the injected banner markup).
+13) Confirm in logs that [INDEX] lines print host, index path, static dir on each request.
+
+STOP CONDITIONS
+- If the app uses a different HTML shell for authenticated routes than for unauthenticated, STOP and report both paths and which one the user likely sees.
+- If a reverse proxy or different published domain is routing to another repl/app, STOP and print the upstream Host differences and IPs.
+
+REPORT BACK
+- The exact URL the banner appears on.
+- The visible banner values (HOST / BUILD / STATIC) as fetched via HTTP.
+- Confirmation that the Sidebar component cannot render (grep results + runtime proof).
+- Any discovered alternate deployment URLs/CNAMEs still pointing at old instances.

@@ -83,9 +83,13 @@ if os.path.exists(STATIC_DIR) and os.path.isdir(STATIC_DIR):
         app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
     
     @app.get("/")
-    def serve_frontend():
+    def serve_frontend(request: Request):
         """Serve the frontend index.html"""
         index_path = os.path.join(STATIC_DIR, "index.html")
+        abs_index = os.path.abspath(index_path)
+        abs_static = os.path.abspath(STATIC_DIR)
+        host = request.headers.get("host", "unknown")
+        print(f"[INDEX] host={host} index={abs_index} static={abs_static}")
         if os.path.exists(index_path):
             return FileResponse(
                 index_path,
@@ -136,6 +140,29 @@ if os.path.exists(STATIC_DIR) and os.path.isdir(STATIC_DIR):
                 "js": [os.path.basename(f) for f in js_files],
                 "css": [os.path.basename(f) for f in css_files]
             }
+        }
+    
+    @app.get("/__whoami")
+    def whoami(request: Request):
+        """Environment and deployment info"""
+        import glob
+        import subprocess
+        js_files = glob.glob(os.path.join(STATIC_DIR, "assets", "index-*.js"))
+        index_path = os.path.join(STATIC_DIR, "index.html")
+        
+        try:
+            git_sha = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'], 
+                                             stderr=subprocess.DEVNULL).decode().strip()
+        except:
+            git_sha = 'unknown'
+        
+        return {
+            "host": request.headers.get("host", "unknown"),
+            "staticRoot": os.path.abspath(STATIC_DIR),
+            "indexServedFrom": os.path.abspath(index_path),
+            "buildId": "2025-10-25T12:10:00Z",
+            "commit": git_sha,
+            "currentJS": os.path.basename(js_files[0]) if js_files else None
         }
 else:
     @app.get("/")
