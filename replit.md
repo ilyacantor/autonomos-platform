@@ -63,28 +63,35 @@ AutonomOS is built with FastAPI, PostgreSQL, Redis, and Python RQ, implementing 
 
 ## Recent Changes
 
-### October 25, 2025 - AAM Container Added to Dashboard
-**Objective:** Create placeholder container for future Adaptive API Mesh (AAM) functionality, positioned above the DCL graph.
+### October 25, 2025 - AAM Container with Data Source Logos
+**Objective:** Implement AAM (Adaptive API Mesh) container showing iPaaS-style data flow from disparate sources through normalization to DCL mapping.
 
 **Implementation:**
-- **New Component:** Created `AAMContainer.tsx` with clean, empty state design
-  - Purple-themed header with Network icon matching platform color scheme
-  - Title: "Adaptive API Mesh" with descriptive subtitle
-  - Centered placeholder content area (200px min-height) with dashed border
+- **New Component:** Created `AAMContainer.tsx` with iPaaS flow visualization
+  - Purple-themed header with Network icon and updated subtitle: "iPaaS-style integration layer: Connect → Normalize → Unify"
+  - Data source logos section showing 8 connected platforms (Salesforce, HubSpot, MongoDB, Supabase, Snowflake, SAP, DataBricks, etc.)
+  - Visual flow diagram: Data Sources → AAM Normalize → DCL Mapping → Agents
+  - Color-coded flow indicators (purple → cyan → blue) with animated pulse on data sources
   - Gradient background matching platform dark theme aesthetic
 - **Dashboard Integration:** Added AAMContainer to `DashboardPage.tsx`
   - Positioned immediately after page header, above DCLGraphContainer
   - Maintains existing spacing (space-y-6) for consistent layout
   - No impact on existing components (AOA Status, Agent Performance, etc.)
+- **Assets:**
+  - Logo image stored in `static/data-source-logos.png` and `frontend/public/data-source-logos.png`
+  - 16px height, auto-width, with hover opacity transition
 - **Styling Consistency:** Follows established design patterns
   - Same gradient and border styling as DCL and other containers
   - Responsive padding and rounded corners
   - Purple accent color (distinguishes from cyan DCL theme)
+  - ArrowRight icons from lucide-react for flow visualization
 
 **Result:**
-- Clean, professional placeholder for future AAM visualization
+- Visual representation of AAM's role as iPaaS integration layer
+- Clear data flow: disparate sources → normalization → unified DCL → agent consumption
+- Professional presentation of 8 connected data platforms
 - Consistent visual hierarchy with DCL positioned below AAM
-- Ready for future implementation without layout changes
+- Ready for future AAM functionality expansion
 - Zero backend modifications (frontend-only addition)
 - Maintains all existing functionality
 
