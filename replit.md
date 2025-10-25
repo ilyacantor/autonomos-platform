@@ -63,6 +63,27 @@ AutonomOS is built with FastAPI, PostgreSQL, Redis, and Python RQ, implementing 
 
 ## Recent Changes
 
+### October 25, 2025 - Data Lineage Search Moved to Connections Tab
+**Objective:** Improve UX by consolidating data source management and lineage search in one location.
+
+**Implementation:**
+- **ConnectionsPage Enhancement:** Added "Trace Data Lineage" search box under data sources container
+  - Search input with orange-themed styling to match lineage page branding
+  - "Trace Lineage" button navigates to Data Lineage page with query
+  - Uses sessionStorage to pass search query between pages
+  - Disabled state when search box is empty
+- **DataLineagePage Simplification:** Removed search input box from lineage page
+  - Auto-triggers search on mount if query exists in sessionStorage
+  - Shows helpful guidance directing users to Connections page when no search active
+  - Displays active search query in page description
+  - Maintains all existing visualization functionality
+
+**Result:**
+- Streamlined UX with single entry point for data operations
+- Data lineage search positioned logically near data source selection
+- Cross-page integration via sessionStorage handoff
+- No regressions in existing functionality
+
 ### October 24, 2025 - Clean Bounded Graph with 8px Nodes
 **Objective:** Restore clean, well-bounded graph visualization with proper node sizing.
 
