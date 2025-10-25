@@ -3,6 +3,15 @@ import * as d3 from 'd3';
 import { sankey as d3Sankey, sankeyLinkHorizontal } from 'd3-sankey';
 import { API_CONFIG } from '../config/api';
 
+// Fixed virtual canvas - stable coordinate system regardless of screen size
+const VIRTUAL_WIDTH = 1200;
+const VIRTUAL_HEIGHT = 800;
+const LAYER_POSITIONS = [100, 400, 700, 1050]; // Fixed X positions for 4 layers
+const NODE_WIDTH = 8;
+const NODE_PADDING = 18;
+const PADDING_TOP = 50;
+const PADDING_BOTTOM = 50;
+
 interface SankeyNode {
   name: string;
   type: string;
@@ -193,29 +202,19 @@ function renderSankey(
     }
   });
 
-  const containerRect = container.getBoundingClientRect();
-  const isMobile = window.innerWidth < 640;
-  const isTablet = window.innerWidth >= 640 && window.innerWidth < 1024;
-
-  const responsiveHeight = isMobile ? 400 : isTablet ? 500 : 600;
-
-  const { width, height } = (svg.node() as SVGSVGElement).getBoundingClientRect();
-
-  const validWidth = width > 0 ? Math.max(width, 320) + 400 : 1200;
-  const validHeight = height > 0 ? height + 200 : responsiveHeight + 200;
-
+  // Fixed viewBox - all scaling happens via CSS, coordinates never change
   svg
     .attr('width', '100%')
-    .attr('height', responsiveHeight + 'px')
-    .attr('viewBox', `0 0 ${validWidth} ${validHeight}`)
+    .attr('height', '100%')
+    .attr('viewBox', `0 0 ${VIRTUAL_WIDTH} ${VIRTUAL_HEIGHT}`)
     .attr('preserveAspectRatio', 'xMidYMid meet');
 
   const sankey = d3Sankey<SankeyNode, SankeyLink>()
-    .nodeWidth(8)
-    .nodePadding(18)
+    .nodeWidth(NODE_WIDTH)
+    .nodePadding(NODE_PADDING)
     .extent([
-      [1, 40],
-      [validWidth - 1, validHeight - 40],
+      [PADDING_TOP, PADDING_TOP],
+      [VIRTUAL_WIDTH - PADDING_BOTTOM, VIRTUAL_HEIGHT - PADDING_BOTTOM],
     ]);
 
   const graph = sankey({
@@ -232,27 +231,18 @@ function renderSankey(
     'agent':         3
   };
   
-  const leftPadding = 20;
-  const rightPadding = 20;
-  const layerWidth = (validWidth - leftPadding - rightPadding) / 3;
-  const layerXPositions = [
-    leftPadding,
-    leftPadding + layerWidth,
-    leftPadding + layerWidth * 2,
-    validWidth - rightPadding - 8
-  ];
-  
+  // Use fixed layer positions - nodes always at same X coordinates
   nodes.forEach(node => {
     const nodeData = sankeyNodes.find(n => n.name === node.name);
     if (nodeData && nodeData.type && layerMap[nodeData.type] !== undefined) {
       const layer = layerMap[nodeData.type];
       node.depth = layer;
-      node.x0 = layerXPositions[layer];
-      node.x1 = layerXPositions[layer] + 8;
+      node.x0 = LAYER_POSITIONS[layer];
+      node.x1 = LAYER_POSITIONS[layer] + NODE_WIDTH;
     } else {
       node.depth = 1;
-      node.x0 = layerXPositions[1];
-      node.x1 = layerXPositions[1] + 8;
+      node.x0 = LAYER_POSITIONS[1];
+      node.x1 = LAYER_POSITIONS[1] + NODE_WIDTH;
     }
   });
   
@@ -275,10 +265,10 @@ function renderSankey(
   
   if (ontologyNodesInSankey.length > 1) {
     const totalOntologyHeight = ontologyNodesInSankey.reduce((sum, n) => sum + (n.y1! - n.y0!), 0);
-    const availableSpace = validHeight - totalOntologyHeight - 80;
+    const availableSpace = VIRTUAL_HEIGHT - totalOntologyHeight - (PADDING_TOP + PADDING_BOTTOM);
     const spacing = availableSpace / (ontologyNodesInSankey.length - 1);
     
-    let currentY = 40;
+    let currentY = PADDING_TOP;
     ontologyNodesInSankey.forEach(node => {
       const nodeHeight = node.y1! - node.y0!;
       node.y0 = currentY;
@@ -298,7 +288,7 @@ function renderSankey(
     const totalAgentHeight = agentNodesInSankey.reduce((sum, n) => sum + (n.y1! - n.y0!), 0);
     const agentSpacing = 40;
     const totalPadding = (agentNodesInSankey.length - 1) * agentSpacing;
-    const centerY = (validHeight - totalAgentHeight - totalPadding) / 2;
+    const centerY = (VIRTUAL_HEIGHT - totalAgentHeight - totalPadding) / 2;
     
     let currentY = centerY;
     agentNodesInSankey.forEach(node => {
@@ -330,14 +320,13 @@ function renderSankey(
     .append('rect')
     .attr('x', 0)
     .attr('y', 0)
-    .attr('width', validWidth)
-    .attr('height', validHeight);
+    .attr('width', VIRTUAL_WIDTH)
+    .attr('height', VIRTUAL_HEIGHT);
 
-  // Create clipped container group with rotation on the same element
+  // Create main group - no rotation, stable coordinate system
   const mainGroup = svg
     .append('g')
-    .attr('clip-path', 'url(#graph-clip)')
-    .attr('transform', `translate(${validWidth / 2}, ${validHeight / 2}) rotate(90) translate(${-validWidth / 2}, ${-validHeight / 2})`);
+    .attr('clip-path', 'url(#graph-clip)');
 
   mainGroup
     .append('g')
