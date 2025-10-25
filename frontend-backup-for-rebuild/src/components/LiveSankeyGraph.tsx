@@ -3,31 +3,6 @@ import * as d3 from 'd3';
 import { sankey as d3Sankey, sankeyLinkHorizontal } from 'd3-sankey';
 import { API_CONFIG } from '../config/api';
 
-// Custom vertical link path generator for sankey
-function sankeyLinkVertical() {
-  return (d: any) => {
-    const { source, target } = d;
-    const x0 = source.x0 + (source.x1 - source.x0) / 2;
-    const x1 = target.x0 + (target.x1 - target.x0) / 2;
-    const y0 = source.y1;
-    const y1 = target.y0;
-    
-    return `M${x0},${y0}
-            C${x0},${(y0 + y1) / 2}
-             ${x1},${(y0 + y1) / 2}
-             ${x1},${y1}`;
-  };
-}
-
-// Fixed virtual canvas - stable coordinate system regardless of screen size
-const VIRTUAL_WIDTH = 1200;
-const VIRTUAL_HEIGHT = 1000;
-const LAYER_POSITIONS = [150, 400, 650, 900]; // Fixed Y positions for 4 vertical layers (top to bottom)
-const NODE_HEIGHT = 8;
-const NODE_PADDING = 25;
-const PADDING_LEFT = 80;
-const PADDING_RIGHT = 80;
-
 interface SankeyNode {
   name: string;
   type: string;
@@ -218,19 +193,29 @@ function renderSankey(
     }
   });
 
-  // Fixed viewBox - all scaling happens via CSS, coordinates never change
+  const containerRect = container.getBoundingClientRect();
+  const isMobile = window.innerWidth < 640;
+  const isTablet = window.innerWidth >= 640 && window.innerWidth < 1024;
+
+  const responsiveHeight = isMobile ? 400 : isTablet ? 500 : 600;
+
+  const { width, height } = (svg.node() as SVGSVGElement).getBoundingClientRect();
+
+  const validWidth = width > 0 ? Math.max(width, 320) + 400 : 1200;
+  const validHeight = height > 0 ? height + 200 : responsiveHeight + 200;
+
   svg
     .attr('width', '100%')
-    .attr('height', '100%')
-    .attr('viewBox', `0 0 ${VIRTUAL_WIDTH} ${VIRTUAL_HEIGHT}`)
+    .attr('height', responsiveHeight + 'px')
+    .attr('viewBox', `0 0 ${validWidth} ${validHeight}`)
     .attr('preserveAspectRatio', 'xMidYMid meet');
 
   const sankey = d3Sankey<SankeyNode, SankeyLink>()
-    .nodeWidth(NODE_HEIGHT)  // In vertical mode, this is node height
-    .nodePadding(NODE_PADDING)
+    .nodeWidth(8)
+    .nodePadding(18)
     .extent([
-      [PADDING_LEFT, PADDING_LEFT],
-      [VIRTUAL_WIDTH - PADDING_RIGHT, VIRTUAL_HEIGHT - PADDING_RIGHT],
+      [1, 40],
+      [validWidth - 1, validHeight - 40],
     ]);
 
   const graph = sankey({
@@ -247,18 +232,27 @@ function renderSankey(
     'agent':         3
   };
   
-  // Use fixed layer positions for VERTICAL flow - nodes always at same Y coordinates
+  const leftPadding = 20;
+  const rightPadding = 20;
+  const layerWidth = (validWidth - leftPadding - rightPadding) / 3;
+  const layerXPositions = [
+    leftPadding,
+    leftPadding + layerWidth,
+    leftPadding + layerWidth * 2,
+    validWidth - rightPadding - 8
+  ];
+  
   nodes.forEach(node => {
     const nodeData = sankeyNodes.find(n => n.name === node.name);
     if (nodeData && nodeData.type && layerMap[nodeData.type] !== undefined) {
       const layer = layerMap[nodeData.type];
       node.depth = layer;
-      node.y0 = LAYER_POSITIONS[layer];
-      node.y1 = LAYER_POSITIONS[layer] + NODE_HEIGHT;
+      node.x0 = layerXPositions[layer];
+      node.x1 = layerXPositions[layer] + 8;
     } else {
       node.depth = 1;
-      node.y0 = LAYER_POSITIONS[1];
-      node.y1 = LAYER_POSITIONS[1] + NODE_HEIGHT;
+      node.x0 = layerXPositions[1];
+      node.x1 = layerXPositions[1] + 8;
     }
   });
   
@@ -267,9 +261,8 @@ function renderSankey(
       const source = link.source;
       const target = link.target;
       
-      // For vertical flow: links connect horizontally across node centers
-      link.x0 = source.x0 + (source.x1 - source.x0) / 2;
-      link.x1 = target.x0 + (target.x1 - target.x0) / 2;
+      link.y0 = source.y0 + (source.y1 - source.y0) / 2;
+      link.y1 = target.y0 + (target.y1 - target.y0) / 2;
     });
   };
   
@@ -281,16 +274,16 @@ function renderSankey(
   });
   
   if (ontologyNodesInSankey.length > 1) {
-    const totalOntologyWidth = ontologyNodesInSankey.reduce((sum, n) => sum + (n.x1! - n.x0!), 0);
-    const availableSpace = VIRTUAL_WIDTH - totalOntologyWidth - (PADDING_LEFT + PADDING_RIGHT);
+    const totalOntologyHeight = ontologyNodesInSankey.reduce((sum, n) => sum + (n.y1! - n.y0!), 0);
+    const availableSpace = validHeight - totalOntologyHeight - 80;
     const spacing = availableSpace / (ontologyNodesInSankey.length - 1);
     
-    let currentX = PADDING_LEFT;
+    let currentY = 40;
     ontologyNodesInSankey.forEach(node => {
-      const nodeWidth = node.x1! - node.x0!;
-      node.x0 = currentX;
-      node.x1 = currentX + nodeWidth;
-      currentX += nodeWidth + spacing;
+      const nodeHeight = node.y1! - node.y0!;
+      node.y0 = currentY;
+      node.y1 = currentY + nodeHeight;
+      currentY += nodeHeight + spacing;
     });
     
     recalculateLinkPositions();
@@ -302,17 +295,17 @@ function renderSankey(
   });
   
   if (agentNodesInSankey.length > 0) {
-    const totalAgentWidth = agentNodesInSankey.reduce((sum, n) => sum + (n.x1! - n.x0!), 0);
-    const agentSpacing = 50;
+    const totalAgentHeight = agentNodesInSankey.reduce((sum, n) => sum + (n.y1! - n.y0!), 0);
+    const agentSpacing = 40;
     const totalPadding = (agentNodesInSankey.length - 1) * agentSpacing;
-    const centerX = (VIRTUAL_WIDTH - totalAgentWidth - totalPadding) / 2;
+    const centerY = (validHeight - totalAgentHeight - totalPadding) / 2;
     
-    let currentX = centerX;
+    let currentY = centerY;
     agentNodesInSankey.forEach(node => {
-      const nodeWidth = node.x1! - node.x0!;
-      node.x0 = currentX;
-      node.x1 = currentX + nodeWidth;
-      currentX += nodeWidth + agentSpacing;
+      const nodeHeight = node.y1! - node.y0!;
+      node.y0 = currentY;
+      node.y1 = currentY + nodeHeight;
+      currentY += nodeHeight + agentSpacing;
     });
     
     recalculateLinkPositions();
@@ -337,13 +330,14 @@ function renderSankey(
     .append('rect')
     .attr('x', 0)
     .attr('y', 0)
-    .attr('width', VIRTUAL_WIDTH)
-    .attr('height', VIRTUAL_HEIGHT);
+    .attr('width', validWidth)
+    .attr('height', validHeight);
 
-  // Create main group - no rotation, stable coordinate system
+  // Create clipped container group with rotation on the same element
   const mainGroup = svg
     .append('g')
-    .attr('clip-path', 'url(#graph-clip)');
+    .attr('clip-path', 'url(#graph-clip)')
+    .attr('transform', `translate(${validWidth / 2}, ${validHeight / 2}) rotate(90) translate(${-validWidth / 2}, ${-validHeight / 2})`);
 
   mainGroup
     .append('g')
@@ -351,7 +345,7 @@ function renderSankey(
     .selectAll('path')
     .data(links)
     .join('path')
-    .attr('d', sankeyLinkVertical())
+    .attr('d', sankeyLinkHorizontal())
     .attr('stroke', (d: any, i: number) => {
       const originalLink = sankeyLinks[i];
       
