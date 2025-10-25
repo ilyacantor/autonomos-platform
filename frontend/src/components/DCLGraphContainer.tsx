@@ -240,10 +240,6 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
         >
           Data Connection Layer (DCL)
         </h2>
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-          <span className="text-xs sm:text-sm text-gray-400">Live</span>
-        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4 lg:gap-6">

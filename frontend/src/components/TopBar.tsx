@@ -40,7 +40,7 @@ export default function TopBar({ user, onPersonaChange, currentPage, onNavigate 
   };
 
   return (
-    <div className="h-16 bg-gray-900 border-b border-gray-800 flex items-center px-6 gap-6">
+    <div className="h-16 bg-gray-900 border-b border-gray-800 flex items-center px-6 gap-6 overflow-hidden">
       {/* Logo */}
       <div className="flex-shrink-0">
         <img 
@@ -51,26 +51,26 @@ export default function TopBar({ user, onPersonaChange, currentPage, onNavigate 
       </div>
 
       {/* Navigation Items */}
-      <nav className="flex-1 flex items-center gap-1">
+      <nav className="flex-1 flex items-center gap-1 overflow-x-auto overflow-y-hidden">
         {navItems.map((item) => (
           <button
             key={item.id}
             onClick={() => onNavigate(item.id)}
             title={item.tooltip}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all flex-shrink-0 ${
               currentPage === item.id
                 ? 'bg-blue-600 text-white'
                 : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
             }`}
           >
             {item.icon}
-            <span className="font-medium text-sm">{item.label}</span>
+            <span className="font-medium text-sm whitespace-nowrap">{item.label}</span>
           </button>
         ))}
       </nav>
 
       {/* Right Side: Autonomy Toggle, Notifications, Profile */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-shrink-0">
         {/* Autonomy Toggle */}
         <AutonomyModeToggle />
 

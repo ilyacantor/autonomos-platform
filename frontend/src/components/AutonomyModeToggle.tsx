@@ -24,15 +24,15 @@ export default function AutonomyModeToggle() {
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg transition-colors"
+        className="flex items-center gap-2 px-3 h-10 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg transition-colors"
         title="Autonomy Mode controls how AutonomOS manages itself. 'Auto (Guardrails)' allows self-directed agent decisions within preset boundaries, while 'Manual' requires human confirmation for major actions."
       >
-        <Settings className="w-4 h-4 text-cyan-400" />
-        <div className="text-left">
+        <Settings className="w-4 h-4 text-cyan-400 flex-shrink-0" />
+        <div className="text-left min-w-0">
           <div className="text-xs text-slate-500">Autonomy Mode</div>
-          <div className="text-sm font-medium text-slate-200">{autonomyMode}</div>
+          <div className="text-sm font-medium text-slate-200 truncate">{autonomyMode}</div>
         </div>
-        <ChevronDown className="w-4 h-4 text-slate-400" />
+        <ChevronDown className="w-4 h-4 text-slate-400 flex-shrink-0" />
       </button>
 
       {isOpen && (
