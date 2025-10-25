@@ -3,6 +3,7 @@ import AOADetailsModal from './AOADetailsModal';
 import AOAFunctionsPanel from './AOAFunctionsPanel';
 import DCLGraphContainer from './DCLGraphContainer';
 import AgentPerformanceMonitor from './AgentPerformanceMonitor';
+import AAMContainer from './AAMContainer';
 import {
   mockAgentNodes,
   mockDCLStats,
@@ -20,6 +21,8 @@ export default function DashboardPage() {
           Continuous oversight of agent activity and Data Connectivity Layer performance.
         </p>
       </div>
+
+      <AAMContainer />
 
       <DCLGraphContainer
         mappings={mockMappingReviews}
