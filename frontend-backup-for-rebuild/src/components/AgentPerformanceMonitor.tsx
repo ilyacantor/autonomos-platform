@@ -29,12 +29,19 @@ export default function AgentPerformanceMonitor({ agents }: AgentPerformanceMoni
 
   return (
     <div className="bg-gray-900 rounded-xl border border-gray-800 p-6 h-full flex flex-col">
-      <h2 
-        className="text-lg font-semibold text-white mb-4 cursor-help" 
-        title="Displays real-time operational metrics for each domain agent. Each row represents execution throughput, CPU, and memory usage per active agent."
-      >
-        Active Agent Performance
-      </h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 
+          className="text-lg font-semibold text-white cursor-help" 
+          title="Displays real-time operational metrics for each domain agent. Each row represents execution throughput, CPU, and memory usage per active agent."
+        >
+          Active Agent Performance
+        </h2>
+        <img 
+          src="/robot-agents.png" 
+          alt="AI Agents" 
+          className="h-12 object-contain opacity-80 hover:opacity-100 transition-opacity"
+        />
+      </div>
 
       <div className="flex-1 overflow-auto">
         <table className="w-full">
