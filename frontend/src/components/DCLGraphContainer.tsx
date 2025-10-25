@@ -207,10 +207,10 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
   };
 
   return (
-    <div className="bg-gray-900 rounded-xl border border-gray-800 p-3 sm:p-6 -mt-[5px]">
+    <div className="bg-black border-t border-b border-cyan-500/30 py-12 -mx-6 px-6">
       {/* Top-Mounted Progress Bar - Shows only for manual/connection-triggered runs */}
       {showProgress && (
-        <div className="relative -mx-3 sm:-mx-6 -mt-3 sm:-mt-6 mb-4 h-4 bg-gray-800 rounded-t-xl overflow-hidden">
+        <div className="relative -mx-6 -mt-12 mb-4 h-4 bg-gray-900 overflow-hidden">
           {/* Actual progress bar */}
           <div 
             className="absolute left-0 top-0 h-full bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 transition-all duration-300 ease-out"
@@ -233,12 +233,13 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
         </div>
       )}
       
-      <div className="flex items-center justify-between mb-4">
+      {/* Title */}
+      <div className="mb-8">
         <h2 
-          className="text-lg sm:text-xl font-semibold text-white cursor-help" 
+          className="text-3xl font-semibold text-cyan-400 cursor-help uppercase" 
           title="The Data Connectivity Layer (DCL) links heterogeneous data sources without migrations or ETL. It maps entities to a unified ontology for domain agents to act on."
         >
-          Data Connection Layer (DCL)
+          Live Data Connectivity Layer (DCL)
         </h2>
       </div>
 
@@ -338,8 +339,37 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
             </div>
           </div>
 
-          <div>
+          {/* Graph Container */}
+          <div className="relative">
             <LiveSankeyGraph />
+            
+            {/* Center Description Text Overlay */}
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center px-4 pointer-events-none">
+              <p className="text-white text-xl font-semibold max-w-md leading-relaxed">
+                Provides persistent, versioned data mappings so AI agents can reason with consistent, validated inputs.
+              </p>
+            </div>
+            
+            {/* Robot Agents at Bottom */}
+            <div className="flex items-end justify-center gap-8 mt-6">
+              <img 
+                src="/assets/robot-agent-1.jpg" 
+                alt="AI Agent 1"
+                className="h-48 w-auto object-contain"
+              />
+              <img 
+                src="/assets/robot-agent-2.jpg" 
+                alt="AI Agent 2"
+                className="h-48 w-auto object-contain"
+              />
+            </div>
+            
+            {/* Try it now CTA */}
+            <div className="text-center mt-6">
+              <p className="text-white text-2xl font-semibold">
+                Try it now &gt;&gt;&gt;
+              </p>
+            </div>
           </div>
         </div>
 
