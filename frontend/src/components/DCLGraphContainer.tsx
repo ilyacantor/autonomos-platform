@@ -207,145 +207,72 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
   };
 
   return (
-    <div className="bg-gray-900 rounded-xl border border-gray-800 p-3 sm:p-6 -mt-[5px]">
-      {/* Top-Mounted Progress Bar - Shows only for manual/connection-triggered runs */}
-      {showProgress && (
-        <div className="relative -mx-3 sm:-mx-6 -mt-3 sm:-mt-6 mb-4 h-4 bg-gray-800 rounded-t-xl overflow-hidden">
-          {/* Actual progress bar */}
-          <div 
-            className="absolute left-0 top-0 h-full bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 transition-all duration-300 ease-out"
-            style={{ width: `${progress}%` }}
-          />
-          {/* Shimmer effect on progress */}
-          <div 
-            className="absolute left-0 top-0 h-full bg-gradient-to-r from-transparent via-white/20 to-transparent"
-            style={{ 
-              width: `${progress}%`,
-              animation: 'shimmer 1.5s linear infinite',
-              backgroundSize: '200% 100%'
-            }} 
-          />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-white text-[10px] font-semibold tracking-wide drop-shadow-lg">
-              {Math.round(progress)}% Complete
-            </span>
-          </div>
-        </div>
-      )}
-      
-      <div className="flex items-center justify-between mb-4">
-        <h2 
-          className="text-lg sm:text-xl font-semibold text-white cursor-help" 
-          title="The Data Connectivity Layer (DCL) links heterogeneous data sources without migrations or ETL. It maps entities to a unified ontology for domain agents to act on."
-        >
-          Data Connection Layer (DCL)
-        </h2>
+    <div className="bg-black border-t border-b border-cyan-500/30 py-12 -mx-6 px-6">
+      {/* Title */}
+      <div className="mb-8">
+        <h2 className="text-3xl font-semibold text-cyan-400">LIVE DATA CONNECTIVITY LAYER (DCL)</h2>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4 lg:gap-6">
-        <div className="flex flex-col">
-          <div className="relative w-full bg-gradient-to-br from-blue-900/20 to-purple-900/20 rounded-lg border border-blue-500/30 p-2 sm:p-3 backdrop-blur-sm mb-4">
-            <div className="absolute inset-0 bg-blue-500/5 rounded-lg animate-pulse" />
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6">
+        {/* Left: Graph with centered text overlay */}
+        <div className="relative">
+          <LiveSankeyGraph />
+          
+          {/* Centered text overlay */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="text-center max-w-2xl px-6">
+              <p className="text-xl text-white leading-relaxed">
+                Provides persistent, versioned data mappings so AI agents can reason with 
+                consistent, validated inputs.
+              </p>
+            </div>
+          </div>
+        </div>
 
-            <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/50 flex-shrink-0">
-                <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-white animate-pulse" />
+        {/* Right: Sidebar panels */}
+        <div className="flex flex-col gap-4">
+          {/* Intelligent Mapping Panel - Compact version at top */}
+          <div className="bg-gradient-to-br from-blue-900/40 to-purple-900/40 border border-blue-500/30 rounded-lg p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold">
+                🤖
               </div>
-
-              <div className="flex-1 w-full sm:w-auto">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center sm:justify-between gap-2 mb-2 sm:mb-1">
-                  <h3 className="text-xs sm:text-sm font-semibold text-white">
-                    Intelligent Mapping & Ontology Engine
-                  </h3>
-                  <div className="flex items-center gap-2 w-full sm:w-auto">
-                    {/* LLM Model Selector */}
-                    <select
-                      value={selectedModel}
-                      onChange={(e) => setSelectedModel(e.target.value)}
-                      disabled={isProcessing}
-                      className="px-2 py-1 bg-gray-800 border border-gray-700 rounded text-[10px] text-white focus:outline-none focus:border-blue-500 hover:border-gray-600 transition-colors disabled:opacity-50 cursor-pointer"
-                      title="Select LLM model for intelligent mapping"
-                    >
-                      <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-                      <option value="gpt-5-mini">GPT-5 mini ⚡</option>
-                      <option value="gpt-5-nano">GPT-5 nano 🚀</option>
-                    </select>
-                    
-                    {/* Run Button */}
-                    <button
-                      onClick={handleRun}
-                      disabled={isProcessing}
-                      className="flex items-center gap-1.5 px-3 sm:px-2 py-2 sm:py-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 rounded-md text-xs sm:text-[10px] font-semibold text-white shadow-lg shadow-emerald-500/30 transition-all disabled:opacity-50 justify-center"
-                    >
-                      {isProcessing ? (
-                        <>
-                          <svg className="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                          Processing...
-                        </>
-                      ) : (
-                        <>
-                          <Play className="w-3 h-3" />
-                          Run
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-[10px] sm:text-[10px] text-blue-300">
-                  <div className="flex items-center gap-1">
-                    <div className={`w-1.5 h-1.5 rounded-full ${devMode ? 'bg-purple-400 animate-pulse' : 'bg-gray-500'}`} />
-                    <span>LLM Calls: {dclState?.llm?.calls || 0}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Activity className="w-3 h-3 text-blue-400" />
-                    <span className="whitespace-nowrap">9 sources → 2 agents</span>
-                  </div>
-                  {(timerStarted || elapsedTime > 0) && (
-                    <div className="flex items-center gap-1 bg-blue-900/30 px-2 py-0.5 rounded">
-                      <svg className="w-3 h-3 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <span className="font-mono">{elapsedTime.toFixed(1)}s</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Dev Mode / Prod Mode Toggle */}
-                <div className="mt-2 pt-2 border-t border-blue-500/20">
-                  <button
-                    onClick={handleToggleDevMode}
-                    className={`w-full flex items-center justify-between px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all ${
-                      devMode
-                        ? 'bg-amber-600/20 border border-amber-500/40 text-amber-300 hover:bg-amber-600/30'
-                        : 'bg-emerald-600/20 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-600/30'
-                    }`}
-                    title="Toggle between Production Mode (heuristics only) and Dev Mode (AI + RAG active)"
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${devMode ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'}`} />
-                      <span>{devMode ? 'Dev Mode' : 'Prod Mode'}</span>
-                    </div>
-                    <span className="text-[9px] opacity-70">
-                      {devMode ? 'AI/RAG Active' : 'Heuristics Only'}
-                    </span>
-                  </button>
-                </div>
-              </div>
+              <span className="text-white font-bold text-sm">Intelligent Mapping & Ontology Engine</span>
+            </div>
+            <div className="flex items-center justify-between mb-2">
+              <select
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value)}
+                disabled={isProcessing}
+                className="px-2 py-1 bg-gray-800 border border-gray-700 rounded text-[10px] text-white focus:outline-none focus:border-blue-500"
+              >
+                <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                <option value="gpt-5-mini">GPT-5 mini ⚡</option>
+                <option value="gpt-5-nano">GPT-5 nano 🚀</option>
+              </select>
+              <button
+                onClick={handleRun}
+                disabled={isProcessing}
+                className="flex items-center gap-1 px-3 py-1 bg-emerald-600 hover:bg-emerald-700 rounded text-xs font-semibold text-white disabled:opacity-50"
+              >
+                {isProcessing ? 'Processing...' : (
+                  <>
+                    <Play className="w-3 h-3" />
+                    Run
+                  </>
+                )}
+              </button>
+            </div>
+            <div className="flex items-center gap-3 text-[10px] text-blue-300">
+              <span>9 sources → 2 agents</span>
+              <span className="ml-auto text-xs bg-purple-600 text-white px-2 py-0.5 rounded-full font-bold">
+                {dclState?.events.length || 0} events
+              </span>
             </div>
           </div>
 
-          <div>
-            <LiveSankeyGraph />
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-4">
-          {/* Narration Panel with Typing Animation - MOVED TO TOP FOR PROMINENCE */}
-          <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 flex-1">
+          {/* Narration Panel */}
+          <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
             <div className="flex items-center gap-2 mb-3">
               <div className="w-6 h-6 rounded-full bg-purple-500 flex items-center justify-center text-white text-xs font-bold">
                 📝
@@ -632,6 +559,11 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
           </div>
         </div>
       )}
+
+      {/* Try it now CTA */}
+      <div className="mt-12 text-center">
+        <p className="text-2xl text-white font-semibold">Try it now &gt;&gt;&gt;</p>
+      </div>
     </div>
   );
 }
