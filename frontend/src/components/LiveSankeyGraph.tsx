@@ -56,6 +56,11 @@ export default function LiveSankeyGraph() {
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [isRendering, setIsRendering] = useState(false);
   const rafRef = useRef<number | null>(null);
+  
+  const [animate, setAnimate] = useState(false);
+  const [isRunning, setIsRunning] = useState(false);
+  const animationFrameRef = useRef<number | null>(null);
+  const offsetRef = useRef(0);
 
   useEffect(() => {
     const fetchState = async () => {
@@ -76,6 +81,23 @@ export default function LiveSankeyGraph() {
     return () => window.removeEventListener('dcl-state-changed', handleRefetch);
   }, []);
 
+  useEffect(() => {
+    if (isRunning) {
+      setAnimate(true);
+    } else {
+      const timeout = setTimeout(() => setAnimate(false), 2000);
+      return () => clearTimeout(timeout);
+    }
+  }, [isRunning]);
+
+  useEffect(() => {
+    if (animatingEdges.size > 0) {
+      setIsRunning(true);
+      const timeout = setTimeout(() => setIsRunning(false), 3000);
+      return () => clearTimeout(timeout);
+    }
+  }, [animatingEdges]);
+
   useLayoutEffect(() => {
     if (!state || !svgRef.current || !containerRef.current) return;
     if (!state.graph || !state.graph.nodes || state.graph.nodes.length === 0) return;
@@ -88,7 +110,15 @@ export default function LiveSankeyGraph() {
     }
 
     rafRef.current = requestAnimationFrame(() => {
-      renderSankey(state, svgRef.current!, containerRef.current!, animatingEdges);
+      renderSankey(
+        state, 
+        svgRef.current!, 
+        containerRef.current!, 
+        animatingEdges, 
+        animate,
+        animationFrameRef,
+        offsetRef
+      );
       setIsRendering(false);
     });
 
@@ -96,8 +126,11 @@ export default function LiveSankeyGraph() {
       if (rafRef.current) {
         cancelAnimationFrame(rafRef.current);
       }
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
     };
-  }, [state, animatingEdges, containerSize]);
+  }, [state, animatingEdges, containerSize, animate]);
 
   const triggerEdgeAnimation = (edgeKey: string) => {
     setAnimatingEdges(prev => new Set(prev).add(edgeKey));
@@ -191,10 +224,17 @@ function renderSankey(
   state: GraphState,
   svgElement: SVGSVGElement,
   container: HTMLDivElement,
-  animatingEdges: Set<string>
+  animatingEdges: Set<string>,
+  animate: boolean,
+  animationFrameRef: React.MutableRefObject<number | null>,
+  offsetRef: React.MutableRefObject<number>
 ) {
   const svg = d3.select(svgElement);
   svg.selectAll('*').remove();
+
+  if (animationFrameRef.current) {
+    cancelAnimationFrame(animationFrameRef.current);
+  }
 
   if (!state.graph || !state.graph.nodes || state.graph.nodes.length === 0) {
     svg
@@ -291,10 +331,12 @@ function renderSankey(
     if (nodeData && nodeData.type && layerMap[nodeData.type] !== undefined) {
       const layer = layerMap[nodeData.type];
       node.depth = layer;
+      (node as any).layer = layer;
       node.x0 = layerXPositions[layer];
       node.x1 = layerXPositions[layer] + 8;
     } else {
       node.depth = 1;
+      (node as any).layer = 1;
       node.x0 = layerXPositions[1];
       node.x1 = layerXPositions[1] + 8;
     }
@@ -388,7 +430,7 @@ function renderSankey(
     .append('g')
     .attr('transform', `translate(${validWidth / 2}, ${calculatedHeight / 2}) rotate(90) translate(${-validWidth / 2}, ${-calculatedHeight / 2})`);
 
-  mainGroup
+  const linkPaths = mainGroup
     .append('g')
     .attr('fill', 'none')
     .selectAll('path')
@@ -402,6 +444,13 @@ function renderSankey(
         return '#475569';
       }
       
+      const sourceLayer = (d.source as any).layer;
+      const targetLayer = (d.target as any).layer;
+      
+      if (sourceLayer === 0 && targetLayer === 1) {
+        return '#00FF88';
+      }
+      
       const targetNode = sankeyNodes.find(n => n.name === d.target.name);
       if (targetNode && targetNode.type === 'agent') {
         return '#9333ea';
@@ -409,14 +458,22 @@ function renderSankey(
       if (originalLink && originalLink.sourceSystem) {
         return sourceColorMap[originalLink.sourceSystem]?.child || '#0bcad9';
       }
-      return '#94a3b8';
+      return '#00C8FF';
     })
     .attr('stroke-width', (d: any) => Math.min(Math.max(0.5, d.width * 0.5), 20))
     .attr('stroke-opacity', (_d: any, i: number) => {
       const originalLink = sankeyLinks[i];
+      const d = links[i];
       
       if (originalLink?.edgeType === 'hierarchy') {
         return 0.35;
+      }
+      
+      const sourceLayer = (d.source as any).layer;
+      const targetLayer = (d.target as any).layer;
+      
+      if (sourceLayer === 0 && targetLayer === 1) {
+        return 0.9;
       }
       
       const sourceNode = state.graph.nodes.find(n => nodeIndexMap[n.id] === originalLink.source);
@@ -430,6 +487,14 @@ function renderSankey(
       }
       
       return 0.4;
+    })
+    .attr('vector-effect', 'non-scaling-stroke')
+    .each(function(d: any) {
+      const path = d3.select(this);
+      const totalLength = (this as SVGPathElement).getTotalLength() || 100;
+      const dashLength = totalLength / 20;
+      const gapLength = totalLength / 10;
+      path.attr('stroke-dasharray', `${dashLength} ${gapLength}`);
     })
     .attr('class', (_d: any, i: number) => {
       const originalLink = sankeyLinks[i];
@@ -491,15 +556,39 @@ function renderSankey(
       if (originalLink?.edgeType === 'hierarchy') {
         d3.select(this).attr('stroke-opacity', 0.35);
       } else {
-        const sourceNode = state.graph.nodes.find(n => nodeIndexMap[n.id] === originalLink.source);
-        if (sourceNode && (sourceNode.type === 'source' || sourceNode.type === 'source_parent')) {
-          d3.select(this).attr('stroke-opacity', 0.7);
+        const sourceLayer = (d.source as any).layer;
+        const targetLayer = (d.target as any).layer;
+        
+        if (sourceLayer === 0 && targetLayer === 1) {
+          d3.select(this).attr('stroke-opacity', 0.9);
         } else {
-          d3.select(this).attr('stroke-opacity', 0.4);
+          const sourceNode = state.graph.nodes.find(n => nodeIndexMap[n.id] === originalLink.source);
+          if (sourceNode && (sourceNode.type === 'source' || sourceNode.type === 'source_parent')) {
+            d3.select(this).attr('stroke-opacity', 0.7);
+          } else {
+            d3.select(this).attr('stroke-opacity', 0.4);
+          }
         }
       }
       d3.select('.sankey-edge-tooltip').style('opacity', '0');
     });
+
+  const animateFlow = () => {
+    if (animate) {
+      offsetRef.current -= 1.5;
+      linkPaths.attr('stroke-dashoffset', offsetRef.current);
+      animationFrameRef.current = requestAnimationFrame(animateFlow);
+    } else {
+      linkPaths.attr('stroke-dashoffset', 0);
+      offsetRef.current = 0;
+    }
+  };
+
+  if (animate) {
+    animationFrameRef.current = requestAnimationFrame(animateFlow);
+  } else {
+    linkPaths.attr('stroke-dashoffset', 0);
+  }
 
   const nodeGroups = mainGroup.append('g').selectAll('g').data(nodes).join('g');
 
