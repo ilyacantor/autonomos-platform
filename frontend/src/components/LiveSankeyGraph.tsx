@@ -53,6 +53,8 @@ export default function LiveSankeyGraph() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<GraphState | null>(null);
   const [animatingEdges, setAnimatingEdges] = useState<Set<string>>(new Set());
+  const [dynamicHeight, setDynamicHeight] = useState<number>(600);
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
 
   useEffect(() => {
     const fetchState = async () => {
@@ -77,8 +79,8 @@ export default function LiveSankeyGraph() {
     if (!state || !svgRef.current || !containerRef.current) return;
     if (!state.graph || !state.graph.nodes || state.graph.nodes.length === 0) return;
 
-    renderSankey(state, svgRef.current, containerRef.current, animatingEdges);
-  }, [state, animatingEdges]);
+    renderSankey(state, svgRef.current, containerRef.current, animatingEdges, setDynamicHeight);
+  }, [state, animatingEdges, containerSize]);
 
   const triggerEdgeAnimation = (edgeKey: string) => {
     setAnimatingEdges(prev => new Set(prev).add(edgeKey));
@@ -103,13 +105,36 @@ export default function LiveSankeyGraph() {
     return () => window.removeEventListener('dcl-graph-event' as any, handleEvent);
   }, []);
 
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    let debounceTimer: NodeJS.Timeout;
+    
+    const resizeObserver = new ResizeObserver((entries) => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        for (const entry of entries) {
+          const { width, height } = entry.contentRect;
+          setContainerSize({ width, height });
+        }
+      }, 150);
+    });
+
+    resizeObserver.observe(containerRef.current);
+
+    return () => {
+      clearTimeout(debounceTimer);
+      resizeObserver.disconnect();
+    };
+  }, []);
+
   return (
     <div ref={containerRef} className="rounded-xl bg-gray-800/40 border border-gray-700 shadow-sm ring-1 ring-cyan-500/10 p-3 h-full">
-      <div className="relative w-full h-full mx-auto overflow-hidden" style={{ minHeight: '500px' }}>
+      <div className="relative w-full h-full mx-auto" style={{ minHeight: `${dynamicHeight}px` }}>
         <svg
           ref={svgRef}
           className="w-full h-full"
-          style={{ minHeight: '500px', overflow: 'visible' }}
+          style={{ minHeight: `${dynamicHeight}px`, overflow: 'visible' }}
         />
       </div>
     </div>
@@ -137,7 +162,8 @@ function renderSankey(
   state: GraphState,
   svgElement: SVGSVGElement,
   container: HTMLDivElement,
-  animatingEdges: Set<string>
+  animatingEdges: Set<string>,
+  setDynamicHeight?: (height: number) => void
 ) {
   const svg = d3.select(svgElement);
   svg.selectAll('*').remove();
@@ -194,21 +220,31 @@ function renderSankey(
   });
 
   const containerRect = container.getBoundingClientRect();
-  const isMobile = window.innerWidth < 640;
-  const isTablet = window.innerWidth >= 640 && window.innerWidth < 1024;
-
-  const responsiveHeight = isMobile ? 400 : isTablet ? 500 : 600;
-
-  const { width, height } = (svg.node() as SVGSVGElement).getBoundingClientRect();
-
+  
+  const { width } = (svg.node() as SVGSVGElement).getBoundingClientRect();
   const validWidth = width > 0 ? Math.max(width, 320) + 400 : 1200;
-  const validHeight = height > 0 ? height + 200 : responsiveHeight + 200;
 
-  svg
-    .attr('width', '100%')
-    .attr('height', responsiveHeight + 'px')
-    .attr('viewBox', `0 0 ${validWidth} ${validHeight}`)
-    .attr('preserveAspectRatio', 'xMidYMid meet');
+  const layerMap: Record<string, number> = {
+    'source_parent': 0,
+    'source':        1,
+    'ontology':      2,
+    'agent':         3
+  };
+  
+  const layerCounts: Record<number, number> = { 0: 0, 1: 0, 2: 0, 3: 0 };
+  sankeyNodes.forEach(node => {
+    const layer = layerMap[node.type] ?? 1;
+    layerCounts[layer] = (layerCounts[layer] || 0) + 1;
+  });
+  
+  const totalNodeCount = sankeyNodes.length;
+  const calculatedHeight = Math.min(800, 100 + (totalNodeCount * 40));
+  
+  if (setDynamicHeight) {
+    setDynamicHeight(calculatedHeight);
+  }
+
+  const validHeight = calculatedHeight + 200;
 
   const sankey = d3Sankey<SankeyNode, SankeyLink>()
     .nodeWidth(8)
@@ -224,13 +260,6 @@ function renderSankey(
   });
   
   const { nodes, links } = graph;
-  
-  const layerMap: Record<string, number> = {
-    'source_parent': 0,
-    'source':        1,
-    'ontology':      2,
-    'agent':         3
-  };
   
   const leftPadding = 20;
   const rightPadding = 20;
@@ -322,21 +351,28 @@ function renderSankey(
     mongodb: { parent: '#10b981', child: '#34d399' },
   };
 
-  // Add clipPath to prevent graph from bleeding outside container
-  svg
-    .append('defs')
-    .append('clipPath')
-    .attr('id', 'graph-clip')
-    .append('rect')
-    .attr('x', 0)
-    .attr('y', 0)
-    .attr('width', validWidth)
-    .attr('height', validHeight);
+  const minX = Math.min(...nodes.map((n: any) => n.x0)) - 50;
+  const maxX = Math.max(...nodes.map((n: any) => n.x1)) + 50;
+  const minY = Math.min(...nodes.map((n: any) => n.y0)) - 50;
+  const maxY = Math.max(...nodes.map((n: any) => n.y1)) + 50;
+  
+  const boundingWidth = maxX - minX;
+  const boundingHeight = maxY - minY;
+  
+  const viewBoxPadding = 100;
+  const viewBoxX = minX - viewBoxPadding;
+  const viewBoxY = minY - viewBoxPadding;
+  const viewBoxWidth = boundingWidth + (2 * viewBoxPadding);
+  const viewBoxHeight = boundingHeight + (2 * viewBoxPadding);
 
-  // Create clipped container group with rotation on the same element
+  svg
+    .attr('width', '100%')
+    .attr('height', calculatedHeight + 'px')
+    .attr('viewBox', `${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}`)
+    .attr('preserveAspectRatio', 'xMidYMid meet');
+
   const mainGroup = svg
     .append('g')
-    .attr('clip-path', 'url(#graph-clip)')
     .attr('transform', `translate(${validWidth / 2}, ${validHeight / 2}) rotate(90) translate(${-validWidth / 2}, ${-validHeight / 2})`);
 
   mainGroup

@@ -1,0 +1,60 @@
+You are operating on the current production project.  
+Do NOT change backend logic or any DCL computation logic.  
+Only modify layout, styling, and container sizing to guarantee maximum DCL Graph visibility.
+
+GOAL
+Ensure the DCL Graph (LiveSankeyGraph.tsx) always renders with all nodes visible at once, regardless of screen size or device.  
+If needed, move or resize other containers (e.g., AOA summary, RAG panel, etc.) to give the graph top visual priority.
+
+CONSTRAINTS
+- Do not break backend API connections, WebSocket updates, or the existing data rendering logic.
+- Preserve dark theme and brand aesthetics.
+- Keep AutonomOS top bar and core navigation intact.
+- If any change would hide other dashboard content, create collapsible or tabbed containers rather than deleting them.
+
+IMPLEMENTATION PLAN
+
+PHASE 1 — Core Visibility (MUST DO)
+1️⃣ Remove all fixed height or width values from LiveSankeyGraph.tsx (e.g., 400px, 500px).  
+   - Use dynamic sizing with CSS grid or flex auto-fit.  
+   - Base height on node count: height = min(800px, 100 + 40 * nodeCount).  
+
+2️⃣ Implement automatic fit-to-view scaling using D3:
+   - Use d3.zoomIdentity + graph bounding box to compute transform so all nodes fit inside viewBox.  
+   - Always recompute after new data loads.
+
+3️⃣ Ensure container uses full available space:
+   - `.graph-container` → `width: 100%; height: 100%; overflow: visible;`
+   - Remove or neutralize any `clipPath` or overflow hidden logic.
+
+4️⃣ Allow reflow of other containers:
+   - Move secondary panels (like “AOA Functions” or “Autonomy Metrics”) below the graph on smaller screens.  
+   - Use CSS grid area or responsive breakpoints to dynamically stack them.
+
+PHASE 2 — Responsive & Device Adaptation
+5️⃣ Add a ResizeObserver to auto-rescale graph on window resize or orientation change.  
+6️⃣ Detect device type (desktop/tablet/mobile) and adjust padding & margins for max visible area.  
+7️⃣ For mobile:
+   - Allow vertical scroll of surrounding containers but keep the graph pinned visible horizontally.  
+
+PHASE 3 — Optional Interactivity (once above stable)
+8️⃣ Add zoom/pan (wheel, pinch, drag) using D3.  
+9️⃣ Add reset/fit-to-view button in the DCL container header.
+
+PHASE 4 — Validation
+10️⃣ Test with node counts: 2, 10, 25, 50, 100.  
+11️⃣ Test at screen widths: 320px, 768px, 1280px, 1920px.  
+12️⃣ Verify:  
+    ✅ All nodes visible at load (no clipping).  
+    ✅ Graph scales smoothly.  
+    ✅ Layout remains stable and scrollable.  
+    ✅ No console errors or layout shifts.
+
+REPORT
+After completion, output:
+- Screenshot of full graph visible on 1280px width
+- List of modified files and lines
+- Verified bounding box dimensions
+- Confirmation that other dashboard panels reflow correctly
+
+If any step introduces layout instability or clipped nodes, STOP and summarize root cause before proceeding.
