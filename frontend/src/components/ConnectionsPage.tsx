@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Database, Server, Warehouse, Users, Settings2, Play, Activity, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
+import { Database, Server, Warehouse, Users, Settings2, Play, Activity, CheckCircle, Loader2, AlertCircle, Search } from 'lucide-react';
 import { useDCLState } from '../hooks/useDCLState';
 import { API_CONFIG } from '../config/api';
 import { DEFAULT_SOURCES, DEFAULT_AGENTS, getDefaultSources, getDefaultAgents, type DCLSource as Connection, type DCLAgent as Agent } from '../config/dclDefaults';
@@ -42,6 +42,7 @@ export default function ConnectionsPage() {
   const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progressStatus, setProgressStatus] = useState<'idle' | 'connecting' | 'completed'>('idle');
+  const [lineageSearchQuery, setLineageSearchQuery] = useState('');
   const { state: dclState } = useDCLState();
 
   // Load selections from localStorage on mount (with defaults if empty)
@@ -133,6 +134,15 @@ export default function ConnectionsPage() {
     setSelectedAgents(agents.map(a => a.value));
   };
 
+  const handleLineageSearch = () => {
+    if (lineageSearchQuery.trim()) {
+      // Navigate to Data Lineage page with search query
+      window.location.hash = '#/data-lineage';
+      // Store search query for the lineage page to pick up
+      sessionStorage.setItem('lineageSearchQuery', lineageSearchQuery);
+    }
+  };
+
   return (
     <div className="space-y-4 sm:space-y-6">
       <div>
@@ -176,6 +186,32 @@ export default function ConnectionsPage() {
                 </label>
               ))}
             </div>
+          </div>
+
+          {/* Data Lineage Search */}
+          <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 sm:p-4">
+            <h3 className="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-4 flex items-center gap-2">
+              <Search className="w-5 h-5 text-orange-400" />
+              Trace Data Lineage
+            </h3>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+              <input
+                type="text"
+                placeholder="Search for KPI, Report, or Unified Entity..."
+                value={lineageSearchQuery}
+                onChange={(e) => setLineageSearchQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleLineageSearch()}
+                className="w-full bg-gray-900 text-gray-200 pl-10 pr-3 py-3 rounded-lg border border-gray-700 focus:outline-none focus:border-orange-500 transition-colors text-sm"
+              />
+            </div>
+            <button
+              onClick={handleLineageSearch}
+              disabled={!lineageSearchQuery.trim()}
+              className="mt-3 w-full px-4 py-2.5 bg-orange-600 hover:bg-orange-700 disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors text-sm"
+            >
+              Trace Lineage
+            </button>
           </div>
         </div>
 

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Search, ArrowRight, Info } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ArrowRight, Info } from 'lucide-react';
 
 interface LineageNodeData {
   id: string;
@@ -13,11 +13,15 @@ export default function DataLineagePage() {
   const [selectedNode, setSelectedNode] = useState<LineageNodeData | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
 
-  const handleSearch = () => {
-    if (searchQuery.trim()) {
+  // Check for search query from Connections page on mount
+  useEffect(() => {
+    const savedQuery = sessionStorage.getItem('lineageSearchQuery');
+    if (savedQuery) {
+      setSearchQuery(savedQuery);
       setHasSearched(true);
+      sessionStorage.removeItem('lineageSearchQuery'); // Clear after use
     }
-  };
+  }, []);
 
   const mockLineageData: LineageNodeData = {
     id: 'node1',
@@ -47,28 +51,13 @@ export default function DataLineagePage() {
       <div>
         <h1 className="text-3xl font-bold text-white mb-2">Data Lineage</h1>
         <p className="text-gray-400">
-          Trace data origins and transformations from source to output
+          {searchQuery ? `Tracing lineage for: "${searchQuery}"` : 'Trace data origins and transformations from source to output'}
         </p>
-      </div>
-
-      <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
-        <div className="relative max-w-3xl">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
-          <input
-            type="text"
-            placeholder="Trace Data Origin: Search for KPI, Report, or Unified Entity..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-            className="w-full bg-gray-800 text-gray-200 pl-12 pr-4 py-4 rounded-xl border border-gray-700 focus:outline-none focus:border-blue-500 transition-colors text-lg"
-          />
-        </div>
-        <button
-          onClick={handleSearch}
-          className="mt-4 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
-        >
-          Trace Lineage
-        </button>
+        {!hasSearched && (
+          <div className="mt-3 text-sm text-gray-500">
+            Use the search box on the <a href="#/connections" className="text-orange-400 hover:text-orange-300 underline">Connections</a> page to trace data lineage
+          </div>
+        )}
       </div>
 
       {hasSearched && (
