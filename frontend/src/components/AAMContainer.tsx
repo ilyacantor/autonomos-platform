@@ -26,7 +26,7 @@ export default function AAMContainer() {
           
           <div className="flex items-center justify-center py-4">
             <img 
-              src="/data-source-logos.png" 
+              src="/assets/data-source-logos.png" 
               alt="Connected data sources: Salesforce, HubSpot, MongoDB, Supabase, Snowflake, SAP, DataBricks, and more"
               className="h-16 w-auto object-contain opacity-90 hover:opacity-100 transition-opacity"
             />
