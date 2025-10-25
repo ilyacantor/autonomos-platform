@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import { sankey as d3Sankey, sankeyLinkHorizontal } from 'd3-sankey';
 import { API_CONFIG } from '../config/api';
@@ -53,8 +53,9 @@ export default function LiveSankeyGraph() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<GraphState | null>(null);
   const [animatingEdges, setAnimatingEdges] = useState<Set<string>>(new Set());
-  const [dynamicHeight, setDynamicHeight] = useState<number>(600);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+  const [isRendering, setIsRendering] = useState(false);
+  const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
     const fetchState = async () => {
@@ -75,11 +76,27 @@ export default function LiveSankeyGraph() {
     return () => window.removeEventListener('dcl-state-changed', handleRefetch);
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!state || !svgRef.current || !containerRef.current) return;
     if (!state.graph || !state.graph.nodes || state.graph.nodes.length === 0) return;
+    if (containerSize.width === 0 || containerSize.height === 0) return;
 
-    renderSankey(state, svgRef.current, containerRef.current, animatingEdges, setDynamicHeight);
+    setIsRendering(true);
+    
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+    }
+
+    rafRef.current = requestAnimationFrame(() => {
+      renderSankey(state, svgRef.current!, containerRef.current!, animatingEdges);
+      setIsRendering(false);
+    });
+
+    return () => {
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+      }
+    };
   }, [state, animatingEdges, containerSize]);
 
   const triggerEdgeAnimation = (edgeKey: string) => {
@@ -108,33 +125,46 @@ export default function LiveSankeyGraph() {
   useEffect(() => {
     if (!containerRef.current) return;
 
-    let debounceTimer: NodeJS.Timeout;
+    let animationFrameId: number | null = null;
     
     const resizeObserver = new ResizeObserver((entries) => {
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => {
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
+      
+      animationFrameId = requestAnimationFrame(() => {
         for (const entry of entries) {
           const { width, height } = entry.contentRect;
-          setContainerSize({ width, height });
+          if (width > 0 && height > 0) {
+            setContainerSize({ width, height });
+          }
         }
-      }, 150);
+      });
     });
 
     resizeObserver.observe(containerRef.current);
 
     return () => {
-      clearTimeout(debounceTimer);
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
       resizeObserver.disconnect();
     };
   }, []);
 
   return (
     <div ref={containerRef} className="rounded-xl bg-gray-800/40 border border-gray-700 shadow-sm ring-1 ring-cyan-500/10 p-3 h-full">
-      <div className="relative w-full h-full mx-auto" style={{ minHeight: `${dynamicHeight}px` }}>
+      <div className="w-full h-full overflow-hidden">
+        {isRendering && containerSize.width === 0 && (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-sm text-gray-400 animate-pulse">Loading graph...</div>
+          </div>
+        )}
         <svg
           ref={svgRef}
-          className="w-full h-full"
-          style={{ minHeight: `${dynamicHeight}px`, overflow: 'visible' }}
+          width="100%"
+          height="100%"
+          style={{ display: 'block', maxWidth: '100%', maxHeight: '100%' }}
         />
       </div>
     </div>
@@ -149,7 +179,6 @@ interface NodeStyle {
 }
 
 function getNodeStyle(_node: any, _sankeyNodes: SankeyNode[]): NodeStyle {
-  // Consistent clean boxes for all nodes on all layers
   return {
     fill: '#1e293b',
     stroke: '#475569',
@@ -162,8 +191,7 @@ function renderSankey(
   state: GraphState,
   svgElement: SVGSVGElement,
   container: HTMLDivElement,
-  animatingEdges: Set<string>,
-  setDynamicHeight?: (height: number) => void
+  animatingEdges: Set<string>
 ) {
   const svg = d3.select(svgElement);
   svg.selectAll('*').remove();
@@ -220,9 +248,8 @@ function renderSankey(
   });
 
   const containerRect = container.getBoundingClientRect();
-  
-  const { width } = (svg.node() as SVGSVGElement).getBoundingClientRect();
-  const validWidth = width > 0 ? Math.max(width, 320) + 400 : 1200;
+  const validWidth = Math.max(containerRect.width, 320);
+  const validHeight = Math.max(containerRect.height, 400);
 
   const layerMap: Record<string, number> = {
     'source_parent': 0,
@@ -231,27 +258,15 @@ function renderSankey(
     'agent':         3
   };
   
-  const layerCounts: Record<number, number> = { 0: 0, 1: 0, 2: 0, 3: 0 };
-  sankeyNodes.forEach(node => {
-    const layer = layerMap[node.type] ?? 1;
-    layerCounts[layer] = (layerCounts[layer] || 0) + 1;
-  });
-  
   const totalNodeCount = sankeyNodes.length;
-  const calculatedHeight = Math.min(800, 100 + (totalNodeCount * 40));
-  
-  if (setDynamicHeight) {
-    setDynamicHeight(calculatedHeight);
-  }
-
-  const validHeight = calculatedHeight + 200;
+  const calculatedHeight = Math.min(validHeight, 100 + (totalNodeCount * 40));
 
   const sankey = d3Sankey<SankeyNode, SankeyLink>()
     .nodeWidth(8)
     .nodePadding(18)
     .extent([
       [1, 40],
-      [validWidth - 1, validHeight - 40],
+      [validWidth - 1, calculatedHeight - 40],
     ]);
 
   const graph = sankey({
@@ -304,7 +319,7 @@ function renderSankey(
   
   if (ontologyNodesInSankey.length > 1) {
     const totalOntologyHeight = ontologyNodesInSankey.reduce((sum, n) => sum + (n.y1! - n.y0!), 0);
-    const availableSpace = validHeight - totalOntologyHeight - 80;
+    const availableSpace = calculatedHeight - totalOntologyHeight - 80;
     const spacing = availableSpace / (ontologyNodesInSankey.length - 1);
     
     let currentY = 40;
@@ -327,7 +342,7 @@ function renderSankey(
     const totalAgentHeight = agentNodesInSankey.reduce((sum, n) => sum + (n.y1! - n.y0!), 0);
     const agentSpacing = 40;
     const totalPadding = (agentNodesInSankey.length - 1) * agentSpacing;
-    const centerY = (validHeight - totalAgentHeight - totalPadding) / 2;
+    const centerY = (calculatedHeight - totalAgentHeight - totalPadding) / 2;
     
     let currentY = centerY;
     agentNodesInSankey.forEach(node => {
@@ -366,14 +381,12 @@ function renderSankey(
   const viewBoxHeight = boundingHeight + (2 * viewBoxPadding);
 
   svg
-    .attr('width', '100%')
-    .attr('height', calculatedHeight + 'px')
     .attr('viewBox', `${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}`)
     .attr('preserveAspectRatio', 'xMidYMid meet');
 
   const mainGroup = svg
     .append('g')
-    .attr('transform', `translate(${validWidth / 2}, ${validHeight / 2}) rotate(90) translate(${-validWidth / 2}, ${-validHeight / 2})`);
+    .attr('transform', `translate(${validWidth / 2}, ${calculatedHeight / 2}) rotate(90) translate(${-validWidth / 2}, ${-calculatedHeight / 2})`);
 
   mainGroup
     .append('g')
@@ -412,7 +425,6 @@ function renderSankey(
       
       if (animatingEdges.has(edgeKey)) return 0.9;
       
-      // Increase opacity for edges from data sources to layer 1
       if (sourceNode && (sourceNode.type === 'source' || sourceNode.type === 'source_parent')) {
         return 0.7;
       }
@@ -456,7 +468,7 @@ function renderSankey(
         .style('border', '1px solid #475569')
         .style('font-size', '12px')
         .style('pointer-events', 'none')
-        .style('z-index', 10000)
+        .style('z-index', '10000')
         .style('box-shadow', '0 4px 6px rgba(0, 0, 0, 0.3)')
         .style('max-width', '400px')
         .style('font-family', 'system-ui, -apple-system, sans-serif');
@@ -465,7 +477,7 @@ function renderSankey(
         .html(tooltipContent)
         .style('left', (event.pageX + 10) + 'px')
         .style('top', (event.pageY - 10) + 'px')
-        .style('opacity', 1);
+        .style('opacity', '1');
     })
     .on('mousemove', function(event: MouseEvent) {
       d3.select('.sankey-edge-tooltip')
@@ -479,7 +491,6 @@ function renderSankey(
       if (originalLink?.edgeType === 'hierarchy') {
         d3.select(this).attr('stroke-opacity', 0.35);
       } else {
-        // Restore higher opacity for edges from data sources
         const sourceNode = state.graph.nodes.find(n => nodeIndexMap[n.id] === originalLink.source);
         if (sourceNode && (sourceNode.type === 'source' || sourceNode.type === 'source_parent')) {
           d3.select(this).attr('stroke-opacity', 0.7);
@@ -487,7 +498,7 @@ function renderSankey(
           d3.select(this).attr('stroke-opacity', 0.4);
         }
       }
-      d3.select('.sankey-edge-tooltip').style('opacity', 0);
+      d3.select('.sankey-edge-tooltip').style('opacity', '0');
     });
 
   const nodeGroups = mainGroup.append('g').selectAll('g').data(nodes).join('g');
@@ -505,8 +516,8 @@ function renderSankey(
     .style('border', '1px solid #475569')
     .style('font-size', '12px')
     .style('pointer-events', 'none')
-    .style('opacity', 0)
-    .style('z-index', 1000)
+    .style('opacity', '0')
+    .style('z-index', '1000')
     .style('box-shadow', '0 4px 6px rgba(0, 0, 0, 0.3)');
 
   nodeGroups
@@ -523,18 +534,24 @@ function renderSankey(
       const nodeStyle = getNodeStyle(d, sankeyNodes);
       const nodeData = sankeyNodes.find(n => n.name === d.name);
       
-      if (nodeData?.type === 'source') {
+      if (nodeData?.type === 'ontology') {
+        return 0.9;
+      } else if (nodeData?.type === 'source') {
         const hasOutgoingDataflow = state.graph.edges.some(e => 
           e.source === nodeData.id && ((e as any).edgeType ?? (e as any).edge_type) === 'dataflow'
         );
-        return hasOutgoingDataflow ? (nodeStyle.fillOpacity || 1) : 0.5;
+        return hasOutgoingDataflow ? 1 : 0.5;
+      } else if (nodeData?.type === 'agent') {
+        return 0;
+      } else if (nodeData?.type === 'source_parent') {
+        return 0.7;
       }
       
-      return nodeStyle.fillOpacity || 1;
+      return nodeStyle.fillOpacity || 0.7;
     })
     .attr('stroke', (d: any) => {
       const nodeStyle = getNodeStyle(d, sankeyNodes);
-      return nodeStyle.stroke || 'none';
+      return nodeStyle.stroke || '#475569';
     })
     .attr('stroke-width', (d: any) => {
       const nodeStyle = getNodeStyle(d, sankeyNodes);
@@ -548,21 +565,11 @@ function renderSankey(
           e.source === nodeData.id && ((e as any).edgeType ?? (e as any).edge_type) === 'dataflow'
         );
         return hasOutgoingDataflow ? 1 : 0.6;
+      } else if (nodeData?.type === 'agent' || nodeData?.type === 'source_parent') {
+        return 1;
       }
       
-      return 1;
-    })
-    .attr('stroke-dasharray', (d: any) => {
-      const nodeData = sankeyNodes.find(n => n.name === d.name);
-      
-      if (nodeData?.type === 'source') {
-        const hasOutgoingDataflow = state.graph.edges.some(e => 
-          e.source === nodeData.id && ((e as any).edgeType ?? (e as any).edge_type) === 'dataflow'
-        );
-        return hasOutgoingDataflow ? 'none' : '4,4';
-      }
-      
-      return 'none';
+      return 0;
     })
     .style('cursor', 'pointer')
     .on('mouseenter', function(event: MouseEvent, d: any) {
@@ -584,7 +591,7 @@ function renderSankey(
       
       tooltip
         .html(tooltipContent)
-        .style('opacity', 1)
+        .style('opacity', '1')
         .style('left', (event.pageX + 10) + 'px')
         .style('top', (event.pageY - 10) + 'px');
     })
@@ -612,7 +619,7 @@ function renderSankey(
         d3.select(this).attr('fill-opacity', 0.7);
       }
       
-      tooltip.style('opacity', 0);
+      tooltip.style('opacity', '0');
     })
     .on('click', async function(_event: MouseEvent, d: any) {
       const nodeData = sankeyNodes.find(n => n.name === d.name);
@@ -631,60 +638,7 @@ function renderSankey(
       }
     });
 
-  const getLabelStyle = (nodeName: string, nodeType: string, nodeId?: string) => {
-    const nameLower = nodeName.toLowerCase();
-    
-    if (nodeType === 'ontology') {
-      if (nameLower.includes('customer') || nameLower.includes('account')) {
-        return { bg: '#06b6d4', icon: 'user', text: '#ffffff', themed: true, outlined: false };
-      } else if (nameLower.includes('transaction') || nameLower.includes('payment') || nameLower.includes('invoice')) {
-        return { bg: '#f97316', icon: 'zap', text: '#ffffff', themed: true, outlined: false };
-      } else if (nameLower.includes('opportunity') || nameLower.includes('deal')) {
-        return { bg: '#8b5cf6', icon: 'target', text: '#ffffff', themed: true, outlined: false };
-      } else if (nameLower.includes('product') || nameLower.includes('item')) {
-        return { bg: '#10b981', icon: 'package', text: '#ffffff', themed: true, outlined: false };
-      } else if (nameLower.includes('resource') || nameLower.includes('cloud')) {
-        return { bg: '#3b82f6', icon: 'cloud', text: '#ffffff', themed: true, outlined: false };
-      } else if (nameLower.includes('spend') || nameLower.includes('cost')) {
-        return { bg: '#ef4444', icon: 'dollar', text: '#ffffff', themed: true, outlined: false };
-      }
-      return { bg: '#14b8a6', icon: 'database', text: '#ffffff', themed: true, outlined: false };
-    }
-    
-    if (nodeType === 'agent') {
-      return { bg: 'transparent', icon: 'bot', text: '#e2e8f0', themed: true, outlined: true, borderColor: '#a855f7' };
-    }
-    
-    if (nodeType === 'source') {
-      return { bg: 'rgba(15, 23, 42, 0.9)', icon: null, text: '#e2e8f0', themed: false, outlined: false };
-    }
-    
-    return { bg: 'rgba(15, 23, 42, 0.9)', icon: null, text: '#e2e8f0', themed: false, outlined: false };
-  };
-  
-  const getIconPath = (iconName: string) => {
-    const icons: Record<string, string> = {
-      user: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
-      users: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
-      zap: 'M13 2L3 14h9l-1 8 10-12h-9l1-8z',
-      target: 'M22 12A10 10 0 1 1 12 2a10 10 0 0 1 10 10zM12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12zM12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4z',
-      package: 'M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16zM3.3 7l8.7 5 8.7-5M12 22V12',
-      cloud: 'M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z',
-      dollar: 'M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6',
-      database: 'M21 12c0 1.66-4 3-9 3s-9-1.34-9-3M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5M21 5c0 1.66-4 3-9 3S3 6.66 3 5m18 0c0-1.66-4-3-9-3S3 3.34 3 5',
-      databaseIcon: 'M4 6c0-1.1 1.34-2 3-2h10c1.66 0 3 .9 3 2s-1.34 2-3 2H7c-1.66 0-3-.9-3-2zM20 12c0 1.1-1.34 2-3 2H7c-1.66 0-3-.9-3-2s1.34-2 3-2h10c1.66 0 3 .9 3 2zM7 18c-1.66 0-3-.9-3-2s1.34-2 3-2h10c1.66 0 3 .9 3 2s-1.34 2-3 2H7z',
-      warehouse: 'M3 21h18M3 7l9-4 9 4M6 21V10M18 21V10M6 10h12M6 14h12M6 18h12',
-      settings: 'M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41',
-      bot: 'M12 8V4M8 8a4 4 0 0 1 8 0v4a4 4 0 0 1-8 0V8zM12 18v2M8 18h8M6 15a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-2z',
-      server: 'M6 2h12a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zM6 10h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2zM8 6h.01M8 14h.01',
-      table: 'M3 3h18v18H3zM3 9h18M3 15h18M9 3v18'
-    };
-    return icons[iconName] || icons.database;
-  };
-
-  // SUPPRESS ALL LABELS AND ICONS - Will re-enable for layers, agents, and sources in future iterations
   nodeGroups.each(function (this: any, _d: any) {
-    // All label rendering suppressed
     return;
   });
 
