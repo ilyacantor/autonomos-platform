@@ -1,0 +1,63 @@
+You are operating on the current working project only.  
+Do NOT delete or modify backend logic, static assets, or any non-frontend code.  
+The goal is to safely rename the existing frontend folder to follow standard conventions.
+
+OBJECTIVE
+Safely rename:
+   frontend-backup-for-rebuild  →  frontend
+and update all build scripts, vite configs, and references so that:
+   npm run build  →  outputs to  /static/
+   FastAPI continues to serve from /static/
+   no functional regressions occur.
+
+GUARDRAILS
+- If any path mismatch, env var, or script reference would break, STOP and report before executing.
+- Keep a rollback backup folder (frontend-backup-for-rebuild-backup) until verification passes.
+- Do NOT delete /static or backend code.
+- Do NOT alter app/main.py except to confirm static serving paths.
+
+STEPS
+
+1️⃣ DISCOVER CURRENT STATE
+- Print absolute path of frontend-backup-for-rebuild.
+- Confirm it contains package.json, vite.config.js, and src/.
+- Confirm npm run build currently outputs to a dist/ folder.
+
+2️⃣ CREATE BACKUP
+- Copy frontend-backup-for-rebuild → frontend-backup-for-rebuild-backup (full duplicate).
+
+3️⃣ RENAME
+- mv frontend-backup-for-rebuild → frontend
+
+4️⃣ UPDATE PATHS
+- Open vite.config.js inside /frontend.
+  Ensure:
+     build.outDir = "../static"
+- Check package.json scripts section:
+  Replace any “cp -r dist/* ../static/” or similar manual copy with a single line:
+     "build": "vite build"
+- If a separate build.sh exists, update or remove redundant copy commands.
+
+5️⃣ VALIDATE BUILD
+- cd frontend && npm install && npm run build
+- Confirm dist/ appears and files copied to /static/assets
+- Compute SHA256 of new main JS bundle and show.
+
+6️⃣ VERIFY SERVE PATH
+- Confirm FastAPI still serves /assets/ from /home/runner/workspace/static/assets
+- curl http://127.0.0.1:5000/ | grep "<div id=\"ENV_BEACON\"" to ensure index.html still loads from /static/
+
+7️⃣ CLEANUP (only after verification)
+- Remove old folder: rm -rf frontend-backup-for-rebuild-backup
+- Remove obsolete build.sh and integrate_frontend.sh if no longer referenced.
+
+8️⃣ REPORT
+Produce a concise report including:
+   - new canonical frontend path
+   - updated vite.config.js build.outDir
+   - list of scripts changed in package.json
+   - SHA256 of current JS bundle
+   - confirmation ENV_BEACON still visible and BUILD_ID unchanged
+
+STOP immediately if any step would remove or overwrite existing code that isn’t backed up.
+

@@ -13,6 +13,11 @@ export default defineConfig({
     allowedHosts: true,
   },
   build: {
-    outDir: 'dist',
+    outDir: '../static',
+  },
+  resolve: {
+    alias: {
+      '@assets': '/src/assets',
+    },
   },
 });

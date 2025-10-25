@@ -1,11 +1,10 @@
 #!/bin/bash
 
 echo "Building frontend..."
-cd frontend-backup-for-rebuild || exit 1
+cd frontend || exit 1
 npm install --legacy-peer-deps
+echo "Cleaning old assets..."
+rm -f ../static/assets/index-*.js ../static/assets/index-*.css
 npm run build
-echo "Copying frontend to static..."
-rm -rf ../static/assets/index-*.js ../static/assets/index-*.css
-cp -r dist/* ../static/
 echo "Frontend build complete!"
-echo "New bundle: $(ls -1 dist/assets/index-*.js | head -1 | xargs basename)"
+echo "New bundle: $(ls -1 ../static/assets/index-*.js 2>/dev/null | head -1 | xargs basename)"
