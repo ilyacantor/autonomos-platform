@@ -72,6 +72,11 @@ export default function TopBar({ user, onPersonaChange, currentPage, onNavigate 
 
       {/* Right Side: Autonomy Toggle, Notifications, Profile */}
       <div className="flex items-center gap-3">
+        {/* Build ID Badge (temporary for verification) */}
+        <div className="px-2 py-1 bg-gray-800 border border-gray-700 rounded text-xs text-gray-400 font-mono">
+          v{(window as any).__BUILD_ID__ || 'unknown'}
+        </div>
+        
         {/* Autonomy Toggle */}
         <AutonomyModeToggle />
 

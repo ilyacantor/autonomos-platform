@@ -120,6 +120,23 @@ if os.path.exists(STATIC_DIR) and os.path.isdir(STATIC_DIR):
         if os.path.exists(script_path):
             return FileResponse(script_path, media_type="application/javascript")
         raise HTTPException(status_code=404, detail="DCL bridge script not found")
+    
+    @app.get("/__version")
+    def version_info():
+        """Debug endpoint for build verification"""
+        import glob
+        js_files = glob.glob(os.path.join(STATIC_DIR, "assets", "index-*.js"))
+        css_files = glob.glob(os.path.join(STATIC_DIR, "assets", "index-*.css"))
+        return {
+            "buildId": os.path.getmtime(STATIC_DIR) if os.path.exists(STATIC_DIR) else None,
+            "appRoot": os.path.abspath("."),
+            "staticRoot": os.path.abspath(STATIC_DIR),
+            "timestamp": os.path.getmtime(js_files[0]) if js_files else None,
+            "currentAssets": {
+                "js": [os.path.basename(f) for f in js_files],
+                "css": [os.path.basename(f) for f in css_files]
+            }
+        }
 else:
     @app.get("/")
     def read_root():
