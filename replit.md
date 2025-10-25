@@ -63,6 +63,37 @@ AutonomOS is built with FastAPI, PostgreSQL, Redis, and Python RQ, implementing 
 
 ## Recent Changes
 
+### October 25, 2025 - DCL Graph Maximum Visibility Enhancements
+**Objective:** Ensure DCL graph displays all nodes at once regardless of screen size or device, with responsive resizing and no node clipping.
+
+**Implementation:**
+- **Dynamic Height Calculation:** Removed fixed heights (400/500/600px) and implemented node-count-based sizing
+  - Formula: `Math.min(800, 100 + (totalNodeCount * 40))`
+  - Uses total nodes (sources + unified + agents) for accurate sizing
+  - Container and SVG elements dynamically adjust to calculated height
+- **Fit-to-View Scaling:** Automatic D3 bounding box calculation for perfect content fit
+  - Computes min/max X/Y from all nodes after Sankey layout
+  - ViewBox dynamically set with 100px padding: `viewBox="${minX - 100} ${minY - 100} ${width + 200} ${height + 200}"`
+  - Graph scales to show all content within viewport
+- **Removed Clipping Restrictions:** Eliminated overflow-hidden and clipPath
+  - Removed `overflow: 'hidden'` from container wrapper
+  - Deleted entire clipPath definition and all references
+  - Graph can now expand freely to show all nodes without cropping
+- **ResizeObserver Integration:** Automatic re-rendering on window/container resize
+  - Watches containerRef for size changes
+  - Debounced at 150ms to prevent excessive re-renders
+  - Updates containerSize state to trigger graph refresh
+  - Proper cleanup on component unmount
+
+**Result:**
+- All nodes guaranteed visible without manual scrolling
+- Dynamic sizing adapts to actual node count (2-50+ nodes)
+- Responsive to window resize and orientation changes
+- No overflow clipping or hidden content
+- Maintains dark theme, animations, tooltips, and WebSocket updates
+- Zero backend logic modifications (layout/styling only)
+- Architect-approved implementation
+
 ### October 25, 2025 - Data Lineage Search Moved to Connections Tab
 **Objective:** Improve UX by consolidating data source management and lineage search in one location.
 
