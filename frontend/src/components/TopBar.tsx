@@ -40,7 +40,7 @@ export default function TopBar({ user, onPersonaChange, currentPage, onNavigate 
   };
 
   return (
-    <div className="h-16 bg-gray-900 border-b border-gray-800 flex items-center px-6 gap-6 overflow-hidden">
+    <div className="h-16 bg-gray-900 border-b border-gray-800 flex items-center px-6 gap-6">
       {/* Logo */}
       <div className="flex-shrink-0">
         <img 
