@@ -63,35 +63,45 @@ AutonomOS is built with FastAPI, PostgreSQL, Redis, and Python RQ, implementing 
 
 ## Recent Changes
 
-### October 25, 2025 - AAM Container with Data Source Logos
-**Objective:** Implement AAM (Adaptive API Mesh) container showing iPaaS-style data flow from disparate sources through normalization to DCL mapping.
+### October 25, 2025 - AAM Container with Data Source Logos and Connection Log
+**Objective:** Implement AAM (Adaptive API Mesh) container showing iPaaS-style data flow from disparate sources through normalization to DCL mapping, with real-time connection monitoring.
 
 **Implementation:**
-- **New Component:** Created `AAMContainer.tsx` with iPaaS flow visualization
+- **New Component:** Created `AAMContainer.tsx` with iPaaS flow visualization and connection log
   - Purple-themed header with Network icon and updated subtitle: "iPaaS-style integration layer: Connect → Normalize → Unify"
+  - Two-column responsive grid layout (2fr + 1fr) for main content and connection log
   - Data source logos section showing 8 connected platforms (Salesforce, HubSpot, MongoDB, Supabase, Snowflake, SAP, DataBricks, etc.)
   - Visual flow diagram: Data Sources → AAM Normalize → DCL Mapping → Agents
   - Color-coded flow indicators (purple → cyan → blue) with animated pulse on data sources
-  - Gradient background matching platform dark theme aesthetic
+  - **Connection Log Panel:**
+    - Real-time API status monitoring with vertical scrollbar
+    - 20 mock technical messages showing OAuth, rate limits, latency, connection pools, webhooks
+    - Monospace font with timestamps and status icons (success/warning/info)
+    - Max height of 280px with overflow-y-auto for scrolling
+    - Color-coded status indicators: green (success), yellow (warning), blue (info)
+    - Dark theme scrollable container with proper contrast
 - **Dashboard Integration:** Added AAMContainer to `DashboardPage.tsx`
   - Positioned immediately after page header, above DCLGraphContainer
   - Maintains existing spacing (space-y-6) for consistent layout
   - No impact on existing components (AOA Status, Agent Performance, etc.)
 - **Assets:**
-  - Logo image stored in `static/data-source-logos.png` and `frontend/public/data-source-logos.png`
+  - Logo image stored in `static/assets/data-source-logos.png` (proper permissions: 644)
+  - Path corrected from root to /assets/ directory for FastAPI static file serving
   - 16px height, auto-width, with hover opacity transition
 - **Styling Consistency:** Follows established design patterns
   - Same gradient and border styling as DCL and other containers
   - Responsive padding and rounded corners
   - Purple accent color (distinguishes from cyan DCL theme)
-  - ArrowRight icons from lucide-react for flow visualization
+  - ArrowRight icons and status icons from lucide-react
 
 **Result:**
 - Visual representation of AAM's role as iPaaS integration layer
+- Real-time connection monitoring showing technical API status
 - Clear data flow: disparate sources → normalization → unified DCL → agent consumption
-- Professional presentation of 8 connected data platforms
+- Professional presentation of 8 connected data platforms with live status log
+- Scrollable connection log with 20 technical messages (OAuth, rate limits, latency, etc.)
 - Consistent visual hierarchy with DCL positioned below AAM
-- Ready for future AAM functionality expansion
+- Ready for future AAM functionality expansion (live log streaming, filtering)
 - Zero backend modifications (frontend-only addition)
 - Maintains all existing functionality
 
