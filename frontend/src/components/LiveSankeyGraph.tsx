@@ -55,7 +55,10 @@ export default function LiveSankeyGraph() {
   const [animatingEdges, setAnimatingEdges] = useState<Set<string>>(new Set());
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [isRendering, setIsRendering] = useState(false);
+  const [animate, setAnimate] = useState(false);
   const rafRef = useRef<number | null>(null);
+  
+  const isRunning = animatingEdges.size > 0;
 
   useEffect(() => {
     const fetchState = async () => {
@@ -88,7 +91,7 @@ export default function LiveSankeyGraph() {
     }
 
     rafRef.current = requestAnimationFrame(() => {
-      renderSankey(state, svgRef.current!, containerRef.current!, animatingEdges);
+      renderSankey(state, svgRef.current!, containerRef.current!, animatingEdges, animate);
       setIsRendering(false);
     });
 
@@ -97,7 +100,7 @@ export default function LiveSankeyGraph() {
         cancelAnimationFrame(rafRef.current);
       }
     };
-  }, [state, animatingEdges, containerSize]);
+  }, [state, animatingEdges, containerSize, animate]);
 
   const triggerEdgeAnimation = (edgeKey: string) => {
     setAnimatingEdges(prev => new Set(prev).add(edgeKey));
@@ -121,6 +124,15 @@ export default function LiveSankeyGraph() {
     window.addEventListener('dcl-graph-event' as any, handleEvent);
     return () => window.removeEventListener('dcl-graph-event' as any, handleEvent);
   }, []);
+
+  useEffect(() => {
+    if (isRunning) {
+      setAnimate(true);
+    } else {
+      const timeout = setTimeout(() => setAnimate(false), 2000);
+      return () => clearTimeout(timeout);
+    }
+  }, [isRunning]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -191,10 +203,28 @@ function renderSankey(
   state: GraphState,
   svgElement: SVGSVGElement,
   container: HTMLDivElement,
-  animatingEdges: Set<string>
+  animatingEdges: Set<string>,
+  animate: boolean
 ) {
   const svg = d3.select(svgElement);
   svg.selectAll('*').remove();
+
+  // Inject CSS for flow animation (one-time)
+  if (!document.getElementById('flow-style')) {
+    const style = document.createElement('style');
+    style.id = 'flow-style';
+    style.textContent = `
+      @keyframes flowDash {
+        to { stroke-dashoffset: -1000; }
+      }
+      .flow-animated {
+        stroke-dasharray: 6 6;
+        animation: flowDash 5s linear infinite;
+        will-change: stroke-dashoffset;
+      }
+    `;
+    document.head.appendChild(style);
+  }
 
   if (!state.graph || !state.graph.nodes || state.graph.nodes.length === 0) {
     svg
@@ -398,6 +428,11 @@ function renderSankey(
     .attr('stroke', (d: any, i: number) => {
       const originalLink = sankeyLinks[i];
       
+      // Check if this is a layer 0 -> layer 1 edge (source_parent -> source)
+      if (d.source.depth === 0 && d.target.depth === 1) {
+        return '#00F5FF';
+      }
+      
       if (originalLink?.edgeType === 'hierarchy') {
         return '#475569';
       }
@@ -414,6 +449,11 @@ function renderSankey(
     .attr('stroke-width', (d: any) => Math.min(Math.max(0.5, d.width * 0.5), 20))
     .attr('stroke-opacity', (_d: any, i: number) => {
       const originalLink = sankeyLinks[i];
+      
+      // Check if this is a layer 0 -> layer 1 edge (source_parent -> source)
+      if (_d.source.depth === 0 && _d.target.depth === 1) {
+        return 0.9;
+      }
       
       if (originalLink?.edgeType === 'hierarchy') {
         return 0.35;
@@ -436,7 +476,19 @@ function renderSankey(
       const sourceNode = state.graph.nodes.find(n => nodeIndexMap[n.id] === originalLink.source);
       const targetNode = state.graph.nodes.find(n => nodeIndexMap[n.id] === originalLink.target);
       const edgeKey = `${sourceNode?.id}-${targetNode?.id}`;
-      return animatingEdges.has(edgeKey) ? 'animate-pulse' : '';
+      
+      let classes = '';
+      
+      // Add flow animation to layer 0 -> layer 1 edges when animate is true
+      if (_d.source.depth === 0 && _d.target.depth === 1 && animate) {
+        classes += 'flow-animated ';
+      }
+      
+      if (animatingEdges.has(edgeKey)) {
+        classes += 'animate-pulse';
+      }
+      
+      return classes.trim();
     })
     .style('cursor', (d: any, i: number) => {
       const originalLink = sankeyLinks[i];
@@ -488,7 +540,10 @@ function renderSankey(
       const linkIndex = links.indexOf(d);
       const originalLink = sankeyLinks[linkIndex];
       
-      if (originalLink?.edgeType === 'hierarchy') {
+      // Restore opacity for layer 0 -> layer 1 edges
+      if (d.source.depth === 0 && d.target.depth === 1) {
+        d3.select(this).attr('stroke-opacity', 0.9);
+      } else if (originalLink?.edgeType === 'hierarchy') {
         d3.select(this).attr('stroke-opacity', 0.35);
       } else {
         const sourceNode = state.graph.nodes.find(n => nodeIndexMap[n.id] === originalLink.source);

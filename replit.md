@@ -64,3 +64,38 @@ AutonomOS is built with FastAPI, PostgreSQL, Redis, and Python RQ, implementing 
 - **Replit's PostgreSQL:** Built-in database service.
 - **Upstash Redis:** External Redis for production.
 - **Slack Incoming Webhooks:** For notifications.
+
+## Recent Changes
+
+### October 25, 2025 - Animated Data-Flow Effect for Layer 0 → Layer 1 Edges
+**Objective:** Implement visual-only enhancement with bright cyan color and animated flow effect for edges from source_parent (layer 0) to source (layer 1).
+
+**Implementation:**
+- **Edge Detection and Styling:**
+  - Detect edges where `source.depth === 0 && target.depth === 1`
+  - Color them bright cyan `#00F5FF` with opacity `0.9` (higher than standard edges)
+  - All other edges retain their existing colors
+- **Animated "Data-Flow" Effect:**
+  - SVG stroke-dasharray/stroke-dashoffset animation (5s linear infinite)
+  - CSS keyframe animation with dashed pattern moving along edge path
+  - Animation controlled by `animate` state with smart timing logic
+- **Animation State Management:**
+  - `isRunning` derived from `animatingEdges.size > 0`
+  - `animate` state follows isRunning with 2-second persistence after isRunning becomes false
+  - useEffect hook manages the 2-second timeout cleanup
+- **CSS Injection:**
+  - One-time style injection into document head (flow-style ID check)
+  - Keyframe animation: `flowDash` moves stroke-dashoffset from 0 to -1000
+  - `.flow-animated` class with `stroke-dasharray: 6 6` and `will-change: stroke-dashoffset`
+- **Edge Class Application:**
+  - `flow-animated` class applied conditionally when `animate === true` and edge is layer 0 → 1
+  - Compatible with existing `animate-pulse` class for event-driven animations
+  - Proper opacity restoration on mouseleave (0.9 for layer 0 → 1 edges)
+
+**Result:**
+- Data-source → Layer 1 edges glow bright cyan, clearly visible
+- Smooth 5-second animation showing data flow direction
+- Animation runs only while isRunning is true and for 2s after
+- No UI layout or performance regressions
+- Zoom/pan and edge interactivity unchanged
+- Zero changes to node data or other edge colors
