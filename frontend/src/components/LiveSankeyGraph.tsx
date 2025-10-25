@@ -55,10 +55,7 @@ export default function LiveSankeyGraph() {
   const [animatingEdges, setAnimatingEdges] = useState<Set<string>>(new Set());
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [isRendering, setIsRendering] = useState(false);
-  const [animate, setAnimate] = useState(false);
   const rafRef = useRef<number | null>(null);
-  
-  const isRunning = animatingEdges.size > 0;
 
   useEffect(() => {
     const fetchState = async () => {
@@ -91,7 +88,7 @@ export default function LiveSankeyGraph() {
     }
 
     rafRef.current = requestAnimationFrame(() => {
-      renderSankey(state, svgRef.current!, containerRef.current!, animatingEdges, animate);
+      renderSankey(state, svgRef.current!, containerRef.current!, animatingEdges);
       setIsRendering(false);
     });
 
@@ -100,7 +97,7 @@ export default function LiveSankeyGraph() {
         cancelAnimationFrame(rafRef.current);
       }
     };
-  }, [state, animatingEdges, containerSize, animate]);
+  }, [state, animatingEdges, containerSize]);
 
   const triggerEdgeAnimation = (edgeKey: string) => {
     setAnimatingEdges(prev => new Set(prev).add(edgeKey));
@@ -124,15 +121,6 @@ export default function LiveSankeyGraph() {
     window.addEventListener('dcl-graph-event' as any, handleEvent);
     return () => window.removeEventListener('dcl-graph-event' as any, handleEvent);
   }, []);
-
-  useEffect(() => {
-    if (isRunning) {
-      setAnimate(true);
-    } else {
-      const timeout = setTimeout(() => setAnimate(false), 2000);
-      return () => clearTimeout(timeout);
-    }
-  }, [isRunning]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -203,28 +191,10 @@ function renderSankey(
   state: GraphState,
   svgElement: SVGSVGElement,
   container: HTMLDivElement,
-  animatingEdges: Set<string>,
-  animate: boolean
+  animatingEdges: Set<string>
 ) {
   const svg = d3.select(svgElement);
   svg.selectAll('*').remove();
-
-  // Inject CSS for flow animation (one-time)
-  if (!document.getElementById('flow-style')) {
-    const style = document.createElement('style');
-    style.id = 'flow-style';
-    style.textContent = `
-      @keyframes flowDash {
-        to { stroke-dashoffset: -1000; }
-      }
-      .flow-animated {
-        stroke-dasharray: 6 6;
-        animation: flowDash 5s linear infinite;
-        will-change: stroke-dashoffset;
-      }
-    `;
-    document.head.appendChild(style);
-  }
 
   if (!state.graph || !state.graph.nodes || state.graph.nodes.length === 0) {
     svg
@@ -418,59 +388,60 @@ function renderSankey(
     .append('g')
     .attr('transform', `translate(${validWidth / 2}, ${calculatedHeight / 2}) rotate(90) translate(${-validWidth / 2}, ${-calculatedHeight / 2})`);
 
-  const linkSelection = mainGroup
+  mainGroup
     .append('g')
     .attr('fill', 'none')
     .selectAll('path')
     .data(links)
     .join('path')
     .attr('d', sankeyLinkHorizontal())
-    .attr('stroke', (d: any) => {
-      if (d.source.depth === 0 && d.target.depth === 1) {
-        return '#00FF88';
+    .attr('stroke', (d: any, i: number) => {
+      const originalLink = sankeyLinks[i];
+      
+      if (originalLink?.edgeType === 'hierarchy') {
+        return '#475569';
       }
-      return '#00C8FF';
+      
+      const targetNode = sankeyNodes.find(n => n.name === d.target.name);
+      if (targetNode && targetNode.type === 'agent') {
+        return '#9333ea';
+      }
+      if (originalLink && originalLink.sourceSystem) {
+        return sourceColorMap[originalLink.sourceSystem]?.child || '#0bcad9';
+      }
+      return '#94a3b8';
     })
     .attr('stroke-width', (d: any) => Math.min(Math.max(0.5, d.width * 0.5), 20))
-    .attr('stroke-opacity', (d: any) => {
-      if (d.source.depth === 0 && d.target.depth === 1) {
-        return 0.9;
-      }
-      return 0.6;
-    })
-    .attr('fill', 'none')
-    .attr('vector-effect', 'non-scaling-stroke')
-    .style('cursor', (d: any, i: number) => {
+    .attr('stroke-opacity', (_d: any, i: number) => {
       const originalLink = sankeyLinks[i];
-      return originalLink?.edgeType === 'hierarchy' ? 'default' : 'pointer';
+      
+      if (originalLink?.edgeType === 'hierarchy') {
+        return 0.35;
+      }
+      
+      const sourceNode = state.graph.nodes.find(n => nodeIndexMap[n.id] === originalLink.source);
+      const targetNode = state.graph.nodes.find(n => nodeIndexMap[n.id] === originalLink.target);
+      const edgeKey = `${sourceNode?.id}-${targetNode?.id}`;
+      
+      if (animatingEdges.has(edgeKey)) return 0.9;
+      
+      if (sourceNode && (sourceNode.type === 'source' || sourceNode.type === 'source_parent')) {
+        return 0.7;
+      }
+      
+      return 0.4;
     })
     .attr('class', (_d: any, i: number) => {
       const originalLink = sankeyLinks[i];
       const sourceNode = state.graph.nodes.find(n => nodeIndexMap[n.id] === originalLink.source);
       const targetNode = state.graph.nodes.find(n => nodeIndexMap[n.id] === originalLink.target);
       const edgeKey = `${sourceNode?.id}-${targetNode?.id}`;
-      
-      if (animatingEdges.has(edgeKey)) {
-        return 'animate-pulse';
-      }
-      
-      return '';
-    });
-
-  setTimeout(() => {
-    linkSelection.each(function() {
-      const pathNode = this as SVGPathElement;
-      const path = d3.select(pathNode);
-      const pathLength = pathNode.getTotalLength();
-      
-      path
-        .attr('stroke-dasharray', `${pathLength / 10} ${pathLength / 5}`)
-        .attr('stroke-dashoffset', 0)
-        .style('animation', animate ? 'flowDash 5s linear infinite' : 'none');
-    });
-  }, 0);
-
-  linkSelection
+      return animatingEdges.has(edgeKey) ? 'animate-pulse' : '';
+    })
+    .style('cursor', (d: any, i: number) => {
+      const originalLink = sankeyLinks[i];
+      return originalLink?.edgeType === 'hierarchy' ? 'default' : 'pointer';
+    })
     .on('mouseenter', function(event: MouseEvent, d: any) {
       const linkIndex = links.indexOf(d);
       const originalLink = sankeyLinks[linkIndex];
@@ -514,11 +485,18 @@ function renderSankey(
         .style('top', (event.pageY - 10) + 'px');
     })
     .on('mouseleave', function(_event: MouseEvent, d: any) {
-      // Restore opacity based on edge type
-      if (d.source.depth === 0 && d.target.depth === 1) {
-        d3.select(this).attr('stroke-opacity', 0.9);
+      const linkIndex = links.indexOf(d);
+      const originalLink = sankeyLinks[linkIndex];
+      
+      if (originalLink?.edgeType === 'hierarchy') {
+        d3.select(this).attr('stroke-opacity', 0.35);
       } else {
-        d3.select(this).attr('stroke-opacity', 0.6);
+        const sourceNode = state.graph.nodes.find(n => nodeIndexMap[n.id] === originalLink.source);
+        if (sourceNode && (sourceNode.type === 'source' || sourceNode.type === 'source_parent')) {
+          d3.select(this).attr('stroke-opacity', 0.7);
+        } else {
+          d3.select(this).attr('stroke-opacity', 0.4);
+        }
       }
       d3.select('.sankey-edge-tooltip').style('opacity', '0');
     });
