@@ -21,16 +21,16 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      <AOAStatusCard />
-      
-      <AOAFunctionsPanel />
-      
       <AgentPerformanceMonitor agents={mockAgentPerformance} />
 
       <DCLGraphContainer
         mappings={mockMappingReviews}
         schemaChanges={mockSchemaChanges}
       />
+
+      <AOAStatusCard />
+      
+      <AOAFunctionsPanel />
 
       <AOADetailsModal />
     </div>
