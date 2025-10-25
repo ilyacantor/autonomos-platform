@@ -87,7 +87,14 @@ if os.path.exists(STATIC_DIR) and os.path.isdir(STATIC_DIR):
         """Serve the frontend index.html"""
         index_path = os.path.join(STATIC_DIR, "index.html")
         if os.path.exists(index_path):
-            return FileResponse(index_path)
+            return FileResponse(
+                index_path,
+                headers={
+                    "Cache-Control": "no-cache, no-store, must-revalidate",
+                    "Pragma": "no-cache",
+                    "Expires": "0"
+                }
+            )
         return {"message": "AutonomOS - Frontend not deployed yet. API available at /api/v1/*"}
     
     @app.get("/favicon.png")
