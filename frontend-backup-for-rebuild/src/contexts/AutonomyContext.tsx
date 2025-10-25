@@ -15,9 +15,7 @@ const AutonomyContext = createContext<AutonomyContextType | undefined>(undefined
 export function AutonomyProvider({ children }: { children: ReactNode }) {
   const [autonomyMode, setAutonomyMode] = useState<AutonomyMode>('Auto (Guardrails)');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  // PINNED: Force modern layout (TopBar) - legacyMode hardcoded to false
   const [legacyMode, setLegacyMode] = useState(false);
-  console.log('[PIN] legacyMode forced OFF - modern TopBar layout only');
 
   return (
     <AutonomyContext.Provider value={{ autonomyMode, setAutonomyMode, isModalOpen, setIsModalOpen, legacyMode, setLegacyMode }}>

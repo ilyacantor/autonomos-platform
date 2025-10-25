@@ -72,14 +72,6 @@ export default function TopBar({ user, onPersonaChange, currentPage, onNavigate 
 
       {/* Right Side: Autonomy Toggle, Notifications, Profile */}
       <div className="flex items-center gap-3">
-        {/* PROOF MARKERS */}
-        <div className="px-2 py-1 bg-red-900 border border-red-500 rounded text-xs font-mono text-white">
-          TOPNAV-PROOF
-        </div>
-        <div className="px-2 py-1 bg-gray-800 border border-gray-700 rounded text-xs text-gray-400 font-mono">
-          v{(window as any).__BUILD_ID__ || 'unknown'}
-        </div>
-        
         {/* Autonomy Toggle */}
         <AutonomyModeToggle />
 

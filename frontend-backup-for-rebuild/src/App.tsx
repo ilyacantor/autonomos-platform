@@ -52,11 +52,10 @@ function AppContent() {
     );
   }
 
-  // PINNED: Legacy mode DISABLED - always use modern TopBar layout
+  // Legacy mode disabled - always use modern TopBar layout
   // if (legacyMode) {
   //   return <LegacyDCLUI />;
   // }
-  console.log('[PIN] Legacy UI path BLOCKED - forcing modern TopBar layout');
 
   // Modern mode requires authentication
   if (!isAuthenticated) {
