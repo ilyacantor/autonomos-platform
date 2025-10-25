@@ -409,7 +409,15 @@ function renderSankey(
       const sourceNode = state.graph.nodes.find(n => nodeIndexMap[n.id] === originalLink.source);
       const targetNode = state.graph.nodes.find(n => nodeIndexMap[n.id] === originalLink.target);
       const edgeKey = `${sourceNode?.id}-${targetNode?.id}`;
-      return animatingEdges.has(edgeKey) ? 0.9 : 0.4;
+      
+      if (animatingEdges.has(edgeKey)) return 0.9;
+      
+      // Increase opacity for edges from data sources to layer 1
+      if (sourceNode && (sourceNode.type === 'source' || sourceNode.type === 'source_parent')) {
+        return 0.7;
+      }
+      
+      return 0.4;
     })
     .attr('class', (_d: any, i: number) => {
       const originalLink = sankeyLinks[i];
@@ -471,7 +479,13 @@ function renderSankey(
       if (originalLink?.edgeType === 'hierarchy') {
         d3.select(this).attr('stroke-opacity', 0.35);
       } else {
-        d3.select(this).attr('stroke-opacity', 0.4);
+        // Restore higher opacity for edges from data sources
+        const sourceNode = state.graph.nodes.find(n => nodeIndexMap[n.id] === originalLink.source);
+        if (sourceNode && (sourceNode.type === 'source' || sourceNode.type === 'source_parent')) {
+          d3.select(this).attr('stroke-opacity', 0.7);
+        } else {
+          d3.select(this).attr('stroke-opacity', 0.4);
+        }
       }
       d3.select('.sankey-edge-tooltip').style('opacity', 0);
     });

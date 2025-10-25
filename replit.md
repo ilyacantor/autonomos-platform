@@ -63,6 +63,25 @@ AutonomOS is built with FastAPI, PostgreSQL, Redis, and Python RQ, implementing 
 
 ## Recent Changes
 
+### October 25, 2025 - Increased Edge Visibility for Data Source Flows
+**Objective:** Improve visual clarity of data flow from source nodes to layer 1 nodes in DCL graph.
+
+**Implementation:**
+- **Enhanced Edge Opacity in LiveSankeyGraph.tsx:**
+  - Increased stroke-opacity from 0.4 to 0.7 for edges originating from data sources
+  - Applied to both `source` and `source_parent` node types
+  - Maintains 0.4 opacity for other dataflow edges (layer 1 to agents, etc.)
+  - Hierarchy edges remain at 0.35 opacity
+  - Hover state remains at 0.7 for all dataflow edges
+  - Mouse leave handler properly restores 0.7 opacity for source edges
+
+**Result:**
+- Data source connections are 75% more visible (0.4 → 0.7 opacity)
+- Clear visual emphasis on initial data ingestion layer
+- Better distinction between source→layer1 vs layer1→agent flows
+- Consistent behavior across hover/unhover interactions
+- No impact on hierarchy edges or animation states
+
 ### October 25, 2025 - AAM Container with Data Source Logos and Connection Log
 **Objective:** Implement AAM (Adaptive API Mesh) container showing iPaaS-style data flow from disparate sources through normalization to DCL mapping, with real-time connection monitoring.
 
