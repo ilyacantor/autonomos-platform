@@ -67,35 +67,38 @@ AutonomOS is built with FastAPI, PostgreSQL, Redis, and Python RQ, implementing 
 
 ## Recent Changes
 
-### October 25, 2025 - Animated Data-Flow Effect for Layer 0 → Layer 1 Edges
-**Objective:** Implement visual-only enhancement with bright cyan color and animated flow effect for edges from source_parent (layer 0) to source (layer 1).
+### October 25, 2025 - Animated Data-Flow Effect with Bright Green Layer 0→1 Edges
+**Objective:** Implement visual-only enhancement with bright green color and animated flow effect for edges from source_parent (layer 0) to source (layer 1), with cyan/teal for all other edges.
 
 **Implementation:**
-- **Edge Detection and Styling:**
-  - Detect edges where `source.depth === 0 && target.depth === 1`
-  - Color them bright cyan `#00F5FF` with opacity `0.9` (higher than standard edges)
-  - All other edges retain their existing colors
-- **Animated "Data-Flow" Effect:**
-  - SVG stroke-dasharray/stroke-dashoffset animation (5s linear infinite)
-  - CSS keyframe animation with dashed pattern moving along edge path
-  - Animation controlled by `animate` state with smart timing logic
+- **Simplified Edge Coloring:**
+  - Layer 0 → 1 edges: Bright green `#00FF88` with opacity `0.9`
+  - All other edges (1 → 2, etc.): Cyan `#00C8FF` with opacity `0.6`
+  - Applied `vector-effect="non-scaling-stroke"` for consistent stroke width at all zoom levels
+- **Dynamic Flow Animation:**
+  - Calculate actual path length using `getTotalLength()` for each edge
+  - Set `stroke-dasharray` dynamically: `${pathLength / 10} ${pathLength / 5}`
+  - Apply CSS animation via inline style: `animation: flowDash 5s linear infinite`
+  - Animation applied in `setTimeout(() => {...}, 0)` to ensure DOM paths exist before calculation
 - **Animation State Management:**
   - `isRunning` derived from `animatingEdges.size > 0`
   - `animate` state follows isRunning with 2-second persistence after isRunning becomes false
   - useEffect hook manages the 2-second timeout cleanup
+  - Animation dynamically toggled via inline style instead of CSS class
 - **CSS Injection:**
   - One-time style injection into document head (flow-style ID check)
-  - Keyframe animation: `flowDash` moves stroke-dashoffset from 0 to -1000
-  - `.flow-animated` class with `stroke-dasharray: 6 6` and `will-change: stroke-dashoffset`
-- **Edge Class Application:**
-  - `flow-animated` class applied conditionally when `animate === true` and edge is layer 0 → 1
-  - Compatible with existing `animate-pulse` class for event-driven animations
-  - Proper opacity restoration on mouseleave (0.9 for layer 0 → 1 edges)
+  - Keyframe animation: `@keyframes flowDash { to { stroke-dashoffset: -1000; } }`
+  - No class-based styling needed - animation applied directly to elements
+- **Simplified Opacity Restoration:**
+  - Mouseleave handler restores 0.9 for layer 0 → 1, 0.6 for all others
+  - Removed complex conditional logic for cleaner code
 
 **Result:**
-- Data-source → Layer 1 edges glow bright cyan, clearly visible
-- Smooth 5-second animation showing data flow direction
+- Layer 0 → 1 edges glow bright green (#00FF88), immediately recognizable
+- Layer 1 → 2 edges display in cyan/teal (#00C8FF) for clear visual distinction
+- Smooth 5-second dashed animation showing data flow direction on all edges
 - Animation runs only while isRunning is true and for 2s after
+- Path-length-based dasharray ensures consistent visual rhythm across different edge lengths
 - No UI layout or performance regressions
 - Zoom/pan and edge interactivity unchanged
-- Zero changes to node data or other edge colors
+- Consistent stroke width at all zoom levels via vector-effect

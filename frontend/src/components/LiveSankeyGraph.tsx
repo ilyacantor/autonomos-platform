@@ -418,58 +418,31 @@ function renderSankey(
     .append('g')
     .attr('transform', `translate(${validWidth / 2}, ${calculatedHeight / 2}) rotate(90) translate(${-validWidth / 2}, ${-calculatedHeight / 2})`);
 
-  mainGroup
+  const linkSelection = mainGroup
     .append('g')
     .attr('fill', 'none')
     .selectAll('path')
     .data(links)
     .join('path')
     .attr('d', sankeyLinkHorizontal())
-    .attr('stroke', (d: any, i: number) => {
-      const originalLink = sankeyLinks[i];
-      
-      // Check if this is a layer 0 -> layer 1 edge (source_parent -> source)
+    .attr('stroke', (d: any) => {
       if (d.source.depth === 0 && d.target.depth === 1) {
-        return '#00F5FF';
+        return '#00FF88';
       }
-      
-      if (originalLink?.edgeType === 'hierarchy') {
-        return '#475569';
-      }
-      
-      const targetNode = sankeyNodes.find(n => n.name === d.target.name);
-      if (targetNode && targetNode.type === 'agent') {
-        return '#9333ea';
-      }
-      if (originalLink && originalLink.sourceSystem) {
-        return sourceColorMap[originalLink.sourceSystem]?.child || '#0bcad9';
-      }
-      return '#94a3b8';
+      return '#00C8FF';
     })
     .attr('stroke-width', (d: any) => Math.min(Math.max(0.5, d.width * 0.5), 20))
-    .attr('stroke-opacity', (_d: any, i: number) => {
-      const originalLink = sankeyLinks[i];
-      
-      // Check if this is a layer 0 -> layer 1 edge (source_parent -> source)
-      if (_d.source.depth === 0 && _d.target.depth === 1) {
+    .attr('stroke-opacity', (d: any) => {
+      if (d.source.depth === 0 && d.target.depth === 1) {
         return 0.9;
       }
-      
-      if (originalLink?.edgeType === 'hierarchy') {
-        return 0.35;
-      }
-      
-      const sourceNode = state.graph.nodes.find(n => nodeIndexMap[n.id] === originalLink.source);
-      const targetNode = state.graph.nodes.find(n => nodeIndexMap[n.id] === originalLink.target);
-      const edgeKey = `${sourceNode?.id}-${targetNode?.id}`;
-      
-      if (animatingEdges.has(edgeKey)) return 0.9;
-      
-      if (sourceNode && (sourceNode.type === 'source' || sourceNode.type === 'source_parent')) {
-        return 0.7;
-      }
-      
-      return 0.4;
+      return 0.6;
+    })
+    .attr('fill', 'none')
+    .attr('vector-effect', 'non-scaling-stroke')
+    .style('cursor', (d: any, i: number) => {
+      const originalLink = sankeyLinks[i];
+      return originalLink?.edgeType === 'hierarchy' ? 'default' : 'pointer';
     })
     .attr('class', (_d: any, i: number) => {
       const originalLink = sankeyLinks[i];
@@ -477,23 +450,27 @@ function renderSankey(
       const targetNode = state.graph.nodes.find(n => nodeIndexMap[n.id] === originalLink.target);
       const edgeKey = `${sourceNode?.id}-${targetNode?.id}`;
       
-      let classes = '';
-      
-      // Add flow animation to layer 0 -> layer 1 edges when animate is true
-      if (_d.source.depth === 0 && _d.target.depth === 1 && animate) {
-        classes += 'flow-animated ';
-      }
-      
       if (animatingEdges.has(edgeKey)) {
-        classes += 'animate-pulse';
+        return 'animate-pulse';
       }
       
-      return classes.trim();
-    })
-    .style('cursor', (d: any, i: number) => {
-      const originalLink = sankeyLinks[i];
-      return originalLink?.edgeType === 'hierarchy' ? 'default' : 'pointer';
-    })
+      return '';
+    });
+
+  setTimeout(() => {
+    linkSelection.each(function() {
+      const pathNode = this as SVGPathElement;
+      const path = d3.select(pathNode);
+      const pathLength = pathNode.getTotalLength();
+      
+      path
+        .attr('stroke-dasharray', `${pathLength / 10} ${pathLength / 5}`)
+        .attr('stroke-dashoffset', 0)
+        .style('animation', animate ? 'flowDash 5s linear infinite' : 'none');
+    });
+  }, 0);
+
+  linkSelection
     .on('mouseenter', function(event: MouseEvent, d: any) {
       const linkIndex = links.indexOf(d);
       const originalLink = sankeyLinks[linkIndex];
@@ -537,21 +514,11 @@ function renderSankey(
         .style('top', (event.pageY - 10) + 'px');
     })
     .on('mouseleave', function(_event: MouseEvent, d: any) {
-      const linkIndex = links.indexOf(d);
-      const originalLink = sankeyLinks[linkIndex];
-      
-      // Restore opacity for layer 0 -> layer 1 edges
+      // Restore opacity based on edge type
       if (d.source.depth === 0 && d.target.depth === 1) {
         d3.select(this).attr('stroke-opacity', 0.9);
-      } else if (originalLink?.edgeType === 'hierarchy') {
-        d3.select(this).attr('stroke-opacity', 0.35);
       } else {
-        const sourceNode = state.graph.nodes.find(n => nodeIndexMap[n.id] === originalLink.source);
-        if (sourceNode && (sourceNode.type === 'source' || sourceNode.type === 'source_parent')) {
-          d3.select(this).attr('stroke-opacity', 0.7);
-        } else {
-          d3.select(this).attr('stroke-opacity', 0.4);
-        }
+        d3.select(this).attr('stroke-opacity', 0.6);
       }
       d3.select('.sankey-edge-tooltip').style('opacity', '0');
     });
