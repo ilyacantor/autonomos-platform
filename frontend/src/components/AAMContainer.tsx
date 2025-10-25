@@ -1,9 +1,9 @@
-import { Network, ArrowRight, CheckCircle, AlertCircle, Info, ExternalLink } from 'lucide-react';
+import { CheckCircle, AlertCircle, Info } from 'lucide-react';
 
 const connectionLogs = [
-  { time: '17:02:45', type: 'success', message: 'Salesforce API authenticated successfully via OAuth2' },
-  { time: '17:02:46', type: 'info', message: 'HubSpot rate limit: 95/100 requests remaining' },
-  { time: '17:02:47', type: 'success', message: 'MongoDB connection pool initialized (10 connections)' },
+  { time: '17:07:43', type: 'success', message: 'Salesforce API authenticated successfully via OAuth2' },
+  { time: '17:07:56', type: 'info', message: 'Budget rate limit: 50/100 requests remaining' },
+  { time: '17:07:47', type: 'success', message: 'MongoDB connection pool initialized (20 connections)' },
   { time: '17:02:48', type: 'info', message: 'Supabase REST API endpoint responding in 45ms' },
   { time: '17:02:50', type: 'success', message: 'Snowflake warehouse AUTO_RESUME completed' },
   { time: '17:02:52', type: 'warning', message: 'SAP API latency elevated: 320ms (threshold: 250ms)' },
@@ -25,87 +25,40 @@ const connectionLogs = [
 
 export default function AAMContainer() {
   return (
-    <div className="bg-gradient-to-br from-slate-900/80 to-slate-800/40 backdrop-blur-sm rounded-xl border border-slate-700/50 p-6 shadow-xl">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-purple-500/10 rounded-lg border border-purple-500/20">
-            <Network className="w-5 h-5 text-purple-400" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-white">Adaptive API Mesh</h2>
-            <p className="text-sm text-gray-400">
-              iPaaS-style integration layer: Connect → Normalize → Unify
-            </p>
-          </div>
-        </div>
-        
-        <a 
-          href="https://www.autonomos.tech/" 
-          target="_blank" 
-          rel="noopener noreferrer"
-          className="flex items-center gap-2 text-sm text-purple-400 hover:text-purple-300 transition-colors group"
-        >
-          <span className="font-medium">Visit our full website</span>
-          <ArrowRight className="w-4 h-4" />
-          <ExternalLink className="w-3 h-3 opacity-70 group-hover:opacity-100" />
-        </a>
+    <div className="bg-black border-t border-b border-cyan-500/30 py-12 -mx-6 px-6">
+      {/* Title */}
+      <div className="mb-8">
+        <h2 className="text-3xl font-semibold text-cyan-400">Adaptive API Mesh (AAM)</h2>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-6">
-        <div className="space-y-6">
-          <div className="bg-slate-800/40 rounded-lg border border-slate-700/50 p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <h3 className="text-sm font-semibold text-slate-200">Connected Data Sources</h3>
-              <span className="text-xs text-slate-500">(8 platforms)</span>
-            </div>
-            
-            <div className="flex items-center justify-center py-6">
-              <img 
-                src="/assets/data-source-logos.png" 
-                alt="Connected data sources: Salesforce, HubSpot, MongoDB, Supabase, Snowflake, SAP, DataBricks, and more"
-                className="h-32 w-auto object-contain opacity-90 hover:opacity-100 transition-opacity"
-              />
-            </div>
-          </div>
-
-          <div className="bg-gradient-to-r from-purple-900/20 via-cyan-900/20 to-blue-900/20 rounded-lg border border-purple-500/20 p-4">
-            <div className="flex items-center justify-between text-xs text-slate-300">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse"></div>
-                <span className="font-medium">Data Sources</span>
-              </div>
-              
-              <ArrowRight className="w-4 h-4 text-purple-400" />
-              
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                <span className="font-medium">AAM Normalize</span>
-              </div>
-              
-              <ArrowRight className="w-4 h-4 text-cyan-400" />
-              
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-cyan-400 rounded-full"></div>
-                <span className="font-medium">DCL Mapping</span>
-              </div>
-              
-              <ArrowRight className="w-4 h-4 text-blue-400" />
-              
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                <span className="font-medium">Agents</span>
-              </div>
-            </div>
-          </div>
+      {/* Data Source Logos */}
+      <div className="mb-6">
+        <div className="flex items-center justify-start gap-8 mb-4">
+          <img 
+            src="/assets/data-source-logos.png" 
+            alt="Connected data sources: SAP, HubSpot, Snowflake, Database, Supabase, Datadog, Salesforce, MongoDB"
+            className="h-32 w-auto object-contain"
+          />
         </div>
+        
+        {/* Connection lines below logos */}
+        <div className="flex items-start justify-start gap-8 ml-8">
+          {Array(7).fill(0).map((_, i) => (
+            <div key={i} className="w-12 h-16 border-l-2 border-cyan-400/60"></div>
+          ))}
+        </div>
+      </div>
 
-        <div className="bg-slate-800/40 rounded-lg border border-slate-700/50 p-4">
+      {/* Main Content: Connection Log + Description */}
+      <div className="grid grid-cols-1 lg:grid-cols-[400px_1fr] gap-12 mb-8">
+        {/* Left: Connection Log */}
+        <div className="bg-slate-900/80 rounded-lg border border-slate-700/50 p-4">
           <div className="flex items-center gap-2 mb-3">
             <h3 className="text-sm font-semibold text-slate-200">Connection Log</h3>
             <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
           </div>
           
-          <div className="bg-slate-900/60 rounded-md border border-slate-700/30 p-3 max-h-[280px] overflow-y-auto">
+          <div className="bg-slate-950/60 rounded-md border border-slate-700/30 p-3 max-h-[200px] overflow-y-auto">
             <div className="space-y-2 font-mono text-xs">
               {connectionLogs.map((log, index) => (
                 <div key={index} className="flex items-start gap-2 pb-2 border-b border-slate-700/20 last:border-0">
@@ -125,6 +78,22 @@ export default function AAMContainer() {
             </div>
           </div>
         </div>
+
+        {/* Right: Description */}
+        <div className="flex items-center">
+          <p className="text-2xl text-white leading-relaxed">
+            Connect apps, on-prem systems, databases, data warehouses / lakes, 
+            LLMs, Agents, and more with AI-driven integration and orchestration 
+            across the business.
+          </p>
+        </div>
+      </div>
+
+      {/* Connection lines at bottom */}
+      <div className="flex items-start justify-start gap-8 ml-8">
+        {Array(7).fill(0).map((_, i) => (
+          <div key={i} className="w-12 h-16 border-l-2 border-cyan-400/60"></div>
+        ))}
       </div>
     </div>
   );
