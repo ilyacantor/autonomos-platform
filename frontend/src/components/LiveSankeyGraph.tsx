@@ -649,8 +649,8 @@ function renderSankey(
   nodeGroups.each(function (this: any, d: any) {
     const nodeData = sankeyNodes.find(n => n.name === d.name);
     
-    // Only add labels to source and source_parent nodes
-    if (nodeData && (nodeData.type === 'source' || nodeData.type === 'source_parent')) {
+    // Only add labels to source_parent nodes (data sources)
+    if (nodeData && nodeData.type === 'source_parent') {
       const label = d.name || 'Unknown';
       const padding = 4;
       const fontSize = 10;
@@ -672,27 +672,29 @@ function renderSankey(
       const xPos = d.x1 + 8;
       const yPos = (d.y0 + d.y1) / 2;
       
-      // Create group for pillbox
-      const pillGroup = d3.select(this).append('g');
+      // Create group for pillbox, rotated -90 degrees to be horizontal
+      const pillGroup = d3.select(this)
+        .append('g')
+        .attr('transform', `translate(${xPos}, ${yPos}) rotate(-90)`);
       
-      // Background pill
+      // Background pill (centered at origin after rotation)
       pillGroup.append('rect')
-        .attr('x', xPos)
-        .attr('y', yPos - pillHeight / 2)
+        .attr('x', -pillWidth / 2)
+        .attr('y', -pillHeight / 2)
         .attr('width', pillWidth)
         .attr('height', pillHeight)
         .attr('rx', pillHeight / 2)
         .attr('ry', pillHeight / 2)
-        .attr('fill', nodeData.type === 'source_parent' ? '#1e293b' : '#0f172a')
+        .attr('fill', '#1e293b')
         .attr('stroke', '#475569')
         .attr('stroke-width', 1)
         .attr('fill-opacity', 0.9)
         .attr('stroke-opacity', 0.8);
       
-      // Text label
+      // Text label (centered at origin after rotation)
       pillGroup.append('text')
-        .attr('x', xPos + pillWidth / 2)
-        .attr('y', yPos)
+        .attr('x', 0)
+        .attr('y', 0)
         .attr('text-anchor', 'middle')
         .attr('dominant-baseline', 'central')
         .attr('fill', '#e2e8f0')
