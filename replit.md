@@ -21,7 +21,7 @@ AutonomOS is built with FastAPI, PostgreSQL, Redis, and Python RQ, implementing 
 **UI/UX Decisions:**
 - API documentation via Swagger UI and ReDoc.
 - The frontend features interactive DCL graph controls, data source and intelligence agent selection, and a real-time status panel with a two-column design.
-- **Architecture Flow Visualization:** New component displaying the complete AutonomOS process flow: Enterprise Data → AAM → DCL (horizontal), then DCL → Agents → Outcomes (vertical), with AOA ribbon overlay. Visible at a glance without scrolling, fully responsive.
+- **Architecture Flow Visualization:** New component displaying the complete AutonomOS process flow: Enterprise Data → AAM → DCL → Agents (horizontal), then Agents → Outcomes (vertical), with AOA ribbon overlay. Visible at a glance without scrolling, fully responsive.
 - UI includes a connection timer, horizontal progress bar, and reorganized right sidebar with narration, RAG Learning Engine, and Intelligence Review panels.
 - Graph labels are color-coded, pill-shaped with SVG icons for unified ontology fields, outlined for agent nodes, and type-specific for source nodes.
 - Mobile optimization includes responsive navigation, enlarged touch targets, compact top bar, and stacking for connections page.
