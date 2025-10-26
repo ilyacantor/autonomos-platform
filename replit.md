@@ -11,6 +11,11 @@ I prefer clear, concise explanations and direct answers. I value iterative devel
 ## System Architecture
 AutonomOS is built with FastAPI, PostgreSQL, Redis, and Python RQ, implementing a multi-tenant task orchestration platform.
 
+**Ontology Table Enhancements:**
+- The Ontology page now displays comprehensive mapping information including data sources, source tables, and source fields
+- Enhanced `/ontology_schema` endpoint provides source mapping data extracted from the DCL graph state
+- Table columns include: Entity Name, Primary Key, Unified Fields, Data Sources, Source Tables, and expandable details showing raw data table/field mappings
+
 **UI/UX Decisions:**
 - API documentation via Swagger UI and ReDoc.
 - The frontend features interactive DCL graph controls, data source and intelligence agent selection, and a real-time status panel with a two-column design.

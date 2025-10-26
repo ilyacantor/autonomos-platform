@@ -1717,19 +1717,53 @@ def source_schemas():
 
 @app.get("/ontology_schema")
 def ontology_schema():
-    """Return ontology entity definitions with all fields."""
-    global ontology
+    """Return ontology entity definitions with all fields and source mappings."""
+    global ontology, GRAPH_STATE
     
     if not ontology:
         ontology = load_ontology()
     
-    # Build schema: entity -> {pk, fields[]}
+    # Build schema: entity -> {pk, fields[], source_mappings[]}
     schema = {}
     entities = ontology.get("entities", {})
+    
     for entity_name, entity_def in entities.items():
+        # Extract source mappings from graph edges
+        source_mappings = []
+        
+        # Find all edges that map to this ontology entity
+        for edge in GRAPH_STATE.get("edges", []):
+            if edge.get("edgeType") == "dataflow":
+                # Check if target node is this ontology entity
+                target_node_id = edge.get("target", "")
+                if target_node_id == f"dcl_{entity_name}":
+                    # Find the source node to get source system and table info
+                    source_node_id = edge.get("source", "")
+                    source_node = next((n for n in GRAPH_STATE.get("nodes", []) if n.get("id") == source_node_id), None)
+                    
+                    if source_node:
+                        source_system = source_node.get("sourceSystem", "Unknown")
+                        source_table = source_node.get("label", "").replace(f"{source_system}_", "")
+                        field_mappings = edge.get("field_mappings", [])
+                        
+                        # Extract source fields from field_mappings
+                        source_fields = []
+                        for fm in field_mappings:
+                            source_field = fm.get("source") or fm.get("source_field", "")
+                            if source_field:
+                                source_fields.append(source_field)
+                        
+                        source_mappings.append({
+                            "source_system": source_system,
+                            "source_table": source_table,
+                            "source_fields": source_fields,
+                            "field_count": len(field_mappings)
+                        })
+        
         schema[entity_name] = {
             "pk": entity_def.get("pk", ""),
-            "fields": entity_def.get("fields", [])
+            "fields": entity_def.get("fields", []),
+            "source_mappings": source_mappings
         }
     
     return JSONResponse(schema)
