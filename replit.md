@@ -23,7 +23,7 @@ AutonomOS is built with FastAPI, PostgreSQL, Redis, and Python RQ, implementing 
 - The frontend features interactive DCL graph controls, data source and intelligence agent selection, and a real-time status panel with a two-column design.
 - **Architecture Flow Visualization:** New component displaying the complete AutonomOS process flow: Enterprise Data → AAM → DCL → Agents (horizontal), then Agents → Outcomes (vertical), with AOA ribbon overlay. Visible at a glance without scrolling, fully responsive.
 - UI includes a connection timer, horizontal progress bar, and reorganized right sidebar with narration, RAG Learning Engine, and Intelligence Review panels.
-- Graph labels are color-coded, pill-shaped with SVG icons for unified ontology fields, outlined for agent nodes, and type-specific for source nodes.
+- Graph labels are color-coded pill-shaped boxes with colored borders: green for data source labels, blue for ontology entity labels, purple for agent labels. Each label has a 1.5px border matching its node type or edge color.
 - Mobile optimization includes responsive navigation, enlarged touch targets, compact top bar, and stacking for connections page.
 - DCL graph visualization is clean, minimalist, with only boxes and edges, vertically centered and flowing top to bottom, with labels oriented to match data flow.
 - The AAM container provides an iPaaS-style data flow visualization (Connect → Normalize → Unify) with data source logos and a real-time connection log.

@@ -682,6 +682,16 @@ function renderSankey(
         .append('g')
         .attr('transform', `translate(${xPos}, ${yPos}) rotate(-90)`);
       
+      // Determine border color based on node type
+      let borderColor = '#475569'; // default slate gray
+      if (nodeData.type === 'source_parent') {
+        borderColor = '#22c55e'; // green for data source labels
+      } else if (nodeData.type === 'ontology') {
+        borderColor = '#60a5fa'; // blue for ontology/entity labels
+      } else if (nodeData.type === 'agent') {
+        borderColor = '#9333ea'; // purple for agent labels
+      }
+      
       // Background pill (centered at origin after rotation)
       pillGroup.append('rect')
         .attr('x', -pillWidth / 2)
@@ -691,10 +701,10 @@ function renderSankey(
         .attr('rx', pillHeight / 2)
         .attr('ry', pillHeight / 2)
         .attr('fill', '#1e293b')
-        .attr('stroke', '#475569')
-        .attr('stroke-width', 1)
+        .attr('stroke', borderColor)
+        .attr('stroke-width', 1.5)
         .attr('fill-opacity', 0.9)
-        .attr('stroke-opacity', 0.8);
+        .attr('stroke-opacity', 0.9);
       
       // Text label (centered at origin after rotation)
       pillGroup.append('text')
