@@ -397,18 +397,17 @@ function renderSankey(
     .attr('d', sankeyLinkHorizontal())
     .attr('stroke', (d: any, i: number) => {
       const originalLink = sankeyLinks[i];
-      
-      if (originalLink?.edgeType === 'hierarchy') {
-        return '#475569';
-      }
-      
-      // Check if edge is from data source (layer 0) to layer 1
       const sourceNode = state.graph.nodes.find(n => nodeIndexMap[n.id] === originalLink.source);
       const targetNode = sankeyNodes.find(n => n.name === d.target.name);
       
-      if (sourceNode && (sourceNode.type === 'source' || sourceNode.type === 'source_parent')) {
-        // Edge from data source (layer 0) to layer 1 - make it green
+      // Color hierarchy edges from source_parent (layer 0) to source (layer 1) green
+      if (originalLink?.edgeType === 'hierarchy' && sourceNode?.type === 'source_parent') {
         return '#22c55e';
+      }
+      
+      // Other hierarchy edges remain gray
+      if (originalLink?.edgeType === 'hierarchy') {
+        return '#475569';
       }
       
       if (targetNode && targetNode.type === 'agent') {
