@@ -341,6 +341,21 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
           <div>
             <LiveSankeyGraph />
           </div>
+
+          {/* Agent Robots - moved from AgentLayerContainer, scaled 50% */}
+          <div className="mt-6 flex items-center justify-center">
+            <div className="flex items-center gap-6 max-w-4xl">
+              <img 
+                src="/assets/robot-agents.png" 
+                alt="AI Agents with holographic interfaces"
+                className="w-1/2 max-w-lg h-auto object-contain rounded-lg"
+              />
+              <p className="text-base text-gray-300 leading-relaxed flex-1">
+                Provides persistent, versioned data mappings so AI agents can reason with 
+                consistent, validated inputs.
+              </p>
+            </div>
+          </div>
         </div>
 
         <div className="flex flex-col gap-4">

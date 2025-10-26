@@ -5,7 +5,6 @@ import DCLGraphContainer from './DCLGraphContainer';
 import AgentPerformanceMonitor from './AgentPerformanceMonitor';
 import AAMContainer from './AAMContainer';
 import HeroSection from './HeroSection';
-import AgentLayerContainer from './AgentLayerContainer';
 import AutonomOSArchitectureFlow from './AutonomOSArchitectureFlow';
 import {
   mockAgentNodes,
@@ -28,8 +27,6 @@ export default function DashboardPage() {
         mappings={mockMappingReviews}
         schemaChanges={mockSchemaChanges}
       />
-
-      <AgentLayerContainer />
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6">
         <AOAStatusCard />
