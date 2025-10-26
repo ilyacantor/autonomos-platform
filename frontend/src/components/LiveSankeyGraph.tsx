@@ -682,19 +682,6 @@ function renderSankey(
         .append('g')
         .attr('transform', `translate(${xPos}, ${yPos}) rotate(-90)`);
       
-      // Background pill (centered at origin after rotation)
-      pillGroup.append('rect')
-        .attr('x', -pillWidth / 2)
-        .attr('y', -pillHeight / 2)
-        .attr('width', pillWidth)
-        .attr('height', pillHeight)
-        .attr('rx', pillHeight / 2)
-        .attr('ry', pillHeight / 2)
-        .attr('fill', '#1e293b')
-        .attr('stroke', '#475569')
-        .attr('stroke-width', 1)
-        .attr('fill-opacity', 0.9)
-        .attr('stroke-opacity', 0.8);
       
       // Text label (centered at origin after rotation)
       pillGroup.append('text')
