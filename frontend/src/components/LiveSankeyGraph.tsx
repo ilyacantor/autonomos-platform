@@ -657,9 +657,11 @@ function renderSankey(
         label = label.replace(/\s*\(unified\)\s*/i, '').trim();
       }
       
-      const padding = 4;
-      const fontSize = 10;
-      const pillHeight = 16;
+      // Agent labels are 50% larger
+      const isAgent = nodeData.type === 'agent';
+      const padding = isAgent ? 6 : 4;
+      const fontSize = isAgent ? 15 : 10;
+      const pillHeight = isAgent ? 24 : 16;
       
       // Create a temporary text element to measure width
       const tempText = d3.select(this)
