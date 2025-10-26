@@ -42,7 +42,7 @@ AutonomOS is built with FastAPI, PostgreSQL, Redis, and Python RQ, implementing 
 - **DCL Edge Colors:** Edges from data sources (layer 0) to layer 1 are green (#22c55e). All other edge colors remain unchanged (layer 1→2→3 use original color scheme).
 - **Graph Labels:** Small horizontal pillbox labels (16px height, 10px font) appear on all graph layers, rotated -90° for readability, with dark slate background and subtle borders:
   - Layer 0 (source_parent): Full data source names
-  - Layer 2 (ontology): First word only (e.g., "Usage" from "Usage (unified)")
+  - Layer 2 (ontology): Entity names without "(Unified)" suffix (e.g., "AWS Resources" from "AWS Resources (Unified)")
   - Layer 3 (agent): Full agent names
 
 **System Design Choices:**

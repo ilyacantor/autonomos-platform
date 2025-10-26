@@ -651,10 +651,10 @@ function renderSankey(
     
     // Add labels to source_parent nodes (data sources), ontology nodes, and agent nodes
     if (nodeData && (nodeData.type === 'source_parent' || nodeData.type === 'ontology' || nodeData.type === 'agent')) {
-      // For ontology nodes, extract only the first word
+      // For ontology nodes, remove "(Unified)" or "(unified)" suffix
       let label = d.name || 'Unknown';
       if (nodeData.type === 'ontology') {
-        label = label.split(' ')[0];
+        label = label.replace(/\s*\(unified\)\s*/i, '').trim();
       }
       
       const padding = 4;
