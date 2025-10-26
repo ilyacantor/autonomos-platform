@@ -645,12 +645,12 @@ function renderSankey(
       }
     });
 
-  // Add pillbox labels for data source nodes
+  // Add pillbox labels for data source and agent nodes
   nodeGroups.each(function (this: any, d: any) {
     const nodeData = sankeyNodes.find(n => n.name === d.name);
     
-    // Only add labels to source_parent nodes (data sources)
-    if (nodeData && nodeData.type === 'source_parent') {
+    // Add labels to source_parent nodes (data sources) and agent nodes
+    if (nodeData && (nodeData.type === 'source_parent' || nodeData.type === 'agent')) {
       const label = d.name || 'Unknown';
       const padding = 4;
       const fontSize = 10;
