@@ -645,8 +645,63 @@ function renderSankey(
       }
     });
 
-  nodeGroups.each(function (this: any, _d: any) {
-    return;
+  // Add pillbox labels for data source nodes
+  nodeGroups.each(function (this: any, d: any) {
+    const nodeData = sankeyNodes.find(n => n.name === d.name);
+    
+    // Only add labels to source and source_parent nodes
+    if (nodeData && (nodeData.type === 'source' || nodeData.type === 'source_parent')) {
+      const label = d.name || 'Unknown';
+      const padding = 4;
+      const fontSize = 10;
+      const pillHeight = 16;
+      
+      // Create a temporary text element to measure width
+      const tempText = d3.select(this)
+        .append('text')
+        .attr('font-size', fontSize)
+        .attr('font-family', 'system-ui, -apple-system, sans-serif')
+        .text(label);
+      
+      const textWidth = (tempText.node() as SVGTextElement)?.getComputedTextLength() || 0;
+      tempText.remove();
+      
+      const pillWidth = textWidth + (padding * 2);
+      
+      // Calculate position (offset to the right of the node)
+      const xPos = d.x1 + 8;
+      const yPos = (d.y0 + d.y1) / 2;
+      
+      // Create group for pillbox
+      const pillGroup = d3.select(this).append('g');
+      
+      // Background pill
+      pillGroup.append('rect')
+        .attr('x', xPos)
+        .attr('y', yPos - pillHeight / 2)
+        .attr('width', pillWidth)
+        .attr('height', pillHeight)
+        .attr('rx', pillHeight / 2)
+        .attr('ry', pillHeight / 2)
+        .attr('fill', nodeData.type === 'source_parent' ? '#1e293b' : '#0f172a')
+        .attr('stroke', '#475569')
+        .attr('stroke-width', 1)
+        .attr('fill-opacity', 0.9)
+        .attr('stroke-opacity', 0.8);
+      
+      // Text label
+      pillGroup.append('text')
+        .attr('x', xPos + pillWidth / 2)
+        .attr('y', yPos)
+        .attr('text-anchor', 'middle')
+        .attr('dominant-baseline', 'central')
+        .attr('fill', '#e2e8f0')
+        .attr('font-size', fontSize)
+        .attr('font-family', 'system-ui, -apple-system, sans-serif')
+        .attr('font-weight', '500')
+        .attr('pointer-events', 'none')
+        .text(label);
+    }
   });
 
   function getEdgeTooltip(sourceNodeData: SankeyNode | undefined, targetNodeData: SankeyNode | undefined, linkData: SankeyLink): string {
