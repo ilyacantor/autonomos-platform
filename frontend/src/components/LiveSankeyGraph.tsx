@@ -677,16 +677,6 @@ function renderSankey(
       const xPos = d.x1 + 8;
       const yPos = (d.y0 + d.y1) / 2;
       
-      // Determine stroke color based on node type
-      let strokeColor = '#475569'; // Default gray
-      if (nodeData.type === 'source_parent') {
-        strokeColor = '#22c55e'; // Green for data sources
-      } else if (nodeData.type === 'ontology') {
-        strokeColor = '#a78bfa'; // Purple for unified entities
-      } else if (nodeData.type === 'agent') {
-        strokeColor = '#fb923c'; // Orange for agents
-      }
-      
       // Create group for pillbox, rotated -90 degrees to be horizontal
       const pillGroup = d3.select(this)
         .append('g')
@@ -701,10 +691,10 @@ function renderSankey(
         .attr('rx', pillHeight / 2)
         .attr('ry', pillHeight / 2)
         .attr('fill', '#1e293b')
-        .attr('stroke', strokeColor)
-        .attr('stroke-width', 1.5)
+        .attr('stroke', '#475569')
+        .attr('stroke-width', 1)
         .attr('fill-opacity', 0.9)
-        .attr('stroke-opacity', 1);
+        .attr('stroke-opacity', 0.8);
       
       // Text label (centered at origin after rotation)
       pillGroup.append('text')
