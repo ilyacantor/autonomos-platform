@@ -645,13 +645,18 @@ function renderSankey(
       }
     });
 
-  // Add pillbox labels for data source and agent nodes
+  // Add pillbox labels for data source, ontology, and agent nodes
   nodeGroups.each(function (this: any, d: any) {
     const nodeData = sankeyNodes.find(n => n.name === d.name);
     
-    // Add labels to source_parent nodes (data sources) and agent nodes
-    if (nodeData && (nodeData.type === 'source_parent' || nodeData.type === 'agent')) {
-      const label = d.name || 'Unknown';
+    // Add labels to source_parent nodes (data sources), ontology nodes, and agent nodes
+    if (nodeData && (nodeData.type === 'source_parent' || nodeData.type === 'ontology' || nodeData.type === 'agent')) {
+      // For ontology nodes, extract only the first word
+      let label = d.name || 'Unknown';
+      if (nodeData.type === 'ontology') {
+        label = label.split(' ')[0];
+      }
+      
       const padding = 4;
       const fontSize = 10;
       const pillHeight = 16;
