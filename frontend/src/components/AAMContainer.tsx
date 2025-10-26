@@ -37,7 +37,7 @@ export default function AAMContainer() {
           <img 
             src="/assets/data-source-logos.png" 
             alt="Connected data sources: SAP, HubSpot, Snowflake, Database, Supabase, Datadog, Salesforce, MongoDB"
-            className="h-32 w-auto object-contain"
+            className="h-48 w-auto object-contain"
           />
         </div>
         
