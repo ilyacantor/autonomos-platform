@@ -207,7 +207,7 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
   };
 
   return (
-    <div className="bg-gray-900 rounded-xl border border-gray-800 p-3 sm:p-6 -mt-[5px]">
+    <div id="dcl-graph-container" className="bg-gray-900 rounded-xl border border-gray-800 p-3 sm:p-6 -mt-[5px]">
       {/* Top-Mounted Progress Bar - Shows only for manual/connection-triggered runs */}
       {showProgress && (
         <div className="relative -mx-3 sm:-mx-6 -mt-3 sm:-mt-6 mb-4 h-4 bg-gray-800 rounded-t-xl overflow-hidden">
@@ -276,6 +276,7 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
                       onClick={handleRun}
                       disabled={isProcessing}
                       className="flex items-center gap-1.5 px-3 sm:px-2 py-2 sm:py-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 rounded-md text-xs sm:text-[10px] font-semibold text-white shadow-lg shadow-emerald-500/30 transition-all disabled:opacity-50 justify-center"
+                      title="Go to Connections tab to select data sources"
                     >
                       {isProcessing ? (
                         <>
@@ -351,7 +352,7 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
               />
               <div className="bg-gradient-to-br from-purple-900/80 to-slate-900/80 backdrop-blur-sm rounded-lg border border-purple-500/30 p-4 pointer-events-auto">
                 <p className="text-sm text-gray-200 leading-relaxed">
-                  Provides persistent, versioned data mappings so AI agents can reason with 
+                  Provides persistent, versioned entity mappings so AI Agents can reason with 
                   consistent, validated inputs.
                 </p>
               </div>

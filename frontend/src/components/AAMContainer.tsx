@@ -83,9 +83,7 @@ export default function AAMContainer() {
         {/* Right: Description */}
         <div className="flex items-center">
           <p className="text-2xl text-white leading-relaxed">
-            Connect apps, on-prem systems, databases, data warehouses / lakes, 
-            LLMs, Agents, and more with AI-driven integration and orchestration 
-            across the business.
+            Connects both data, on-prem systems, databases, SaaS platforms / APIs, CSV, Agents, and more through a low-code or no-code interface.
           </p>
         </div>
       </div>
