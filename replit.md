@@ -15,6 +15,8 @@ AutonomOS is built with FastAPI, PostgreSQL, Redis, and Python RQ, implementing 
 - The Ontology page now displays comprehensive mapping information including data sources, source tables, and source fields
 - Enhanced `/ontology_schema` endpoint provides source mapping data extracted from the DCL graph state
 - Table columns include: Entity Name, Primary Key, Unified Fields, Data Sources, Source Tables, and expandable details showing raw data table/field mappings
+- **Data Source Universe View:** New tab showing the complete raw materials hierarchy - all data sources, tables, and fields organized by source system with full drill-down capability
+- Two view modes: "Unified Entities View" (entity-centric) and "Data Source Universe" (source-centric with full raw data catalog)
 
 **UI/UX Decisions:**
 - API documentation via Swagger UI and ReDoc.

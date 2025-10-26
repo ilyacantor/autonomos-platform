@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Database, Search, ChevronDown, ChevronRight, Loader2, AlertCircle, FileText } from 'lucide-react';
+import { Database, Search, ChevronDown, ChevronRight, Loader2, AlertCircle, FileText, Table, Layers, FolderTree } from 'lucide-react';
 import { API_CONFIG } from '../config/api';
 
 interface SourceMapping {
@@ -19,12 +19,21 @@ interface OntologyData {
   [entityName: string]: EntitySchema;
 }
 
+interface DataSourceUniverse {
+  [dataSource: string]: {
+    [tableName: string]: string[];
+  };
+}
+
 export default function OntologyPage() {
   const [ontologyData, setOntologyData] = useState<OntologyData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedEntities, setExpandedEntities] = useState<Set<string>>(new Set());
+  const [expandedDataSources, setExpandedDataSources] = useState<Set<string>>(new Set());
+  const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set());
+  const [viewMode, setViewMode] = useState<'entities' | 'universe'>('entities');
 
   useEffect(() => {
     fetchOntologySchema();
@@ -60,11 +69,72 @@ export default function OntologyPage() {
     });
   };
 
+  const toggleDataSourceExpansion = (dataSource: string) => {
+    setExpandedDataSources(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(dataSource)) {
+        newSet.delete(dataSource);
+      } else {
+        newSet.add(dataSource);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleTableExpansion = (tableKey: string) => {
+    setExpandedTables(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(tableKey)) {
+        newSet.delete(tableKey);
+      } else {
+        newSet.add(tableKey);
+      }
+      return newSet;
+    });
+  };
+
+  // Build the data source universe from ontology data
+  const buildDataSourceUniverse = (): DataSourceUniverse => {
+    const universe: DataSourceUniverse = {};
+    
+    if (!ontologyData) return universe;
+    
+    // Collect all unique combinations of data source + table + fields
+    Object.values(ontologyData).forEach(schema => {
+      schema.source_mappings.forEach(mapping => {
+        const { source_system, source_table, source_fields } = mapping;
+        
+        if (!universe[source_system]) {
+          universe[source_system] = {};
+        }
+        
+        if (!universe[source_system][source_table]) {
+          universe[source_system][source_table] = [];
+        }
+        
+        // Add fields that aren't already in the list
+        source_fields.forEach(field => {
+          if (!universe[source_system][source_table].includes(field)) {
+            universe[source_system][source_table].push(field);
+          }
+        });
+      });
+    });
+    
+    return universe;
+  };
+
+  const dataSourceUniverse = buildDataSourceUniverse();
+
   const filteredEntities = ontologyData
     ? Object.entries(ontologyData).filter(([entityName]) =>
         entityName.toLowerCase().includes(searchQuery.toLowerCase())
       )
     : [];
+
+  const filteredDataSources = Object.entries(dataSourceUniverse).filter(([dataSource]) =>
+    dataSource.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <div className="space-y-6">
@@ -75,12 +145,44 @@ export default function OntologyPage() {
         </p>
       </div>
 
+      {/* View Mode Tabs */}
+      <div className="px-6">
+        <div className="flex gap-2 border-b border-gray-700">
+          <button
+            onClick={() => setViewMode('entities')}
+            className={`px-4 py-2 font-medium text-sm transition-colors border-b-2 ${
+              viewMode === 'entities'
+                ? 'border-blue-500 text-blue-400'
+                : 'border-transparent text-gray-400 hover:text-gray-300'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Layers className="w-4 h-4" />
+              Unified Entities View
+            </div>
+          </button>
+          <button
+            onClick={() => setViewMode('universe')}
+            className={`px-4 py-2 font-medium text-sm transition-colors border-b-2 ${
+              viewMode === 'universe'
+                ? 'border-blue-500 text-blue-400'
+                : 'border-transparent text-gray-400 hover:text-gray-300'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <FolderTree className="w-4 h-4" />
+              Data Source Universe (Raw Materials)
+            </div>
+          </button>
+        </div>
+      </div>
+
       <div className="px-6">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
             type="text"
-            placeholder="Search entities..."
+            placeholder={viewMode === 'entities' ? "Search entities..." : "Search data sources..."}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
@@ -110,7 +212,8 @@ export default function OntologyPage() {
           </div>
         )}
 
-        {!isLoading && !error && ontologyData && (
+        {/* Entities View */}
+        {!isLoading && !error && ontologyData && viewMode === 'entities' && (
           <div className="bg-gray-800/50 border border-gray-700 rounded-lg overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -291,10 +394,115 @@ export default function OntologyPage() {
           </div>
         )}
 
-        {!isLoading && !error && ontologyData && filteredEntities.length > 0 && (
+        {/* Data Source Universe View */}
+        {!isLoading && !error && ontologyData && viewMode === 'universe' && (
+          <div className="space-y-4">
+            {filteredDataSources.length === 0 ? (
+              <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-12 text-center">
+                <FolderTree className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+                <p className="text-gray-400">
+                  {searchQuery ? 'No data sources match your search' : 'No data sources available'}
+                </p>
+              </div>
+            ) : (
+              filteredDataSources.map(([dataSource, tables]) => {
+                const isDataSourceExpanded = expandedDataSources.has(dataSource);
+                const tableCount = Object.keys(tables).length;
+                const totalFields = Object.values(tables).reduce((sum, fields) => sum + fields.length, 0);
+                
+                return (
+                  <div key={dataSource} className="bg-gray-800/50 border border-gray-700 rounded-lg overflow-hidden">
+                    {/* Data Source Header */}
+                    <div
+                      onClick={() => toggleDataSourceExpansion(dataSource)}
+                      className="px-6 py-4 bg-gray-900/30 hover:bg-gray-900/50 cursor-pointer transition-colors"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          {isDataSourceExpanded ? (
+                            <ChevronDown className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                          ) : (
+                            <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                          )}
+                          <Database className="w-5 h-5 text-green-400 flex-shrink-0" />
+                          <h3 className="text-lg font-semibold text-white">{dataSource}</h3>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-900/30 border border-blue-500/30 text-blue-400">
+                            {tableCount} {tableCount === 1 ? 'table' : 'tables'}
+                          </span>
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-purple-900/30 border border-purple-500/30 text-purple-400">
+                            {totalFields} {totalFields === 1 ? 'field' : 'fields'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Tables List */}
+                    {isDataSourceExpanded && (
+                      <div className="px-6 py-4 space-y-3">
+                        {Object.entries(tables).map(([tableName, fields]) => {
+                          const tableKey = `${dataSource}__${tableName}`;
+                          const isTableExpanded = expandedTables.has(tableKey);
+                          
+                          return (
+                            <div key={tableKey} className="bg-gray-900/30 border border-gray-600 rounded-lg overflow-hidden">
+                              {/* Table Header */}
+                              <div
+                                onClick={() => toggleTableExpansion(tableKey)}
+                                className="px-4 py-3 hover:bg-gray-700/30 cursor-pointer transition-colors"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    {isTableExpanded ? (
+                                      <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                    ) : (
+                                      <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                    )}
+                                    <Table className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                                    <code className="text-sm font-medium text-blue-400">{tableName}</code>
+                                  </div>
+                                  <span className="text-xs text-gray-500">
+                                    {fields.length} {fields.length === 1 ? 'field' : 'fields'}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Fields List */}
+                              {isTableExpanded && (
+                                <div className="px-4 py-3 border-t border-gray-700 bg-gray-800/50">
+                                  <div className="flex flex-wrap gap-2">
+                                    {fields.sort().map((field, idx) => (
+                                      <code
+                                        key={idx}
+                                        className="px-3 py-1.5 bg-gray-900 border border-gray-600 rounded text-xs text-gray-300"
+                                      >
+                                        {field}
+                                      </code>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
+
+        {!isLoading && !error && ontologyData && (
           <div className="mt-4 flex items-center justify-between text-sm text-gray-400">
             <span>
-              Showing {filteredEntities.length} of {Object.keys(ontologyData).length} {Object.keys(ontologyData).length === 1 ? 'entity' : 'entities'}
+              {viewMode === 'entities' ? (
+                <>Showing {filteredEntities.length} of {Object.keys(ontologyData).length} {Object.keys(ontologyData).length === 1 ? 'entity' : 'entities'}</>
+              ) : (
+                <>Showing {filteredDataSources.length} of {Object.keys(dataSourceUniverse).length} {Object.keys(dataSourceUniverse).length === 1 ? 'data source' : 'data sources'}</>
+              )}
             </span>
             {searchQuery && (
               <button
