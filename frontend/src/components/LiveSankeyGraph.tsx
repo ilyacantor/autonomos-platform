@@ -445,17 +445,17 @@ function renderSankey(
       const edgeKey = `${sourceNode?.id}-${targetNode?.id}`;
       return animatingEdges.has(edgeKey) ? 'animate-pulse' : '';
     })
-    .style('cursor', (d: any, i: number) => {
-      const originalLink = sankeyLinks[i];
-      return originalLink?.edgeType === 'hierarchy' ? 'default' : 'pointer';
-    })
+    .style('cursor', 'pointer')
     .on('mouseenter', function(event: MouseEvent, d: any) {
       const linkIndex = links.indexOf(d);
       const originalLink = sankeyLinks[linkIndex];
       
-      if (originalLink?.edgeType === 'hierarchy') return;
-      
-      d3.select(this).attr('stroke-opacity', 0.7);
+      // Increase opacity on hover for all edge types
+      if (originalLink?.edgeType === 'hierarchy') {
+        d3.select(this).attr('stroke-opacity', 0.6);
+      } else {
+        d3.select(this).attr('stroke-opacity', 0.7);
+      }
       
       const sourceNodeData = sankeyNodes.find(n => n.name === d.source.name);
       const targetNodeData = sankeyNodes.find(n => n.name === d.target.name);

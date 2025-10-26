@@ -48,6 +48,7 @@ AutonomOS is built with FastAPI, PostgreSQL, Redis, and Python RQ, implementing 
 - **Graph Node Sizing:** Nodes are 8px wide with proper padding (20px) and a clipPath to prevent bleeding outside container bounds.
 - **Dropdown Z-Index:** Profile and Autonomy Mode dropdowns use z-50 for menus and z-40 for overlays to ensure proper visibility above all layout elements. TopBar container has overflow clipping removed to allow dropdowns to extend beyond boundaries.
 - **DCL Edge Colors:** Edges from data sources (layer 0) to layer 1 are green (#22c55e). All other edge colors remain unchanged (layer 1→2→3 use original color scheme).
+- **Edge Hover Tooltips:** All edges display tooltips on hover. Level 0→1 (hierarchy) edges show data source name, table name, and complete list of table fields.
 - **Graph Labels:** Small horizontal pillbox labels (16px height, 10px font) appear on all graph layers, rotated -90° for readability, with dark slate background and subtle borders:
   - Layer 0 (source_parent): Full data source names
   - Layer 2 (ontology): Entity names without "(Unified)" suffix (e.g., "AWS Resources" from "AWS Resources (Unified)")
