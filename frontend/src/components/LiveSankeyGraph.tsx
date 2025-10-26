@@ -402,7 +402,15 @@ function renderSankey(
         return '#475569';
       }
       
+      // Check if edge is from data source (layer 0) to layer 1
+      const sourceNode = state.graph.nodes.find(n => nodeIndexMap[n.id] === originalLink.source);
       const targetNode = sankeyNodes.find(n => n.name === d.target.name);
+      
+      if (sourceNode && (sourceNode.type === 'source' || sourceNode.type === 'source_parent')) {
+        // Edge from data source (layer 0) to layer 1 - make it green
+        return '#22c55e';
+      }
+      
       if (targetNode && targetNode.type === 'agent') {
         return '#9333ea';
       }
