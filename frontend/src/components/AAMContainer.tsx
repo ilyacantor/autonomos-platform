@@ -33,18 +33,19 @@ export default function AAMContainer() {
 
       {/* Data Source Logos */}
       <div className="mb-6">
-        <div className="flex items-center justify-start gap-8 mb-4">
+        <div className="flex items-center justify-center mb-4">
           <img 
             src="/assets/data-source-logos.png" 
             alt="Connected data sources: SAP, HubSpot, Snowflake, Database, Supabase, Datadog, Salesforce, MongoDB"
             className="h-48 w-auto object-contain"
+            style={{ maxWidth: '100%' }}
           />
         </div>
         
-        {/* Connection lines below logos */}
-        <div className="flex items-start justify-start gap-8 ml-8">
-          {Array(7).fill(0).map((_, i) => (
-            <div key={i} className="w-12 h-16 border-l-2 border-cyan-400/60"></div>
+        {/* Connection lines below logos - aligned to match logo positions */}
+        <div className="flex items-start justify-between" style={{ width: '680px', margin: '0 auto' }}>
+          {Array(8).fill(0).map((_, i) => (
+            <div key={i} className="w-1 h-16 bg-cyan-400/60"></div>
           ))}
         </div>
       </div>
@@ -89,10 +90,10 @@ export default function AAMContainer() {
         </div>
       </div>
 
-      {/* Connection lines at bottom */}
-      <div className="flex items-start justify-start gap-8 ml-8">
-        {Array(7).fill(0).map((_, i) => (
-          <div key={i} className="w-12 h-16 border-l-2 border-cyan-400/60"></div>
+      {/* Connection lines at bottom - aligned to match logo positions */}
+      <div className="flex items-start justify-between" style={{ width: '680px', margin: '0 auto' }}>
+        {Array(8).fill(0).map((_, i) => (
+          <div key={i} className="w-1 h-16 bg-cyan-400/60"></div>
         ))}
       </div>
     </div>
