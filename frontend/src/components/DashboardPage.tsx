@@ -6,6 +6,7 @@ import AgentPerformanceMonitor from './AgentPerformanceMonitor';
 import AAMContainer from './AAMContainer';
 import HeroSection from './HeroSection';
 import AgentLayerContainer from './AgentLayerContainer';
+import AutonomOSArchitectureFlow from './AutonomOSArchitectureFlow';
 import {
   mockAgentNodes,
   mockDCLStats,
@@ -18,6 +19,8 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <HeroSection />
+
+      <AutonomOSArchitectureFlow />
 
       <AAMContainer />
 

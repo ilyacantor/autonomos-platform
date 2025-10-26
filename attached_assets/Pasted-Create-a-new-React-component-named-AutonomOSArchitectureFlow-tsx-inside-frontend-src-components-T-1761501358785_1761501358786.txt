@@ -1,0 +1,59 @@
+Create a new React component named AutonomOSArchitectureFlow.tsx inside frontend/src/components/.
+
+This component should visualize the full AutonomOS process in a single, self-contained flow diagram that is viewable at a glance (no scrolling).
+
+Layout
+
+The top flow should read left → right:
+Enterprise Data → Adaptive API Mesh (AAM) → Data Connectivity Layer (DCL)
+
+From the DCL block, the diagram continues vertically downward to:
+Prebuilt Domain Agents → Outcomes
+
+A translucent horizontal ribbon across the top should label the orchestration layer as:
+“Agentic Orchestration Architecture (AOA)”
+
+Styling and Behavior
+
+Follow the current styling conventions and palette already used in the front-end.
+
+Use Tailwind utility classes consistently with existing components.
+
+Each element (AAM, DCL, etc.) should appear as a clean rounded box with concise text inside — no external titles above blocks.
+
+Use connecting lines or subtle arrows to indicate data flow (horizontal across the top, then vertical down).
+
+The layout must automatically fit all boxes in the container regardless of screen size — no horizontal or vertical scrolling.
+
+Ensure it remains visually centered and balanced on desktop and mobile breakpoints.
+
+Export the component as default and integrate it directly below the hero section on the main landing page.
+
+Do not interfere with or alter the DCLGraphContainer or any existing layout logic.
+
+Content for Each Block
+
+Enterprise Data
+Salesforce • SAP • Shopify • Snowflake • MySQL • Google Analytics
+
+Adaptive API Mesh (AAM)
+Dynamic Connectors • Schema Normalization • Policy Enforcement • Secure Data Exchange
+
+Data Connectivity Layer (DCL)
+Auto-Mapping • Semantic Models • Contextual RAG Indexing • Observability • Governance
+
+Prebuilt Domain Agents
+RevOps • FinOps • HROps • CXOps • Custom Agents
+
+Outcomes
+Dashboards • Recommendations • Automated Workflows • Decisions Executed
+
+Definition of Done
+
+All elements visible simultaneously without scrolling.
+
+Consistent with existing AutonomOS design system.
+
+Fully responsive and visually stable on all screen sizes.
+
+Seamlessly integrated below the hero section with no overlap or layout conflicts.
