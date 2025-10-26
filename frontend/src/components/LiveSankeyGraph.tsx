@@ -646,6 +646,21 @@ function renderSankey(
     });
 
   // Add pillbox labels for data source, ontology, and agent nodes
+  // First pass: collect all label data
+  const labelData: Array<{
+    element: any;
+    nodeData: any;
+    d: any;
+    label: string;
+    fontSize: number;
+    pillHeight: number;
+    pillWidth: number;
+    padding: number;
+    xPos: number;
+    yPos: number;
+    borderColor: string;
+  }> = [];
+  
   nodeGroups.each(function (this: any, d: any) {
     const nodeData = sankeyNodes.find(n => n.name === d.name);
     
@@ -679,11 +694,6 @@ function renderSankey(
       const xPos = d.x1 + 8;
       const yPos = (d.y0 + d.y1) / 2;
       
-      // Create group for pillbox, rotated -90 degrees to be horizontal
-      const pillGroup = d3.select(this)
-        .append('g')
-        .attr('transform', `translate(${xPos}, ${yPos}) rotate(-90)`);
-      
       // Determine border color based on node type
       let borderColor = '#475569'; // default slate gray
       if (nodeData.type === 'source_parent') {
@@ -694,33 +704,89 @@ function renderSankey(
         borderColor = '#9333ea'; // purple for agent labels
       }
       
-      // Background pill (centered at origin after rotation)
-      pillGroup.append('rect')
-        .attr('x', -pillWidth / 2)
-        .attr('y', -pillHeight / 2)
-        .attr('width', pillWidth)
-        .attr('height', pillHeight)
-        .attr('rx', pillHeight / 2)
-        .attr('ry', pillHeight / 2)
-        .attr('fill', '#1e293b')
-        .attr('stroke', borderColor)
-        .attr('stroke-width', 1.5)
-        .attr('fill-opacity', 0.9)
-        .attr('stroke-opacity', 0.9);
-      
-      // Text label (centered at origin after rotation)
-      pillGroup.append('text')
-        .attr('x', 0)
-        .attr('y', 0)
-        .attr('text-anchor', 'middle')
-        .attr('dominant-baseline', 'central')
-        .attr('fill', '#e2e8f0')
-        .attr('font-size', fontSize)
-        .attr('font-family', 'system-ui, -apple-system, sans-serif')
-        .attr('font-weight', '500')
-        .attr('pointer-events', 'none')
-        .text(label);
+      labelData.push({
+        element: this,
+        nodeData,
+        d,
+        label,
+        fontSize,
+        pillHeight,
+        pillWidth,
+        padding,
+        xPos,
+        yPos,
+        borderColor
+      });
     }
+  });
+  
+  // Second pass: adjust positions to avoid overlaps and render labels
+  // Group labels by X position (layer) for collision detection
+  const layerGroups = new Map<number, typeof labelData>();
+  labelData.forEach(item => {
+    const layerKey = Math.round(item.xPos);
+    if (!layerGroups.has(layerKey)) {
+      layerGroups.set(layerKey, []);
+    }
+    layerGroups.get(layerKey)!.push(item);
+  });
+  
+  // Adjust Y positions within each layer to prevent overlaps
+  layerGroups.forEach(layerItems => {
+    // Sort by Y position
+    layerItems.sort((a, b) => a.yPos - b.yPos);
+    
+    // Adjust positions if overlapping (labels extend in Y direction after -90° rotation)
+    const minGap = 4; // minimum gap between labels
+    for (let i = 1; i < layerItems.length; i++) {
+      const prev = layerItems[i - 1];
+      const curr = layerItems[i];
+      
+      // After -90° rotation, pillWidth extends vertically
+      const prevBottom = prev.yPos + (prev.pillWidth / 2);
+      const currTop = curr.yPos - (curr.pillWidth / 2);
+      
+      if (prevBottom + minGap > currTop) {
+        // Overlap detected, push current label down
+        const overlap = (prevBottom + minGap) - currTop;
+        curr.yPos += overlap;
+      }
+    }
+  });
+  
+  // Third pass: render all labels with adjusted positions
+  labelData.forEach(item => {
+    // Create group for pillbox, rotated -90 degrees to be horizontal
+    const pillGroup = d3.select(item.element)
+      .append('g')
+      .attr('transform', `translate(${item.xPos}, ${item.yPos}) rotate(-90)`);
+    
+    // Background pill (centered at origin after rotation)
+    pillGroup.append('rect')
+      .attr('x', -item.pillWidth / 2)
+      .attr('y', -item.pillHeight / 2)
+      .attr('width', item.pillWidth)
+      .attr('height', item.pillHeight)
+      .attr('rx', item.pillHeight / 2)
+      .attr('ry', item.pillHeight / 2)
+      .attr('fill', '#1e293b')
+      .attr('stroke', item.borderColor)
+      .attr('stroke-width', 1.5)
+      .attr('fill-opacity', 0.9)
+      .attr('stroke-opacity', 0.9);
+    
+    // Text label (centered at origin after rotation)
+    pillGroup.append('text')
+      .attr('x', 0)
+      .attr('y', 0)
+      .attr('text-anchor', 'middle')
+      .attr('dominant-baseline', 'central')
+      .attr('fill', '#e2e8f0')
+      .attr('font-size', item.fontSize)
+      .attr('font-family', 'system-ui, -apple-system, sans-serif')
+      .attr('font-weight', '500')
+      .attr('pointer-events', 'none')
+      .text(item.label);
   });
 
   function getEdgeTooltip(sourceNodeData: SankeyNode | undefined, targetNodeData: SankeyNode | undefined, linkData: SankeyLink): string {
