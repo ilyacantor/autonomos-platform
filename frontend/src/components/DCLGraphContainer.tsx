@@ -342,23 +342,19 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
             <LiveSankeyGraph />
             
             {/* Agent Robots - positioned to overlap with FinOps/RevOps pilot nodes, horizontally centered */}
-            <div className="absolute bottom-0 left-1/2 pointer-events-none" style={{ transform: 'translate(-50%, 20%)' }}>
+            <div className="absolute bottom-0 left-1/2 flex items-center gap-4 max-w-2xl pointer-events-none" style={{ transform: 'translate(-50%, 20%)' }}>
               <img 
                 src="/assets/robot-agents.png" 
                 alt="AI Agents with holographic interfaces"
                 className="w-80 h-auto object-contain opacity-90"
                 style={{ filter: 'drop-shadow(0 0 20px rgba(147, 51, 234, 0.3))' }}
               />
-            </div>
-          </div>
-
-          {/* Agent Layer Description - centered below graph */}
-          <div className="flex justify-center mt-6">
-            <div className="bg-gradient-to-br from-purple-900/80 to-slate-900/80 backdrop-blur-sm rounded-lg border border-purple-500/30 p-4 max-w-2xl">
-              <p className="text-sm text-gray-200 leading-relaxed text-center">
-                The DCL provides persistent, versioned data mappings so AI agents can reason with 
-                consistent, validated inputs.
-              </p>
+              <div className="bg-gradient-to-br from-purple-900/80 to-slate-900/80 backdrop-blur-sm rounded-lg border border-purple-500/30 p-4 pointer-events-auto">
+                <p className="text-sm text-gray-200 leading-relaxed">
+                  Provides persistent, versioned data mappings so AI agents can reason with 
+                  consistent, validated inputs.
+                </p>
+              </div>
             </div>
           </div>
         </div>
