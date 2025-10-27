@@ -28,7 +28,7 @@ export default function IntelligenceReviewPanel({ mappings, schemaChanges }: Int
   return (
     <>
       <div className="bg-gray-900 rounded-xl border border-gray-800 p-6 h-full flex flex-col">
-        <h2 className="text-lg font-semibold text-white mb-4">Intelligence Review & Schema Drift</h2>
+        <h2 className="text-lg font-medium text-white mb-4">Intelligence Review & Schema Drift</h2>
 
         <div className="flex gap-2 mb-4">
           <button
@@ -78,7 +78,7 @@ export default function IntelligenceReviewPanel({ mappings, schemaChanges }: Int
                       </div>
                     </div>
                     <div
-                      className={`px-2 py-1 rounded text-xs font-semibold ${
+                      className={`px-2 py-1 rounded text-xs ${
                         mapping.confidence >= 75
                           ? 'bg-orange-500/20 text-orange-400'
                           : 'bg-red-500/20 text-red-400'
@@ -127,7 +127,7 @@ export default function IntelligenceReviewPanel({ mappings, schemaChanges }: Int
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-sm font-medium text-white">{change.source}</span>
                         <span
-                          className={`px-2 py-0.5 rounded text-xs font-semibold uppercase ${
+                          className={`px-2 py-0.5 rounded text-xs ${
                             change.changeType === 'added'
                               ? 'bg-green-500/20 text-green-400'
                               : change.changeType === 'modified'
@@ -156,7 +156,7 @@ export default function IntelligenceReviewPanel({ mappings, schemaChanges }: Int
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-gray-900 rounded-xl border border-gray-700 max-w-4xl w-full max-h-[90vh] overflow-auto">
             <div className="sticky top-0 bg-gray-900 border-b border-gray-700 p-6 flex items-center justify-between">
-              <h3 className="text-xl font-semibold text-white">Review Mapping</h3>
+              <h3 className="text-xl font-medium text-white">Review Mapping</h3>
               <button
                 onClick={() => setSelectedMapping(null)}
                 className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
@@ -168,7 +168,7 @@ export default function IntelligenceReviewPanel({ mappings, schemaChanges }: Int
             <div className="p-6">
               <div className="grid grid-cols-2 gap-6 mb-6">
                 <div>
-                  <h4 className="text-sm font-semibold text-gray-400 mb-3 uppercase tracking-wider">
+                  <h4 className="text-sm font-medium text-gray-400 mb-3 tracking-wider">
                     Source Data Snippet
                   </h4>
                   <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
@@ -185,7 +185,7 @@ export default function IntelligenceReviewPanel({ mappings, schemaChanges }: Int
                 </div>
 
                 <div>
-                  <h4 className="text-sm font-semibold text-gray-400 mb-3 uppercase tracking-wider">
+                  <h4 className="text-sm font-medium text-gray-400 mb-3 tracking-wider">
                     Proposed Unified Mapping
                   </h4>
                   <div className="bg-gray-800 rounded-lg p-4 border border-gray-700 mb-4">
@@ -202,7 +202,7 @@ export default function IntelligenceReviewPanel({ mappings, schemaChanges }: Int
                             style={{ width: `${selectedMapping.confidence}%` }}
                           />
                         </div>
-                        <span className="text-lg font-bold text-orange-400">
+                        <span className="text-lg text-orange-400">
                           {selectedMapping.confidence}%
                         </span>
                       </div>
@@ -210,7 +210,7 @@ export default function IntelligenceReviewPanel({ mappings, schemaChanges }: Int
                   </div>
 
                   <div>
-                    <h4 className="text-sm font-semibold text-gray-400 mb-2 uppercase tracking-wider">
+                    <h4 className="text-sm font-medium text-gray-400 mb-2 tracking-wider">
                       LLM Reasoning
                     </h4>
                     <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">

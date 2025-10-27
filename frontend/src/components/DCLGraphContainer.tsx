@@ -226,7 +226,7 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
             }} 
           />
           <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-white text-[10px] font-semibold tracking-wide drop-shadow-lg">
+            <span className="text-white text-[10px] tracking-wide drop-shadow-lg">
               {Math.round(progress)}% Complete
             </span>
           </div>
@@ -235,7 +235,7 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
       
       <div className="mb-4">
         <h2 
-          className="text-lg sm:text-xl font-semibold text-cyan-400 cursor-help" 
+          className="text-lg sm:text-xl font-medium text-cyan-400 cursor-help" 
           title="The Data Connectivity Layer (DCL) links heterogeneous data sources without migrations or ETL. It maps entities to a unified ontology for domain agents to act on."
         >
           Data Connection Layer (DCL)
@@ -257,7 +257,7 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
 
               <div className="flex-1 w-full sm:w-auto">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center sm:justify-between gap-2 mb-2 sm:mb-1">
-                  <h3 className="text-xs sm:text-sm font-semibold text-white">
+                  <h3 className="text-xs sm:text-sm font-medium text-white">
                     Intelligent Mapping & Ontology Engine
                   </h3>
                   <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -278,7 +278,7 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
                     <button
                       onClick={handleRun}
                       disabled={isProcessing}
-                      className="flex items-center gap-1.5 px-3 sm:px-2 py-2 sm:py-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 rounded-md text-xs sm:text-[10px] font-semibold text-white shadow-lg shadow-emerald-500/30 transition-all disabled:opacity-50 justify-center"
+                      className="flex items-center gap-1.5 px-3 sm:px-2 py-2 sm:py-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 rounded-md text-xs sm:text-[10px] text-white shadow-lg shadow-emerald-500/30 transition-all disabled:opacity-50 justify-center"
                       title="Go to Connections tab to select data sources"
                     >
                       {isProcessing ? (
@@ -322,7 +322,7 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
                 <div className="mt-2 pt-2 border-t border-blue-500/20">
                   <button
                     onClick={handleToggleDevMode}
-                    className={`w-full flex items-center justify-between px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all ${
+                    className={`w-full flex items-center justify-between px-3 py-1.5 rounded-md text-[11px] transition-all ${
                       devMode
                         ? 'bg-amber-600/20 border border-amber-500/40 text-amber-300 hover:bg-amber-600/30'
                         : 'bg-emerald-600/20 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-600/30'
@@ -361,16 +361,16 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
           {/* Narration Panel with Typing Animation - MOVED TO TOP FOR PROMINENCE */}
           <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 flex-1">
             <div className="flex items-center gap-2 mb-3">
-              <div className="w-6 h-6 rounded-full bg-purple-500 flex items-center justify-center text-white text-xs font-bold">
+              <div className="w-6 h-6 rounded-full bg-purple-500 flex items-center justify-center text-white text-xs">
                 📝
               </div>
               <span 
-                className="text-white font-bold text-sm cursor-help" 
+                className="text-white text-sm cursor-help" 
                 title="Chronological event log showing every decision, mapping, and execution step. Functions as a transparent, auditable trail of autonomous system behavior."
               >
                 Narration
               </span>
-              <span className="ml-auto text-xs bg-purple-600 text-white px-2 py-0.5 rounded-full font-bold">
+              <span className="ml-auto text-xs bg-purple-600 text-white px-2 py-0.5 rounded-full">
                 {dclState?.events.length || 0} events
               </span>
             </div>
@@ -382,7 +382,7 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
               ) : (
                 typingEvents.map((event, idx) => (
                   <div key={event.key} className="text-gray-300 leading-relaxed">
-                    <span className="text-purple-400 font-bold mr-1">[{idx + 1}]</span>
+                    <span className="text-purple-400 mr-1">[{idx + 1}]</span>
                     {event.isTyping ? <TypingText text={event.text} speed={30} /> : event.text}
                   </div>
                 ))
@@ -393,16 +393,16 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
           {/* RAG Learning Engine - EXACT LEGACY LAYOUT */}
           <div className="rounded-lg p-4 bg-gradient-to-br from-teal-950 to-cyan-950 border border-teal-700/30">
             <div className="flex items-center gap-2 mb-3">
-              <div className="w-6 h-6 rounded-full bg-teal-500 flex items-center justify-center text-white text-xs font-bold">
+              <div className="w-6 h-6 rounded-full bg-teal-500 flex items-center justify-center text-white text-xs">
                 🧠
               </div>
               <span 
-                className="text-white font-bold text-sm cursor-help" 
+                className="text-white text-sm cursor-help" 
                 title="Retrieval-Augmented Generation (RAG) component that enriches context for agent reasoning. It stores embeddings, retrieves related knowledge, and continuously self-tunes mappings."
               >
                 RAG Learning Engine
               </span>
-              <span className="ml-auto text-xs bg-teal-600 text-white px-2 py-0.5 rounded-full font-bold">
+              <span className="ml-auto text-xs bg-teal-600 text-white px-2 py-0.5 rounded-full">
                 {dclState?.rag?.total_mappings || 0} stored
               </span>
             </div>
@@ -413,14 +413,14 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
                 </div>
               ) : (
                 <>
-                  <div className="text-white font-semibold mb-2 text-[11px]">
+                  <div className="text-white mb-2 text-[11px]">
                     Retrieved {dclState.rag.last_retrieval_count} similar mappings:
                   </div>
                   {dclState.rag.retrievals.map((ret: any, i: number) => (
                     <div key={i} className="mb-2 pb-2 border-b border-teal-800/30 last:border-0">
                       <div className="flex justify-between items-start mb-1">
-                        <div className="text-white font-semibold text-[11px]">{ret.source_field}</div>
-                        <div className="text-[10px] text-white font-bold">
+                        <div className="text-white text-[11px]">{ret.source_field}</div>
+                        <div className="text-[10px] text-white">
                           {(ret.similarity * 100).toFixed(0)}%
                         </div>
                       </div>
@@ -442,11 +442,11 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
           {/* Intelligence Review Panel - MOVED TO BOTTOM */}
           <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
             <div className="flex items-center gap-2 mb-3">
-              <div className="w-6 h-6 rounded-full bg-orange-600 flex items-center justify-center text-white text-xs font-bold">
+              <div className="w-6 h-6 rounded-full bg-orange-600 flex items-center justify-center text-white text-xs">
                 🤖
               </div>
               <span 
-                className="text-white font-bold text-sm cursor-help" 
+                className="text-white text-sm cursor-help" 
                 title="Aggregates flagged data quality or mapping anomalies for human or agentic review before execution. Supports auto-correction and retraining triggers."
               >
                 Intelligence Review
@@ -491,7 +491,7 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
                           </div>
                         </div>
                         <div
-                          className={`ml-2 px-1.5 py-0.5 rounded text-[9px] font-bold flex-shrink-0 ${
+                          className={`ml-2 px-1.5 py-0.5 rounded text-[9px] flex-shrink-0 ${
                             mapping.confidence >= 80
                               ? 'bg-green-500/20 text-green-400'
                               : mapping.confidence >= 60

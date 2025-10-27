@@ -31,7 +31,7 @@ export default function AgentPerformanceMonitor({ agents }: AgentPerformanceMoni
     <div className="bg-gray-900 rounded-xl border border-gray-800 p-6 h-full flex flex-col">
       <div className="flex items-center justify-between mb-4">
         <h2 
-          className="text-lg font-semibold text-white cursor-help" 
+          className="text-lg font-medium text-white cursor-help" 
           title="Displays real-time operational metrics for each domain agent. Each row represents execution throughput, CPU, and memory usage per active agent."
         >
           Active Agent Performance
@@ -47,19 +47,19 @@ export default function AgentPerformanceMonitor({ agents }: AgentPerformanceMoni
         <table className="w-full">
           <thead>
             <tr className="border-b border-gray-800">
-              <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider pb-3">
+              <th className="text-left text-xs font-medium text-gray-500 tracking-wider pb-3">
                 Agent
               </th>
-              <th className="text-center text-xs font-semibold text-gray-500 uppercase tracking-wider pb-3">
+              <th className="text-center text-xs font-medium text-gray-500 tracking-wider pb-3">
                 Status
               </th>
-              <th className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider pb-3">
+              <th className="text-right text-xs font-medium text-gray-500 tracking-wider pb-3">
                 Exec/hr
               </th>
-              <th className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider pb-3">
+              <th className="text-right text-xs font-medium text-gray-500 tracking-wider pb-3">
                 CPU
               </th>
-              <th className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider pb-3">
+              <th className="text-right text-xs font-medium text-gray-500 tracking-wider pb-3">
                 Memory
               </th>
             </tr>

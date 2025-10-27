@@ -40,7 +40,7 @@ export default function AutonomyModeToggle() {
           <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
           <div className="absolute right-0 mt-2 w-64 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-50">
             <div className="p-2">
-              <div className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-700 mb-2">
+              <div className="px-3 py-2 text-xs text-slate-500 tracking-wider border-b border-slate-700 mb-2">
                 Select Autonomy Mode
               </div>
               {modes.map((mode) => (

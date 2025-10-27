@@ -87,12 +87,12 @@ export default function AOAStatusCard() {
             className="cursor-help"
             title="AutonomOS Agentic Orchestration Agent (AOA): A persistent, meta-level agent that observes, coordinates, and optimizes the behavior of all other domain agents (FinOps, RevOps, HR, etc.) running on the Data Connectivity Layer (DCL)."
           >
-            <h2 className="text-xl font-semibold text-slate-200">AutonomOS Orchestration Layer</h2>
+            <h2 className="text-xl font-medium text-slate-200">AutonomOS Orchestration Layer</h2>
             <p className="text-sm text-slate-500">Mode: {autonomyMode}</p>
           </div>
         </div>
         <div className={`px-4 py-2 rounded-lg border ${getStateColor(aoaStatus.state)}`}>
-          <span className="text-sm font-semibold">{aoaStatus.state}</span>
+          <span className="text-sm">{aoaStatus.state}</span>
         </div>
       </div>
 
@@ -101,7 +101,7 @@ export default function AOAStatusCard() {
           <Activity className="w-4 h-4 text-cyan-400" />
           <div>
             <div className="text-xs text-slate-500">Agent Uptime</div>
-            <div className={`text-lg font-bold transition-colors ${getVitalColor('uptime', aoaStatus.vitals.agentUptime)}`}>
+            <div className={`text-lg transition-colors ${getVitalColor('uptime', aoaStatus.vitals.agentUptime)}`}>
               {aoaStatus.vitals.agentUptime.toFixed(1)}%
             </div>
           </div>
@@ -111,7 +111,7 @@ export default function AOAStatusCard() {
           <Users className="w-4 h-4 text-cyan-400" />
           <div>
             <div className="text-xs text-slate-500">Active Agents</div>
-            <div className="text-lg font-bold text-cyan-400">
+            <div className="text-lg text-cyan-400">
               {aoaStatus.vitals.activeAgents.current} / {aoaStatus.vitals.activeAgents.total}
             </div>
           </div>
@@ -121,7 +121,7 @@ export default function AOAStatusCard() {
           <XCircle className="w-4 h-4 text-cyan-400" />
           <div>
             <div className="text-xs text-slate-500">Failed Steps (24h)</div>
-            <div className={`text-lg font-bold transition-colors ${getVitalColor('failed', aoaStatus.vitals.failedSteps24h)}`}>
+            <div className={`text-lg transition-colors ${getVitalColor('failed', aoaStatus.vitals.failedSteps24h)}`}>
               {aoaStatus.vitals.failedSteps24h}
             </div>
           </div>
@@ -131,7 +131,7 @@ export default function AOAStatusCard() {
           <AlertTriangle className="w-4 h-4 text-cyan-400" />
           <div>
             <div className="text-xs text-slate-500">Anomalies (24h)</div>
-            <div className={`text-lg font-bold transition-colors ${getVitalColor('anomalies', aoaStatus.vitals.anomalyDetections24h)}`}>
+            <div className={`text-lg transition-colors ${getVitalColor('anomalies', aoaStatus.vitals.anomalyDetections24h)}`}>
               {aoaStatus.vitals.anomalyDetections24h}
             </div>
           </div>
@@ -141,7 +141,7 @@ export default function AOAStatusCard() {
           <UserCheck className="w-4 h-4 text-cyan-400" />
           <div>
             <div className="text-xs text-slate-500">Human Overrides</div>
-            <div className={`text-lg font-bold transition-colors ${getVitalColor('overrides', aoaStatus.vitals.humanOverrides)}`}>
+            <div className={`text-lg transition-colors ${getVitalColor('overrides', aoaStatus.vitals.humanOverrides)}`}>
               {aoaStatus.vitals.humanOverrides}
             </div>
           </div>
@@ -151,7 +151,7 @@ export default function AOAStatusCard() {
           <Zap className="w-4 h-4 text-cyan-400" />
           <div>
             <div className="text-xs text-slate-500">Triggers/min</div>
-            <div className="text-lg font-bold text-cyan-400">
+            <div className="text-lg text-cyan-400">
               {aoaStatus.vitals.triggerCountPerMin}
             </div>
           </div>
@@ -161,7 +161,7 @@ export default function AOAStatusCard() {
           <Cpu className="w-4 h-4 text-cyan-400" />
           <div>
             <div className="text-xs text-slate-500">Compute Load</div>
-            <div className={`text-lg font-bold transition-colors ${getVitalColor('load', aoaStatus.vitals.computeLoadAvg)}`}>
+            <div className={`text-lg transition-colors ${getVitalColor('load', aoaStatus.vitals.computeLoadAvg)}`}>
               {aoaStatus.vitals.computeLoadAvg}%
             </div>
           </div>

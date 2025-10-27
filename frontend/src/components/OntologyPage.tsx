@@ -139,7 +139,7 @@ export default function OntologyPage() {
   return (
     <div className="space-y-6">
       <div className="px-6 py-4 space-y-1">
-        <h1 className="text-2xl font-semibold text-white">Ontology Schema</h1>
+        <h1 className="text-2xl font-medium text-white">Ontology Schema</h1>
         <p className="text-sm text-gray-400">
           Define the canonical entities and their structure for unified data mapping
         </p>
@@ -219,22 +219,22 @@ export default function OntologyPage() {
               <table className="w-full">
                 <thead>
                   <tr className="bg-gray-900/50 border-b border-gray-700">
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs text-gray-400 tracking-wider">
                       Entity Name
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs text-gray-400 tracking-wider">
                       Primary Key
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs text-gray-400 tracking-wider">
                       Unified Fields
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs text-gray-400 tracking-wider">
                       Data Sources
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs text-gray-400 tracking-wider">
                       Source Tables
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs text-gray-400 tracking-wider">
                       Actions
                     </th>
                   </tr>
@@ -260,7 +260,7 @@ export default function OntologyPage() {
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-2">
                               <Database className="w-4 h-4 text-blue-400 flex-shrink-0" />
-                              <span className="font-semibold text-white">{entityName}</span>
+                              <span className="text-white">{entityName}</span>
                             </div>
                           </td>
                           <td className="px-6 py-4">
@@ -269,7 +269,7 @@ export default function OntologyPage() {
                             </code>
                           </td>
                           <td className="px-6 py-4">
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-900/30 border border-purple-500/30 text-purple-400">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs bg-purple-900/30 border border-purple-500/30 text-purple-400">
                               {schema.fields.length} {schema.fields.length === 1 ? 'field' : 'fields'}
                             </span>
                           </td>
@@ -288,7 +288,7 @@ export default function OntologyPage() {
                           </td>
                           <td className="px-6 py-4">
                             {sourceTables.length > 0 ? (
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-900/30 border border-blue-500/30 text-blue-400">
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs bg-blue-900/30 border border-blue-500/30 text-blue-400">
                                 {sourceTables.length} {sourceTables.length === 1 ? 'table' : 'tables'}
                               </span>
                             ) : (
@@ -332,7 +332,7 @@ export default function OntologyPage() {
                 >
                   {/* Unified Fields */}
                   <div>
-                    <h4 className="text-sm font-semibold text-gray-400 mb-3">
+                    <h4 className="text-sm font-medium text-gray-400 mb-3">
                       Unified Fields for <span className="text-white">{entityName}</span>:
                     </h4>
                     <div className="flex flex-wrap gap-2">
@@ -350,7 +350,7 @@ export default function OntologyPage() {
                   {/* Source Mappings */}
                   {schema.source_mappings.length > 0 && (
                     <div>
-                      <h4 className="text-sm font-semibold text-gray-400 mb-3">
+                      <h4 className="text-sm font-medium text-gray-400 mb-3">
                         Source Mappings (Raw Data Tables & Fields):
                       </h4>
                       <div className="space-y-3">
@@ -425,13 +425,13 @@ export default function OntologyPage() {
                             <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
                           )}
                           <Database className="w-5 h-5 text-green-400 flex-shrink-0" />
-                          <h3 className="text-lg font-semibold text-white">{dataSource}</h3>
+                          <h3 className="text-lg font-medium text-white">{dataSource}</h3>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-900/30 border border-blue-500/30 text-blue-400">
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs bg-blue-900/30 border border-blue-500/30 text-blue-400">
                             {tableCount} {tableCount === 1 ? 'table' : 'tables'}
                           </span>
-                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-purple-900/30 border border-purple-500/30 text-purple-400">
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs bg-purple-900/30 border border-purple-500/30 text-purple-400">
                             {totalFields} {totalFields === 1 ? 'field' : 'fields'}
                           </span>
                         </div>

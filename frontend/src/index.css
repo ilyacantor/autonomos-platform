@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  body {
+    font-family: 'Quicksand', sans-serif;
+  }
+}
+
 /* Custom scrollbar styling for RAG Learning Engine and other panels */
 * {
   scrollbar-width: thin;

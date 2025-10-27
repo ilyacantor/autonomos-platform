@@ -28,7 +28,7 @@ export default function AAMContainer() {
     <div className="bg-black border-t border-b border-cyan-500/30 py-12 -mx-6 px-6">
       {/* Title */}
       <div className="mb-8">
-        <h2 className="text-3xl font-semibold text-cyan-400">Adaptive API Mesh (AAM)</h2>
+        <h2 className="text-3xl font-medium text-cyan-400">Adaptive API Mesh (AAM)</h2>
       </div>
 
       {/* Data Source Logos */}
@@ -55,7 +55,7 @@ export default function AAMContainer() {
         {/* Left: Connection Log */}
         <div className="bg-slate-900/80 rounded-lg border border-slate-700/50 p-4">
           <div className="flex items-center gap-2 mb-3">
-            <h3 className="text-sm font-semibold text-slate-200">Connection Log</h3>
+            <h3 className="text-sm font-medium text-slate-200">Connection Log</h3>
             <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
           </div>
           

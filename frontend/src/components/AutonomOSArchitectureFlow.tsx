@@ -5,7 +5,7 @@ export default function AutonomOSArchitectureFlow() {
     <div className="relative px-6 py-12 bg-gradient-to-b from-slate-900/50 to-transparent">
       {/* AOA Ribbon Label */}
       <div className="absolute top-0 left-0 right-0 h-12 bg-cyan-500/10 border-b border-cyan-500/30 flex items-center justify-center">
-        <span className="text-sm font-semibold text-cyan-400 tracking-wide">
+        <span className="text-sm font-medium text-cyan-400 tracking-wide">
           Agentic Orchestration Architecture (AOA)
         </span>
       </div>
@@ -18,7 +18,7 @@ export default function AutonomOSArchitectureFlow() {
           <div className="bg-slate-800/80 border border-slate-600/50 rounded-lg p-6 h-full flex flex-col justify-center">
             <div className="flex items-center gap-2 mb-4 justify-center">
               <Database className="w-5 h-5 text-white" />
-              <h3 className="text-lg font-semibold text-white">
+              <h3 className="text-lg font-medium text-white">
                 Enterprise Data
               </h3>
             </div>
@@ -53,7 +53,7 @@ export default function AutonomOSArchitectureFlow() {
           <div className="bg-gradient-to-br from-cyan-900/40 to-slate-800/80 border border-cyan-500/50 rounded-lg p-6 h-full flex flex-col justify-center">
             <div className="flex items-center gap-2 mb-4 justify-center">
               <GitBranch className="w-5 h-5 text-cyan-400" />
-              <h3 className="text-lg font-semibold text-cyan-400">
+              <h3 className="text-lg font-medium text-cyan-400">
                 Adaptive API Mesh (AAM)
               </h3>
             </div>
@@ -82,7 +82,7 @@ export default function AutonomOSArchitectureFlow() {
           <div className="bg-gradient-to-br from-blue-900/40 to-slate-800/80 border border-blue-500/50 rounded-lg p-6 h-full flex flex-col justify-center">
             <div className="flex items-center gap-2 mb-4 justify-center">
               <Layers className="w-5 h-5 text-blue-400" />
-              <h3 className="text-lg font-semibold text-blue-400">
+              <h3 className="text-lg font-medium text-blue-400">
                 Data Connectivity Layer
               </h3>
             </div>
@@ -114,7 +114,7 @@ export default function AutonomOSArchitectureFlow() {
           <div className="bg-gradient-to-br from-purple-900/40 to-slate-800/80 border border-purple-500/50 rounded-lg p-6 h-full flex flex-col justify-center">
             <div className="flex items-center gap-2 mb-4 justify-center">
               <Zap className="w-5 h-5 text-purple-400" />
-              <h3 className="text-lg font-semibold text-purple-400">
+              <h3 className="text-lg font-medium text-purple-400">
                 Prebuilt Domain Agents
               </h3>
             </div>
@@ -148,7 +148,7 @@ export default function AutonomOSArchitectureFlow() {
           <div className="w-full md:w-[calc((100%-3rem)/4)] bg-gradient-to-br from-green-900/40 to-slate-800/80 border border-green-500/50 rounded-lg p-6">
             <div className="flex items-center gap-2 mb-4 justify-center">
               <CheckCircle className="w-5 h-5 text-green-400" />
-              <h3 className="text-lg font-semibold text-green-400">
+              <h3 className="text-lg font-medium text-green-400">
                 Outcomes
               </h3>
             </div>

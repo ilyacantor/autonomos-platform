@@ -99,7 +99,7 @@ export default function AOAFunctionsPanel() {
 
   return (
     <div className="bg-slate-800/60 rounded-xl border border-slate-700 p-6">
-      <h2 className="text-xl font-semibold text-slate-200 mb-4">AOA Functions</h2>
+      <h2 className="text-xl font-medium text-slate-200 mb-4">AOA Functions</h2>
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {aoaMetrics.map((metric) => {
           const { label, description, fullDescription } = getFunctionLabel(metric.id);
@@ -110,7 +110,7 @@ export default function AOAFunctionsPanel() {
               title={fullDescription}
             >
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-slate-200">{metric.name}</h3>
+                <h3 className="text-sm font-medium text-slate-200">{metric.name}</h3>
                 <span
                   className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(
                     metric.status
@@ -127,7 +127,7 @@ export default function AOAFunctionsPanel() {
                     {description}
                   </div>
                 </div>
-                <div className="text-3xl font-bold text-cyan-400">
+                <div className="text-3xl text-cyan-400">
                   {metric.metric}
                   <span className="text-lg text-slate-500">{metric.unit}</span>
                 </div>

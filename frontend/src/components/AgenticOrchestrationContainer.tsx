@@ -12,13 +12,13 @@ export default function AgenticOrchestrationContainer({ agents }: AgenticOrchest
     <div className="bg-black border-t border-b border-cyan-500/30 py-12 -mx-6 px-6">
       {/* Header */}
       <div className="mb-6">
-        <h2 className="text-3xl font-semibold text-cyan-400 mb-3">
-          AGENTIC ORCHESTRATION AT SCALE
+        <h2 className="text-3xl font-medium text-cyan-400 mb-3">
+          Agentic Orchestration at Scale
         </h2>
         <div className="space-y-1 text-white">
-          <p className="text-base">Orchestrate agents across ecosystems</p>
-          <p className="text-base">Observe every agent interaction in real time</p>
-          <p className="text-base">Govern any agent, built anywhere</p>
+          <p className="text-base font-normal">Orchestrate agents across ecosystems</p>
+          <p className="text-base font-normal">Observe every agent interaction in real time</p>
+          <p className="text-base font-normal">Govern any agent, built anywhere</p>
         </div>
       </div>
 

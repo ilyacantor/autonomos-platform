@@ -110,7 +110,7 @@ export default function TopBar({ user, onPersonaChange, currentPage, onNavigate 
               />
               <div className="absolute right-0 mt-2 w-56 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50">
                 <div className="p-2">
-                  <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  <div className="px-3 py-2 text-xs text-gray-500 tracking-wider">
                     Select Persona
                   </div>
                   {personas.map((persona) => (

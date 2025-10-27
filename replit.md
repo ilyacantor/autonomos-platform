@@ -26,6 +26,7 @@ AutonomOS is built with FastAPI, PostgreSQL, Redis, and Python RQ, implementing 
 - Hero section uses the autonomOS logo image instead of text, with exact styling matching the design spec including varied text colors (cyan for "autonomOS" and "Stop building pipelines", white for other text).
 - DCL header is teal/cyan colored to match the Adaptive API Mesh and Agentic Orchestration sections.
 - Agentic Orchestration at Scale section is unified in a single container with teal header and subheadline describing orchestration capabilities.
+- **Typography:** All text uses Quicksand font (Google Fonts). Headings use font-medium (500 weight), body text uses font-normal (400 weight). All uppercase styling has been removed in favor of normal capitalization.
 - **Architecture Flow Visualization:** New component displaying the complete AutonomOS process flow: Enterprise Data → AAM → DCL → Agents (horizontal), then Agents → Outcomes (vertical), with AOA ribbon overlay. Visible at a glance without scrolling, fully responsive.
 - UI includes a connection timer, horizontal progress bar, and reorganized right sidebar with narration, RAG Learning Engine, and Intelligence Review panels.
 - Graph labels are color-coded pill-shaped boxes with colored borders: green for data source labels, blue for ontology entity labels, purple for agent labels. Each label has a 1.5px border matching its node type or edge color. Agent labels are 50% larger (15px font, 24px height) than other labels for emphasis. Labels use collision detection to prevent overlaps within each layer.

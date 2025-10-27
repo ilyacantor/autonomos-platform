@@ -18,16 +18,16 @@ export default function HeroSection() {
         <h2 className="text-xl font-medium text-white -mt-[79px]">
           The Operating System for the Intelligent Enterprise
         </h2>
-        <p className="text-2xl text-gray-200 max-w-3xl leading-relaxed -mt-12">
-          <span className="text-cyan-400 font-semibold">autonomOS</span> connects, normalizes, maps, and orchestrates
-          your enterprise data <span className="text-cyan-400 font-semibold">automatically</span> — freeing
+        <p className="text-2xl font-normal text-gray-200 max-w-3xl leading-relaxed -mt-12">
+          <span className="text-cyan-400 font-medium">autonomOS</span> connects, normalizes, maps, and orchestrates
+          your enterprise data <span className="text-cyan-400 font-medium">automatically</span> — freeing
           your teams to focus on insights, not integration.
         </p>
       </div>
 
       {/* Value Proposition */}
       <div className="pt-4 -mt-12">
-        <p className="text-3xl font-semibold">
+        <p className="text-3xl font-medium">
           <span className="text-cyan-400">Stop building pipelines.</span> <span className="text-white">Start delivering outcomes.</span>
         </p>
       </div>
@@ -36,7 +36,7 @@ export default function HeroSection() {
       <div className="pt-6 -mt-12">
         <button
           onClick={scrollToDCL}
-          className="bg-cyan-500 hover:bg-cyan-600 text-white font-semibold px-8 py-3 rounded-lg transition-colors duration-200 shadow-lg hover:shadow-cyan-500/50"
+          className="bg-cyan-500 hover:bg-cyan-600 text-white font-medium px-8 py-3 rounded-lg transition-colors duration-200 shadow-lg hover:shadow-cyan-500/50"
         >
           Run Live Demo
         </button>
