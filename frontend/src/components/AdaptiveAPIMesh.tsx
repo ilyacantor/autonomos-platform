@@ -75,19 +75,19 @@ const AdaptiveAPIMesh = () => {
   }, [cycleCount]);
 
   return (
-    <div id="aam-container" className="w-full bg-[#000000] py-8 sm:py-12 md:py-16 px-4 overflow-x-hidden">
-      <div className="max-w-7xl mx-auto overflow-x-hidden">
-        <div className="mb-6 sm:mb-8 text-center px-2">
-          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-[#0BCAD9] mb-3 sm:mb-4">
+    <div id="aam-container" className="w-full bg-[#000000] py-16 px-4">
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-8 text-center">
+          <h2 className="text-4xl font-bold text-[#0BCAD9] mb-4">
             Adaptive API Mesh (AAM)
           </h2>
-          <p className="text-gray-400 text-sm sm:text-base md:text-lg max-w-3xl mx-auto px-2">
+          <p className="text-gray-400 text-lg max-w-3xl mx-auto">
             A three-layer architecture combining universal connectivity with proprietary self-healing intelligence
           </p>
         </div>
 
-        <div className="relative flex items-center justify-center min-h-[300px] sm:min-h-[400px] md:min-h-[450px] perspective-800 overflow-x-hidden">
-          <div className="relative w-full max-w-sm sm:max-w-md md:max-w-3xl lg:max-w-4xl h-auto min-h-[300px] sm:h-[400px] md:h-[450px] flex items-center justify-center mt-0 sm:mt-[-48px] pb-0 sm:pb-[48px] overflow-x-hidden" style={{ transformStyle: 'preserve-3d' }}>
+        <div className="relative flex items-center justify-center min-h-[400px] perspective-800">
+          <div className="relative w-full max-w-4xl h-[450px] flex items-center justify-center mt-[-48px] pb-[48px]" style={{ transformStyle: 'preserve-3d' }}>
             <div className="isometric-layer layer-1">
               <div className="layer-content bg-gradient-to-br from-[#1a2332] to-[#0f1721] border-2 border-gray-600/40">
                 <div className="layer-header">
@@ -171,9 +171,9 @@ const AdaptiveAPIMesh = () => {
         </div>
 
         {/* Connection Log & Description */}
-        <div className="grid grid-cols-1 lg:grid-cols-[450px_1fr] gap-4 sm:gap-6 md:gap-8 max-w-6xl mx-auto mt-6 sm:mt-8 px-2">
+        <div className="grid grid-cols-1 lg:grid-cols-[450px_1fr] gap-8 max-w-6xl mx-auto mt-8">
           {/* Left: Connection Log */}
-          <div className="bg-slate-900/80 rounded-lg border border-slate-700/50 p-3 sm:p-4">
+          <div className="bg-slate-900/80 rounded-lg border border-slate-700/50 p-4">
             <div className="flex items-center gap-2 mb-3">
               <Activity className="w-4 h-4 text-cyan-400" />
               <h3 className="text-sm font-medium text-slate-200">Real-time Connection Monitor</h3>
@@ -210,18 +210,18 @@ const AdaptiveAPIMesh = () => {
           </div>
 
           {/* Right: Description */}
-          <div className="flex flex-col justify-center gap-4 sm:gap-6">
+          <div className="flex flex-col justify-center gap-6">
             <div>
-              <h3 className="text-lg sm:text-xl font-medium text-cyan-400 mb-2 sm:mb-3">Three-Layer Architecture</h3>
-              <p className="text-base sm:text-lg text-slate-300 leading-relaxed">
+              <h3 className="text-xl font-medium text-cyan-400 mb-3">Three-Layer Architecture</h3>
+              <p className="text-lg text-slate-300 leading-relaxed">
                 The AAM is built on a robust foundation (Execution), powered by proprietary self-healing 
                 intelligence (Adaptive Intelligence), and managed through a unified control interface (AOS Control Center).
               </p>
             </div>
             
             <div>
-              <h3 className="text-lg sm:text-xl font-medium text-cyan-400 mb-2 sm:mb-3">Self-Healing Intelligence</h3>
-              <p className="text-base sm:text-lg text-slate-300 leading-relaxed">
+              <h3 className="text-xl font-medium text-cyan-400 mb-3">Self-Healing Intelligence</h3>
+              <p className="text-lg text-slate-300 leading-relaxed">
                 The centerpiece Adaptive Intelligence layer continuously monitors, detects drift, 
                 and autonomously repairs connections—ensuring zero-downtime resilience.
               </p>
@@ -336,141 +336,34 @@ const AdaptiveAPIMesh = () => {
 
         @media (max-width: 1024px) {
           .isometric-layer {
-            width: 280px;
+            width: 300px;
           }
 
           .layer-1 {
-            transform: rotateY(15deg) translateZ(-28px) translateY(-7px) translateX(-224px);
+            transform: rotateY(15deg) translateZ(-30px) translateY(-7.5px) translateX(-240px);
           }
 
           .layer-2 {
-            transform: rotateY(15deg) translateZ(-14px) translateY(-3.5px) translateX(0px);
+            transform: rotateY(15deg) translateZ(-15px) translateY(-3.75px) translateX(0px);
           }
 
           .layer-3 {
-            transform: rotateY(15deg) translateZ(0px) translateX(224px);
+            transform: rotateY(15deg) translateZ(0px) translateX(240px);
           }
         }
 
         @media (max-width: 768px) {
-          .perspective-800 {
-            perspective: 500px;
-          }
-
           .isometric-layer {
             position: relative;
             width: 100%;
-            max-width: 280px;
-            margin: 0 auto 1.25rem;
+            max-width: 300px;
+            margin: 0 auto 1.5rem;
             transform: none !important;
           }
 
           .layer-1, .layer-2, .layer-3 {
             position: relative;
             transform: none !important;
-          }
-
-          .layer-content {
-            padding: 1rem;
-            min-height: 120px;
-          }
-
-          .layer-header {
-            margin-bottom: 1rem;
-          }
-
-          .layer-header h3 {
-            font-size: 1rem;
-          }
-
-          .layer-header p {
-            font-size: 0.75rem;
-          }
-
-          .feature-item {
-            font-size: 0.75rem;
-            padding: 0.375rem;
-            gap: 0.5rem;
-          }
-
-          .feature-item svg {
-            width: 1rem;
-            height: 1rem;
-          }
-
-          .layer-header svg {
-            width: 1.5rem;
-            height: 1.5rem;
-          }
-        }
-
-        @media (max-width: 640px) {
-          .isometric-layer {
-            max-width: 260px;
-          }
-
-          .layer-content {
-            padding: 0.875rem;
-            min-height: 110px;
-          }
-
-          .layer-header {
-            gap: 0.625rem;
-            margin-bottom: 0.875rem;
-          }
-
-          .layer-header h3 {
-            font-size: 0.9375rem;
-          }
-
-          .layer-header p {
-            font-size: 0.6875rem;
-          }
-
-          .feature-item {
-            font-size: 0.6875rem;
-            padding: 0.3125rem;
-            gap: 0.4375rem;
-          }
-        }
-
-        @media (max-width: 400px) {
-          .isometric-layer {
-            max-width: 240px;
-          }
-
-          .layer-content {
-            padding: 0.75rem;
-            min-height: 100px;
-          }
-
-          .layer-header {
-            gap: 0.5rem;
-            margin-bottom: 0.75rem;
-          }
-
-          .layer-header h3 {
-            font-size: 0.875rem;
-          }
-
-          .layer-header p {
-            font-size: 0.625rem;
-          }
-
-          .feature-item {
-            font-size: 0.625rem;
-            padding: 0.25rem;
-            gap: 0.375rem;
-          }
-
-          .feature-item svg {
-            width: 0.875rem;
-            height: 0.875rem;
-          }
-
-          .layer-header svg {
-            width: 1.25rem;
-            height: 1.25rem;
           }
         }
       `}</style>
