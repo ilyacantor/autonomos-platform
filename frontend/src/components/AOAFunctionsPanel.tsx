@@ -99,10 +99,7 @@ export default function AOAFunctionsPanel() {
 
   return (
     <div className="bg-slate-800/60 rounded-xl border border-slate-700 p-6">
-      <div className="mb-4">
-        <h2 className="text-2xl font-medium text-cyan-400 mb-1">AOA Functions</h2>
-        <p className="text-sm text-gray-400">autonomOS Agent metrics</p>
-      </div>
+      <h2 className="text-xl font-medium text-slate-200 mb-4">AOA Functions</h2>
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {aoaMetrics.map((metric) => {
           const { label, description, fullDescription } = getFunctionLabel(metric.id);
