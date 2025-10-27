@@ -13,12 +13,12 @@ export default function HeroSection() {
         <img 
           src="/assets/autonomos-logo.png" 
           alt="autonomOS" 
-          className="h-16 object-contain"
+          className="h-16 object-contain -mt-12 -ml-5"
         />
-        <h2 className="text-xl font-medium text-white">
+        <h2 className="text-xl font-medium text-white -mt-[55px]">
           The Operating System for the Intelligent Enterprise
         </h2>
-        <p className="text-2xl text-gray-200 max-w-3xl leading-relaxed">
+        <p className="text-2xl text-gray-200 max-w-3xl leading-relaxed -mt-12">
           <span className="text-cyan-400 font-semibold">autonomOS</span> connects, normalizes, maps, and orchestrates
           your enterprise data <span className="text-cyan-400 font-semibold">automatically</span> — freeing
           your teams to focus on insights, not integration.
@@ -26,14 +26,14 @@ export default function HeroSection() {
       </div>
 
       {/* Value Proposition */}
-      <div className="pt-4">
+      <div className="pt-4 -mt-12">
         <p className="text-3xl font-semibold">
           <span className="text-cyan-400">Stop building pipelines.</span> <span className="text-white">Start delivering outcomes.</span>
         </p>
       </div>
 
       {/* Run Live Demo Button */}
-      <div className="pt-6">
+      <div className="pt-6 -mt-12">
         <button
           onClick={scrollToDCL}
           className="bg-cyan-500 hover:bg-cyan-600 text-white font-semibold px-8 py-3 rounded-lg transition-colors duration-200 shadow-lg hover:shadow-cyan-500/50"
