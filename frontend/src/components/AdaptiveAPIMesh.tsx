@@ -1,6 +1,78 @@
-import { Database, Brain, Shield, Network, Eye, Wrench, Activity, Zap } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Database, Brain, Shield, Network, Eye, Wrench, Activity, Zap, CheckCircle, AlertCircle, Info } from 'lucide-react';
+
+interface DataSource {
+  id: string;
+  name: string;
+}
+
+interface ConnectionLog {
+  time: string;
+  type: 'success' | 'warning' | 'info' | 'healing';
+  message: string;
+  source?: string;
+}
+
+const dataSources: DataSource[] = [
+  { id: 'salesforce', name: 'Salesforce' },
+  { id: 'sap', name: 'SAP' },
+  { id: 'mongodb', name: 'MongoDB' },
+  { id: 'snowflake', name: 'Snowflake' },
+  { id: 'dynamics', name: 'Dynamics' },
+  { id: 'netsuite', name: 'NetSuite' },
+  { id: 'hubspot', name: 'HubSpot' },
+  { id: 'supabase', name: 'Supabase' },
+];
 
 const AdaptiveAPIMesh = () => {
+  const [healingSource, setHealingSource] = useState<string | null>(null);
+  const [healingPhase, setHealingPhase] = useState<'normal' | 'drift' | 'healing' | 'restored'>('normal');
+  const [logs, setLogs] = useState<ConnectionLog[]>([
+    { time: '17:07:43', type: 'success', message: 'All systems healthy', source: 'system' },
+  ]);
+  const [cycleCount, setCycleCount] = useState(0);
+
+  // Self-healing animation cycle
+  useEffect(() => {
+    const cycle = async () => {
+      await new Promise(resolve => setTimeout(resolve, 4000));
+      
+      const randomSource = dataSources[Math.floor(Math.random() * dataSources.length)];
+      setHealingSource(randomSource.id);
+      
+      setHealingPhase('drift');
+      const driftTime = new Date().toLocaleTimeString('en-US', { hour12: false });
+      setLogs(prev => [
+        { time: driftTime, type: 'warning', message: `${randomSource.name} schema drift detected...`, source: randomSource.id },
+        ...prev.slice(0, 19)
+      ]);
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      setHealingPhase('healing');
+      const healTime = new Date().toLocaleTimeString('en-US', { hour12: false });
+      setLogs(prev => [
+        { time: healTime, type: 'healing', message: `Autonomous remapping initiated for ${randomSource.name}...`, source: randomSource.id },
+        ...prev.slice(0, 19)
+      ]);
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      setHealingPhase('restored');
+      const restoreTime = new Date().toLocaleTimeString('en-US', { hour12: false });
+      setLogs(prev => [
+        { time: restoreTime, type: 'success', message: `${randomSource.name} connection restored ✓`, source: randomSource.id },
+        ...prev.slice(0, 19)
+      ]);
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      setHealingPhase('normal');
+      setHealingSource(null);
+      setCycleCount(c => c + 1);
+    };
+
+    cycle();
+    const interval = setInterval(cycle, 9000);
+    return () => clearInterval(interval);
+  }, [cycleCount]);
 
   return (
     <div className="w-full bg-[#000000] py-16 px-4">
@@ -98,10 +170,63 @@ const AdaptiveAPIMesh = () => {
           </div>
         </div>
 
-        <div className="mt-12 text-center">
-          <p className="text-gray-300 text-lg max-w-3xl mx-auto">
-            Connects data, on-prem systems, databases, SaaS platforms, APIs, CSV, and Agents through intelligent, self-healing infrastructure
-          </p>
+        {/* Connection Log & Description */}
+        <div className="grid grid-cols-1 lg:grid-cols-[450px_1fr] gap-8 max-w-6xl mx-auto mt-16">
+          {/* Left: Connection Log */}
+          <div className="bg-slate-900/80 rounded-lg border border-slate-700/50 p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Activity className="w-4 h-4 text-cyan-400" />
+              <h3 className="text-sm font-medium text-slate-200">Real-time Connection Monitor</h3>
+              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+            </div>
+            
+            <div className="bg-slate-950/60 rounded-md border border-slate-700/30 p-3 max-h-[280px] overflow-y-auto">
+              <div className="space-y-2 font-mono text-xs">
+                {logs.map((log, index) => (
+                  <div key={index} className="flex items-start gap-2 pb-2 border-b border-slate-700/20 last:border-0">
+                    <span className="text-slate-500 flex-shrink-0">{log.time}</span>
+                    {log.type === 'success' && (
+                      <CheckCircle className="w-3 h-3 text-green-400 flex-shrink-0 mt-0.5" />
+                    )}
+                    {log.type === 'warning' && (
+                      <AlertCircle className="w-3 h-3 text-red-400 flex-shrink-0 mt-0.5" />
+                    )}
+                    {log.type === 'healing' && (
+                      <Activity className="w-3 h-3 text-amber-400 flex-shrink-0 mt-0.5 animate-pulse" />
+                    )}
+                    {log.type === 'info' && (
+                      <Info className="w-3 h-3 text-blue-400 flex-shrink-0 mt-0.5" />
+                    )}
+                    <span className={`leading-tight flex-1 ${
+                      log.type === 'warning' ? 'text-red-300' : 
+                      log.type === 'healing' ? 'text-amber-300' : 
+                      log.type === 'success' ? 'text-green-300' : 
+                      'text-slate-300'
+                    }`}>{log.message}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Right: Description */}
+          <div className="flex flex-col justify-center gap-6">
+            <div>
+              <h3 className="text-xl font-medium text-cyan-400 mb-3">Three-Layer Architecture</h3>
+              <p className="text-lg text-slate-300 leading-relaxed">
+                The AAM is built on a robust foundation (Execution), powered by proprietary self-healing 
+                intelligence (Adaptive Intelligence), and managed through a unified control interface (AOS Control Center).
+              </p>
+            </div>
+            
+            <div>
+              <h3 className="text-xl font-medium text-cyan-400 mb-3">Self-Healing Intelligence</h3>
+              <p className="text-lg text-slate-300 leading-relaxed">
+                The centerpiece Adaptive Intelligence layer continuously monitors, detects drift, 
+                and autonomously repairs connections—ensuring zero-downtime resilience.
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
