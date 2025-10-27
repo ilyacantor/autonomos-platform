@@ -241,31 +241,31 @@ const AdaptiveAPIMesh = () => {
 
         .isometric-layer {
           position: absolute;
-          width: 500px;
+          width: 375px;
           transition: transform 0.3s ease;
           transform-origin: center center;
         }
 
         .layer-1 {
-          transform: rotateY(15deg) translateZ(-50px) translateY(-12px) translateX(-280px);
+          transform: rotateY(15deg) translateZ(-37.5px) translateY(-9px) translateX(-210px);
           z-index: 1;
         }
 
         .layer-2 {
-          transform: rotateY(15deg) translateZ(-25px) translateY(-6px) translateX(0px);
+          transform: rotateY(15deg) translateZ(-18.75px) translateY(-4.5px) translateX(0px);
           z-index: 2;
         }
 
         .layer-3 {
-          transform: rotateY(15deg) translateZ(0px) translateX(280px);
+          transform: rotateY(15deg) translateZ(0px) translateX(210px);
           z-index: 3;
         }
 
         .layer-content {
-          padding: 2rem;
-          border-radius: 16px;
+          padding: 1.5rem;
+          border-radius: 12px;
           box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-          min-height: 200px;
+          min-height: 150px;
           position: relative;
         }
 
@@ -336,19 +336,19 @@ const AdaptiveAPIMesh = () => {
 
         @media (max-width: 1024px) {
           .isometric-layer {
-            width: 400px;
+            width: 300px;
           }
 
           .layer-1 {
-            transform: rotateY(15deg) translateZ(-40px) translateY(-10px) translateX(-220px);
+            transform: rotateY(15deg) translateZ(-30px) translateY(-7.5px) translateX(-165px);
           }
 
           .layer-2 {
-            transform: rotateY(15deg) translateZ(-20px) translateY(-5px) translateX(0px);
+            transform: rotateY(15deg) translateZ(-15px) translateY(-3.75px) translateX(0px);
           }
 
           .layer-3 {
-            transform: rotateY(15deg) translateZ(0px) translateX(220px);
+            transform: rotateY(15deg) translateZ(0px) translateX(165px);
           }
         }
 
@@ -356,8 +356,8 @@ const AdaptiveAPIMesh = () => {
           .isometric-layer {
             position: relative;
             width: 100%;
-            max-width: 400px;
-            margin: 0 auto 2rem;
+            max-width: 300px;
+            margin: 0 auto 1.5rem;
             transform: none !important;
           }
 
