@@ -342,7 +342,7 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
             </div>
           </div>
 
-          <div className="relative">
+          <div className="relative pb-24">
             <LiveSankeyGraph />
             
             {/* Agent Robots - positioned to overlap with FinOps/RevOps pilot nodes, horizontally centered */}
@@ -374,7 +374,7 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
                 {dclState?.events.length || 0} events
               </span>
             </div>
-            <div className="text-xs space-y-1 overflow-y-auto max-h-[400px]">
+            <div className="text-xs space-y-1 overflow-y-auto max-h-[200px]">
               {typingEvents.length === 0 ? (
                 <div className="text-gray-500 italic text-[11px]">
                   No events yet. Start mapping to see the narration.
@@ -476,7 +476,7 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
               </button>
             </div>
 
-            <div className="text-xs space-y-2 overflow-y-auto max-h-[350px]">
+            <div className="text-xs space-y-2 overflow-y-auto max-h-[260px]">
               {activeTab === 'review' ? (
                 <div className="space-y-2">
                   {mappings.map((mapping) => (
