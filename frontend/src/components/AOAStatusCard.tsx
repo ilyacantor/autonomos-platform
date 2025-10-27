@@ -96,7 +96,7 @@ export default function AOAStatusCard() {
         </div>
       </div>
 
-      <div className="flex items-center gap-3 mb-6 flex-wrap">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mb-6">
         <div className="flex items-center gap-2 bg-slate-900/50 rounded-lg px-4 py-3 border border-slate-700">
           <Activity className="w-4 h-4 text-cyan-400" />
           <div>
