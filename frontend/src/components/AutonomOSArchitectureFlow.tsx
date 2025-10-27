@@ -75,15 +75,23 @@ export default function AutonomOSArchitectureFlow() {
             <ArrowRight className="w-8 h-8 text-cyan-400" />
           </div>
 
-          {/* Data Connectivity Layer (DCL) */}
-          <div className="bg-gradient-to-br from-blue-900/40 to-slate-800/80 border border-blue-500/50 rounded-lg p-6 h-full flex flex-col justify-center">
+          {/* Data Connectivity Layer (DCL) - Clickable */}
+          <button
+            onClick={() => {
+              const dclContainer = document.getElementById('dcl-graph-container');
+              if (dclContainer) {
+                dclContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }
+            }}
+            className="bg-gradient-to-br from-blue-900/40 to-slate-800/80 border border-blue-500/50 hover:border-blue-400 rounded-lg p-6 h-full flex flex-col justify-center transition-all hover:scale-105 hover:shadow-lg hover:shadow-blue-500/20 cursor-pointer group"
+          >
             <div className="flex items-center gap-2 mb-4 justify-center">
-              <Layers className="w-5 h-5 text-blue-400" />
-              <h3 className="text-lg font-medium text-blue-400">
+              <Layers className="w-5 h-5 text-blue-400 group-hover:text-blue-300" />
+              <h3 className="text-lg font-medium text-blue-400 group-hover:text-blue-300">
                 Data Connectivity Layer
               </h3>
             </div>
-            <div className="flex flex-wrap gap-2 justify-center">
+            <div className="flex flex-wrap gap-2 justify-center mb-3">
               <span className="px-3 py-1.5 rounded-full border border-blue-500/50 text-xs text-gray-300 bg-blue-900/30">
                 Auto-Mapping
               </span>
@@ -100,7 +108,10 @@ export default function AutonomOSArchitectureFlow() {
                 Governance
               </span>
             </div>
-          </div>
+            <div className="text-center text-xs text-blue-300 opacity-0 group-hover:opacity-100 transition-opacity">
+              ↑ Try Interactive Demo
+            </div>
+          </button>
 
           {/* Arrow 3 */}
           <div className="hidden md:flex justify-center">
