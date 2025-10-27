@@ -1,6 +1,6 @@
 import AOADetailsModal from './AOADetailsModal';
 import DCLGraphContainer from './DCLGraphContainer';
-import AAMContainer from './AAMContainer';
+import AdaptiveAPIMesh from './AdaptiveAPIMesh';
 import HeroSection from './HeroSection';
 import AutonomOSArchitectureFlow from './AutonomOSArchitectureFlow';
 import AgenticOrchestrationContainer from './AgenticOrchestrationContainer';
@@ -19,7 +19,7 @@ export default function DashboardPage() {
 
       <AutonomOSArchitectureFlow />
 
-      <AAMContainer />
+      <AdaptiveAPIMesh />
 
       <DCLGraphContainer
         mappings={mockMappingReviews}
