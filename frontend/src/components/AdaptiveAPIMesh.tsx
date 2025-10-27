@@ -77,7 +77,7 @@ const AdaptiveAPIMesh = () => {
   return (
     <div className="w-full bg-[#000000] py-16 px-4">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-12 text-center">
+        <div className="mb-8 text-center">
           <h2 className="text-4xl font-bold text-[#0BCAD9] mb-4">
             Adaptive API Mesh (AAM)
           </h2>
@@ -86,7 +86,7 @@ const AdaptiveAPIMesh = () => {
           </p>
         </div>
 
-        <div className="relative flex items-center justify-center min-h-[600px] perspective-800">
+        <div className="relative flex items-center justify-center min-h-[400px] perspective-800">
           <div className="relative card-container" style={{ transformStyle: 'preserve-3d' }}>
             <div className="isometric-layer layer-1">
               <div className="layer-content bg-gradient-to-br from-[#1a2332] to-[#0f1721] border-2 border-gray-600/40">
@@ -171,7 +171,7 @@ const AdaptiveAPIMesh = () => {
         </div>
 
         {/* Connection Log & Description */}
-        <div className="grid grid-cols-1 lg:grid-cols-[450px_1fr] gap-8 max-w-6xl mx-auto mt-16">
+        <div className="grid grid-cols-1 lg:grid-cols-[450px_1fr] gap-8 max-w-6xl mx-auto mt-8">
           {/* Left: Connection Log */}
           <div className="bg-slate-900/80 rounded-lg border border-slate-700/50 p-4">
             <div className="flex items-center gap-2 mb-3">
