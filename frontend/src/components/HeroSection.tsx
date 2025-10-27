@@ -10,25 +10,16 @@ export default function HeroSection() {
     <div className="px-6 py-12 space-y-6">
       {/* Main Hero Content */}
       <div className="space-y-4">
-        <div className="mb-4">
-          <img 
-            src="/assets/autonomos-logo.png" 
-            alt="autonomOS"
-            className="h-16 w-auto"
-          />
-        </div>
+        <h1 className="text-6xl font-bold text-white">
+          autonomOS
+        </h1>
         <h2 className="text-2xl font-semibold text-white">
           The Operating System for the Intelligent Enterprise
         </h2>
-        <p className="text-lg text-gray-300 max-w-3xl flex items-center gap-2 flex-wrap">
-          <img 
-            src="/assets/autonomos-logo.png" 
-            alt="autonomOS"
-            className="h-6 w-auto inline-block"
-          />
-          <span>connects, normalizes, maps, and orchestrates
+        <p className="text-lg text-gray-300 max-w-3xl">
+          <span className="text-cyan-400 font-semibold">autonomOS</span> connects, normalizes, maps, and orchestrates
           your enterprise data <span className="text-cyan-400 font-semibold">automatically</span> — freeing
-          your teams to focus on insights, not integration.</span>
+          your teams to focus on insights, not integration.
         </p>
       </div>
 
