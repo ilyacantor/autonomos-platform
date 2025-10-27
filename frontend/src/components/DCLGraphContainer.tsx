@@ -235,7 +235,7 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
       
       <div className="mb-4">
         <h2 
-          className="text-lg sm:text-xl font-semibold text-white cursor-help" 
+          className="text-lg sm:text-xl font-semibold text-cyan-400 cursor-help" 
           title="The Data Connectivity Layer (DCL) links heterogeneous data sources without migrations or ETL. It maps entities to a unified ontology for domain agents to act on."
         >
           Data Connection Layer (DCL)

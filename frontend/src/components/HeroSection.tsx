@@ -9,14 +9,16 @@ export default function HeroSection() {
   return (
     <div className="px-6 py-12 space-y-6">
       {/* Main Hero Content */}
-      <div className="space-y-4">
-        <h1 className="text-6xl font-bold text-white">
-          autonomOS
-        </h1>
-        <h2 className="text-2xl font-semibold text-white">
+      <div className="space-y-6">
+        <img 
+          src="/assets/autonomos-logo.png" 
+          alt="autonomOS" 
+          className="h-16 object-contain"
+        />
+        <h2 className="text-xl font-medium text-white">
           The Operating System for the Intelligent Enterprise
         </h2>
-        <p className="text-lg text-gray-300 max-w-3xl">
+        <p className="text-2xl text-gray-200 max-w-3xl leading-relaxed">
           <span className="text-cyan-400 font-semibold">autonomOS</span> connects, normalizes, maps, and orchestrates
           your enterprise data <span className="text-cyan-400 font-semibold">automatically</span> — freeing
           your teams to focus on insights, not integration.
@@ -24,12 +26,9 @@ export default function HeroSection() {
       </div>
 
       {/* Value Proposition */}
-      <div className="pt-4 space-y-2">
-        <p className="text-xl">
-          <span className="text-cyan-400">Stop building pipelines.</span>
-        </p>
-        <p className="text-2xl font-semibold text-white">
-          Start delivering outcomes.
+      <div className="pt-4">
+        <p className="text-3xl font-semibold">
+          <span className="text-cyan-400">Stop building pipelines.</span> <span className="text-white">Start delivering outcomes.</span>
         </p>
       </div>
 
