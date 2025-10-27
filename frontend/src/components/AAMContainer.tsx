@@ -101,7 +101,13 @@ export default function AAMContainer() {
         {/* Isometric Stacked Cards Visualization (HubSpot style) */}
         <div className="relative mb-12 flex items-center justify-center min-h-[500px] py-8">
           {/* Container for stacked cards */}
-          <div className="relative w-full max-w-4xl h-[450px] flex items-center justify-center">
+          <div 
+            className="relative w-full max-w-4xl h-[450px] flex items-center justify-center"
+            style={{
+              perspective: '900px',
+              perspectiveOrigin: 'center center',
+            }}
+          >
             
             {/* Layer 1: Execution Plane (back/bottom) - Furthest back */}
             <div 
@@ -109,19 +115,16 @@ export default function AAMContainer() {
               style={{
                 left: '50%',
                 top: '50%',
-                transform: 'translate(-50%, -50%) translate(-40px, 60px) rotateX(45deg) rotateZ(-8deg)',
+                transform: 'translate(-50%, -50%) rotateY(8deg) translateZ(-36px) translateY(12px)',
+                transformOrigin: 'center center',
+                transition: 'all 0.6s ease-in-out',
                 background: 'linear-gradient(135deg, #1e3a8a 0%, #1e293b 100%)',
-                boxShadow: '0 30px 60px rgba(0, 0, 0, 0.5), inset 1px 1px 0 rgba(148, 163, 184, 0.2), inset -1px -1px 0 rgba(0, 0, 0, 0.4)',
+                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.25)',
                 border: '1px solid rgba(71, 85, 105, 0.5)',
+                zIndex: 10,
               }}
             >
-              {/* Counter-transform wrapper to keep text flat */}
-              <div 
-                className="p-10 h-full relative"
-                style={{
-                  transform: 'rotateZ(8deg) rotateX(-45deg)',
-                }}
-              >
+              <div className="p-10 h-full relative">
                 <div className="absolute inset-0 bg-gradient-to-br from-slate-700/20 to-transparent rounded-lg"></div>
                 <div className="relative z-10">
                   <div className="text-slate-400 text-xs font-medium uppercase tracking-wider mb-2">Layer 1</div>
@@ -151,20 +154,16 @@ export default function AAMContainer() {
               style={{
                 left: '50%',
                 top: '50%',
-                transform: 'translate(-50%, -50%) translate(0px, 15px) rotateX(45deg) rotateZ(-8deg)',
+                transform: 'translate(-50%, -50%) rotateY(8deg) translateZ(-18px) translateY(6px)',
+                transformOrigin: 'center center',
+                transition: 'all 0.6s ease-in-out',
                 background: 'linear-gradient(135deg, #0ea5e9 0%, #06b6d4 50%, #0891b2 100%)',
-                boxShadow: '0 25px 50px rgba(6, 182, 212, 0.4), 0 20px 40px rgba(0, 0, 0, 0.6), inset 1px 1px 0 rgba(255, 255, 255, 0.3), inset -1px -1px 0 rgba(0, 0, 0, 0.3)',
+                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.25)',
                 border: '2px solid rgba(6, 182, 212, 0.8)',
-                zIndex: 10,
+                zIndex: 20,
               }}
             >
-              {/* Counter-transform wrapper to keep text flat */}
-              <div 
-                className="p-10 h-full relative overflow-hidden rounded-lg"
-                style={{
-                  transform: 'rotateZ(8deg) rotateX(-45deg)',
-                }}
-              >
+              <div className="p-10 h-full relative overflow-hidden rounded-lg">
                 {/* Inner glow effects */}
                 <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent"></div>
                 <div className="absolute inset-0 bg-gradient-to-tl from-cyan-300/10 to-transparent"></div>
@@ -212,21 +211,17 @@ export default function AAMContainer() {
               style={{
                 left: '50%',
                 top: '50%',
-                transform: 'translate(-50%, -50%) translate(40px, -30px) rotateX(45deg) rotateZ(-8deg)',
+                transform: 'translate(-50%, -50%) rotateY(8deg) translateZ(0px) translateY(0px)',
+                transformOrigin: 'center center',
+                transition: 'all 0.6s ease-in-out',
                 background: 'linear-gradient(135deg, rgba(148, 163, 184, 0.35) 0%, rgba(203, 213, 225, 0.25) 100%)',
-                boxShadow: '0 20px 40px rgba(0, 0, 0, 0.7), inset 1px 1px 0 rgba(255, 255, 255, 0.4), inset -1px -1px 0 rgba(0, 0, 0, 0.2)',
+                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.25)',
                 border: '1px solid rgba(148, 163, 184, 0.6)',
                 backdropFilter: 'blur(12px)',
-                zIndex: 20,
+                zIndex: 30,
               }}
             >
-              {/* Counter-transform wrapper to keep text flat */}
-              <div 
-                className="p-10 h-full relative"
-                style={{
-                  transform: 'rotateZ(8deg) rotateX(-45deg)',
-                }}
-              >
+              <div className="p-10 h-full relative">
                 <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent rounded-lg"></div>
                 <div className="relative z-10">
                   <div className="text-slate-300 text-xs font-medium uppercase tracking-wider mb-2">Layer 3</div>
