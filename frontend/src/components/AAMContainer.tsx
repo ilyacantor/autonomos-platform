@@ -1,4 +1,4 @@
-import { CheckCircle, AlertCircle, Info } from 'lucide-react';
+  import { CheckCircle, AlertCircle, Info } from 'lucide-react';
 
 const connectionLogs = [
   { time: '17:07:43', type: 'success', message: 'Salesforce API authenticated successfully via OAuth2' },

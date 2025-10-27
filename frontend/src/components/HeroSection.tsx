@@ -13,12 +13,12 @@ export default function HeroSection() {
         <img 
           src="/assets/autonomos-logo.png" 
           alt="autonomOS" 
-          className="h-16 object-contain -mt-12 -ml-5"
+          className="h-16 object-contain -mt-12 -ml-5"  
         />
-        <h2 className="text-xl font-medium text-white">
+        <h2 className="text-xl font-medium text-white mb-1">
           The Operating System for the Intelligent Enterprise
         </h2>
-        <p className="text-2xl font-normal text-gray-200 max-w-3xl leading-snug mt-9 mb-[10px]">
+        <p className="text-2xl font-normal text-gray-200 max-w-3xl leading-tight mt-[-4px] mb-[10px]">
           <span className="text-cyan-400 font-medium">autonomOS</span> connects, normalizes, maps, and orchestrates
           your enterprise data <span className="text-cyan-400 font-medium">automatically</span> — freeing
           your teams to focus on insights, not integration.
@@ -32,13 +32,13 @@ export default function HeroSection() {
         </p>
       </div>
 
-      {/* Run Live Demo Button */}
+      {/* Run Interactive Demo Button */}
       <div className="mt-8">
         <button
           onClick={scrollToDCL}
           className="bg-cyan-500 hover:bg-cyan-600 text-white font-medium px-8 py-3 rounded-lg transition-colors duration-200 shadow-lg hover:shadow-cyan-500/50"
         >
-          Run Live Demo
+          Run Interactive Demo
         </button>
       </div>
     </div>
