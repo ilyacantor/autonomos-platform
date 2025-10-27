@@ -261,6 +261,22 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
                     Intelligent Mapping & Ontology Engine
                   </h3>
                   <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
+                    {/* Dev Mode / Prod Mode Toggle */}
+                    <button
+                      onClick={handleToggleDevMode}
+                      className={`px-2 py-1 rounded text-[10px] transition-all ${
+                        devMode
+                          ? 'bg-amber-600/20 border border-amber-500/40 text-amber-300 hover:bg-amber-600/30'
+                          : 'bg-emerald-600/20 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-600/30'
+                      }`}
+                      title="Toggle between Production Mode (heuristics only) and Dev Mode (AI + RAG active)"
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${devMode ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'}`} />
+                        <span>{devMode ? 'Dev Mode' : 'Prod Mode'}</span>
+                      </div>
+                    </button>
+
                     {/* Data Source Selector */}
                     <select
                       onChange={(e) => {
@@ -337,24 +353,6 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
                       <span className="font-mono">{elapsedTime.toFixed(2)}s</span>
                     </div>
                   )}
-                </div>
-
-                {/* Dev Mode / Prod Mode Toggle */}
-                <div className="mt-2 pt-2 border-t border-blue-500/20">
-                  <button
-                    onClick={handleToggleDevMode}
-                    className={`px-2 py-1 rounded text-[10px] transition-all ${
-                      devMode
-                        ? 'bg-amber-600/20 border border-amber-500/40 text-amber-300 hover:bg-amber-600/30'
-                        : 'bg-emerald-600/20 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-600/30'
-                    }`}
-                    title="Toggle between Production Mode (heuristics only) and Dev Mode (AI + RAG active)"
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${devMode ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'}`} />
-                      <span>{devMode ? 'Dev Mode' : 'Prod Mode'}</span>
-                    </div>
-                  </button>
                 </div>
               </div>
             </div>
