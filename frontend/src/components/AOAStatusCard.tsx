@@ -77,7 +77,7 @@ export default function AOAStatusCard() {
   };
 
   return (
-    <div className="rounded-2xl shadow-md p-6 bg-slate-800/60 border border-slate-700 relative overflow-hidden">
+    <div className="rounded-2xl shadow-md p-6 bg-slate-800/60 border border-slate-700 relative overflow-hidden h-full">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center">
@@ -87,7 +87,7 @@ export default function AOAStatusCard() {
             className="cursor-help"
             title="AutonomOS Agentic Orchestration Agent (AOA): A persistent, meta-level agent that observes, coordinates, and optimizes the behavior of all other domain agents (FinOps, RevOps, HR, etc.) running on the Data Connectivity Layer (DCL)."
           >
-            <h2 className="text-xl font-medium text-slate-200">AutonomOS Orchestration Layer</h2>
+            <h2 className="text-xl font-medium text-cyan-400">AutonomOS Orchestration Layer</h2>
             <p className="text-sm text-slate-500">Mode: {autonomyMode}</p>
           </div>
         </div>
