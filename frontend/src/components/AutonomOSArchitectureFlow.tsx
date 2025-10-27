@@ -21,22 +21,16 @@ export default function AutonomOSArchitectureFlow() {
             </div>
             <div className="flex flex-wrap gap-2 justify-center">
               <span className="px-3 py-1.5 rounded-full border border-slate-500/50 text-xs text-gray-300 bg-slate-700/30">
-                Salesforce
+                SaaS Applications
               </span>
               <span className="px-3 py-1.5 rounded-full border border-slate-500/50 text-xs text-gray-300 bg-slate-700/30">
-                SAP
+                Databases & Warehouses
               </span>
               <span className="px-3 py-1.5 rounded-full border border-slate-500/50 text-xs text-gray-300 bg-slate-700/30">
-                Shopify
+                Legacy Systems
               </span>
               <span className="px-3 py-1.5 rounded-full border border-slate-500/50 text-xs text-gray-300 bg-slate-700/30">
-                Snowflake
-              </span>
-              <span className="px-3 py-1.5 rounded-full border border-slate-500/50 text-xs text-gray-300 bg-slate-700/30">
-                MySQL
-              </span>
-              <span className="px-3 py-1.5 rounded-full border border-slate-500/50 text-xs text-gray-300 bg-slate-700/30">
-                Google Analytics
+                APIs & Files
               </span>
             </div>
           </div>
@@ -56,16 +50,19 @@ export default function AutonomOSArchitectureFlow() {
             </div>
             <div className="flex flex-wrap gap-2 justify-center">
               <span className="px-3 py-1.5 rounded-full border border-cyan-500/50 text-xs text-gray-300 bg-cyan-900/30">
-                Dynamic Connectors
+                Self-Healing Integration
               </span>
               <span className="px-3 py-1.5 rounded-full border border-cyan-500/50 text-xs text-gray-300 bg-cyan-900/30">
-                Schema Normalization
+                Autonomous Drift Repair
               </span>
               <span className="px-3 py-1.5 rounded-full border border-cyan-500/50 text-xs text-gray-300 bg-cyan-900/30">
-                Policy Enforcement
+                Real-time Schema Normalization
               </span>
               <span className="px-3 py-1.5 rounded-full border border-cyan-500/50 text-xs text-gray-300 bg-cyan-900/30">
-                Secure Data Exchange
+                Universal Connectivity
+              </span>
+              <span className="px-3 py-1.5 rounded-full border border-cyan-500/50 text-xs text-gray-300 bg-cyan-900/30">
+                Governed Data Exchange
               </span>
             </div>
           </div>
@@ -93,19 +90,19 @@ export default function AutonomOSArchitectureFlow() {
             </div>
             <div className="flex flex-wrap gap-2 justify-center mb-3">
               <span className="px-3 py-1.5 rounded-full border border-blue-500/50 text-xs text-gray-300 bg-blue-900/30">
-                Auto-Mapping
+                Unified Enterprise Ontology
               </span>
               <span className="px-3 py-1.5 rounded-full border border-blue-500/50 text-xs text-gray-300 bg-blue-900/30">
-                Semantic Models
+                Semantic Context Engine
+              </span>
+              <span className="px-3 py-1.5 rounded-full border border-blue-500/50 text-xs text-gray-300 bg-blue-900/30">
+                AI-Ready Data Streams
               </span>
               <span className="px-3 py-1.5 rounded-full border border-blue-500/50 text-xs text-gray-300 bg-blue-900/30">
                 Contextual RAG Indexing
               </span>
               <span className="px-3 py-1.5 rounded-full border border-blue-500/50 text-xs text-gray-300 bg-blue-900/30">
-                Observability
-              </span>
-              <span className="px-3 py-1.5 rounded-full border border-blue-500/50 text-xs text-gray-300 bg-blue-900/30">
-                Governance
+                Real-time Observability
               </span>
             </div>
             <div className="text-center text-xs text-blue-300 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -128,19 +125,16 @@ export default function AutonomOSArchitectureFlow() {
             </div>
             <div className="flex flex-wrap gap-2 justify-center">
               <span className="px-3 py-1.5 rounded-full border border-purple-500/50 text-xs text-gray-300 bg-purple-900/30">
-                RevOps
+                Productized Domain Expertise
               </span>
               <span className="px-3 py-1.5 rounded-full border border-purple-500/50 text-xs text-gray-300 bg-purple-900/30">
-                FinOps
+                FinOps/RevOps Blueprints
               </span>
               <span className="px-3 py-1.5 rounded-full border border-purple-500/50 text-xs text-gray-300 bg-purple-900/30">
-                HROps
+                Autonomous Workflow Orchestration
               </span>
               <span className="px-3 py-1.5 rounded-full border border-purple-500/50 text-xs text-gray-300 bg-purple-900/30">
-                CXOps
-              </span>
-              <span className="px-3 py-1.5 rounded-full border border-purple-500/50 text-xs text-gray-300 bg-purple-900/30">
-                Custom Agents
+                Custom Agent Deployment
               </span>
             </div>
           </div>
@@ -162,13 +156,19 @@ export default function AutonomOSArchitectureFlow() {
             </div>
             <div className="flex flex-wrap gap-2 justify-center">
               <span className="px-3 py-1.5 rounded-full border border-cyan-500/50 text-xs text-gray-300 bg-cyan-900/30">
-                Dashboards
+                Intent-Driven Operations
               </span>
               <span className="px-3 py-1.5 rounded-full border border-cyan-500/50 text-xs text-gray-300 bg-cyan-900/30">
-                Recommendations
+                Autonomous Execution
               </span>
               <span className="px-3 py-1.5 rounded-full border border-cyan-500/50 text-xs text-gray-300 bg-cyan-900/30">
-                Automated Workflows
+                Insight-to-Action Acceleration
+              </span>
+              <span className="px-3 py-1.5 rounded-full border border-cyan-500/50 text-xs text-gray-300 bg-cyan-900/30">
+                Guaranteed Data Reliability
+              </span>
+              <span className="px-3 py-1.5 rounded-full border border-cyan-500/50 text-xs text-gray-300 bg-cyan-900/30">
+                Proactive Decision Intelligence
               </span>
             </div>
           </div>
