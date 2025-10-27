@@ -2,9 +2,9 @@ import { ArrowRight, ArrowDown, Database, Layers, GitBranch, Zap, CheckCircle } 
 
 export default function AutonomOSArchitectureFlow() {
   return (
-    <div className="relative px-6 py-12 bg-gradient-to-b from-slate-900/50 to-transparent">
-      {/* Main Container */}
-      <div className="max-w-7xl mx-auto">
+    <div className="relative px-6 py-8">
+      {/* Main Container with border */}
+      <div className="max-w-7xl mx-auto border border-cyan-500/20 rounded-lg p-6 bg-gradient-to-b from-slate-900/30 to-transparent">
         {/* Title */}
         <h3 className="text-base font-normal text-cyan-400 mb-6">
           autonomOS Orchestration Platform
@@ -136,31 +136,28 @@ export default function AutonomOSArchitectureFlow() {
         </div>
 
         {/* Vertical Arrow from Agents to Outcomes */}
-        <div className="flex justify-end max-w-7xl mx-auto pr-0 md:pr-4 mb-8">
-          <ArrowDown className="w-8 h-8 text-purple-400" />
+        <div className="flex justify-center mb-8">
+          <ArrowDown className="w-8 h-8 text-cyan-400" />
         </div>
 
-        {/* Outcomes - aligned to the right under Agents */}
-        <div className="flex justify-end max-w-7xl mx-auto">
-          <div className="w-full md:w-[calc((100%-3rem)/4)] bg-gradient-to-br from-green-900/40 to-slate-800/80 border border-green-500/50 rounded-lg p-6">
+        {/* Outcomes - centered below */}
+        <div className="flex justify-center">
+          <div className="w-full md:w-auto bg-gradient-to-br from-cyan-900/40 to-slate-800/80 border border-cyan-500/50 rounded-lg p-6">
             <div className="flex items-center gap-2 mb-4 justify-center">
-              <CheckCircle className="w-5 h-5 text-green-400" />
-              <h3 className="text-lg font-medium text-green-400">
+              <CheckCircle className="w-5 h-5 text-cyan-400" />
+              <h3 className="text-lg font-medium text-cyan-400">
                 Outcomes
               </h3>
             </div>
             <div className="flex flex-wrap gap-2 justify-center">
-              <span className="px-3 py-1.5 rounded-full border border-green-500/50 text-xs text-gray-300 bg-green-900/30">
+              <span className="px-3 py-1.5 rounded-full border border-cyan-500/50 text-xs text-gray-300 bg-cyan-900/30">
                 Dashboards
               </span>
-              <span className="px-3 py-1.5 rounded-full border border-green-500/50 text-xs text-gray-300 bg-green-900/30">
+              <span className="px-3 py-1.5 rounded-full border border-cyan-500/50 text-xs text-gray-300 bg-cyan-900/30">
                 Recommendations
               </span>
-              <span className="px-3 py-1.5 rounded-full border border-green-500/50 text-xs text-gray-300 bg-green-900/30">
+              <span className="px-3 py-1.5 rounded-full border border-cyan-500/50 text-xs text-gray-300 bg-cyan-900/30">
                 Automated Workflows
-              </span>
-              <span className="px-3 py-1.5 rounded-full border border-green-500/50 text-xs text-gray-300 bg-green-900/30">
-                Decisions Executed
               </span>
             </div>
           </div>
