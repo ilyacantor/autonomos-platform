@@ -15,7 +15,7 @@ export default function HeroSection() {
           alt="autonomOS" 
           className="h-16 object-contain -mt-12 -ml-5"
         />
-        <h2 className="text-xl font-medium text-white mt-3">
+        <h2 className="text-xl font-medium text-white">
           The Operating System for the Intelligent Enterprise
         </h2>
         <p className="text-2xl font-normal text-gray-200 max-w-3xl leading-relaxed mt-4">
