@@ -40,15 +40,23 @@ export default function AutonomOSArchitectureFlow() {
             <ArrowRight className="w-8 h-8 text-cyan-400" />
           </div>
 
-          {/* Adaptive API Mesh (AAM) */}
-          <div className="bg-gradient-to-br from-cyan-900/40 to-slate-800/80 border border-cyan-500/50 rounded-lg p-6 h-full flex flex-col justify-center">
+          {/* Adaptive API Mesh (AAM) - Clickable */}
+          <button
+            onClick={() => {
+              const aamContainer = document.getElementById('aam-container');
+              if (aamContainer) {
+                aamContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }
+            }}
+            className="bg-gradient-to-br from-cyan-900/40 to-slate-800/80 border border-cyan-500/50 hover:border-cyan-400 rounded-lg p-6 h-full flex flex-col justify-center transition-all hover:scale-105 hover:shadow-lg hover:shadow-cyan-500/20 cursor-pointer group"
+          >
             <div className="flex items-center gap-2 mb-4 justify-center">
-              <GitBranch className="w-5 h-5 text-cyan-400" />
-              <h3 className="text-lg font-medium text-cyan-400">
+              <GitBranch className="w-5 h-5 text-cyan-400 group-hover:text-cyan-300" />
+              <h3 className="text-lg font-medium text-cyan-400 group-hover:text-cyan-300">
                 Adaptive API Mesh (AAM)
               </h3>
             </div>
-            <div className="flex flex-wrap gap-2 justify-center">
+            <div className="flex flex-wrap gap-2 justify-center mb-3">
               <span className="px-3 py-1.5 rounded-full border border-cyan-500/50 text-xs text-gray-300 bg-cyan-900/30">
                 Self-Healing Integration
               </span>
@@ -65,7 +73,10 @@ export default function AutonomOSArchitectureFlow() {
                 Governed Data Exchange
               </span>
             </div>
-          </div>
+            <div className="text-center text-xs text-cyan-300 opacity-0 group-hover:opacity-100 transition-opacity">
+              ↑ View AAM Details
+            </div>
+          </button>
 
           {/* Arrow 2 */}
           <div className="hidden md:flex justify-center">

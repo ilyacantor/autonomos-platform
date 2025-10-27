@@ -75,7 +75,7 @@ const AdaptiveAPIMesh = () => {
   }, [cycleCount]);
 
   return (
-    <div className="w-full bg-[#000000] py-16 px-4">
+    <div id="aam-container" className="w-full bg-[#000000] py-16 px-4">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8 text-center">
           <h2 className="text-4xl font-bold text-[#0BCAD9] mb-4">
