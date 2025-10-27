@@ -6,7 +6,6 @@ import AppLayout from './components/AppLayout';
 import DashboardPage from './components/DashboardPage';
 import DataLineagePage from './components/DataLineagePage';
 import ConnectionsPage from './components/ConnectionsPage';
-import XAOPage from './components/xAOPage';
 import OntologyPage from './components/OntologyPage';
 import LegacyDCLUI from './components/LegacyDCLUI';
 import AuthModal from './components/AuthModal';
@@ -24,8 +23,6 @@ function AppContent() {
         return <DataLineagePage />;
       case 'connections':
         return <ConnectionsPage />;
-      case 'xao':
-        return <XAOPage />;
       case 'ontology':
         return <OntologyPage />;
       case 'settings':

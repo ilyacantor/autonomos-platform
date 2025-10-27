@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { LayoutDashboard, Cable, Bot, Network, Settings, Bell, ChevronDown, LogOut } from 'lucide-react';
+import { LayoutDashboard, Cable, Network, Settings, Bell, ChevronDown, LogOut } from 'lucide-react';
 import AutonomyModeToggle from './AutonomyModeToggle';
 import { useAuth } from '../hooks/useAuth';
 import type { User, PersonaType } from '../types';
@@ -29,7 +29,6 @@ export default function TopBar({ user, onPersonaChange, currentPage, onNavigate 
   const navItems: NavItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
     { id: 'connections', label: 'Connections', icon: <Cable className="w-5 h-5" /> },
-    { id: 'xao', label: 'xAO', icon: <Bot className="w-5 h-5" />, tooltip: 'Cross-Agentic Orchestration (xAO) coordinates multiple autonomOS instances across federated domains.' },
     { id: 'ontology', label: 'Ontology', icon: <Network className="w-5 h-5" /> },
     { id: 'settings', label: 'Settings', icon: <Settings className="w-5 h-5" /> },
   ];
