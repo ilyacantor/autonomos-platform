@@ -30,7 +30,13 @@ AutonomOS is built with FastAPI, PostgreSQL, Redis, and Python RQ, implementing 
 - **Architecture Flow Visualization:** New component displaying the complete AutonomOS process flow: Enterprise Data → AAM → DCL → Agents (horizontal), then Agents → Outcomes (vertical), with AOA ribbon overlay. Visible at a glance without scrolling, fully responsive.
 - UI includes a connection timer, horizontal progress bar, and reorganized right sidebar with narration, RAG Learning Engine, and Intelligence Review panels.
 - Graph labels are color-coded pill-shaped boxes with colored borders: green for data source labels, blue for ontology entity labels, purple for agent labels. Each label has a 1.5px border matching its node type or edge color. Agent labels are 50% larger (15px font, 24px height) than other labels for emphasis. Labels use collision detection to prevent overlaps within each layer.
-- Mobile optimization includes responsive navigation, enlarged touch targets, compact top bar, and stacking for connections page.
+- **Mobile Optimization:** Comprehensive mobile-first design implementation:
+  - **Global Utilities:** Safe-area padding for notched devices, 44px minimum touch targets, mobile-tap-highlight, horizontal scroll containers, responsive typography scale
+  - **TopBar:** Hamburger menu for <640px screens without scrolling, z-index management (z-50 menu, z-40 overlay), hidden persona text on mobile
+  - **HeroSection:** Full 3-breakpoint typography scaling (text-lg sm:text-xl md:text-2xl pattern), touch-target buttons, responsive logo sizing
+  - **ArchitectureFlow:** Horizontal-scrolling pill tags, vertical mobile arrows, responsive padding, touch-friendly clickable boxes
+  - **DCL Controls:** 2x2 grid layout on mobile (grid-cols-2 sm:flex), 44px touch targets, larger mobile text (text-xs sm:text-[10px])
+  - **Tested:** No layout breakage at 320px, 375px, 428px widths; no horizontal scrolling; all touch targets meet 44px standard
 - DCL graph visualization is clean, minimalist, with only boxes and edges, vertically centered and flowing top to bottom, with labels oriented to match data flow.
 - The AAM container provides an iPaaS-style data flow visualization (Connect → Normalize → Unify) with data source logos and a real-time connection log.
 
