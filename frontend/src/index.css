@@ -211,16 +211,30 @@
     overflow-x: auto;
     overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
+    scrollbar-width: none; /* Hide scrollbar on mobile */
+    max-width: 100%;
+    width: 100%;
   }
   
   .mobile-scroll-x::-webkit-scrollbar {
-    height: 4px;
+    display: none; /* Hide scrollbar on mobile */
   }
   
-  .mobile-scroll-x::-webkit-scrollbar-thumb {
-    background-color: rgba(148, 163, 184, 0.3);
-    border-radius: 2px;
+  /* Show subtle scrollbar on desktop */
+  @media (min-width: 768px) {
+    .mobile-scroll-x {
+      scrollbar-width: thin;
+    }
+    
+    .mobile-scroll-x::-webkit-scrollbar {
+      display: block;
+      height: 4px;
+    }
+    
+    .mobile-scroll-x::-webkit-scrollbar-thumb {
+      background-color: rgba(148, 163, 184, 0.3);
+      border-radius: 2px;
+    }
   }
 
   /* Mobile Card Optimization */
