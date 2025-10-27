@@ -247,7 +247,7 @@ const AdaptiveAPIMesh = () => {
         }
 
         .layer-1 {
-          transform: rotateY(15deg) translateZ(-37.5px) translateY(-9px) translateX(-210px);
+          transform: rotateY(15deg) translateZ(-37.5px) translateY(-9px) translateX(-320px);
           z-index: 1;
         }
 
@@ -257,7 +257,7 @@ const AdaptiveAPIMesh = () => {
         }
 
         .layer-3 {
-          transform: rotateY(15deg) translateZ(0px) translateX(210px);
+          transform: rotateY(15deg) translateZ(0px) translateX(320px);
           z-index: 3;
         }
 
@@ -340,7 +340,7 @@ const AdaptiveAPIMesh = () => {
           }
 
           .layer-1 {
-            transform: rotateY(15deg) translateZ(-30px) translateY(-7.5px) translateX(-165px);
+            transform: rotateY(15deg) translateZ(-30px) translateY(-7.5px) translateX(-240px);
           }
 
           .layer-2 {
@@ -348,7 +348,7 @@ const AdaptiveAPIMesh = () => {
           }
 
           .layer-3 {
-            transform: rotateY(15deg) translateZ(0px) translateX(165px);
+            transform: rotateY(15deg) translateZ(0px) translateX(240px);
           }
         }
 
