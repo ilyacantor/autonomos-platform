@@ -233,13 +233,16 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
         </div>
       )}
       
-      <div className="flex items-center justify-between mb-4">
+      <div className="mb-4">
         <h2 
           className="text-lg sm:text-xl font-semibold text-white cursor-help" 
           title="The Data Connectivity Layer (DCL) links heterogeneous data sources without migrations or ETL. It maps entities to a unified ontology for domain agents to act on."
         >
           Data Connection Layer (DCL)
         </h2>
+        <p className="text-sm text-gray-400 mt-1">
+          Provides persistent, versioned entity mappings so AI Agents can reason with consistent, validated inputs.
+        </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4 lg:gap-6">
@@ -343,19 +346,13 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
             <LiveSankeyGraph />
             
             {/* Agent Robots - positioned to overlap with FinOps/RevOps pilot nodes, horizontally centered */}
-            <div className="absolute bottom-0 left-1/2 flex items-center gap-4 max-w-2xl pointer-events-none" style={{ transform: 'translate(-50%, 20%)' }}>
+            <div className="absolute bottom-0 left-1/2 pointer-events-none" style={{ transform: 'translate(-50%, 20%)' }}>
               <img 
                 src="/assets/robot-agents.png" 
                 alt="AI Agents with holographic interfaces"
                 className="w-80 h-auto object-contain opacity-90"
                 style={{ filter: 'drop-shadow(0 0 20px rgba(147, 51, 234, 0.3))' }}
               />
-              <div className="bg-gradient-to-br from-purple-900/80 to-slate-900/80 backdrop-blur-sm rounded-lg border border-purple-500/30 p-4 pointer-events-auto">
-                <p className="text-sm text-gray-200 leading-relaxed">
-                  Provides persistent, versioned entity mappings so AI Agents can reason with 
-                  consistent, validated inputs.
-                </p>
-              </div>
             </div>
           </div>
         </div>

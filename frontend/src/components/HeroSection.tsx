@@ -14,10 +14,12 @@ export default function HeroSection() {
           autonomOS
         </h1>
         <h2 className="text-2xl font-semibold text-white">
-          The AI Data Connectivity Layer for the Intelligent Enterprise
+          The Operating System for the Intelligent Enterprise
         </h2>
         <p className="text-lg text-gray-300 max-w-3xl">
-          AutonomOS connects, normalizes, and orchestrates your enterprise data dynamically—no manual integration. No code.
+          <span className="text-cyan-400 font-semibold">autonomOS</span> connects, normalizes, maps, and orchestrates
+          your enterprise data <span className="text-cyan-400 font-semibold">automatically</span> — freeing
+          your teams to focus on insights, not integration.
         </p>
       </div>
 
