@@ -126,15 +126,23 @@ export default function AutonomOSArchitectureFlow() {
             <ArrowRight className="w-8 h-8 text-blue-400" />
           </div>
 
-          {/* Prebuilt Domain Agents */}
-          <div className="bg-gradient-to-br from-purple-900/40 to-slate-800/80 border border-purple-500/50 rounded-lg p-6 h-full flex flex-col justify-center">
+          {/* Prebuilt Domain Agents - Clickable */}
+          <button
+            onClick={() => {
+              const agentPerformance = document.getElementById('agent-performance-monitor');
+              if (agentPerformance) {
+                agentPerformance.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }
+            }}
+            className="bg-gradient-to-br from-purple-900/40 to-slate-800/80 border border-purple-500/50 hover:border-purple-400 rounded-lg p-6 h-full flex flex-col justify-center transition-all hover:scale-105 hover:shadow-lg hover:shadow-purple-500/20 cursor-pointer group"
+          >
             <div className="flex items-center gap-2 mb-4 justify-center">
-              <Zap className="w-5 h-5 text-purple-400" />
-              <h3 className="text-lg font-medium text-purple-400">
+              <Zap className="w-5 h-5 text-purple-400 group-hover:text-purple-300" />
+              <h3 className="text-lg font-medium text-purple-400 group-hover:text-purple-300">
                 Prebuilt Domain Agents
               </h3>
             </div>
-            <div className="flex flex-wrap gap-2 justify-center">
+            <div className="flex flex-wrap gap-2 justify-center mb-3">
               <span className="px-3 py-1.5 rounded-full border border-purple-500/50 text-xs text-gray-300 bg-purple-900/30">
                 Productized Domain Expertise
               </span>
@@ -148,7 +156,10 @@ export default function AutonomOSArchitectureFlow() {
                 Custom Agent Deployment
               </span>
             </div>
-          </div>
+            <div className="text-center text-xs text-purple-300 opacity-0 group-hover:opacity-100 transition-opacity">
+              ↓ View Agent Performance
+            </div>
+          </button>
         </div>
 
         {/* Vertical Arrow from Agents to Outcomes */}

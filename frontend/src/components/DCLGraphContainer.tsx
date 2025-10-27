@@ -260,7 +260,28 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
                   <h3 className="text-xs sm:text-sm font-medium text-white">
                     Intelligent Mapping & Ontology Engine
                   </h3>
-                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
+                    {/* Data Source Selector */}
+                    <select
+                      onChange={(e) => {
+                        if (e.target.value === 'select') {
+                          // Navigate to Connections tab
+                          window.dispatchEvent(new CustomEvent('navigate', { detail: { page: 'connections' } }));
+                        } else if (e.target.value === 'all') {
+                          // Select all sources - trigger run with all sources
+                          handleRun();
+                        }
+                        // Reset to default
+                        e.target.value = 'all';
+                      }}
+                      disabled={isProcessing}
+                      className="px-2 py-1 bg-gray-800 border border-gray-700 rounded text-[10px] text-white focus:outline-none focus:border-blue-500 hover:border-gray-600 transition-colors disabled:opacity-50 cursor-pointer"
+                      title="Select data sources"
+                    >
+                      <option value="all">All Sources</option>
+                      <option value="select">Select Sources...</option>
+                    </select>
+
                     {/* LLM Model Selector */}
                     <select
                       value={selectedModel}
@@ -279,7 +300,7 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
                       onClick={handleRun}
                       disabled={isProcessing}
                       className="flex items-center gap-1.5 px-3 sm:px-2 py-2 sm:py-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 rounded-md text-xs sm:text-[10px] text-white shadow-lg shadow-emerald-500/30 transition-all disabled:opacity-50 justify-center"
-                      title="Go to Connections tab to select data sources"
+                      title="Run mapping with selected configuration"
                     >
                       {isProcessing ? (
                         <>
@@ -322,7 +343,7 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
                 <div className="mt-2 pt-2 border-t border-blue-500/20">
                   <button
                     onClick={handleToggleDevMode}
-                    className={`w-full flex items-center justify-between px-3 py-1.5 rounded-md text-[11px] transition-all ${
+                    className={`px-2 py-1 rounded text-[10px] transition-all ${
                       devMode
                         ? 'bg-amber-600/20 border border-amber-500/40 text-amber-300 hover:bg-amber-600/30'
                         : 'bg-emerald-600/20 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-600/30'
@@ -333,9 +354,6 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
                       <div className={`w-2 h-2 rounded-full ${devMode ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'}`} />
                       <span>{devMode ? 'Dev Mode' : 'Prod Mode'}</span>
                     </div>
-                    <span className="text-[9px] opacity-70">
-                      {devMode ? 'AI/RAG Active' : 'Heuristics Only'}
-                    </span>
                   </button>
                 </div>
               </div>

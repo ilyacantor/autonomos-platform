@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AutonomyProvider, useAutonomy } from './contexts/AutonomyContext';
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './hooks/useAuth';
@@ -14,6 +14,22 @@ function AppContent() {
   const [currentPage, setCurrentPage] = useState('dashboard');
   const { legacyMode } = useAutonomy();
   const { isAuthenticated, isLoading } = useAuth();
+
+  // Listen for navigation events from components
+  useEffect(() => {
+    const handleNavigation = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const page = customEvent.detail?.page;
+      if (page) {
+        setCurrentPage(page);
+      }
+    };
+
+    window.addEventListener('navigate', handleNavigation);
+    return () => {
+      window.removeEventListener('navigate', handleNavigation);
+    };
+  }, []);
 
   const renderPage = () => {
     switch (currentPage) {
