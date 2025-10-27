@@ -4,11 +4,11 @@ export default function AutonomOSArchitectureFlow() {
   return (
     <div className="relative px-6 py-8">
       {/* Main Container with border */}
-      <div className="max-w-7xl mx-auto border border-cyan-500/20 rounded-lg p-6 bg-gradient-to-b from-slate-900/30 to-transparent">
-        {/* Title */}
-        <h3 className="text-base font-normal text-cyan-400 mb-6">
+      <div className="max-w-7xl mx-auto border-2 border-cyan-500/30 rounded-lg p-6 bg-gradient-to-b from-slate-900/30 to-transparent relative">
+        {/* Title integrated into border line */}
+        <span className="absolute -top-3 left-6 px-3 text-base font-normal text-cyan-400 bg-slate-950">
           autonomOS Orchestration Platform
-        </h3>
+        </span>
         {/* Horizontal Flow: Enterprise Data → AAM → DCL → Agents */}
         <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr] gap-4 items-center mb-8">
           {/* Enterprise Data */}
