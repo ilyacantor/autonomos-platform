@@ -406,7 +406,7 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
                 {dclState?.rag?.total_mappings || 0} stored
               </span>
             </div>
-            <div className="text-xs space-y-2 overflow-y-scroll overflow-x-hidden min-h-[150px] max-h-[400px]">
+            <div className="text-xs space-y-2 overflow-y-auto overflow-x-hidden min-h-[150px] max-h-[400px]">
               {!dclState?.rag?.retrievals || dclState.rag.retrievals.length === 0 ? (
                 <div className="text-teal-300/70 italic text-[11px]">
                   No context retrieved yet. Connect a source to see RAG retrieve historical mappings.
