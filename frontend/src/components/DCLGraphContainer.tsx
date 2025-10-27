@@ -256,24 +256,25 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
               </div>
 
               <div className="flex-1 w-full sm:w-auto">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center sm:justify-between gap-2 mb-2 sm:mb-1">
-                  <h3 className="text-xs sm:text-sm font-medium text-white">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center sm:justify-between gap-2 sm:gap-3 mb-3 sm:mb-1">
+                  <h3 className="text-sm sm:text-sm font-medium text-white">
                     Intelligent Mapping & Ontology Engine
                   </h3>
-                  <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
+                  {/* Mobile: 2x2 Grid, Desktop: Row */}
+                  <div className="grid grid-cols-2 sm:flex items-center gap-2 w-full sm:w-auto">
                     {/* Dev Mode / Prod Mode Toggle */}
                     <button
                       onClick={handleToggleDevMode}
-                      className={`px-2 py-1 rounded text-[10px] transition-all ${
+                      className={`touch-target-h mobile-tap-highlight px-3 py-2 sm:px-2 sm:py-1 rounded text-xs sm:text-[10px] transition-all ${
                         devMode
                           ? 'bg-amber-600/20 border border-amber-500/40 text-amber-300 hover:bg-amber-600/30'
                           : 'bg-emerald-600/20 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-600/30'
                       }`}
                       title="Toggle between Production Mode (heuristics only) and Dev Mode (AI + RAG active)"
                     >
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 justify-center">
                         <div className={`w-2 h-2 rounded-full ${devMode ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'}`} />
-                        <span>{devMode ? 'Dev Mode' : 'Prod Mode'}</span>
+                        <span className="whitespace-nowrap">{devMode ? 'Dev Mode' : 'Prod Mode'}</span>
                       </div>
                     </button>
 
@@ -281,17 +282,14 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
                     <select
                       onChange={(e) => {
                         if (e.target.value === 'select') {
-                          // Navigate to Connections tab
                           window.dispatchEvent(new CustomEvent('navigate', { detail: { page: 'connections' } }));
                         } else if (e.target.value === 'all') {
-                          // Select all sources - trigger run with all sources
                           handleRun();
                         }
-                        // Reset to default
                         e.target.value = 'all';
                       }}
                       disabled={isProcessing}
-                      className="px-2 py-1 bg-gray-800 border border-gray-700 rounded text-[10px] text-white focus:outline-none focus:border-blue-500 hover:border-gray-600 transition-colors disabled:opacity-50 cursor-pointer"
+                      className="touch-target-h mobile-tap-highlight px-3 py-2 sm:px-2 sm:py-1 bg-gray-800 border border-gray-700 rounded text-xs sm:text-[10px] text-white focus:outline-none focus:border-blue-500 hover:border-gray-600 transition-colors disabled:opacity-50 cursor-pointer"
                       title="Select data sources"
                     >
                       <option value="all">All Sources</option>
@@ -303,7 +301,7 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
                       value={selectedModel}
                       onChange={(e) => setSelectedModel(e.target.value)}
                       disabled={isProcessing}
-                      className="px-2 py-1 bg-gray-800 border border-gray-700 rounded text-[10px] text-white focus:outline-none focus:border-blue-500 hover:border-gray-600 transition-colors disabled:opacity-50 cursor-pointer"
+                      className="touch-target-h mobile-tap-highlight px-3 py-2 sm:px-2 sm:py-1 bg-gray-800 border border-gray-700 rounded text-xs sm:text-[10px] text-white focus:outline-none focus:border-blue-500 hover:border-gray-600 transition-colors disabled:opacity-50 cursor-pointer"
                       title="Select LLM model for intelligent mapping"
                     >
                       <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
@@ -315,21 +313,21 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
                     <button
                       onClick={handleRun}
                       disabled={isProcessing}
-                      className="flex items-center gap-1.5 px-3 sm:px-2 py-2 sm:py-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 rounded-md text-xs sm:text-[10px] text-white shadow-lg shadow-emerald-500/30 transition-all disabled:opacity-50 justify-center"
+                      className="touch-target-h mobile-tap-highlight flex items-center gap-1.5 px-4 sm:px-2 py-2 sm:py-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 rounded-md text-xs sm:text-[10px] text-white shadow-lg shadow-emerald-500/30 transition-all disabled:opacity-50 justify-center"
                       title="Run mapping with selected configuration"
                     >
                       {isProcessing ? (
                         <>
-                          <svg className="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <svg className="animate-spin h-3 w-3 sm:h-3 sm:w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                           </svg>
-                          Processing...
+                          <span className="hidden sm:inline">Processing...</span>
                         </>
                       ) : (
                         <>
-                          <Play className="w-3 h-3" />
-                          Run
+                          <Play className="w-3 h-3 sm:w-3 sm:h-3" />
+                          <span>Run</span>
                         </>
                       )}
                     </button>
