@@ -414,9 +414,9 @@ async def llm_propose(
                     seen.add(key)
                     unique_similar.append(mapping)
             
-            # Build context from top 3 most similar (reduced from 5 for faster LLM processing)
+            # Build context from top similar mappings (all available for frontend display)
             unique_similar.sort(key=lambda x: x.get('similarity', 0), reverse=True)
-            top_similar = unique_similar[:3]
+            top_similar = unique_similar  # Show all retrievals (no limit)
             
             if top_similar:
                 rag_context = rag_engine.build_context_for_llm(top_similar)
@@ -569,7 +569,7 @@ def validate_mapping_semantics_llm(source_key: str, table_name: str, entity: str
                 field_name=table_name,
                 field_type="table",
                 source_system=source_key,
-                top_k=3
+                top_k=10
             )
             if similar_mappings:
                 rag_context = "\nPrevious validated mappings for context:\n"

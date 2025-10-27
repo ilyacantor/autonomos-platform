@@ -124,8 +124,8 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
     
     if (timerStarted && isProcessing) {
       interval = setInterval(() => {
-        setElapsedTime(prev => prev + 0.1);
-      }, 100);
+        setElapsedTime(prev => prev + 0.01);
+      }, 10);
     }
     
     return () => {
@@ -313,7 +313,7 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
                       <svg className="w-3 h-3 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
-                      <span className="font-mono">{elapsedTime.toFixed(1)}s</span>
+                      <span className="font-mono">{elapsedTime.toFixed(2)}s</span>
                     </div>
                   )}
                 </div>
