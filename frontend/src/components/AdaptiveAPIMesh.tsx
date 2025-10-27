@@ -87,7 +87,7 @@ const AdaptiveAPIMesh = () => {
         </div>
 
         <div className="relative flex items-center justify-center min-h-[400px] perspective-800">
-          <div className="relative w-full max-w-4xl h-[450px] flex items-center justify-start mt-[-48px] ml-[-32px] pb-[48px]" style={{ transformStyle: 'preserve-3d' }}>
+          <div className="relative w-full max-w-4xl h-[450px] flex items-center justify-center mt-[-48px] pb-[48px]" style={{ transformStyle: 'preserve-3d' }}>
             <div className="isometric-layer layer-1">
               <div className="layer-content bg-gradient-to-br from-[#1a2332] to-[#0f1721] border-2 border-gray-600/40">
                 <div className="layer-header">
