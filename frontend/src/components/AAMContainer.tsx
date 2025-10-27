@@ -420,8 +420,6 @@ export default function AAMContainer() {
 
         {/* CONCEPT 2: Chaos to Order Transformation */}
         <div className="mb-12">
-          <h3 className="text-xl font-medium text-cyan-300 mb-4 text-center">Concept 2: Resilient Shield (From Chaos to Order)</h3>
-          
           <svg 
             viewBox="0 0 1000 400" 
             className="w-full max-w-6xl mx-auto"
@@ -444,20 +442,31 @@ export default function AAMContainer() {
               </filter>
             </defs>
 
-            {/* LEFT: External Chaos - Disorganized logos with chaotic lines */}
+            {/* LEFT: External Chaos - Disorganized logos with wavy one-to-one lines */}
             <g>
-              {/* Chaotic connection lines */}
+              {/* One-to-one wavy connection lines from each logo */}
               {dataSources.map((source, idx) => {
                 const colors = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#f97316', '#14b8a6'];
-                const startX = 100;
-                const startY = 80 + idx * 40;
-                const endX = 380;
-                const endY = 200;
+                const logoSize = 32;
+                const logoX = 50 + (idx % 2) * 60;
+                const logoY = 60 + idx * 40;
+                
+                // Gateway entrance point (vertically distributed)
+                const gatewayX = 400;
+                const gatewayY = 80 + idx * 30;
+                
+                // Create smooth wavy path
+                const midX1 = logoX + (gatewayX - logoX) * 0.33;
+                const midY1 = logoY + (gatewayY - logoY) * 0.33 + (Math.sin(idx) * 20);
+                const midX2 = logoX + (gatewayX - logoX) * 0.66;
+                const midY2 = logoY + (gatewayY - logoY) * 0.66 + (Math.cos(idx) * 20);
+                
+                const wavyPath = `M ${logoX} ${logoY} C ${midX1} ${midY1}, ${midX2} ${midY2}, ${gatewayX} ${gatewayY}`;
                 
                 return (
                   <path
                     key={`chaos-${source.id}`}
-                    d={createChaoticPath(startX, startY, endX, endY, 80)}
+                    d={wavyPath}
                     stroke={colors[idx % colors.length]}
                     strokeWidth="2"
                     fill="none"
@@ -536,52 +545,62 @@ export default function AAMContainer() {
                 AAM Gateway
               </text>
               
-              {/* Processing particles animation */}
-              {[0, 1, 2, 3, 4].map((i) => (
-                <circle
-                  key={`particle-${i}`}
-                  cx="430"
-                  cy="100"
-                  r="3"
+              {/* Floating words through gateway */}
+              {['API Gateway', 'OAuth', 'Connector', 'Endpoint', 'Normalization', 'Schema', 'Trigger', 'Action', 'Batch Sync'].map((word, i) => (
+                <text
+                  key={`word-${i}`}
+                  x="430"
+                  y="100"
+                  textAnchor="middle"
                   fill="#06b6d4"
+                  fontSize="11"
+                  fontWeight="500"
                   opacity="0"
                 >
+                  {word}
                   <animate
-                    attributeName="cy"
-                    values="100;300"
-                    dur="2s"
-                    begin={`${i * 0.4}s`}
+                    attributeName="y"
+                    values="60;340"
+                    dur="5s"
+                    begin={`${i * 0.5}s`}
                     repeatCount="indefinite"
                   />
                   <animate
                     attributeName="opacity"
-                    values="0;1;0"
-                    dur="2s"
-                    begin={`${i * 0.4}s`}
+                    values="0;1;1;0"
+                    keyTimes="0;0.1;0.9;1"
+                    dur="5s"
+                    begin={`${i * 0.5}s`}
                     repeatCount="indefinite"
                   />
-                </circle>
+                </text>
               ))}
             </g>
 
             {/* RIGHT: Normalized Order - Unified cyan streams */}
             <g>
-              {/* Straight parallel streams flowing out */}
+              {/* Wavy streams flowing out from gateway */}
               {[0, 1, 2, 3, 4, 5, 6, 7].map((idx) => {
-                const startX = 480;
-                const startY = 110 + idx * 30;
+                const gatewayX = 460;
+                const gatewayY = 80 + idx * 30;
                 const endX = 920;
-                const endY = startY;
+                const endY = 110 + idx * 30;
+                
+                // Create smooth wavy path to the right
+                const midX1 = gatewayX + (endX - gatewayX) * 0.33;
+                const midY1 = gatewayY + (endY - gatewayY) * 0.33 + (Math.sin(idx * 0.5) * 15);
+                const midX2 = gatewayX + (endX - gatewayX) * 0.66;
+                const midY2 = gatewayY + (endY - gatewayY) * 0.66 + (Math.cos(idx * 0.5) * 10);
+                
+                const wavyPath = `M ${gatewayX} ${gatewayY} C ${midX1} ${midY1}, ${midX2} ${midY2}, ${endX} ${endY}`;
                 
                 return (
                   <g key={`order-${idx}`}>
-                    <line
-                      x1={startX}
-                      y1={startY}
-                      x2={endX}
-                      y2={endY}
+                    <path
+                      d={wavyPath}
                       stroke="#06b6d4"
                       strokeWidth="3"
+                      fill="none"
                       opacity="0.8"
                     >
                       <animate
@@ -590,21 +609,18 @@ export default function AAMContainer() {
                         dur="2s"
                         repeatCount="indefinite"
                       />
-                    </line>
+                    </path>
                     
-                    {/* Flow animation */}
+                    {/* Flow animation particle along the wavy path */}
                     <circle
-                      cx={startX}
-                      cy={startY}
                       r="4"
                       fill="#06b6d4"
                     >
-                      <animate
-                        attributeName="cx"
-                        values={`${startX};${endX}`}
+                      <animateMotion
                         dur="3s"
                         begin={`${idx * 0.2}s`}
                         repeatCount="indefinite"
+                        path={wavyPath}
                       />
                       <animate
                         attributeName="opacity"
@@ -623,7 +639,7 @@ export default function AAMContainer() {
                 Normalized Order
               </text>
               
-              {/* Unified data indicator */}
+              {/* Normalized data indicator */}
               <rect
                 x="880"
                 y="110"
@@ -636,7 +652,7 @@ export default function AAMContainer() {
                 rx="8"
               />
               <text x="920" y="360" textAnchor="middle" fill="#06b6d4" fontSize="12">
-                Unified Data
+                Normalized Data
               </text>
             </g>
           </svg>
