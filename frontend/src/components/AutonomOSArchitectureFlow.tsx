@@ -3,15 +3,12 @@ import { ArrowRight, ArrowDown, Database, Layers, GitBranch, Zap, CheckCircle } 
 export default function AutonomOSArchitectureFlow() {
   return (
     <div className="relative px-6 py-12 bg-gradient-to-b from-slate-900/50 to-transparent">
-      {/* AOA Ribbon Label */}
-      <div className="absolute top-0 left-0 right-0 h-12 bg-cyan-500/10 border-b border-cyan-500/30 flex items-center justify-center">
-        <span className="text-sm font-medium text-cyan-400 tracking-wide">
-          Agentic Orchestration Architecture (AOA)
-        </span>
-      </div>
-
       {/* Main Container */}
-      <div className="max-w-7xl mx-auto pt-16">
+      <div className="max-w-7xl mx-auto">
+        {/* Title */}
+        <h3 className="text-base font-normal text-cyan-400 mb-6">
+          autonomOS Orchestration Platform
+        </h3>
         {/* Horizontal Flow: Enterprise Data → AAM → DCL → Agents */}
         <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr] gap-4 items-center mb-8">
           {/* Enterprise Data */}
