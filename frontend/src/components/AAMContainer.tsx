@@ -98,30 +98,36 @@ export default function AAMContainer() {
           <p className="text-lg text-slate-400 mt-2">Self-healing integration gateway with autonomous drift repair</p>
         </div>
 
-        {/* Layered Stack Visualization (HubSpot style) */}
-        <div className="relative mb-12 flex items-center justify-center min-h-[400px] py-12">
-          {/* Isometric layered cards container */}
-          <div className="relative w-full max-w-6xl h-[350px]" style={{ perspective: '1500px', transformStyle: 'preserve-3d' }}>
+        {/* Isometric Stacked Cards Visualization (HubSpot style) */}
+        <div className="relative mb-12 flex items-center justify-center min-h-[500px] py-8">
+          {/* Container for stacked cards */}
+          <div className="relative w-full max-w-4xl h-[450px] flex items-center justify-center">
             
-            {/* Layer 1: Execution Plane (back/left) */}
+            {/* Layer 1: Execution Plane (back/bottom) - Furthest back */}
             <div 
-              className="absolute w-[420px] h-[320px] rounded-xl shadow-2xl"
+              className="absolute w-[550px] h-[340px] rounded-lg"
               style={{
-                left: '5%',
+                left: '50%',
                 top: '50%',
-                transform: 'translateY(-50%) rotateY(-8deg)',
+                transform: 'translate(-50%, -50%) translate(-40px, 60px) rotateX(45deg) rotateZ(-8deg)',
                 background: 'linear-gradient(135deg, #1e3a8a 0%, #1e293b 100%)',
+                boxShadow: '0 30px 60px rgba(0, 0, 0, 0.5), inset 1px 1px 0 rgba(148, 163, 184, 0.2), inset -1px -1px 0 rgba(0, 0, 0, 0.4)',
                 border: '1px solid rgba(71, 85, 105, 0.5)',
               }}
             >
-              <div className="p-8 h-full flex flex-col justify-between relative">
-                <div className="absolute inset-0 bg-gradient-to-br from-slate-700/20 to-transparent rounded-xl"></div>
-                {/* Text remains flat - no transform */}
+              {/* Counter-transform wrapper to keep text flat */}
+              <div 
+                className="p-10 h-full relative"
+                style={{
+                  transform: 'rotateZ(8deg) rotateX(-45deg)',
+                }}
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-slate-700/20 to-transparent rounded-lg"></div>
                 <div className="relative z-10">
                   <div className="text-slate-400 text-xs font-medium uppercase tracking-wider mb-2">Layer 1</div>
-                  <h3 className="text-2xl font-medium text-slate-100 mb-1">Execution Plane</h3>
-                  <p className="text-sm text-slate-400 mb-4">Adopted Infrastructure</p>
-                  <div className="space-y-2 text-sm text-slate-300">
+                  <h3 className="text-3xl font-medium text-slate-100 mb-1">Execution Plane</h3>
+                  <p className="text-sm text-slate-400 mb-5">Adopted Infrastructure</p>
+                  <div className="space-y-2.5 text-sm text-slate-300">
                     <div className="flex items-center gap-2">
                       <div className="w-1.5 h-1.5 bg-slate-400 rounded-full"></div>
                       <span>Universal Connectivity</span>
@@ -139,30 +145,35 @@ export default function AAMContainer() {
               </div>
             </div>
 
-            {/* Layer 2: Adaptive Intelligence Plane (middle/center) - CENTERPIECE */}
+            {/* Layer 2: Adaptive Intelligence Plane (middle) - CENTERPIECE */}
             <div 
-              className="absolute w-[420px] h-[320px] rounded-xl shadow-2xl"
+              className="absolute w-[550px] h-[340px] rounded-lg"
               style={{
                 left: '50%',
                 top: '50%',
-                transform: 'translate(-50%, -50%) rotateY(0deg)',
+                transform: 'translate(-50%, -50%) translate(0px, 15px) rotateX(45deg) rotateZ(-8deg)',
                 background: 'linear-gradient(135deg, #0ea5e9 0%, #06b6d4 50%, #0891b2 100%)',
+                boxShadow: '0 25px 50px rgba(6, 182, 212, 0.4), 0 20px 40px rgba(0, 0, 0, 0.6), inset 1px 1px 0 rgba(255, 255, 255, 0.3), inset -1px -1px 0 rgba(0, 0, 0, 0.3)',
                 border: '2px solid rgba(6, 182, 212, 0.8)',
-                boxShadow: '0 0 40px rgba(6, 182, 212, 0.5), 0 20px 60px rgba(0, 0, 0, 0.5)',
                 zIndex: 10,
               }}
             >
-              <div className="p-8 h-full flex flex-col justify-between relative overflow-hidden rounded-xl">
-                {/* Inner glow effect */}
+              {/* Counter-transform wrapper to keep text flat */}
+              <div 
+                className="p-10 h-full relative overflow-hidden rounded-lg"
+                style={{
+                  transform: 'rotateZ(8deg) rotateX(-45deg)',
+                }}
+              >
+                {/* Inner glow effects */}
                 <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent"></div>
                 <div className="absolute inset-0 bg-gradient-to-tl from-cyan-300/10 to-transparent"></div>
                 
-                {/* Text remains flat - no transform */}
                 <div className="relative z-10">
                   <div className="text-cyan-100 text-xs font-medium uppercase tracking-wider mb-2">Layer 2 • Core IP</div>
-                  <h3 className="text-2xl font-medium text-white mb-1">Adaptive Intelligence Plane</h3>
-                  <p className="text-sm text-cyan-50 mb-4">Self-Healing Core ⚡</p>
-                  <div className="space-y-2 text-sm text-white">
+                  <h3 className="text-3xl font-medium text-white mb-1">Adaptive Intelligence Plane</h3>
+                  <p className="text-sm text-cyan-50 mb-5">Self-Healing Core ⚡</p>
+                  <div className="space-y-2.5 text-sm text-white">
                     <div className="flex items-center gap-2">
                       <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div>
                       <span>RAG Engine (Autonomous Repair)</span>
@@ -179,7 +190,7 @@ export default function AAMContainer() {
                 </div>
 
                 {/* Floating words animation */}
-                <div className="absolute right-6 top-12 bottom-12 w-32 overflow-hidden pointer-events-none">
+                <div className="absolute right-8 top-16 bottom-16 w-32 overflow-hidden pointer-events-none">
                   {['API Gateway', 'OAuth', 'Connector', 'Endpoint', 'Normalization', 'Schema', 'Trigger', 'Action', 'Batch Sync'].map((word, i) => (
                     <div
                       key={`float-word-${i}`}
@@ -195,26 +206,33 @@ export default function AAMContainer() {
               </div>
             </div>
 
-            {/* Layer 3: Control Plane (front/right) */}
+            {/* Layer 3: Control Plane (front/top) - Closest to viewer */}
             <div 
-              className="absolute w-[420px] h-[320px] rounded-xl shadow-2xl backdrop-blur-md"
+              className="absolute w-[550px] h-[340px] rounded-lg"
               style={{
-                right: '5%',
+                left: '50%',
                 top: '50%',
-                transform: 'translateY(-50%) rotateY(8deg)',
-                background: 'linear-gradient(135deg, rgba(148, 163, 184, 0.3) 0%, rgba(203, 213, 225, 0.2) 100%)',
-                border: '1px solid rgba(148, 163, 184, 0.5)',
+                transform: 'translate(-50%, -50%) translate(40px, -30px) rotateX(45deg) rotateZ(-8deg)',
+                background: 'linear-gradient(135deg, rgba(148, 163, 184, 0.35) 0%, rgba(203, 213, 225, 0.25) 100%)',
+                boxShadow: '0 20px 40px rgba(0, 0, 0, 0.7), inset 1px 1px 0 rgba(255, 255, 255, 0.4), inset -1px -1px 0 rgba(0, 0, 0, 0.2)',
+                border: '1px solid rgba(148, 163, 184, 0.6)',
                 backdropFilter: 'blur(12px)',
+                zIndex: 20,
               }}
             >
-              <div className="p-8 h-full flex flex-col justify-between relative">
-                <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent rounded-xl"></div>
-                {/* Text remains flat - no transform */}
+              {/* Counter-transform wrapper to keep text flat */}
+              <div 
+                className="p-10 h-full relative"
+                style={{
+                  transform: 'rotateZ(8deg) rotateX(-45deg)',
+                }}
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent rounded-lg"></div>
                 <div className="relative z-10">
                   <div className="text-slate-300 text-xs font-medium uppercase tracking-wider mb-2">Layer 3</div>
-                  <h3 className="text-2xl font-medium text-slate-100 mb-1">Control Plane</h3>
-                  <p className="text-sm text-slate-300 mb-4">Governance & Monitoring</p>
-                  <div className="space-y-2 text-sm text-slate-200">
+                  <h3 className="text-3xl font-medium text-slate-100 mb-1">Control Plane</h3>
+                  <p className="text-sm text-slate-300 mb-5">Governance & Monitoring</p>
+                  <div className="space-y-2.5 text-sm text-slate-200">
                     <div className="flex items-center gap-2">
                       <div className="w-1.5 h-1.5 bg-slate-300 rounded-full"></div>
                       <span>AOS Control Center</span>
