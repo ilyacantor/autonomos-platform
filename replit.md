@@ -31,9 +31,14 @@ AutonomOS is built with FastAPI, PostgreSQL, Redis, and Python RQ, implementing 
 - Graph labels are color-coded pill-shaped boxes with colored borders: green for data source labels, blue for ontology entity labels, purple for agent labels. Each label has a 1.5px border matching its node type or edge color. Agent labels are 50% larger (15px font, 24px height) than other labels for emphasis. Labels use collision detection to prevent overlaps within each layer.
 - **Mobile Optimization:** Comprehensive mobile-first design implementation:
   - **Global Utilities:** Safe-area padding for notched devices, 44px minimum touch targets, mobile-tap-highlight, horizontal scroll containers, responsive typography scale
-  - **TopBar:** Hamburger menu for <640px screens without scrolling, z-index management (z-50 menu, z-40 overlay), hidden persona text on mobile
+  - **TopBar:** Hamburger menu for <640px screens without scrolling, z-index management (z-50 menu, z-40 overlay), hidden persona text on mobile, clickable logo navigates to dashboard
   - **HeroSection:** Full 3-breakpoint typography scaling (text-lg sm:text-xl md:text-2xl pattern), touch-target buttons, responsive logo sizing
   - **DCL Controls:** 2x2 grid layout on mobile (grid-cols-2 sm:flex), 44px touch targets, larger mobile text (text-xs sm:text-[10px])
+  - **DCL Graph Mobile Responsiveness:** Dynamic label scaling based on container width with three breakpoints:
+    - Small mobile (<480px): 70% scale, 40px viewBox padding, 10px horizontal padding, minimum 7px font
+    - Mobile (<640px): 85% scale, 60px viewBox padding, 10px horizontal padding
+    - Desktop (≥640px): 100% scale, 100px viewBox padding, 20px horizontal padding
+  - **Architecture Flow Navigation:** Clickable module boxes with smooth scroll to corresponding sections (AAM → 3-card visual, DCL → graph, Agents → performance monitor)
   - **Tested:** No layout breakage at 320px, 375px, 428px widths; no horizontal scrolling; all touch targets meet 44px standard
 - DCL graph visualization is clean, minimalist, with only boxes and edges, vertically centered and flowing top to bottom, with labels oriented to match data flow.
 
