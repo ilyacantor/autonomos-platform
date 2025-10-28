@@ -15,6 +15,43 @@ export default function FAQPage() {
 
   const faqItems: FAQItem[] = [
     {
+      question: "What is AutonomOS?",
+      answer: (
+        <div className="space-y-4">
+          <p className="text-gray-300">
+            AutonomOS is an AI-native platform that connects all of your company's scattered data—from different apps, databases, and files—and makes it instantly usable. It's built with intelligence at every layer, from data connection to agent execution.
+          </p>
+          <p className="text-gray-300">
+            It works by connecting to all your systems, autonomously learning how the data fits together, and creating a single, unified view. This allows both your team and our specialized AI agents to reason, act, and get work done.
+          </p>
+          
+          <div className="mt-6">
+            <h4 className="text-[#0BCAD9] font-medium text-lg mb-3">The Problem We Solve</h4>
+            <p className="text-gray-300">
+              Most modern companies are data-rich but action-poor. They are often paralyzed by a chasm between their data, their business objectives, and their operational ability to execute. This "Insight-to-Action Gap" leads to revenue leakage, operational inefficiency, and inaction.
+            </p>
+          </div>
+          
+          <div className="mt-6">
+            <h4 className="text-[#0BCAD9] font-medium text-lg mb-3">Our Solution</h4>
+            <p className="text-gray-300">
+              AutonomOS is designed to bridge this gap. Our platform not only unifies your data but also uses pre-built AI agents to act on it. These agents are designed to function autonomously within the specific guardrails you establish and include escalation points for Human-in-the-Loop (HITL) approval, ensuring you are always in control.
+            </p>
+            <p className="text-gray-300 mt-3">
+              The entire platform is built as an enterprise-grade solution, ensuring secure, scalable, and robust operations. Our goal is to lead the shift from interacting with complex legacy software to engaging directly with your data through a unified, natural language experience.
+            </p>
+          </div>
+          
+          <div className="mt-6">
+            <h4 className="text-[#0BCAD9] font-medium text-lg mb-3">More Than Just Technology</h4>
+            <p className="text-gray-300">
+              We understand that implementing durable, effective solutions requires deep domain expertise. Our solution is never just a piece of technology; we provide the business process expertise to ensure you get a working solution, not just another proof-of-concept (POC).
+            </p>
+          </div>
+        </div>
+      )
+    },
+    {
       question: "How does AutonomOS use AI to power this platform?",
       answer: (
         <div className="space-y-4">
