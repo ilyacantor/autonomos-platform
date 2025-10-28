@@ -14,6 +14,7 @@ export default function HeroSection() {
           src="/assets/autonomos-main-logo.png" 
           alt="autonomOS - The Operating System for the Intelligent Enterprise" 
           className="h-16 sm:h-20 md:h-24 object-contain mb-6 sm:mb-8"
+          style={{ marginLeft: '-15px' }}
         />
         <p className="text-lg sm:text-2xl md:text-3xl font-normal text-gray-200 max-w-3xl leading-snug mt-6 sm:mt-9 mb-6 sm:mb-[40px]">
           <span className="text-cyan-400 font-medium">autonomOS</span> connects, normalizes, maps, and orchestrates
