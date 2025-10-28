@@ -3,7 +3,7 @@
 ## Overview
 AutonomOS is a production-ready, multi-tenant SaaS backend system in Python for AI-driven task orchestration. It ensures complete data isolation between organizations, providing secure, scalable, and enterprise-grade task processing. The platform includes JWT authentication and comprehensive user management, serving as a foundational component for AI applications requiring isolated task execution for multiple clients. Its ambition is to enable advanced AI-powered data orchestration for diverse business needs and offers a DCL (Data Catalog Layer) engine for AI-driven data source connection, entity mapping, and unified view creation.
 
-The dashboard features a hero section showcasing the product value proposition, followed by the AAM (Adaptive API Mesh) integration layer, the DCL graph visualization for data mapping and orchestration, and an agent layer container showing AI agents with descriptive text about persistent data mappings.
+The dashboard features a hero section showcasing the product value proposition, followed by the DCL graph visualization for data mapping and orchestration, and an agent layer container showing AI agents with descriptive text about persistent data mappings.
 
 ## User Preferences
 I prefer clear, concise explanations and direct answers. I value iterative development with frequent, small updates. Please ask for my approval before implementing major architectural changes or significant feature additions. I prefer detailed explanations for complex concepts but require brevity for straightforward ones. Do not make changes to folder `Z` and file `Y`.
@@ -24,7 +24,7 @@ AutonomOS is built with FastAPI, PostgreSQL, Redis, and Python RQ, implementing 
 - Agent robots are positioned to visually overlap with the FinOps and RevOps pilot nodes at the bottom-right of the DCL graph, creating a unified visual representation of the agent layer. The robots have a purple glow effect and are horizontally centered to maintain consistent positioning regardless of screen zoom.
 - The description "Provides persistent, versioned entity mappings..." is now a subheadline under the "Data Connection Layer (DCL)" heading.
 - Hero section uses the autonomOS logo image instead of text, with exact styling matching the design spec including varied text colors (cyan for "autonomOS" and "Stop building pipelines", white for other text).
-- DCL header is teal/cyan colored to match the Adaptive API Mesh and Agentic Orchestration sections.
+- DCL header is teal/cyan colored to match the Agentic Orchestration section.
 - Agentic Orchestration at Scale section is unified in a single container with teal header and subheadline describing orchestration capabilities.
 - **Typography:** All text uses Quicksand font (Google Fonts). Headings use font-medium (500 weight), body text uses font-normal (400 weight). All uppercase styling has been removed in favor of normal capitalization.
 - **Architecture Flow Visualization:** New component displaying the complete AutonomOS process flow: Enterprise Data → AAM → DCL → Agents (horizontal), then Agents → Outcomes (vertical), with AOA ribbon overlay. Visible at a glance without scrolling, fully responsive.
@@ -38,7 +38,6 @@ AutonomOS is built with FastAPI, PostgreSQL, Redis, and Python RQ, implementing 
   - **DCL Controls:** 2x2 grid layout on mobile (grid-cols-2 sm:flex), 44px touch targets, larger mobile text (text-xs sm:text-[10px])
   - **Tested:** No layout breakage at 320px, 375px, 428px widths; no horizontal scrolling; all touch targets meet 44px standard
 - DCL graph visualization is clean, minimalist, with only boxes and edges, vertically centered and flowing top to bottom, with labels oriented to match data flow.
-- The AAM container provides an iPaaS-style data flow visualization (Connect → Normalize → Unify) with data source logos and a real-time connection log.
 
 **Technical Implementations:**
 - **Authentication:** JWT-based with Argon2 hashing.
