@@ -11,13 +11,10 @@ export default function HeroSection() {
       {/* Main Hero Content */}
       <div>
         <img 
-          src="/assets/autonomos-logo.png" 
-          alt="autonomOS" 
-          className="h-12 sm:h-16 object-contain mb-4 sm:-mt-12 sm:-ml-5"
+          src="/assets/autonomos-main-logo.png" 
+          alt="autonomOS - The Operating System for the Intelligent Enterprise" 
+          className="h-16 sm:h-20 md:h-24 object-contain mb-6 sm:mb-8"
         />
-        <h2 className="text-lg sm:text-xl md:text-2xl font-medium text-white">
-          The Operating System for the Intelligent Enterprise
-        </h2>
         <p className="text-lg sm:text-2xl md:text-3xl font-normal text-gray-200 max-w-3xl leading-snug mt-6 sm:mt-9 mb-6 sm:mb-[40px]">
           <span className="text-cyan-400 font-medium">autonomOS</span> connects, normalizes, maps, and orchestrates
           your enterprise intelligence <span className="text-cyan-400 font-medium">automatically</span> — freeing
