@@ -281,9 +281,11 @@ function renderSankey(
   
   const { nodes, links } = graph;
   
-  // Mobile-responsive padding: reduce on small screens
-  const leftPadding = isMobile ? 10 : 20;
-  const rightPadding = isMobile ? 10 : 20;
+  // Mobile-responsive padding: use proportional spacing (mobility lessons)
+  // Use percentage-based padding instead of fixed pixels for better container fill
+  const horizontalPaddingPercent = isSmallMobile ? 0.05 : isMobile ? 0.04 : 0.03;
+  const leftPadding = validWidth * horizontalPaddingPercent;
+  const rightPadding = validWidth * horizontalPaddingPercent;
   const layerWidth = (validWidth - leftPadding - rightPadding) / 3;
   const layerXPositions = [
     leftPadding,
@@ -372,16 +374,18 @@ function renderSankey(
     mongodb: { parent: '#10b981', child: '#34d399' },
   };
 
-  const minX = Math.min(...nodes.map((n: any) => n.x0)) - 50;
-  const maxX = Math.max(...nodes.map((n: any) => n.x1)) + 50;
-  const minY = Math.min(...nodes.map((n: any) => n.y0)) - 50;
-  const maxY = Math.max(...nodes.map((n: any) => n.y1)) + 50;
+  // Minimize node bounding box buffers to maximize edge spread
+  const nodeBuffer = isSmallMobile ? 10 : isMobile ? 15 : 20;
+  const minX = Math.min(...nodes.map((n: any) => n.x0)) - nodeBuffer;
+  const maxX = Math.max(...nodes.map((n: any) => n.x1)) + nodeBuffer;
+  const minY = Math.min(...nodes.map((n: any) => n.y0)) - nodeBuffer;
+  const maxY = Math.max(...nodes.map((n: any) => n.y1)) + nodeBuffer;
   
   const boundingWidth = maxX - minX;
   const boundingHeight = maxY - minY;
   
-  // Mobile-responsive viewBox padding: reduce on small screens to prevent clipping
-  const viewBoxPadding = isSmallMobile ? 30 : isMobile ? 50 : 80;
+  // Mobile-responsive viewBox padding: minimal padding for maximum edge spread
+  const viewBoxPadding = isSmallMobile ? 15 : isMobile ? 20 : 25;
   const viewBoxX = minX - viewBoxPadding;
   const viewBoxY = minY - viewBoxPadding;
   const viewBoxWidth = boundingWidth + (2 * viewBoxPadding);
