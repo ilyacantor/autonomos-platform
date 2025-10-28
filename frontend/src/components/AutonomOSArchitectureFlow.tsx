@@ -1,0 +1,109 @@
+import { ArrowRight, Database, Network, Layers, Users, TrendingUp } from 'lucide-react';
+
+const AutonomOSArchitectureFlow = () => {
+  const modules = [
+    {
+      icon: Database,
+      title: 'Enterprise Data',
+      tags: ['SaaS Applications', 'Databases & Warehouses', 'Legacy Systems', 'APIs & Files'],
+      bgColor: 'bg-[#0A2540]',
+      borderColor: 'border-[#1E4A6F]'
+    },
+    {
+      icon: Network,
+      title: 'Adaptive API Mesh (AAM)',
+      tags: ['Self-Healing Integration', 'Autonomous Drift Repair', 'Real-time Schema Normalization', 'Universal Connectivity', 'Governed Data Exchange'],
+      bgColor: 'bg-[#0D2F3F]',
+      borderColor: 'border-[#1A4D5E]'
+    },
+    {
+      icon: Layers,
+      title: 'Data Connectivity Layer',
+      tags: ['Unified Enterprise Ontology', 'Semantic Context Engine', 'AI-Ready Data Streams', 'Contextual RAG Indexing', 'Real-time Observability'],
+      bgColor: 'bg-[#1A2F4A]',
+      borderColor: 'border-[#2A4A6F]'
+    },
+    {
+      icon: Users,
+      title: 'Prebuilt Domain Agents',
+      tags: ['Productized Domain Expertise', 'FinOps/RevOps Blueprints', 'Autonomous Workflow Orchestration', 'Custom Agent Deployment'],
+      bgColor: 'bg-[#2A1F4A]',
+      borderColor: 'border-[#3F2F6F]'
+    }
+  ];
+
+  return (
+    <div className="w-full bg-[#0A1628] py-12 px-4">
+      <div className="max-w-7xl mx-auto">
+        <div className="text-center mb-8">
+          <div className="inline-block bg-[#0D3A52] text-[#0BCAD9] px-4 py-2 rounded-lg text-sm font-medium mb-4 border border-[#0BCAD9]/30">
+            Agentic Orchestration Architecture (AOA)
+          </div>
+        </div>
+
+        <div className="relative">
+          <div className="absolute -inset-6 bg-gradient-to-br from-[#0BCAD9]/5 via-transparent to-[#0BCAD9]/5 rounded-3xl border-2 border-[#0BCAD9]/20 pointer-events-none">
+            <div className="absolute -top-3 left-8 bg-[#0A1628] px-3 py-1 text-[#0BCAD9] text-sm font-medium">
+              AutonomOS Platform
+            </div>
+          </div>
+
+          <div className="relative z-10">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+              {modules.map((module, index) => (
+                <div key={index} className="relative">
+                  <div
+                    className={`${module.bgColor} ${module.borderColor} border-2 rounded-xl p-5 h-full hover:border-[#0BCAD9] transition-all duration-300`}
+                  >
+                    <div className="flex items-center gap-2 mb-3">
+                      <module.icon className="w-6 h-6 text-[#0BCAD9]" />
+                      <h3 className="text-white font-medium text-base leading-tight">
+                        {module.title}
+                      </h3>
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5">
+                      {module.tags.map((tag, tagIndex) => (
+                        <span
+                          key={tagIndex}
+                          className="text-xs px-2 py-1 rounded bg-[#0BCAD9]/10 text-[#0BCAD9] border border-[#0BCAD9]/30"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {index < modules.length - 1 && (
+                    <div className="hidden lg:block absolute top-1/2 -right-2 transform -translate-y-1/2 z-10">
+                      <ArrowRight className="w-5 h-5 text-[#0BCAD9]" />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-center">
+              <div className="flex items-center gap-3 bg-[#0D2F3F] rounded-xl px-6 py-3 border border-[#0BCAD9]/30">
+                <TrendingUp className="w-5 h-5 text-[#0BCAD9]" />
+                <span className="text-white font-medium">Outcomes</span>
+                <div className="flex flex-wrap gap-1.5 ml-2">
+                  {['Intent-Driven Operations', 'Autonomous Execution', 'Insight-to-Action Acceleration', 'Guaranteed Data Reliability', 'Proactive Decision Intelligence'].map((tag, index) => (
+                    <span
+                      key={index}
+                      className="text-xs px-2 py-1 rounded bg-[#0BCAD9]/10 text-[#0BCAD9] border border-[#0BCAD9]/30"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default AutonomOSArchitectureFlow;
