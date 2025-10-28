@@ -87,8 +87,10 @@ const AutonomOSArchitectureFlow = () => {
                   </div>
 
                   {index < modules.length - 1 && (
-                    <div className="hidden lg:block absolute top-1/2 -right-2 transform -translate-y-1/2 z-10">
-                      <ArrowRight className="w-5 h-5 text-[#0BCAD9]" />
+                    <div className="hidden lg:block absolute top-1/2 -right-4 transform -translate-y-1/2 translate-x-1/2 z-20">
+                      <div className="bg-[#0A1628] rounded-full p-1">
+                        <ArrowRight className="w-6 h-6 text-[#0BCAD9] drop-shadow-[0_0_8px_rgba(11,202,217,0.6)]" />
+                      </div>
                     </div>
                   )}
                 </div>
