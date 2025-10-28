@@ -1,4 +1,4 @@
-import { ArrowRight, Database, Network, Layers, Users, TrendingUp } from 'lucide-react';
+import { ArrowRight, ArrowDown, Database, Network, Layers, Users, TrendingUp } from 'lucide-react';
 
 const AutonomOSArchitectureFlow = () => {
   const scrollToSection = (sectionId: string) => {
@@ -60,12 +60,12 @@ const AutonomOSArchitectureFlow = () => {
           </div>
 
           <div className="relative z-10">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               {modules.map((module, index) => (
-                <div key={index} className="relative">
+                <div key={index} className="relative flex flex-col items-center">
                   <div
                     onClick={() => module.linkTo && scrollToSection(module.linkTo)}
-                    className={`${module.bgColor} ${module.borderColor} border-2 rounded-xl p-5 h-full hover:border-[#0BCAD9] transition-all duration-300 ${module.linkTo ? 'cursor-pointer' : ''}`}
+                    className={`${module.bgColor} ${module.borderColor} border-2 rounded-xl p-5 w-full hover:border-[#0BCAD9] transition-all duration-300 ${module.linkTo ? 'cursor-pointer' : ''}`}
                   >
                     <div className="flex items-center gap-2 mb-3">
                       <module.icon className="w-6 h-6 text-[#0BCAD9]" />
@@ -87,11 +87,21 @@ const AutonomOSArchitectureFlow = () => {
                   </div>
 
                   {index < modules.length - 1 && (
-                    <div className="hidden lg:block absolute top-1/2 -right-4 transform -translate-y-1/2 translate-x-1/2 z-20">
-                      <div className="bg-[#0A1628] rounded-full p-1">
-                        <ArrowRight className="w-6 h-6 text-[#0BCAD9] drop-shadow-[0_0_8px_rgba(11,202,217,0.6)]" />
+                    <>
+                      {/* Horizontal arrow for desktop (lg+) - positioned between boxes */}
+                      <div className="hidden lg:flex absolute top-1/2 -right-7 transform -translate-y-1/2 z-20">
+                        <div className="bg-[#0BCAD9] rounded-full p-2 shadow-lg shadow-[#0BCAD9]/50">
+                          <ArrowRight className="w-7 h-7 text-[#0A1628] font-bold" strokeWidth={3} />
+                        </div>
                       </div>
-                    </div>
+                      
+                      {/* Vertical arrow for mobile/tablet - centered between stacked boxes */}
+                      <div className="lg:hidden flex justify-center py-4">
+                        <div className="bg-[#0BCAD9] rounded-full p-2 shadow-lg shadow-[#0BCAD9]/50 animate-pulse">
+                          <ArrowDown className="w-7 h-7 text-[#0A1628] font-bold" strokeWidth={3} />
+                        </div>
+                      </div>
+                    </>
                   )}
                 </div>
               ))}
