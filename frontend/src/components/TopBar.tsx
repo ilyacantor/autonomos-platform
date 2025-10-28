@@ -57,6 +57,10 @@ export default function TopBar({ onAuthOpen, currentPage, onNavigate }: TopBarPr
                 currentPage === item.id
                   ? 'bg-blue-600 text-white'
                   : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
+              } ${
+                item.id === 'faq'
+                  ? 'ring-2 ring-[#0BCAD9]/50 shadow-lg shadow-[#0BCAD9]/30 animate-pulse'
+                  : ''
               }`}
             >
               {item.icon}
@@ -142,6 +146,10 @@ export default function TopBar({ onAuthOpen, currentPage, onNavigate }: TopBarPr
                       currentPage === item.id
                         ? 'bg-blue-600 text-white'
                         : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
+                    } ${
+                      item.id === 'faq'
+                        ? 'ring-2 ring-[#0BCAD9]/50 shadow-lg shadow-[#0BCAD9]/30 animate-pulse'
+                        : ''
                     }`}
                   >
                     {item.icon}
