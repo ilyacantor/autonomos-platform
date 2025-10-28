@@ -7,6 +7,7 @@ import DashboardPage from './components/DashboardPage';
 import DataLineagePage from './components/DataLineagePage';
 import ConnectionsPage from './components/ConnectionsPage';
 import OntologyPage from './components/OntologyPage';
+import FAQPage from './components/FAQPage';
 import LegacyDCLUI from './components/LegacyDCLUI';
 import AuthModal from './components/AuthModal';
 
@@ -51,6 +52,8 @@ function AppContent() {
         return <ConnectionsPage />;
       case 'ontology':
         return <OntologyPage />;
+      case 'faq':
+        return <FAQPage />;
       case 'settings':
         return (
           <div className="text-center py-12">
