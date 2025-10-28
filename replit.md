@@ -41,7 +41,12 @@ AutonomOS is built with FastAPI, PostgreSQL, Redis, and Python RQ, implementing 
     - Desktop (≥640px): 100% scale, 100px viewBox padding, 20px horizontal padding
     - Label dimensions scale proportionally with 10px minimum font, 14px minimum pill height, 3px minimum padding
   - **Architecture Flow Navigation:** Clickable module boxes with smooth scroll to corresponding sections (AAM → 3-card visual, DCL → graph, Agents → performance monitor)
-  - **Tested:** No layout breakage at 320px, 375px, 428px widths; no horizontal scrolling; all touch targets meet 44px standard
+  - **Architecture Flow Arrows:** Layout-aware directional arrows properly bound from source to target boxes across all breakpoints:
+    - Desktop (lg+, 4-column): Horizontal arrows between all adjacent boxes (Enterprise Data → AAM → DCL → Agents)
+    - Tablet (md, 2-column): Horizontal arrows within rows (0→1, 2→3) and vertical arrow between rows (1→2)
+    - Mobile (<md, 1-column): Vertical arrows between all adjacent stacked boxes
+    - Arrows styled with bright cyan background, bold stroke, glow effect, and mobile pulse animation for maximum visibility
+  - **Tested:** No layout breakage at 320px, 375px, 428px widths; no horizontal scrolling; all touch targets meet 44px standard; arrows correctly bound at all zoom levels
 - DCL graph visualization is clean, minimalist, with only boxes and edges, vertically centered and flowing top to bottom, with labels oriented to match data flow.
 
 **Technical Implementations:**
