@@ -207,10 +207,10 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
   };
 
   return (
-    <div id="dcl-graph-container" className="bg-gray-900 rounded-xl border border-gray-800 p-3 sm:p-6 -mt-[5px]">
+    <div id="dcl-graph-container" className="bg-gray-900 rounded-xl border border-gray-800 p-2 sm:p-3 -mt-[5px]">
       {/* Top-Mounted Progress Bar - Shows only for manual/connection-triggered runs */}
       {showProgress && (
-        <div className="relative -mx-3 sm:-mx-6 -mt-3 sm:-mt-6 mb-4 h-4 bg-gray-800 rounded-t-xl overflow-hidden">
+        <div className="relative -mx-2 sm:-mx-3 -mt-2 sm:-mt-3 mb-3 h-4 bg-gray-800 rounded-t-xl overflow-hidden">
           {/* Actual progress bar */}
           <div 
             className="absolute left-0 top-0 h-full bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 transition-all duration-300 ease-out"

@@ -153,7 +153,7 @@ export default function LiveSankeyGraph() {
   }, []);
 
   return (
-    <div ref={containerRef} className="rounded-xl bg-gray-800/40 border border-gray-700 shadow-sm ring-1 ring-cyan-500/10 p-3 h-full">
+    <div ref={containerRef} className="rounded-xl bg-gray-800/40 border border-gray-700 shadow-sm ring-1 ring-cyan-500/10 p-1 h-full">
       <div className="w-full h-full overflow-hidden">
         {isRendering && containerSize.width === 0 && (
           <div className="flex items-center justify-center h-full">
@@ -381,7 +381,7 @@ function renderSankey(
   const boundingHeight = maxY - minY;
   
   // Mobile-responsive viewBox padding: reduce on small screens to prevent clipping
-  const viewBoxPadding = isSmallMobile ? 40 : isMobile ? 60 : 100;
+  const viewBoxPadding = isSmallMobile ? 30 : isMobile ? 50 : 80;
   const viewBoxX = minX - viewBoxPadding;
   const viewBoxY = minY - viewBoxPadding;
   const viewBoxWidth = boundingWidth + (2 * viewBoxPadding);
