@@ -1,13 +1,11 @@
 import { useState } from 'react';
-import { LayoutDashboard, Cable, Network, Settings, Bell, ChevronDown, LogOut, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Cable, Network, Settings, Bell, Menu, X, LogIn, UserPlus } from 'lucide-react';
 import AutonomyModeToggle from './AutonomyModeToggle';
-import { useAuth } from '../hooks/useAuth';
-import type { User, PersonaType } from '../types';
+import type { PersonaType } from '../types';
 import autonomosLogo from '../assets/autonomos-logo.png';
 
 interface TopBarProps {
-  user: User;
-  onPersonaChange: (persona: PersonaType) => void;
+  onAuthOpen: (mode: 'login' | 'signup') => void;
   currentPage: string;
   onNavigate: (page: string) => void;
 }
@@ -19,13 +17,9 @@ interface NavItem {
   tooltip?: string;
 }
 
-export default function TopBar({ user, onPersonaChange, currentPage, onNavigate }: TopBarProps) {
-  const [showDropdown, setShowDropdown] = useState(false);
+export default function TopBar({ onAuthOpen, currentPage, onNavigate }: TopBarProps) {
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [hasNotifications] = useState(true);
-  const { logout } = useAuth();
-
-  const personas: PersonaType[] = ['Data Engineer', 'RevOps', 'FinOps'];
 
   const navItems: NavItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
@@ -33,11 +27,6 @@ export default function TopBar({ user, onPersonaChange, currentPage, onNavigate 
     { id: 'ontology', label: 'Ontology', icon: <Network className="w-5 h-5" /> },
     { id: 'settings', label: 'Settings', icon: <Settings className="w-5 h-5" /> },
   ];
-
-  const handleLogout = () => {
-    logout();
-    setShowDropdown(false);
-  };
 
   return (
     <>
@@ -95,64 +84,22 @@ export default function TopBar({ user, onPersonaChange, currentPage, onNavigate 
             </button>
           </div>
 
-          {/* User Profile - Compact on Mobile */}
-          <div className="relative">
+          {/* Auth Buttons - Login & Sign Up */}
+          <div className="hidden sm:flex items-center gap-2">
             <button
-              onClick={() => setShowDropdown(!showDropdown)}
-              className="flex items-center gap-2 sm:gap-3 hover:bg-gray-800 px-2 sm:px-3 py-2 rounded-lg transition-colors touch-target-h mobile-tap-highlight"
+              onClick={() => onAuthOpen('login')}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-200 transition-colors touch-target-h mobile-tap-highlight"
             >
-              <img
-                src={user.avatar}
-                alt={user.name}
-                className="w-8 h-8 rounded-full"
-              />
-              {/* Hide name and persona on mobile */}
-              <div className="text-left hide-mobile">
-                <div className="text-sm font-medium text-gray-200">{user.name}</div>
-                <div className="text-xs text-gray-500">{user.persona}</div>
-              </div>
-              <ChevronDown className="w-4 h-4 text-gray-400" />
+              <LogIn className="w-4 h-4" />
+              <span className="font-medium text-sm">Login</span>
             </button>
-
-            {showDropdown && (
-              <>
-                <div
-                  className="fixed inset-0 z-40"
-                  onClick={() => setShowDropdown(false)}
-                />
-                <div className="absolute right-0 mt-2 w-56 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50">
-                  <div className="p-2">
-                    <div className="px-3 py-2 text-xs text-gray-500 tracking-wider">
-                      Select Persona
-                    </div>
-                    {personas.map((persona) => (
-                      <button
-                        key={persona}
-                        onClick={() => {
-                          onPersonaChange(persona);
-                          setShowDropdown(false);
-                        }}
-                        className={`w-full text-left px-3 py-2 rounded-md transition-colors touch-target-h ${
-                          user.persona === persona
-                            ? 'bg-blue-600 text-white'
-                            : 'text-gray-300 hover:bg-gray-700'
-                        }`}
-                      >
-                        {persona}
-                      </button>
-                    ))}
-                    <div className="border-t border-gray-700 my-2" />
-                    <button
-                      onClick={handleLogout}
-                      className="w-full text-left px-3 py-2 rounded-md text-red-400 hover:bg-gray-700 transition-colors flex items-center gap-2 touch-target-h"
-                    >
-                      <LogOut className="w-4 h-4" />
-                      Logout
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
+            <button
+              onClick={() => onAuthOpen('signup')}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white transition-colors touch-target-h mobile-tap-highlight"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span className="font-medium text-sm">Sign Up</span>
+            </button>
           </div>
 
           {/* Mobile Menu Button - Show Only on Mobile */}
@@ -208,52 +155,30 @@ export default function TopBar({ user, onPersonaChange, currentPage, onNavigate 
                 <AutonomyModeToggle />
               </div>
 
-              {/* User Info */}
+              {/* Auth Buttons for Mobile */}
               <div className="border-t border-gray-800 pt-4 mt-auto">
-                <div className="flex items-center gap-3 px-2 mb-4">
-                  <img
-                    src={user.avatar}
-                    alt={user.name}
-                    className="w-10 h-10 rounded-full"
-                  />
-                  <div>
-                    <div className="text-sm font-medium text-gray-200">{user.name}</div>
-                    <div className="text-xs text-gray-500">{user.persona}</div>
-                  </div>
+                <div className="flex flex-col gap-2">
+                  <button
+                    onClick={() => {
+                      onAuthOpen('login');
+                      setShowMobileMenu(false);
+                    }}
+                    className="flex items-center gap-2 px-4 py-3 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-200 transition-colors touch-target-h mobile-tap-highlight justify-center"
+                  >
+                    <LogIn className="w-5 h-5" />
+                    <span className="font-medium">Login</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      onAuthOpen('signup');
+                      setShowMobileMenu(false);
+                    }}
+                    className="flex items-center gap-2 px-4 py-3 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white transition-colors touch-target-h mobile-tap-highlight justify-center"
+                  >
+                    <UserPlus className="w-5 h-5" />
+                    <span className="font-medium">Sign Up</span>
+                  </button>
                 </div>
-                
-                {/* Persona Switcher */}
-                <div className="text-xs text-gray-500 mb-2 px-2">Switch Persona</div>
-                <div className="flex flex-col gap-1 mb-4">
-                  {personas.map((persona) => (
-                    <button
-                      key={persona}
-                      onClick={() => {
-                        onPersonaChange(persona);
-                        setShowMobileMenu(false);
-                      }}
-                      className={`text-left px-3 py-2 rounded-md transition-colors touch-target-h mobile-tap-highlight ${
-                        user.persona === persona
-                          ? 'bg-blue-600 text-white'
-                          : 'text-gray-300 hover:bg-gray-700'
-                      }`}
-                    >
-                      {persona}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Logout Button */}
-                <button
-                  onClick={() => {
-                    handleLogout();
-                    setShowMobileMenu(false);
-                  }}
-                  className="w-full text-left px-3 py-3 rounded-md text-red-400 hover:bg-gray-800 transition-colors flex items-center gap-2 touch-target-h mobile-tap-highlight"
-                >
-                  <LogOut className="w-5 h-5" />
-                  <span className="font-medium">Logout</span>
-                </button>
               </div>
             </div>
           </div>

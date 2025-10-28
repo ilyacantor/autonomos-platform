@@ -5,10 +5,13 @@ import { useAuth } from '../hooks/useAuth';
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialMode?: 'login' | 'signup';
 }
 
-export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
-  const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
+export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalProps) {
+  const [activeTab, setActiveTab] = useState<'login' | 'register'>(
+    initialMode === 'signup' ? 'register' : 'login'
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);

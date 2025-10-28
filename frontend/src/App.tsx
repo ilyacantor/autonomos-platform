@@ -12,8 +12,9 @@ import AuthModal from './components/AuthModal';
 
 function AppContent() {
   const [currentPage, setCurrentPage] = useState('dashboard');
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const { legacyMode } = useAutonomy();
-  const { isAuthenticated, isLoading } = useAuth();
 
   // Listen for navigation events from components
   useEffect(() => {
@@ -30,6 +31,15 @@ function AppContent() {
       window.removeEventListener('navigate', handleNavigation);
     };
   }, []);
+
+  const handleAuthOpen = (mode: 'login' | 'signup') => {
+    setAuthMode(mode);
+    setAuthModalOpen(true);
+  };
+
+  const handleAuthClose = () => {
+    setAuthModalOpen(false);
+  };
 
   const renderPage = () => {
     switch (currentPage) {
@@ -53,32 +63,21 @@ function AppContent() {
     }
   };
 
-  // Show loading spinner while checking authentication
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-400">Loading autonomOS...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Legacy mode disabled - always use modern TopBar layout
-  // if (legacyMode) {
-  //   return <LegacyDCLUI />;
-  // }
-
-  // Modern mode requires authentication
-  if (!isAuthenticated) {
-    return <AuthModal isOpen={true} onClose={() => {}} />;
-  }
-
   return (
-    <AppLayout currentPage={currentPage} onNavigate={setCurrentPage}>
-      {renderPage()}
-    </AppLayout>
+    <>
+      <AppLayout currentPage={currentPage} onNavigate={setCurrentPage} onAuthOpen={handleAuthOpen}>
+        {renderPage()}
+      </AppLayout>
+      
+      {/* Auth modal only shows when user clicks Login or Sign Up */}
+      {authModalOpen && (
+        <AuthModal 
+          isOpen={authModalOpen} 
+          onClose={handleAuthClose}
+          initialMode={authMode}
+        />
+      )}
+    </>
   );
 }
 
