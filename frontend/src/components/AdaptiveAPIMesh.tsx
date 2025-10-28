@@ -158,6 +158,71 @@ const AdaptiveAPIMesh = () => {
             Connects data, on-prem systems, databases, SaaS platforms, APIs, CSV, and Agents through intelligent, self-healing infrastructure
           </p>
         </div>
+
+        <div className="mt-16 grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="bg-[#0A1628] border border-gray-700/50 rounded-lg p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Activity className="w-5 h-5 text-[#0BCAD9]" />
+              <h3 className="text-lg font-semibold text-white">Real-time Connection Monitor</h3>
+              <div className="ml-auto w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            </div>
+            <div className="bg-[#000000] rounded-md p-4 font-mono text-sm h-64 overflow-y-auto">
+              <div className="space-y-2">
+                <div className="flex items-start gap-2">
+                  <span className="text-gray-500 text-xs">06:34:49</span>
+                  <span className="text-green-400">✓</span>
+                  <span className="text-gray-300">SAP connection restored ✓</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="text-gray-500 text-xs">06:34:48</span>
+                  <span className="text-yellow-400">⚡</span>
+                  <span className="text-yellow-300">Autonomous remapping initiated for NetSuite...</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="text-gray-500 text-xs">06:34:46</span>
+                  <span className="text-red-400">⚠</span>
+                  <span className="text-gray-300">NetSuite schema drift detected...</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="text-gray-500 text-xs">06:34:46</span>
+                  <span className="text-yellow-400">⚡</span>
+                  <span className="text-yellow-300">Autonomous remapping initiated for SAP...</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="text-gray-500 text-xs">06:34:44</span>
+                  <span className="text-red-400">⚠</span>
+                  <span className="text-gray-300">SAP Schema drift detected...</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="text-gray-500 text-xs">06:34:39</span>
+                  <span className="text-yellow-400">⚡</span>
+                  <span className="text-yellow-300">Autonomous remapping initiated for SAP...</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="text-gray-500 text-xs">06:34:38</span>
+                  <span className="text-green-400">✓</span>
+                  <span className="text-gray-300">Snowflake connection restored ✓</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-8">
+            <div>
+              <h3 className="text-2xl font-bold text-[#0BCAD9] mb-4">Three-Layer Architecture</h3>
+              <p className="text-gray-300 text-base leading-relaxed">
+                The AAM is built on a robust foundation (Execution), powered by proprietary self-healing intelligence (Adaptive Intelligence), and managed through a unified control interface (AOS Control Center).
+              </p>
+            </div>
+
+            <div>
+              <h3 className="text-2xl font-bold text-[#0BCAD9] mb-4">Self-Healing Intelligence</h3>
+              <p className="text-gray-300 text-base leading-relaxed">
+                The centerpiece Adaptive Intelligence layer continuously monitors, detects drift, and autonomously repairs connections—ensuring zero-downtime resilience.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
       <style>{`
