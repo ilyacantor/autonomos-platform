@@ -685,10 +685,10 @@ function renderSankey(
       const baseFontSize = isAgent ? 15 : 10;
       const basePillHeight = isAgent ? 24 : 16;
       
-      // Apply responsive scaling
-      const padding = Math.max(2, Math.round(basePadding * responsiveScale));
-      const fontSize = Math.max(7, Math.round(baseFontSize * responsiveScale));
-      const pillHeight = Math.max(12, Math.round(basePillHeight * responsiveScale));
+      // Apply responsive scaling with WCAG-compliant minimum font size
+      const padding = Math.max(3, Math.round(basePadding * responsiveScale));
+      const fontSize = Math.max(10, Math.round(baseFontSize * responsiveScale));
+      const pillHeight = Math.max(14, Math.round(basePillHeight * responsiveScale));
       
       // Create a temporary text element to measure width
       const tempText = d3.select(this)
