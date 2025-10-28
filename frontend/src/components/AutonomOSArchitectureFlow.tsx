@@ -14,7 +14,7 @@ export default function AutonomOSArchitectureFlow() {
         {/* Desktop: horizontal scroll if needed, Mobile: vertical stack */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-center gap-4 mb-8">
           {/* Enterprise Data */}
-          <div className="w-[240px] min-w-[240px] max-w-[240px] h-[240px] min-h-[240px] max-h-[240px] aspect-square bg-slate-800/80 border border-slate-600/50 rounded-lg p-4 flex flex-col justify-center overflow-hidden">
+          <div className="w-full md:w-[240px] md:min-w-[240px] md:max-w-[240px] aspect-square bg-slate-800/80 border border-slate-600/50 rounded-lg p-4 flex flex-col justify-center overflow-hidden">
             <div className="flex items-center gap-2 mb-3 justify-center">
               <Database className="w-4 h-4 sm:w-5 sm:h-5 text-white flex-shrink-0" />
               <h3 className="text-sm sm:text-base font-medium text-white text-center">
@@ -53,7 +53,7 @@ export default function AutonomOSArchitectureFlow() {
                 aamContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
               }
             }}
-            className="w-[240px] min-w-[240px] max-w-[240px] h-[240px] min-h-[240px] max-h-[240px] aspect-square bg-gradient-to-br from-cyan-900/40 to-slate-800/80 border border-cyan-500/50 hover:border-cyan-400 rounded-lg p-4 flex flex-col justify-center transition-all hover:scale-105 hover:shadow-lg hover:shadow-cyan-500/20 cursor-pointer group mobile-tap-highlight touch-target-h overflow-hidden"
+            className="w-full md:w-[240px] md:min-w-[240px] md:max-w-[240px] aspect-square bg-gradient-to-br from-cyan-900/40 to-slate-800/80 border border-cyan-500/50 hover:border-cyan-400 rounded-lg p-4 flex flex-col justify-center transition-all hover:scale-105 hover:shadow-lg hover:shadow-cyan-500/20 cursor-pointer group mobile-tap-highlight touch-target-h overflow-hidden"
           >
             <div className="flex items-center gap-2 mb-3 justify-center">
               <GitBranch className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400 group-hover:text-cyan-300 flex-shrink-0" />
@@ -99,7 +99,7 @@ export default function AutonomOSArchitectureFlow() {
                 dclContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
               }
             }}
-            className="w-[240px] min-w-[240px] max-w-[240px] h-[240px] min-h-[240px] max-h-[240px] aspect-square bg-gradient-to-br from-blue-900/40 to-slate-800/80 border border-blue-500/50 hover:border-blue-400 rounded-lg p-4 flex flex-col justify-center transition-all hover:scale-105 hover:shadow-lg hover:shadow-blue-500/20 cursor-pointer group mobile-tap-highlight touch-target-h overflow-hidden"
+            className="w-full md:w-[240px] md:min-w-[240px] md:max-w-[240px] aspect-square bg-gradient-to-br from-blue-900/40 to-slate-800/80 border border-blue-500/50 hover:border-blue-400 rounded-lg p-4 flex flex-col justify-center transition-all hover:scale-105 hover:shadow-lg hover:shadow-blue-500/20 cursor-pointer group mobile-tap-highlight touch-target-h overflow-hidden"
           >
             <div className="flex items-center gap-2 mb-3 justify-center">
               <Layers className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400 group-hover:text-blue-300 flex-shrink-0" />
@@ -145,7 +145,7 @@ export default function AutonomOSArchitectureFlow() {
                 agentPerformance.scrollIntoView({ behavior: 'smooth', block: 'start' });
               }
             }}
-            className="w-[240px] min-w-[240px] max-w-[240px] h-[240px] min-h-[240px] max-h-[240px] aspect-square bg-gradient-to-br from-purple-900/40 to-slate-800/80 border border-purple-500/50 hover:border-purple-400 rounded-lg p-4 flex flex-col justify-center transition-all hover:scale-105 hover:shadow-lg hover:shadow-purple-500/20 cursor-pointer group mobile-tap-highlight touch-target-h overflow-hidden"
+            className="w-full md:w-[240px] md:min-w-[240px] md:max-w-[240px] aspect-square bg-gradient-to-br from-purple-900/40 to-slate-800/80 border border-purple-500/50 hover:border-purple-400 rounded-lg p-4 flex flex-col justify-center transition-all hover:scale-105 hover:shadow-lg hover:shadow-purple-500/20 cursor-pointer group mobile-tap-highlight touch-target-h overflow-hidden"
           >
             <div className="flex items-center gap-2 mb-3 justify-center">
               <Zap className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400 group-hover:text-purple-300 flex-shrink-0" />
@@ -180,7 +180,7 @@ export default function AutonomOSArchitectureFlow() {
 
         {/* Outcomes - centered below */}
         <div className="flex justify-center">
-          <div className="w-[240px] min-w-[240px] max-w-[240px] h-[240px] min-h-[240px] max-h-[240px] aspect-square bg-gradient-to-br from-cyan-900/40 to-slate-800/80 border border-cyan-500/50 rounded-lg p-4 flex flex-col justify-center overflow-hidden">
+          <div className="w-full md:w-[240px] md:min-w-[240px] md:max-w-[240px] aspect-square bg-gradient-to-br from-cyan-900/40 to-slate-800/80 border border-cyan-500/50 rounded-lg p-4 flex flex-col justify-center overflow-hidden">
             <div className="flex items-center gap-2 mb-3 justify-center">
               <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400 flex-shrink-0" />
               <h3 className="text-sm sm:text-base font-medium text-cyan-400 text-center">
