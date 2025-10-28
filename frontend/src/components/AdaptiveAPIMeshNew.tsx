@@ -75,39 +75,39 @@ const AdaptiveAPIMesh = () => {
   }, [cycleCount]);
 
   return (
-    <div id="aam-container" className="w-full bg-[#000000] py-16 px-4">
+    <div id="aam-container" className="w-full bg-[#000000] py-12 px-3">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-8 text-center">
-          <h2 className="text-4xl font-bold text-[#0BCAD9] mb-4">
+        <div className="mb-6 text-center">
+          <h2 className="text-3xl font-bold text-[#0BCAD9] mb-3">
             Adaptive API Mesh (AAM)
           </h2>
-          <p className="text-gray-400 text-lg max-w-3xl mx-auto">
+          <p className="text-gray-400 text-base max-w-3xl mx-auto">
             A three-layer architecture combining universal connectivity with proprietary self-healing intelligence
           </p>
         </div>
 
-        <div className="relative flex items-center justify-center min-h-[400px] perspective-800">
-          <div className="relative w-full max-w-4xl h-[450px] flex items-center justify-center mt-[-48px] pb-[48px]" style={{ transformStyle: 'preserve-3d' }}>
+        <div className="relative flex items-center justify-center min-h-[300px] perspective-600">
+          <div className="relative w-full max-w-4xl h-[338px] flex items-center justify-center mt-[-36px] pb-[36px]" style={{ transformStyle: 'preserve-3d' }}>
             <div className="isometric-layer layer-1">
               <div className="layer-content bg-gradient-to-br from-[#1a2332] to-[#0f1721] border-2 border-gray-600/40">
                 <div className="layer-header">
-                  <Database className="w-8 h-8 text-gray-400" />
+                  <Database className="w-6 h-6 text-gray-400" />
                   <div>
-                    <h3 className="text-xl font-bold text-gray-300">Execution Plane</h3>
-                    <p className="text-sm text-gray-500">Adopted Infrastructure</p>
+                    <h3 className="text-base font-bold text-gray-300">Execution Plane</h3>
+                    <p className="text-xs text-gray-500">Adopted Infrastructure</p>
                   </div>
                 </div>
                 <div className="layer-features">
                   <div className="feature-item">
-                    <Network className="w-5 h-5 text-gray-400" />
+                    <Network className="w-4 h-4 text-gray-400" />
                     <span className="text-gray-400">Universal Connectivity</span>
                   </div>
                   <div className="feature-item">
-                    <Shield className="w-5 h-5 text-gray-400" />
+                    <Shield className="w-4 h-4 text-gray-400" />
                     <span className="text-gray-400">API Gateway & Security</span>
                   </div>
                   <div className="feature-item">
-                    <Activity className="w-5 h-5 text-gray-400" />
+                    <Activity className="w-4 h-4 text-gray-400" />
                     <span className="text-gray-400">Data Synchronization</span>
                   </div>
                 </div>
@@ -119,23 +119,23 @@ const AdaptiveAPIMesh = () => {
                 <div className="absolute inset-0 bg-[#0BCAD9]/10 backdrop-blur-sm"></div>
                 <div className="absolute inset-0 animate-pulse-glow"></div>
                 <div className="relative z-10 layer-header">
-                  <Brain className="w-8 h-8 text-white drop-shadow-lg" />
+                  <Brain className="w-6 h-6 text-white drop-shadow-lg" />
                   <div>
-                    <h3 className="text-xl font-bold text-white drop-shadow-md">Adaptive Intelligence Plane</h3>
-                    <p className="text-sm text-white/90 font-medium">Self-Healing Core</p>
+                    <h3 className="text-base font-bold text-white drop-shadow-md">Adaptive Intelligence Plane</h3>
+                    <p className="text-xs text-white/90 font-medium">Self-Healing Core</p>
                   </div>
                 </div>
                 <div className="relative z-10 layer-features">
                   <div className="feature-item">
-                    <Zap className="w-5 h-5 text-white" />
+                    <Zap className="w-4 h-4 text-white" />
                     <span className="text-white font-medium">RAG Engine (Autonomous Repair)</span>
                   </div>
                   <div className="feature-item">
-                    <Eye className="w-5 h-5 text-white" />
+                    <Eye className="w-4 h-4 text-white" />
                     <span className="text-white font-medium">Real-time Schema Observation</span>
                   </div>
                   <div className="feature-item">
-                    <Wrench className="w-5 h-5 text-white" />
+                    <Wrench className="w-4 h-4 text-white" />
                     <span className="text-white font-medium">Drift Detection</span>
                   </div>
                 </div>
@@ -145,23 +145,23 @@ const AdaptiveAPIMesh = () => {
             <div className="isometric-layer layer-3">
               <div className="layer-content bg-gradient-to-br from-[#e0f2fe]/95 to-[#bae6fd]/95 border-2 border-[#0BCAD9]/50 backdrop-blur-md">
                 <div className="layer-header">
-                  <Shield className="w-8 h-8 text-[#0891b2]" />
+                  <Shield className="w-6 h-6 text-[#0891b2]" />
                   <div>
-                    <h3 className="text-xl font-bold text-[#0a4a5e]">Control Plane</h3>
-                    <p className="text-sm text-[#0a4a5e]/70 font-medium">Governance & Monitoring</p>
+                    <h3 className="text-base font-bold text-[#0a4a5e]">Control Plane</h3>
+                    <p className="text-xs text-[#0a4a5e]/70 font-medium">Governance & Monitoring</p>
                   </div>
                 </div>
                 <div className="layer-features">
                   <div className="feature-item">
-                    <Activity className="w-5 h-5 text-[#0891b2]" />
+                    <Activity className="w-4 h-4 text-[#0891b2]" />
                     <span className="text-[#0a4a5e]">AOS Control Center</span>
                   </div>
                   <div className="feature-item">
-                    <Zap className="w-5 h-5 text-[#0891b2]" />
+                    <Zap className="w-4 h-4 text-[#0891b2]" />
                     <span className="text-[#0a4a5e]">Real-time Alerting</span>
                   </div>
                   <div className="feature-item">
-                    <Eye className="w-5 h-5 text-[#0891b2]" />
+                    <Eye className="w-4 h-4 text-[#0891b2]" />
                     <span className="text-[#0a4a5e]">Human-in-the-Loop (HITL)</span>
                   </div>
                 </div>
@@ -171,31 +171,31 @@ const AdaptiveAPIMesh = () => {
         </div>
 
         {/* Connection Log & Description */}
-        <div className="grid grid-cols-1 lg:grid-cols-[450px_1fr] gap-8 max-w-6xl mx-auto mt-8">
+        <div className="grid grid-cols-1 lg:grid-cols-[338px_1fr] gap-6 max-w-6xl mx-auto mt-6">
           {/* Left: Connection Log */}
-          <div className="bg-slate-900/80 rounded-lg border border-slate-700/50 p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Activity className="w-4 h-4 text-cyan-400" />
-              <h3 className="text-sm font-medium text-slate-200">Real-time Connection Monitor</h3>
-              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+          <div className="bg-slate-900/80 rounded-lg border border-slate-700/50 p-3">
+            <div className="flex items-center gap-1.5 mb-2">
+              <Activity className="w-3 h-3 text-cyan-400" />
+              <h3 className="text-xs font-medium text-slate-200">Real-time Connection Monitor</h3>
+              <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></div>
             </div>
             
-            <div className="bg-slate-950/60 rounded-md border border-slate-700/30 p-3 max-h-[280px] overflow-y-auto">
-              <div className="space-y-2 font-mono text-xs">
+            <div className="bg-slate-950/60 rounded-md border border-slate-700/30 p-2 max-h-[210px] overflow-y-auto">
+              <div className="space-y-1.5 font-mono text-[10px]">
                 {logs.map((log, index) => (
-                  <div key={index} className="flex items-start gap-2 pb-2 border-b border-slate-700/20 last:border-0">
+                  <div key={index} className="flex items-start gap-1.5 pb-1.5 border-b border-slate-700/20 last:border-0">
                     <span className="text-slate-500 flex-shrink-0">{log.time}</span>
                     {log.type === 'success' && (
-                      <CheckCircle className="w-3 h-3 text-green-400 flex-shrink-0 mt-0.5" />
+                      <CheckCircle className="w-2.5 h-2.5 text-green-400 flex-shrink-0 mt-0" />
                     )}
                     {log.type === 'warning' && (
-                      <AlertCircle className="w-3 h-3 text-red-400 flex-shrink-0 mt-0.5" />
+                      <AlertCircle className="w-2.5 h-2.5 text-red-400 flex-shrink-0 mt-0" />
                     )}
                     {log.type === 'healing' && (
-                      <Activity className="w-3 h-3 text-amber-400 flex-shrink-0 mt-0.5 animate-pulse" />
+                      <Activity className="w-2.5 h-2.5 text-amber-400 flex-shrink-0 mt-0 animate-pulse" />
                     )}
                     {log.type === 'info' && (
-                      <Info className="w-3 h-3 text-blue-400 flex-shrink-0 mt-0.5" />
+                      <Info className="w-2.5 h-2.5 text-blue-400 flex-shrink-0 mt-0" />
                     )}
                     <span className={`leading-tight flex-1 ${
                       log.type === 'warning' ? 'text-red-300' : 
@@ -210,18 +210,18 @@ const AdaptiveAPIMesh = () => {
           </div>
 
           {/* Right: Description */}
-          <div className="flex flex-col justify-center gap-6">
+          <div className="flex flex-col justify-center gap-4">
             <div>
-              <h3 className="text-xl font-medium text-cyan-400 mb-3">Three-Layer Architecture</h3>
-              <p className="text-lg text-slate-300 leading-relaxed">
+              <h3 className="text-base font-medium text-cyan-400 mb-2">Three-Layer Architecture</h3>
+              <p className="text-base text-slate-300 leading-relaxed">
                 The AAM is built on a robust foundation (Execution), powered by proprietary self-healing 
                 intelligence (Adaptive Intelligence), and managed through a unified control interface (AOS Control Center).
               </p>
             </div>
             
             <div>
-              <h3 className="text-xl font-medium text-cyan-400 mb-3">Self-Healing Intelligence</h3>
-              <p className="text-lg text-slate-300 leading-relaxed">
+              <h3 className="text-base font-medium text-cyan-400 mb-2">Self-Healing Intelligence</h3>
+              <p className="text-base text-slate-300 leading-relaxed">
                 The centerpiece Adaptive Intelligence layer continuously monitors, detects drift, 
                 and autonomously repairs connections—ensuring zero-downtime resilience.
               </p>
@@ -231,8 +231,8 @@ const AdaptiveAPIMesh = () => {
       </div>
 
       <style>{`
-        .perspective-800 {
-          perspective: 800px;
+        .perspective-600 {
+          perspective: 600px;
         }
 
         .card-container {
@@ -241,75 +241,75 @@ const AdaptiveAPIMesh = () => {
 
         .isometric-layer {
           position: absolute;
-          width: 375px;
+          width: 281px;
           transition: transform 0.3s ease;
           transform-origin: center center;
         }
 
         .layer-1 {
-          transform: rotateY(15deg) translateZ(-37.5px) translateY(-9px) translateX(-320px);
+          transform: rotateY(15deg) translateZ(-28px) translateY(-7px) translateX(-240px);
           z-index: 1;
         }
 
         .layer-2 {
-          transform: rotateY(15deg) translateZ(-18.75px) translateY(-4.5px) translateX(0px);
+          transform: rotateY(15deg) translateZ(-14px) translateY(-3px) translateX(0px);
           z-index: 2;
         }
 
         .layer-3 {
-          transform: rotateY(15deg) translateZ(0px) translateX(320px);
+          transform: rotateY(15deg) translateZ(0px) translateX(240px);
           z-index: 3;
         }
 
         .layer-content {
-          padding: 1.5rem;
-          border-radius: 12px;
-          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-          min-height: 150px;
+          padding: 1.125rem;
+          border-radius: 9px;
+          box-shadow: 0 19px 38px -9px rgba(0, 0, 0, 0.5);
+          min-height: 113px;
           position: relative;
         }
 
         .layer-1 .layer-content {
           box-shadow:
-            0 15px 30px -8px rgba(0, 0, 0, 0.4),
-            inset 0 2px 4px rgba(255, 255, 255, 0.05);
+            0 11px 23px -6px rgba(0, 0, 0, 0.4),
+            inset 0 1.5px 3px rgba(255, 255, 255, 0.05);
         }
 
         .layer-2 .layer-content {
           box-shadow:
-            0 25px 50px -10px rgba(11, 202, 217, 0.5),
-            0 20px 40px -10px rgba(0, 0, 0, 0.4),
-            inset 0 2px 4px rgba(255, 255, 255, 0.2);
+            0 19px 38px -8px rgba(11, 202, 217, 0.5),
+            0 15px 30px -8px rgba(0, 0, 0, 0.4),
+            inset 0 1.5px 3px rgba(255, 255, 255, 0.2);
         }
 
         .layer-3 .layer-content {
           box-shadow:
-            0 35px 70px -12px rgba(11, 202, 217, 0.3),
-            0 30px 60px -15px rgba(0, 0, 0, 0.5),
-            inset 0 2px 4px rgba(255, 255, 255, 0.3);
+            0 26px 53px -9px rgba(11, 202, 217, 0.3),
+            0 23px 45px -11px rgba(0, 0, 0, 0.5),
+            inset 0 1.5px 3px rgba(255, 255, 255, 0.3);
         }
 
         .layer-header {
           display: flex;
           align-items: center;
-          gap: 1rem;
-          margin-bottom: 1.5rem;
+          gap: 0.75rem;
+          margin-bottom: 1.125rem;
         }
 
         .layer-features {
           display: flex;
           flex-direction: column;
-          gap: 0.75rem;
+          gap: 0.56rem;
         }
 
         .feature-item {
           display: flex;
           align-items: center;
-          gap: 0.75rem;
-          padding: 0.5rem;
-          border-radius: 6px;
+          gap: 0.56rem;
+          padding: 0.375rem;
+          border-radius: 4.5px;
           background: rgba(0, 0, 0, 0.1);
-          font-size: 0.875rem;
+          font-size: 0.66rem;
         }
 
         .layer-2 .feature-item {
@@ -336,19 +336,19 @@ const AdaptiveAPIMesh = () => {
 
         @media (max-width: 1024px) {
           .isometric-layer {
-            width: 300px;
+            width: 225px;
           }
 
           .layer-1 {
-            transform: rotateY(15deg) translateZ(-30px) translateY(-7.5px) translateX(-240px);
+            transform: rotateY(15deg) translateZ(-23px) translateY(-6px) translateX(-180px);
           }
 
           .layer-2 {
-            transform: rotateY(15deg) translateZ(-15px) translateY(-3.75px) translateX(0px);
+            transform: rotateY(15deg) translateZ(-11px) translateY(-3px) translateX(0px);
           }
 
           .layer-3 {
-            transform: rotateY(15deg) translateZ(0px) translateX(240px);
+            transform: rotateY(15deg) translateZ(0px) translateX(180px);
           }
         }
 
@@ -356,8 +356,8 @@ const AdaptiveAPIMesh = () => {
           .isometric-layer {
             position: relative;
             width: 100%;
-            max-width: 300px;
-            margin: 0 auto 1.5rem;
+            max-width: 225px;
+            margin: 0 auto 1.125rem;
             transform: none !important;
           }
 
