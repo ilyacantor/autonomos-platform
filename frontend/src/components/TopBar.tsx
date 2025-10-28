@@ -43,7 +43,7 @@ export default function TopBar({ user, onPersonaChange, currentPage, onNavigate 
     <>
       <div className="h-16 bg-gray-900 border-b border-gray-800 flex items-center px-4 sm:px-6 gap-3 sm:gap-6 safe-x">
         {/* Logo */}
-        <div className="flex-shrink-0">
+        <div className="flex-shrink-0 -ml-[10px]">
           <button
             onClick={() => onNavigate('dashboard')}
             className="hover:opacity-80 transition-opacity cursor-pointer"
