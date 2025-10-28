@@ -86,42 +86,54 @@ const AutonomOSArchitectureFlow = () => {
                     </div>
                   </div>
 
-                  {/* Arrows bound to correct adjacent boxes based on layout */}
-                  {index < modules.length - 1 && (
-                    <>
-                      {/* Desktop (4-column): Horizontal arrows between all adjacent boxes */}
+                  {/* Arrows showing flow: Data → AAM → DCL → Agents */}
+                  <>
+                    {/* Desktop (4-column): Horizontal arrows between all boxes */}
+                    {index < modules.length - 1 && (
                       <div className="hidden lg:flex absolute top-1/2 -right-7 transform -translate-y-1/2 z-20">
                         <div className="bg-[#0BCAD9] rounded-full p-2 shadow-lg shadow-[#0BCAD9]/50">
                           <ArrowRight className="w-7 h-7 text-[#0A1628] font-bold" strokeWidth={3} />
                         </div>
                       </div>
-                      
-                      {/* Tablet (2-column): Horizontal arrows only for odd indices (0→1, 2→3) */}
-                      {index % 2 === 0 && (
-                        <div className="hidden md:flex lg:hidden absolute top-1/2 -right-7 transform -translate-y-1/2 z-20">
-                          <div className="bg-[#0BCAD9] rounded-full p-2 shadow-lg shadow-[#0BCAD9]/50">
-                            <ArrowRight className="w-7 h-7 text-[#0A1628] font-bold" strokeWidth={3} />
-                          </div>
+                    )}
+                    
+                    {/* Tablet (2-column grid): Data → AAM → DCL → Agents */}
+                    {/* 0→1: Data → AAM (horizontal in row 1) */}
+                    {index === 0 && (
+                      <div className="hidden md:flex lg:hidden absolute top-1/2 -right-7 transform -translate-y-1/2 z-20">
+                        <div className="bg-[#0BCAD9] rounded-full p-2 shadow-lg shadow-[#0BCAD9]/50">
+                          <ArrowRight className="w-7 h-7 text-[#0A1628] font-bold" strokeWidth={3} />
                         </div>
-                      )}
-                      
-                      {/* Tablet (2-column): Vertical arrows for even indices (1→2) */}
-                      {index % 2 === 1 && (
-                        <div className="hidden md:flex lg:hidden justify-center py-4">
-                          <div className="bg-[#0BCAD9] rounded-full p-2 shadow-lg shadow-[#0BCAD9]/50">
-                            <ArrowDown className="w-7 h-7 text-[#0A1628] font-bold" strokeWidth={3} />
-                          </div>
+                      </div>
+                    )}
+                    
+                    {/* 1→2: AAM → DCL (vertical between rows) */}
+                    {index === 1 && (
+                      <div className="hidden md:flex lg:hidden justify-center py-4">
+                        <div className="bg-[#0BCAD9] rounded-full p-2 shadow-lg shadow-[#0BCAD9]/50">
+                          <ArrowDown className="w-7 h-7 text-[#0A1628] font-bold" strokeWidth={3} />
                         </div>
-                      )}
-                      
-                      {/* Mobile (1-column): Vertical arrows between all adjacent boxes */}
+                      </div>
+                    )}
+                    
+                    {/* 2→3: DCL → Agents (horizontal in row 2) */}
+                    {index === 2 && (
+                      <div className="hidden md:flex lg:hidden absolute top-1/2 -right-7 transform -translate-y-1/2 z-20">
+                        <div className="bg-[#0BCAD9] rounded-full p-2 shadow-lg shadow-[#0BCAD9]/50">
+                          <ArrowRight className="w-7 h-7 text-[#0A1628] font-bold" strokeWidth={3} />
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Mobile (1-column): Vertical arrows between all boxes */}
+                    {index < modules.length - 1 && (
                       <div className="flex md:hidden justify-center py-4">
                         <div className="bg-[#0BCAD9] rounded-full p-2 shadow-lg shadow-[#0BCAD9]/50 animate-pulse">
                           <ArrowDown className="w-7 h-7 text-[#0A1628] font-bold" strokeWidth={3} />
                         </div>
                       </div>
-                    </>
-                  )}
+                    )}
+                  </>
                 </div>
               ))}
             </div>
