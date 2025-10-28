@@ -44,11 +44,16 @@ export default function TopBar({ user, onPersonaChange, currentPage, onNavigate 
       <div className="h-16 bg-gray-900 border-b border-gray-800 flex items-center px-4 sm:px-6 gap-3 sm:gap-6 safe-x">
         {/* Logo */}
         <div className="flex-shrink-0">
-          <img 
-            src={autonomosLogo} 
-            alt="autonomOS" 
-            className="h-[36px] sm:h-[42px] object-contain"
-          />
+          <button
+            onClick={() => onNavigate('dashboard')}
+            className="hover:opacity-80 transition-opacity cursor-pointer"
+          >
+            <img 
+              src={autonomosLogo} 
+              alt="autonomOS" 
+              className="h-[36px] sm:h-[42px] object-contain"
+            />
+          </button>
         </div>
 
         {/* Desktop Navigation Items - Hidden on Mobile */}

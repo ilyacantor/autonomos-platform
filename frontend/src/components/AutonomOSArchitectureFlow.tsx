@@ -1,34 +1,45 @@
 import { ArrowRight, Database, Network, Layers, Users, TrendingUp } from 'lucide-react';
 
 const AutonomOSArchitectureFlow = () => {
+  const scrollToSection = (sectionId: string) => {
+    const element = document.getElementById(sectionId);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
   const modules = [
     {
       icon: Database,
       title: 'Enterprise Data',
       tags: ['SaaS Applications', 'Databases & Warehouses', 'Legacy Systems', 'APIs & Files'],
       bgColor: 'bg-[#0A2540]',
-      borderColor: 'border-[#1E4A6F]'
+      borderColor: 'border-[#1E4A6F]',
+      linkTo: null
     },
     {
       icon: Network,
       title: 'Adaptive API Mesh (AAM)',
       tags: ['Self-Healing Integration', 'Autonomous Drift Repair', 'Real-time Schema Normalization', 'Universal Connectivity', 'Governed Data Exchange'],
       bgColor: 'bg-[#0D2F3F]',
-      borderColor: 'border-[#1A4D5E]'
+      borderColor: 'border-[#1A4D5E]',
+      linkTo: 'adaptive-api-mesh'
     },
     {
       icon: Layers,
       title: 'Data Connectivity Layer',
       tags: ['Unified Enterprise Ontology', 'Semantic Context Engine', 'AI-Ready Data Streams', 'Contextual RAG Indexing', 'Real-time Observability'],
       bgColor: 'bg-[#1A2F4A]',
-      borderColor: 'border-[#2A4A6F]'
+      borderColor: 'border-[#2A4A6F]',
+      linkTo: 'dcl-graph-container'
     },
     {
       icon: Users,
       title: 'Prebuilt Domain Agents',
       tags: ['Productized Domain Expertise', 'FinOps/RevOps Blueprints', 'Autonomous Workflow Orchestration', 'Custom Agent Deployment'],
       bgColor: 'bg-[#2A1F4A]',
-      borderColor: 'border-[#3F2F6F]'
+      borderColor: 'border-[#3F2F6F]',
+      linkTo: 'agent-performance-monitor'
     }
   ];
 
@@ -53,7 +64,8 @@ const AutonomOSArchitectureFlow = () => {
               {modules.map((module, index) => (
                 <div key={index} className="relative">
                   <div
-                    className={`${module.bgColor} ${module.borderColor} border-2 rounded-xl p-5 h-full hover:border-[#0BCAD9] transition-all duration-300`}
+                    onClick={() => module.linkTo && scrollToSection(module.linkTo)}
+                    className={`${module.bgColor} ${module.borderColor} border-2 rounded-xl p-5 h-full hover:border-[#0BCAD9] transition-all duration-300 ${module.linkTo ? 'cursor-pointer' : ''}`}
                   >
                     <div className="flex items-center gap-2 mb-3">
                       <module.icon className="w-6 h-6 text-[#0BCAD9]" />
