@@ -55,7 +55,7 @@ const AutonomOSArchitectureFlow = () => {
         <div className="relative">
           <div className="absolute -inset-6 bg-gradient-to-br from-[#0BCAD9]/5 via-transparent to-[#0BCAD9]/5 rounded-3xl border-2 border-[#0BCAD9]/20 pointer-events-none">
             <div className="absolute -top-3 left-8 bg-[#0A1628] px-3 py-1 text-[#0BCAD9] text-sm font-medium">
-              AutonomOS Platform
+              AutonomOS Orchestration Platform
             </div>
           </div>
 
