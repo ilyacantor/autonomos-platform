@@ -251,6 +251,11 @@ function renderSankey(
   const validWidth = Math.max(containerRect.width, 320);
   const validHeight = Math.max(containerRect.height, 400);
 
+  // Mobile-responsive scaling: scale down labels on small screens
+  const isMobile = validWidth < 640;
+  const isSmallMobile = validWidth < 480;
+  const responsiveScale = isSmallMobile ? 0.7 : isMobile ? 0.85 : 1.0;
+
   const layerMap: Record<string, number> = {
     'source_parent': 0,
     'source':        1,
@@ -276,8 +281,9 @@ function renderSankey(
   
   const { nodes, links } = graph;
   
-  const leftPadding = 20;
-  const rightPadding = 20;
+  // Mobile-responsive padding: reduce on small screens
+  const leftPadding = isMobile ? 10 : 20;
+  const rightPadding = isMobile ? 10 : 20;
   const layerWidth = (validWidth - leftPadding - rightPadding) / 3;
   const layerXPositions = [
     leftPadding,
@@ -374,7 +380,8 @@ function renderSankey(
   const boundingWidth = maxX - minX;
   const boundingHeight = maxY - minY;
   
-  const viewBoxPadding = 100;
+  // Mobile-responsive viewBox padding: reduce on small screens to prevent clipping
+  const viewBoxPadding = isSmallMobile ? 40 : isMobile ? 60 : 100;
   const viewBoxX = minX - viewBoxPadding;
   const viewBoxY = minY - viewBoxPadding;
   const viewBoxWidth = boundingWidth + (2 * viewBoxPadding);
@@ -672,11 +679,16 @@ function renderSankey(
         label = label.replace(/\s*\(unified\)\s*/i, '').trim();
       }
       
-      // Agent labels are 50% larger
+      // Agent labels are 50% larger, with mobile-responsive scaling
       const isAgent = nodeData.type === 'agent';
-      const padding = isAgent ? 6 : 4;
-      const fontSize = isAgent ? 15 : 10;
-      const pillHeight = isAgent ? 24 : 16;
+      const basePadding = isAgent ? 6 : 4;
+      const baseFontSize = isAgent ? 15 : 10;
+      const basePillHeight = isAgent ? 24 : 16;
+      
+      // Apply responsive scaling
+      const padding = Math.max(2, Math.round(basePadding * responsiveScale));
+      const fontSize = Math.max(7, Math.round(baseFontSize * responsiveScale));
+      const pillHeight = Math.max(12, Math.round(basePillHeight * responsiveScale));
       
       // Create a temporary text element to measure width
       const tempText = d3.select(this)
