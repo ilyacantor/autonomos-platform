@@ -1,83 +1,51 @@
-import { useState, useEffect } from 'react';
-import { Database, Brain, Shield, Network, Eye, Wrench, Activity, Zap, CheckCircle, AlertCircle, Info } from 'lucide-react';
-
-interface DataSource {
-  id: string;
-  name: string;
-}
-
-interface ConnectionLog {
-  time: string;
-  type: 'success' | 'warning' | 'info' | 'healing';
-  message: string;
-  source?: string;
-}
-
-const dataSources: DataSource[] = [
-  { id: 'salesforce', name: 'Salesforce' },
-  { id: 'sap', name: 'SAP' },
-  { id: 'mongodb', name: 'MongoDB' },
-  { id: 'snowflake', name: 'Snowflake' },
-  { id: 'dynamics', name: 'Dynamics' },
-  { id: 'netsuite', name: 'NetSuite' },
-  { id: 'hubspot', name: 'HubSpot' },
-  { id: 'supabase', name: 'Supabase' },
-];
+import { useState, useRef } from 'react';
+import { Database, Brain, Shield, Network, Eye, Wrench, Activity, Zap } from 'lucide-react';
 
 const AdaptiveAPIMesh = () => {
-  const [healingSource, setHealingSource] = useState<string | null>(null);
-  const [healingPhase, setHealingPhase] = useState<'normal' | 'drift' | 'healing' | 'restored'>('normal');
-  const [logs, setLogs] = useState<ConnectionLog[]>([
-    { time: '17:07:43', type: 'success', message: 'All systems healthy', source: 'system' },
-  ]);
-  const [cycleCount, setCycleCount] = useState(0);
+  const [rotation, setRotation] = useState({ x: 10, y: -20 });
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isInteracting, setIsInteracting] = useState(false);
 
-  // Self-healing animation cycle
-  useEffect(() => {
-    const cycle = async () => {
-      await new Promise(resolve => setTimeout(resolve, 4000));
-      
-      const randomSource = dataSources[Math.floor(Math.random() * dataSources.length)];
-      setHealingSource(randomSource.id);
-      
-      setHealingPhase('drift');
-      const driftTime = new Date().toLocaleTimeString('en-US', { hour12: false });
-      setLogs(prev => [
-        { time: driftTime, type: 'warning', message: `${randomSource.name} schema drift detected...`, source: randomSource.id },
-        ...prev.slice(0, 19)
-      ]);
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      setHealingPhase('healing');
-      const healTime = new Date().toLocaleTimeString('en-US', { hour12: false });
-      setLogs(prev => [
-        { time: healTime, type: 'healing', message: `Autonomous remapping initiated for ${randomSource.name}...`, source: randomSource.id },
-        ...prev.slice(0, 19)
-      ]);
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      setHealingPhase('restored');
-      const restoreTime = new Date().toLocaleTimeString('en-US', { hour12: false });
-      setLogs(prev => [
-        { time: restoreTime, type: 'success', message: `${randomSource.name} connection restored ✓`, source: randomSource.id },
-        ...prev.slice(0, 19)
-      ]);
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      setHealingPhase('normal');
-      setHealingSource(null);
-      setCycleCount(c => c + 1);
-    };
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!containerRef.current) return;
 
-    cycle();
-    const interval = setInterval(cycle, 9000);
-    return () => clearInterval(interval);
-  }, [cycleCount]);
+    const rect = containerRef.current.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = (e.clientY - rect.top) / rect.height;
+
+    const rotateY = -20 + (x - 0.5) * 80;
+    const rotateX = 10 + (y - 0.5) * -40;
+
+    setRotation({ x: rotateX, y: rotateY });
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!containerRef.current || e.touches.length === 0) return;
+
+    const rect = containerRef.current.getBoundingClientRect();
+    const touch = e.touches[0];
+    const x = (touch.clientX - rect.left) / rect.width;
+    const y = (touch.clientY - rect.top) / rect.height;
+
+    const rotateY = -20 + (x - 0.5) * 80;
+    const rotateX = 10 + (y - 0.5) * -40;
+
+    setRotation({ x: rotateX, y: rotateY });
+  };
+
+  const handleMouseLeave = () => {
+    setIsInteracting(false);
+    setRotation({ x: 10, y: -20 });
+  };
+
+  const handleMouseEnter = () => {
+    setIsInteracting(true);
+  };
 
   return (
-    <div id="aam-container" className="w-full bg-[#000000] py-16 px-4">
+    <div className="w-full bg-[#000000] py-16 px-4">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-8 text-center">
+        <div className="mb-12 text-center">
           <h2 className="text-4xl font-bold text-[#0BCAD9] mb-4">
             Adaptive API Mesh (AAM)
           </h2>
@@ -86,8 +54,23 @@ const AdaptiveAPIMesh = () => {
           </p>
         </div>
 
-        <div className="relative flex items-center justify-center min-h-[400px] perspective-800">
-          <div className="relative w-full max-w-4xl h-[450px] flex items-center justify-center mt-[-48px] pb-[48px]" style={{ transformStyle: 'preserve-3d' }}>
+        <div
+          ref={containerRef}
+          className="relative flex items-center justify-center min-h-[800px] perspective-1200 overflow-hidden cursor-grab active:cursor-grabbing"
+          onMouseMove={handleMouseMove}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleMouseLeave}
+        >
+          <div
+            className="relative card-container mx-auto"
+            style={{
+              transformStyle: 'preserve-3d',
+              transform: `rotateX(${rotation.x}deg) rotateY(${rotation.y}deg)`,
+              transition: isInteracting ? 'transform 0.1s ease-out' : 'transform 0.5s ease-out'
+            }}
+          >
             <div className="isometric-layer layer-1">
               <div className="layer-content bg-gradient-to-br from-[#1a2332] to-[#0f1721] border-2 border-gray-600/40">
                 <div className="layer-header">
@@ -170,122 +153,82 @@ const AdaptiveAPIMesh = () => {
           </div>
         </div>
 
-        {/* Connection Log & Description */}
-        <div className="grid grid-cols-1 lg:grid-cols-[450px_1fr] gap-8 max-w-6xl mx-auto mt-8">
-          {/* Left: Connection Log */}
-          <div className="bg-slate-900/80 rounded-lg border border-slate-700/50 p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Activity className="w-4 h-4 text-cyan-400" />
-              <h3 className="text-sm font-medium text-slate-200">Real-time Connection Monitor</h3>
-              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-            </div>
-            
-            <div className="bg-slate-950/60 rounded-md border border-slate-700/30 p-3 max-h-[280px] overflow-y-auto">
-              <div className="space-y-2 font-mono text-xs">
-                {logs.map((log, index) => (
-                  <div key={index} className="flex items-start gap-2 pb-2 border-b border-slate-700/20 last:border-0">
-                    <span className="text-slate-500 flex-shrink-0">{log.time}</span>
-                    {log.type === 'success' && (
-                      <CheckCircle className="w-3 h-3 text-green-400 flex-shrink-0 mt-0.5" />
-                    )}
-                    {log.type === 'warning' && (
-                      <AlertCircle className="w-3 h-3 text-red-400 flex-shrink-0 mt-0.5" />
-                    )}
-                    {log.type === 'healing' && (
-                      <Activity className="w-3 h-3 text-amber-400 flex-shrink-0 mt-0.5 animate-pulse" />
-                    )}
-                    {log.type === 'info' && (
-                      <Info className="w-3 h-3 text-blue-400 flex-shrink-0 mt-0.5" />
-                    )}
-                    <span className={`leading-tight flex-1 ${
-                      log.type === 'warning' ? 'text-red-300' : 
-                      log.type === 'healing' ? 'text-amber-300' : 
-                      log.type === 'success' ? 'text-green-300' : 
-                      'text-slate-300'
-                    }`}>{log.message}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Right: Description */}
-          <div className="flex flex-col justify-center gap-6">
-            <div>
-              <h3 className="text-xl font-medium text-cyan-400 mb-3">Three-Layer Architecture</h3>
-              <p className="text-lg text-slate-300 leading-relaxed">
-                The AAM is built on a robust foundation (Execution), powered by proprietary self-healing 
-                intelligence (Adaptive Intelligence), and managed through a unified control interface (AOS Control Center).
-              </p>
-            </div>
-            
-            <div>
-              <h3 className="text-xl font-medium text-cyan-400 mb-3">Self-Healing Intelligence</h3>
-              <p className="text-lg text-slate-300 leading-relaxed">
-                The centerpiece Adaptive Intelligence layer continuously monitors, detects drift, 
-                and autonomously repairs connections—ensuring zero-downtime resilience.
-              </p>
-            </div>
-          </div>
+        <div className="mt-12 text-center">
+          <p className="text-gray-300 text-lg max-w-3xl mx-auto">
+            Connects data, on-prem systems, databases, SaaS platforms, APIs, CSV, and Agents through intelligent, self-healing infrastructure
+          </p>
         </div>
       </div>
 
       <style>{`
-        .perspective-800 {
-          perspective: 800px;
+        .perspective-1200 {
+          perspective: 1200px;
+          perspective-origin: 50% 50%;
         }
 
         .card-container {
           transform-style: preserve-3d;
+          width: 1400px;
+          max-width: 100%;
+          height: 500px;
+          position: relative;
         }
 
         .isometric-layer {
           position: absolute;
-          width: 375px;
-          transition: transform 0.3s ease;
+          width: 480px;
+          transition: transform 0.5s ease;
           transform-origin: center center;
+          transform-style: preserve-3d;
+          left: 50%;
+          top: 50%;
+          margin-left: -240px;
+          margin-top: -150px;
         }
 
         .layer-1 {
-          transform: rotateY(15deg) translateZ(-37.5px) translateY(-9px) translateX(-320px);
+          transform: rotateY(-10deg) translateZ(-150px) translateX(-400px) translateY(30px);
           z-index: 1;
         }
 
         .layer-2 {
-          transform: rotateY(15deg) translateZ(-18.75px) translateY(-4.5px) translateX(0px);
+          transform: rotateY(0deg) translateZ(0px) translateX(0px) translateY(0px);
           z-index: 2;
         }
 
         .layer-3 {
-          transform: rotateY(15deg) translateZ(0px) translateX(320px);
+          transform: rotateY(10deg) translateZ(150px) translateX(400px) translateY(-30px);
           z-index: 3;
         }
 
         .layer-content {
-          padding: 1.5rem;
-          border-radius: 12px;
+          padding: 2rem;
+          border-radius: 16px;
           box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-          min-height: 150px;
+          min-height: 200px;
           position: relative;
         }
 
         .layer-1 .layer-content {
           box-shadow:
-            0 15px 30px -8px rgba(0, 0, 0, 0.4),
+            -40px 40px 80px -20px rgba(0, 0, 0, 0.7),
+            -20px 20px 40px -10px rgba(0, 0, 0, 0.5),
             inset 0 2px 4px rgba(255, 255, 255, 0.05);
         }
 
         .layer-2 .layer-content {
           box-shadow:
-            0 25px 50px -10px rgba(11, 202, 217, 0.5),
+            0 60px 120px -20px rgba(11, 202, 217, 0.6),
+            0 40px 80px -15px rgba(0, 0, 0, 0.6),
             0 20px 40px -10px rgba(0, 0, 0, 0.4),
             inset 0 2px 4px rgba(255, 255, 255, 0.2);
         }
 
         .layer-3 .layer-content {
           box-shadow:
-            0 35px 70px -12px rgba(11, 202, 217, 0.3),
-            0 30px 60px -15px rgba(0, 0, 0, 0.5),
+            40px 40px 100px -15px rgba(11, 202, 217, 0.5),
+            30px 30px 80px -15px rgba(11, 202, 217, 0.4),
+            20px 20px 60px -10px rgba(0, 0, 0, 0.5),
             inset 0 2px 4px rgba(255, 255, 255, 0.3);
         }
 
@@ -336,28 +279,32 @@ const AdaptiveAPIMesh = () => {
 
         @media (max-width: 1024px) {
           .isometric-layer {
-            width: 300px;
+            width: 400px;
           }
 
           .layer-1 {
-            transform: rotateY(15deg) translateZ(-30px) translateY(-7.5px) translateX(-240px);
+            transform: rotateY(-10deg) translateZ(-120px) translateX(-320px) translateY(20px);
           }
 
           .layer-2 {
-            transform: rotateY(15deg) translateZ(-15px) translateY(-3.75px) translateX(0px);
+            transform: rotateY(0deg) translateZ(0px) translateX(0px) translateY(0px);
           }
 
           .layer-3 {
-            transform: rotateY(15deg) translateZ(0px) translateX(240px);
+            transform: rotateY(10deg) translateZ(120px) translateX(320px) translateY(-20px);
           }
         }
 
         @media (max-width: 768px) {
+          .perspective-1200 {
+            cursor: default !important;
+          }
+
           .isometric-layer {
             position: relative;
             width: 100%;
-            max-width: 300px;
-            margin: 0 auto 1.5rem;
+            max-width: 400px;
+            margin: 0 auto 2rem;
             transform: none !important;
           }
 
