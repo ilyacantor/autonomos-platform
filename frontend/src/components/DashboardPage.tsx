@@ -2,6 +2,7 @@ import AOADetailsModal from './AOADetailsModal';
 import DCLGraphContainer from './DCLGraphContainer';
 import HeroSection from './HeroSection';
 import AutonomOSArchitectureFlow from './AutonomOSArchitectureFlow';
+import AdaptiveAPIMesh from './AdaptiveAPIMesh';
 import AgenticOrchestrationContainer from './AgenticOrchestrationContainer';
 import {
   mockAgentNodes,
@@ -17,6 +18,8 @@ export default function DashboardPage() {
       <HeroSection />
 
       <AutonomOSArchitectureFlow />
+
+      <AdaptiveAPIMesh />
 
       <DCLGraphContainer
         mappings={mockMappingReviews}
