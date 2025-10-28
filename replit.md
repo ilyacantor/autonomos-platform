@@ -34,12 +34,11 @@ AutonomOS is built with FastAPI, PostgreSQL, Redis, and Python RQ, implementing 
   - **TopBar:** Hamburger menu for <640px screens without scrolling, z-index management (z-50 menu, z-40 overlay), hidden persona text on mobile, clickable logo navigates to dashboard
   - **HeroSection:** Full 3-breakpoint typography scaling (text-lg sm:text-xl md:text-2xl pattern), touch-target buttons, responsive logo sizing
   - **DCL Controls:** 2x2 grid layout on mobile (grid-cols-2 sm:flex), 44px touch targets, larger mobile text (text-xs sm:text-[10px])
-  - **DCL Graph Mobile Responsiveness:** Dynamic label scaling and proportional spacing based on container width:
-    - Small mobile (<480px): 70% scale, 15px viewBox padding, 5% horizontal padding, WCAG-compliant 10px minimum font size
-    - Mobile (<640px): 85% scale, 20px viewBox padding, 4% horizontal padding, 10px minimum font size
-    - Desktop (≥640px): 100% scale, 25px viewBox padding, 3% horizontal padding
+  - **DCL Graph Mobile Responsiveness:** Dynamic label scaling based on container width with three breakpoints:
+    - Small mobile (<480px): 70% scale, 40px viewBox padding, 10px horizontal padding, WCAG-compliant 10px minimum font size
+    - Mobile (<640px): 85% scale, 60px viewBox padding, 10px horizontal padding, 10px minimum font size
+    - Desktop (≥640px): 100% scale, 100px viewBox padding, 20px horizontal padding
     - Label dimensions scale proportionally with 10px minimum font, 14px minimum pill height, 3px minimum padding
-    - Uses percentage-based spacing instead of fixed pixels for maximum edge spread and container fill
   - **Architecture Flow Navigation:** Clickable module boxes with smooth scroll to corresponding sections (AAM → 3-card visual, DCL → graph, Agents → performance monitor)
   - **Tested:** No layout breakage at 320px, 375px, 428px widths; no horizontal scrolling; all touch targets meet 44px standard
 - DCL graph visualization is clean, minimalist, with only boxes and edges, vertically centered and flowing top to bottom, with labels oriented to match data flow.
