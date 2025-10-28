@@ -1,7 +1,6 @@
 import AOADetailsModal from './AOADetailsModal';
 import DCLGraphContainer from './DCLGraphContainer';
 import HeroSection from './HeroSection';
-import AutonomOSArchitectureFlow from './AutonomOSArchitectureFlow';
 import AgenticOrchestrationContainer from './AgenticOrchestrationContainer';
 import {
   mockAgentNodes,
@@ -15,8 +14,6 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <HeroSection />
-
-      <AutonomOSArchitectureFlow />
 
       <DCLGraphContainer
         mappings={mockMappingReviews}
