@@ -153,20 +153,17 @@ export default function LiveSankeyGraph() {
   }, []);
 
   return (
-    <div ref={containerRef} className="rounded-xl bg-gray-800/40 border border-gray-700 shadow-sm ring-1 ring-cyan-500/10 p-1 h-full">
-      <div className="w-full h-full overflow-hidden">
-        {isRendering && containerSize.width === 0 && (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-sm text-gray-400 animate-pulse">Loading graph...</div>
-          </div>
-        )}
-        <svg
-          ref={svgRef}
-          width="100%"
-          height="100%"
-          style={{ display: 'block', maxWidth: '100%', maxHeight: '100%' }}
-        />
-      </div>
+    <div ref={containerRef} className="rounded-xl bg-gray-800/40 border border-gray-700 shadow-sm ring-1 ring-cyan-500/10 p-1 w-full" style={{ minHeight: '400px' }}>
+      {isRendering && containerSize.width === 0 && (
+        <div className="flex items-center justify-center" style={{ minHeight: '400px' }}>
+          <div className="text-sm text-gray-400 animate-pulse">Loading graph...</div>
+        </div>
+      )}
+      <svg
+        ref={svgRef}
+        className="w-full h-auto"
+        style={{ display: 'block' }}
+      />
     </div>
   );
 }
@@ -389,7 +386,8 @@ function renderSankey(
 
   svg
     .attr('viewBox', `${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}`)
-    .attr('preserveAspectRatio', 'xMidYMid meet');
+    .attr('preserveAspectRatio', 'xMidYMid meet')
+    .attr('height', viewBoxHeight); // Set explicit height for proper scaling
 
   const mainGroup = svg
     .append('g')

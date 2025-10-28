@@ -2,11 +2,9 @@ import React from 'react';
 import { Activity, ChevronDown, Play, X, CheckCircle } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import type { AgentNode, DCLStats, MappingReview, SchemaChange } from '../types';
-import LiveSankeyGraph from './LiveSankeyGraph';
 import { useDCLState } from '../hooks/useDCLState';
 import TypingText from './TypingText';
 import { aoaApi } from '../services/aoaApi';
-import { AUTH_TOKEN_KEY, API_CONFIG } from '../config/api';
 import { getDefaultSources, getDefaultAgents } from '../config/dclDefaults';
 
 interface DCLGraphContainerProps {
@@ -23,7 +21,7 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
   const { state: dclState } = useDCLState();
   const [typingEvents, setTypingEvents] = useState<Array<{ text: string; isTyping: boolean; key: string }>>([]);
   const [selectedModel, setSelectedModel] = useState('gemini-2.5-flash');
-  
+
   // Timer and progress state
   const [elapsedTime, setElapsedTime] = useState(0);
   const [progress, setProgress] = useState(0);
@@ -36,7 +34,7 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
     // getDefaultSources always returns non-empty array (fallback to all sources)
     return defaultSources.join(',');
   };
-  
+
   const getPersistedAgents = () => {
     const defaultAgents = getDefaultAgents();
     // getDefaultAgents always returns non-empty array (fallback to all agents)
@@ -56,7 +54,7 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
       const customEvent = event as CustomEvent;
       const source = customEvent.detail?.source;
       console.log(`[DCL] Received trigger-run event from: ${source}`);
-      
+
       // Trigger run with progress bar
       if (!isProcessing) {
         handleRun();
@@ -72,10 +70,10 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
   // Track new events and animate them with typing effect
   useEffect(() => {
     if (!dclState) return;
-    
+
     const eventsChanged = dclState.events.length !== typingEvents.length || 
       dclState.events.some((event, idx) => typingEvents[idx]?.text !== event);
-    
+
     if (eventsChanged) {
       if (dclState.events.length === 0) {
         setTypingEvents([]);
@@ -93,10 +91,10 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
   // Note: showProgress remains false during auto-run at mount
   useEffect(() => {
     if (!dclState) return;
-    
+
     // Check if graph is empty (no nodes) and we haven't run yet
     const hasNodes = dclState.graph?.nodes && dclState.graph.nodes.length > 0;
-    
+
     if (!hasNodes && !isProcessing) {
       // Auto-run the mapping to populate the graph (background operation - no progress bar)
       const autoRun = async () => {
@@ -105,7 +103,7 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
         try {
           const sources = getPersistedSources();
           const agents = getPersistedAgents();
-          await fetch(API_CONFIG.buildDclUrl(`/connect?sources=${sources}&agents=${agents}&llm_model=${selectedModel}`));
+          await aoaApi.connect(sources, agents, selectedModel);
           // Notify graph to update (event-driven)
           window.dispatchEvent(new Event('dcl-state-changed'));
         } catch (error) {
@@ -121,13 +119,13 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
   // Timer effect - tracks elapsed time during processing
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    
+
     if (timerStarted && isProcessing) {
       interval = setInterval(() => {
         setElapsedTime(prev => prev + 0.01);
       }, 10);
     }
-    
+
     return () => {
       if (interval) clearInterval(interval);
     };
@@ -136,11 +134,11 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
   // Progress simulation effect - incremental progress during processing
   useEffect(() => {
     let progressInterval: NodeJS.Timeout;
-    
+
     if (isProcessing && showProgress) {
       setProgress(0);
       let currentProgress = 0;
-      
+
       progressInterval = setInterval(() => {
         // Simulate realistic progress: fast start, slower end
         if (currentProgress < 30) {
@@ -152,14 +150,14 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
         } else if (currentProgress < 95) {
           currentProgress += 0.2;
         }
-        
+
         setProgress(Math.min(currentProgress, 95)); // Cap at 95% until actually complete
       }, 100);
     } else if (!isProcessing && progress > 0 && progress < 100) {
       // Complete to 100% when done and KEEP IT
       setProgress(100);
     }
-    
+
     return () => {
       if (progressInterval) clearInterval(progressInterval);
     };
@@ -174,12 +172,11 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
     setTimerStarted(true);
     setIsProcessing(true);
     setShowProgress(true); // Enable progress bar for manual runs
-    
+
     try {
       const sources = getPersistedSources();
       const agents = getPersistedAgents();
-      const response = await fetch(API_CONFIG.buildDclUrl(`/connect?sources=${sources}&agents=${agents}&llm_model=${selectedModel}`));
-      await response.json();
+      await aoaApi.connect(sources, agents, selectedModel);
       // Notify graph to update (event-driven)
       window.dispatchEvent(new Event('dcl-state-changed'));
     } catch (error) {
@@ -196,8 +193,7 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
   const handleToggleDevMode = async () => {
     try {
       const newMode = !devMode;
-      const response = await fetch(API_CONFIG.buildDclUrl(`/toggle_dev_mode?enabled=${newMode}`));
-      const data = await response.json();
+      const data = await aoaApi.toggleDevMode(newMode);
       setDevMode(data.dev_mode);
       // Notify graph to update
       window.dispatchEvent(new Event('dcl-state-changed'));
@@ -207,10 +203,10 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
   };
 
   return (
-    <div id="dcl-graph-container" className="bg-gray-900 rounded-xl border border-gray-800 p-2 sm:p-3 -mt-[5px]">
+    <div id="dcl-graph-container" className="bg-gray-900 rounded-xl border border-gray-800 p-3 sm:p-6 -mt-[5px]">
       {/* Top-Mounted Progress Bar - Shows only for manual/connection-triggered runs */}
       {showProgress && (
-        <div className="relative -mx-2 sm:-mx-3 -mt-2 sm:-mt-3 mb-3 h-4 bg-gray-800 rounded-t-xl overflow-hidden">
+        <div className="relative -mx-3 sm:-mx-6 -mt-3 sm:-mt-6 mb-4 h-4 bg-gray-800 rounded-t-xl overflow-hidden">
           {/* Actual progress bar */}
           <div 
             className="absolute left-0 top-0 h-full bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 transition-all duration-300 ease-out"
@@ -232,7 +228,7 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
           </div>
         </div>
       )}
-      
+
       <div className="mb-4">
         <h2 
           className="text-lg font-medium text-cyan-400 cursor-help" 
@@ -308,7 +304,7 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
                       <option value="gpt-5-mini">GPT-5 mini ⚡</option>
                       <option value="gpt-5-nano">GPT-5 nano 🚀</option>
                     </select>
-                    
+
                     {/* Run Button */}
                     <button
                       onClick={handleRun}
@@ -357,8 +353,12 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
           </div>
 
           <div className="relative pb-24" style={{ minHeight: '500px' }}>
-            <LiveSankeyGraph />
-            
+            <img
+              src="/assets/image copy.png"
+              alt="Data Connection Layer Graph"
+              className="w-full h-auto"
+            />
+
             {/* Agent Robots - positioned to overlap with FinOps/RevOps pilot nodes, horizontally centered */}
             <div className="absolute bottom-0 left-1/2 pointer-events-none" style={{ transform: 'translate(-50%, 20%)' }}>
               <img 
@@ -663,3 +663,4 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
     </div>
   );
 }
+  
