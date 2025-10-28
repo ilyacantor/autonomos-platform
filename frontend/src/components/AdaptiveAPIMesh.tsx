@@ -1,10 +1,61 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Database, Brain, Shield, Network, Eye, Wrench, Activity, Zap } from 'lucide-react';
+
+interface LogMessage {
+  time: string;
+  type: 'success' | 'warning' | 'error';
+  message: string;
+}
 
 const AdaptiveAPIMesh = () => {
   const [rotation, setRotation] = useState({ x: 10, y: 10 });
   const containerRef = useRef<HTMLDivElement>(null);
   const [isInteracting, setIsInteracting] = useState(false);
+  const [messages, setMessages] = useState<LogMessage[]>([
+    { time: '06:34:49', type: 'success', message: 'SAP connection restored ✓' },
+    { time: '06:34:48', type: 'warning', message: 'Autonomous remapping initiated for NetSuite...' },
+    { time: '06:34:46', type: 'error', message: 'NetSuite schema drift detected...' },
+  ]);
+  const logRef = useRef<HTMLDivElement>(null);
+
+  const messagePool = [
+    { type: 'success' as const, message: 'SAP connection restored ✓' },
+    { type: 'success' as const, message: 'Snowflake connection restored ✓' },
+    { type: 'success' as const, message: 'Salesforce connection restored ✓' },
+    { type: 'success' as const, message: 'Dynamics connection restored ✓' },
+    { type: 'success' as const, message: 'HubSpot connection restored ✓' },
+    { type: 'warning' as const, message: 'Autonomous remapping initiated for SAP...' },
+    { type: 'warning' as const, message: 'Autonomous remapping initiated for NetSuite...' },
+    { type: 'warning' as const, message: 'Autonomous remapping initiated for Salesforce...' },
+    { type: 'warning' as const, message: 'Autonomous remapping initiated for Dynamics...' },
+    { type: 'error' as const, message: 'SAP schema drift detected...' },
+    { type: 'error' as const, message: 'NetSuite schema drift detected...' },
+    { type: 'error' as const, message: 'Salesforce schema drift detected...' },
+    { type: 'error' as const, message: 'Dynamics schema drift detected...' },
+    { type: 'error' as const, message: 'Snowflake schema drift detected...' },
+  ];
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = new Date();
+      const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+      const randomMessage = messagePool[Math.floor(Math.random() * messagePool.length)];
+      
+      setMessages(prev => {
+        const newMessages = [...prev, { time: timeStr, ...randomMessage }];
+        return newMessages.slice(-20); // Keep last 20 messages
+      });
+
+      // Auto-scroll to bottom
+      setTimeout(() => {
+        if (logRef.current) {
+          logRef.current.scrollTop = logRef.current.scrollHeight;
+        }
+      }, 50);
+    }, 2500); // New message every 2.5 seconds
+
+    return () => clearInterval(interval);
+  }, []);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!containerRef.current) return;
@@ -166,43 +217,27 @@ const AdaptiveAPIMesh = () => {
               <h3 className="text-lg font-semibold text-white">Real-time Connection Monitor</h3>
               <div className="ml-auto w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
             </div>
-            <div className="bg-[#000000] rounded-md p-4 font-mono text-sm h-64 overflow-y-auto">
+            <div ref={logRef} className="bg-[#000000] rounded-md p-4 font-mono text-sm h-64 overflow-y-auto">
               <div className="space-y-2">
-                <div className="flex items-start gap-2">
-                  <span className="text-gray-500 text-xs">06:34:49</span>
-                  <span className="text-green-400">✓</span>
-                  <span className="text-gray-300">SAP connection restored ✓</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="text-gray-500 text-xs">06:34:48</span>
-                  <span className="text-yellow-400">⚡</span>
-                  <span className="text-yellow-300">Autonomous remapping initiated for NetSuite...</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="text-gray-500 text-xs">06:34:46</span>
-                  <span className="text-red-400">⚠</span>
-                  <span className="text-gray-300">NetSuite schema drift detected...</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="text-gray-500 text-xs">06:34:46</span>
-                  <span className="text-yellow-400">⚡</span>
-                  <span className="text-yellow-300">Autonomous remapping initiated for SAP...</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="text-gray-500 text-xs">06:34:44</span>
-                  <span className="text-red-400">⚠</span>
-                  <span className="text-gray-300">SAP Schema drift detected...</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="text-gray-500 text-xs">06:34:39</span>
-                  <span className="text-yellow-400">⚡</span>
-                  <span className="text-yellow-300">Autonomous remapping initiated for SAP...</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="text-gray-500 text-xs">06:34:38</span>
-                  <span className="text-green-400">✓</span>
-                  <span className="text-gray-300">Snowflake connection restored ✓</span>
-                </div>
+                {messages.map((msg, index) => (
+                  <div key={index} className="flex items-start gap-2">
+                    <span className="text-gray-500 text-xs">{msg.time}</span>
+                    <span className={
+                      msg.type === 'success' ? 'text-green-400' :
+                      msg.type === 'warning' ? 'text-yellow-400' :
+                      'text-red-400'
+                    }>
+                      {msg.type === 'success' ? '✓' : msg.type === 'warning' ? '⚡' : '⚠'}
+                    </span>
+                    <span className={
+                      msg.type === 'success' ? 'text-gray-300' :
+                      msg.type === 'warning' ? 'text-yellow-300' :
+                      'text-gray-300'
+                    }>
+                      {msg.message}
+                    </span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
