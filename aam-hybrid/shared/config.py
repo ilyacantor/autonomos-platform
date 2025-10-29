@@ -14,9 +14,9 @@ class Settings(BaseSettings):
     AIRBYTE_WORKSPACE_ID: Optional[str] = None
     AIRBYTE_DESTINATION_ID: Optional[str] = None
     
-    SUPABASE_DB_URL: str
+    SUPABASE_DB_URL: str = "postgresql://user:pass@localhost:5432/aam_registry"
     
-    REDIS_URL: str
+    REDIS_URL: str = "redis://localhost:6379"
     
     SECRET_KEY: str = "your-secret-key-change-in-production"
     

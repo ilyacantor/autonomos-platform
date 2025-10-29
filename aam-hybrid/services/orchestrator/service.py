@@ -73,6 +73,12 @@ async def onboard_connection(
         logger.error(f"Failed to get source definition: {e}")
         raise
     
+    if not settings.AIRBYTE_WORKSPACE_ID:
+        raise Exception("AIRBYTE_WORKSPACE_ID not configured")
+    
+    if not settings.AIRBYTE_DESTINATION_ID:
+        raise Exception("AIRBYTE_DESTINATION_ID not configured")
+    
     try:
         source_result = await airbyte_client.create_source(
             workspace_id=settings.AIRBYTE_WORKSPACE_ID,
@@ -82,6 +88,8 @@ async def onboard_connection(
         )
         
         airbyte_source_id = source_result.get("sourceId")
+        if not airbyte_source_id:
+            raise Exception("No sourceId returned from Airbyte")
         logger.info(f"Created Airbyte source: {airbyte_source_id}")
     except Exception as e:
         logger.error(f"Failed to create Airbyte source: {e}")

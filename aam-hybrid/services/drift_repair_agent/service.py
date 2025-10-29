@@ -49,7 +49,8 @@ async def apply_catalog_update(
     if not connection:
         raise Exception(f"Connection not found: {catalog_update.connection_id}")
     
-    if not connection.airbyte_connection_id:
+    airbyte_conn_id = connection.airbyte_connection_id
+    if not airbyte_conn_id:
         raise Exception(f"Connection has no Airbyte connection ID: {catalog_update.connection_id}")
     
     try:
@@ -64,7 +65,7 @@ async def apply_catalog_update(
     
     try:
         await airbyte_client.update_connection(
-            connection_id=str(connection.airbyte_connection_id),
+            connection_id=str(airbyte_conn_id),
             sync_catalog=catalog_update.new_sync_catalog
         )
         
