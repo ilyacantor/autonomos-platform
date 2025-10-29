@@ -267,8 +267,8 @@ function renderSankey(
     .nodeWidth(8)
     .nodePadding(18)
     .extent([
-      [1, 40],
-      [validWidth - 1, calculatedHeight - 40],
+      [1, 20],
+      [validWidth - 1, calculatedHeight - 20],
     ]);
 
   const graph = sankey({
@@ -369,16 +369,16 @@ function renderSankey(
     mongodb: { parent: '#10b981', child: '#34d399' },
   };
 
-  const minX = Math.min(...nodes.map((n: any) => n.x0)) - 50;
-  const maxX = Math.max(...nodes.map((n: any) => n.x1)) + 50;
-  const minY = Math.min(...nodes.map((n: any) => n.y0)) - 50;
-  const maxY = Math.max(...nodes.map((n: any) => n.y1)) + 50;
+  const minX = Math.min(...nodes.map((n: any) => n.x0));
+  const maxX = Math.max(...nodes.map((n: any) => n.x1));
+  const minY = Math.min(...nodes.map((n: any) => n.y0));
+  const maxY = Math.max(...nodes.map((n: any) => n.y1));
   
   const boundingWidth = maxX - minX;
   const boundingHeight = maxY - minY;
   
-  // Mobile-responsive viewBox padding: reduce on small screens to prevent clipping
-  const viewBoxPadding = isSmallMobile ? 30 : isMobile ? 50 : 80;
+  // Minimal viewBox padding to reduce dead space while preventing edge clipping
+  const viewBoxPadding = isSmallMobile ? 10 : isMobile ? 15 : 20;
   const viewBoxX = minX - viewBoxPadding;
   const viewBoxY = minY - viewBoxPadding;
   const viewBoxWidth = boundingWidth + (2 * viewBoxPadding);
@@ -766,10 +766,12 @@ function renderSankey(
   
   // Third pass: render all labels with adjusted positions
   labelData.forEach(item => {
-    // Create group for pillbox, rotated -90 degrees to be horizontal
+    // Create group for pillbox anchored to node edge, rotated -90 degrees to be horizontal
+    // Use data-bound coordinates to ensure labels move with nodes
     const pillGroup = d3.select(item.element)
       .append('g')
-      .attr('transform', `translate(${item.xPos}, ${item.yPos}) rotate(-90)`);
+      .attr('class', 'node-label-group')
+      .attr('transform', `translate(${item.d.x1 + 8}, ${(item.d.y0 + item.d.y1) / 2}) rotate(-90)`);
     
     // Background pill (centered at origin after rotation)
     pillGroup.append('rect')
