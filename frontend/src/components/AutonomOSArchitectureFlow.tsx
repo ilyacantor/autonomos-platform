@@ -1,4 +1,5 @@
 import { ArrowRight, ArrowDown, Database, Network, Layers, Users, TrendingUp } from 'lucide-react';
+import autonomosArrow from '../assets/autonomos-arrow.png';
 
 const AutonomOSArchitectureFlow = () => {
   const scrollToSection = (sectionId: string) => {
@@ -136,6 +137,15 @@ const AutonomOSArchitectureFlow = () => {
                   </>
                 </div>
               ))}
+            </div>
+
+            {/* Summary Arrow Transition - Semi-transparent AutonomOS logo */}
+            <div className="flex justify-center py-8">
+              <img 
+                src={autonomosArrow} 
+                alt="Summary transition" 
+                className="w-32 md:w-48 h-auto opacity-30 hover:opacity-50 transition-opacity duration-300"
+              />
             </div>
 
             <div className="flex justify-center">
