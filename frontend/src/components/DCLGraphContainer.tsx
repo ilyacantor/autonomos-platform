@@ -284,13 +284,19 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
                         if (e.target.value === 'select') {
                           window.dispatchEvent(new CustomEvent('navigate', { detail: { page: 'connections' } }));
                         } else if (e.target.value === 'all') {
+                          // Select all sources AND all agents before running
+                          const allSources = ['dynamics', 'salesforce', 'hubspot', 'sap', 'netsuite', 'legacy_sql', 'snowflake', 'supabase', 'mongodb'];
+                          const allAgents = ['revops_pilot', 'finops_pilot'];
+                          localStorage.setItem('aos.selectedSources', JSON.stringify(allSources));
+                          localStorage.setItem('aos.selectedAgents', JSON.stringify(allAgents));
+                          console.log('[DCL] All Sources selected - using all sources and all agents');
                           handleRun();
                         }
                         e.target.value = 'all';
                       }}
                       disabled={isProcessing}
                       className="touch-target-h mobile-tap-highlight px-3 py-2 sm:px-2 sm:py-1 bg-gray-800 border border-gray-700 rounded text-xs sm:text-[10px] text-white focus:outline-none focus:border-blue-500 hover:border-gray-600 transition-colors disabled:opacity-50 cursor-pointer"
-                      title="Select data sources"
+                      title="Select all data sources and agents"
                     >
                       <option value="all">All Sources</option>
                       <option value="select">Select Sources...</option>
