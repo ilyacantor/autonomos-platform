@@ -413,10 +413,10 @@ function renderSankey(
   tempGroup.remove();
   
   // Use the measured maxLabelWidth to calculate viewBox dimensions
-  // Reduced bottom padding for mobile (8px bottom vs 20px top/left)
+  // Minimal bottom padding for mobile (2px bottom vs 20px top/left)
   const labelOffset = 8;
   const viewBoxPaddingTop = 20;
-  const viewBoxPaddingBottom = 8; // Reduced bottom padding for mobile
+  const viewBoxPaddingBottom = 2; // Minimal bottom padding for tight mobile layout
   const viewBoxPaddingLeft = 20;
   const extendedRightPadding = viewBoxPaddingTop + labelOffset + maxMeasuredLabelWidth;
   
