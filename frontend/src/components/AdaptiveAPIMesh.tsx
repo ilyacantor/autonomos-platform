@@ -107,7 +107,7 @@ const AdaptiveAPIMesh = () => {
 
         <div
           ref={containerRef}
-          className="relative flex items-center justify-center min-h-[600px] perspective-1200 overflow-hidden cursor-grab active:cursor-grabbing"
+          className="relative flex items-center justify-center min-h-[600px] md:min-h-[600px] perspective-1200 overflow-x-auto md:overflow-hidden cursor-grab active:cursor-grabbing"
           onMouseMove={handleMouseMove}
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
@@ -115,7 +115,7 @@ const AdaptiveAPIMesh = () => {
           onTouchEnd={handleMouseLeave}
         >
           <div
-            className="relative card-container mx-auto"
+            className="relative card-container mx-auto md:mx-auto"
             style={{
               transformStyle: 'preserve-3d',
               transform: `rotateX(${rotation.x}deg) rotateY(${rotation.y}deg)`,
@@ -398,19 +398,45 @@ const AdaptiveAPIMesh = () => {
         @media (max-width: 768px) {
           .perspective-1200 {
             cursor: default !important;
+            display: block;
+            overflow-x: auto;
+            overflow-y: visible;
+            -webkit-overflow-scrolling: touch;
+            padding: 1rem;
+            min-height: auto;
+          }
+
+          .card-container {
+            display: flex;
+            flex-direction: row;
+            gap: 1.5rem;
+            width: auto;
+            height: auto;
+            min-width: min-content;
+            padding: 0;
           }
 
           .isometric-layer {
             position: relative;
-            width: 100%;
-            max-width: 300px;
-            margin: 0 auto 2rem;
+            width: 280px;
+            min-width: 280px;
+            flex-shrink: 0;
+            margin: 0;
             transform: none !important;
+            left: auto;
+            top: auto;
+            margin-left: 0;
+            margin-top: 0;
           }
 
           .layer-1, .layer-2, .layer-3 {
             position: relative;
             transform: none !important;
+            z-index: 1;
+          }
+
+          .layer-content {
+            min-height: 280px;
           }
         }
       `}</style>
