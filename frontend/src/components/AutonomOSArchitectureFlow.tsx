@@ -37,7 +37,7 @@ const AutonomOSArchitectureFlow = () => {
     {
       icon: Users,
       title: 'Prebuilt Domain Agents',
-      tags: ['Productized Domain Expertise', 'FinOps/RevOps Blueprints', 'Autonomous Workflow Orchestration', 'Custom Agent Deployment'],
+      tags: ['Productized Domain Expertise', 'FinOps/RevOps Blueprints', 'Autonomous Workflow Orchestration', 'Custom Agent Deployment', 'Business Process and Integration Support'],
       bgColor: 'bg-[#2A1F4A]',
       borderColor: 'border-[#3F2F6F]',
       linkTo: 'agent-performance-monitor'
