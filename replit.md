@@ -36,13 +36,7 @@ AutonomOS is built with FastAPI, PostgreSQL, Redis, and Python RQ, implementing 
   - **TopBar:** Hamburger menu for <640px screens without scrolling, z-index management (z-50 menu, z-40 overlay), hidden persona text on mobile, clickable logo navigates to dashboard
   - **HeroSection:** Full 3-breakpoint typography scaling (text-lg sm:text-xl md:text-2xl pattern), touch-target buttons, responsive logo sizing
   - **DCL Controls:** 2x2 grid layout on mobile (grid-cols-2 sm:flex), 44px touch targets, larger mobile text (text-xs sm:text-[10px])
-  - **DCL Graph Mobile Responsiveness:** Dynamic label scaling based on container width with three breakpoints:
-    - Small mobile (<480px): 70% scale, 10px viewBox padding, 10px horizontal padding, WCAG-compliant 10px minimum font size
-    - Mobile (<640px): 85% scale, 15px viewBox padding, 10px horizontal padding, 10px minimum font size
-    - Desktop (≥640px): 100% scale, 20px viewBox padding, 20px horizontal padding
-    - Label dimensions scale proportionally with 10px minimum font, 14px minimum pill height, 3px minimum padding
-    - Labels are anchored to nodes using data-bound coordinates (d.x1, d.y0, d.y1) ensuring they stay locked to their parent nodes at all zoom levels
-    - Minimal padding (20px top/bottom Sankey extent, 20/15/10px viewBox padding) reduces dead space while preventing edge clipping
+  - **DCL Graph ViewBox & ClipPath:** Dynamic viewBox calculation with pre-measured label widths ensures no label clipping. Before SVG creation, code measures all labels (using temporary text elements matching actual fontSize and padding), tracks maximum pill width, and calculates extendedRightPadding = viewBoxPadding (20px) + labelOffset (8px) + maxMeasuredLabelWidth. ClipPath boundaries match viewBox dimensions exactly to prevent edge bleeding. Labels positioned horizontally at x1 + labelOffset with collision detection to prevent overlaps within layers
   - **Architecture Flow Navigation:** Clickable module boxes with smooth scroll to corresponding sections (AAM → 3-card visual, DCL → graph, Agents → performance monitor)
   - **Architecture Flow Arrows:** Layout-aware directional arrows properly bound from source to target boxes across all breakpoints:
     - Desktop (lg+, 4-column): Horizontal arrows between all adjacent boxes (Enterprise Data → AAM → DCL → Agents)
@@ -51,7 +45,7 @@ AutonomOS is built with FastAPI, PostgreSQL, Redis, and Python RQ, implementing 
     - Arrows styled with bright cyan background, bold stroke, glow effect, and mobile pulse animation for maximum visibility
   - **AAM 3-Card Visual:** Horizontal scroll container on mobile (280px cards, touch-optimized scrolling) allows users to swipe through all three architecture layers
   - **Tested:** No layout breakage at 320px, 375px, 428px widths; no horizontal scrolling; all touch targets meet 44px standard; arrows correctly bound at all zoom levels
-- DCL graph visualization is clean, minimalist, with only boxes and edges, vertically centered and flowing top to bottom, with labels oriented to match data flow.
+- **DCL Graph Horizontal Orientation:** Clean, minimalist visualization with boxes and edges flowing left-to-right in natural horizontal Sankey layout. Major refactoring eliminated ~150+ lines of problematic code including 90° rotation transforms, mobile-specific scaling patches, complex touch event handlers, and custom tooltip logic. Graph now uses simple mouseenter/mouseleave tooltips and dynamic label width measurement to prevent clipping.
 
 **Technical Implementations:**
 - **Authentication:** JWT-based with Argon2 hashing.
@@ -74,10 +68,10 @@ AutonomOS is built with FastAPI, PostgreSQL, Redis, and Python RQ, implementing 
 - **Dropdown Z-Index:** Profile and Autonomy Mode dropdowns use z-50 for menus and z-40 for overlays to ensure proper visibility above all layout elements. TopBar container has overflow clipping removed to allow dropdowns to extend beyond boundaries.
 - **DCL Edge Colors:** Edges from data sources (layer 0) to layer 1 are green (#22c55e). All other edge colors remain unchanged (layer 1→2→3 use original color scheme).
 - **Edge Hover Tooltips:** All edges display tooltips on hover. Level 0→1 (hierarchy) edges show data source name, table name, and complete list of table fields.
-- **Graph Labels:** Small horizontal pillbox labels (16px height, 10px font) appear on all graph layers, rotated -90° for readability, with dark slate background and subtle borders:
-  - Layer 0 (source_parent): Full data source names
-  - Layer 2 (ontology): Entity names without "(Unified)" suffix (e.g., "AWS Resources" from "AWS Resources (Unified)")
-  - Layer 3 (agent): Full agent names
+- **Graph Labels:** Horizontal pillbox labels positioned to the right of nodes with dark slate background and colored borders matching node types. Agent labels use larger sizing (15px font, 24px height, 6px padding) for emphasis, while source/ontology labels use standard sizing (10px font, 16px height, 4px padding):
+  - Layer 0 (source_parent): Full data source names with green borders (#22c55e)
+  - Layer 2 (ontology): Entity names without "(Unified)" suffix (e.g., "AWS Resources" from "AWS Resources (Unified)") with blue borders (#60a5fa)
+  - Layer 3 (agent): Full agent names with purple borders (#9333ea)
 
 **System Design Choices:**
 - Core components: `main.py` (FastAPI), `worker.py` (RQ), `models.py` (SQLAlchemy), `schemas.py` (Pydantic), `crud.py`, `security.py`, `database.py`, `config.py`.
