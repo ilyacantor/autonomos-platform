@@ -35,28 +35,40 @@ async def get_salesforce_config(credential_id: str) -> Optional[Dict[str, Any]]:
     Get Salesforce connection configuration for Airbyte
     
     MVP Implementation: Uses environment variables
-    Production: Would retrieve from secure vault
+    Production: Would retrieve from secure vault (HashiCorp Vault, AWS Secrets Manager)
     
     Args:
         credential_id: Salesforce credential identifier
     
     Returns:
-        Airbyte Salesforce connector configuration
+        Airbyte Salesforce connector configuration with full OAuth tokens
+    
+    Raises:
+        Exception if required credentials are missing
     """
     logger.info(f"Retrieving Salesforce configuration for: {credential_id}")
     
-    if not settings.SALESFORCE_CLIENT_ID or not settings.SALESFORCE_CLIENT_SECRET:
-        logger.error("Salesforce credentials not configured in environment")
-        return None
+    missing_creds = []
+    if not settings.SALESFORCE_CLIENT_ID:
+        missing_creds.append("SALESFORCE_CLIENT_ID")
+    if not settings.SALESFORCE_CLIENT_SECRET:
+        missing_creds.append("SALESFORCE_CLIENT_SECRET")
+    if not settings.SALESFORCE_REFRESH_TOKEN:
+        missing_creds.append("SALESFORCE_REFRESH_TOKEN")
+    
+    if missing_creds:
+        error_msg = f"Missing required Salesforce credentials: {', '.join(missing_creds)}"
+        logger.error(error_msg)
+        raise Exception(error_msg)
     
     config = {
         "client_id": settings.SALESFORCE_CLIENT_ID,
         "client_secret": settings.SALESFORCE_CLIENT_SECRET,
-        "refresh_token": None,
+        "refresh_token": settings.SALESFORCE_REFRESH_TOKEN,
         "is_sandbox": False,
         "auth_type": "Client",
         "start_date": "2024-01-01T00:00:00Z"
     }
     
-    logger.info("Salesforce configuration retrieved successfully")
+    logger.info("Salesforce configuration retrieved successfully with OAuth tokens")
     return config

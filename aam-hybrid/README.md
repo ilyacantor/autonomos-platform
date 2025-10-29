@@ -138,12 +138,12 @@ cp .env.example .env
 Edit `.env` with your credentials:
 
 ```env
-# Airbyte Configuration
+# Airbyte Configuration (REQUIRED)
 AIRBYTE_API_URL=http://localhost:8000/api/public/v1
 AIRBYTE_CLIENT_ID=<from abctl local credentials>
 AIRBYTE_CLIENT_SECRET=<from abctl local credentials>
-AIRBYTE_WORKSPACE_ID=<from Airbyte UI>
-AIRBYTE_DESTINATION_ID=<from Airbyte UI>
+AIRBYTE_WORKSPACE_ID=<from Airbyte UI - see below>
+AIRBYTE_DESTINATION_ID=<from Airbyte UI - see below>
 
 # Database
 SUPABASE_DB_URL=postgresql://user:password@host:port/database
@@ -151,10 +151,19 @@ SUPABASE_DB_URL=postgresql://user:password@host:port/database
 # Redis
 REDIS_URL=redis://localhost:6379
 
-# Salesforce Credentials
+# Salesforce OAuth Credentials (REQUIRED for Salesforce connections)
 SALESFORCE_CLIENT_ID=<your-salesforce-client-id>
 SALESFORCE_CLIENT_SECRET=<your-salesforce-client-secret>
+SALESFORCE_REFRESH_TOKEN=<your-salesforce-refresh-token>
 ```
+
+**IMPORTANT:** All Airbyte credentials are REQUIRED. The Orchestrator will fail to start if any are missing. Salesforce credentials are optional but required if you want to onboard Salesforce connections.
+
+**Getting Salesforce OAuth Refresh Token:**
+1. Create a Connected App in Salesforce Setup → App Manager
+2. Enable OAuth Settings with callback URL and scopes: `api refresh_token offline_access`
+3. Use OAuth 2.0 Web Server Flow to authenticate and obtain tokens
+4. Save the `refresh_token` - it persists until manually revoked
 
 ### 4. Start Services
 

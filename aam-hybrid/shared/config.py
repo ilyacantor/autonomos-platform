@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     
     SALESFORCE_CLIENT_ID: Optional[str] = None
     SALESFORCE_CLIENT_SECRET: Optional[str] = None
+    SALESFORCE_REFRESH_TOKEN: Optional[str] = None
     
     SERVICE_PORT_ORCHESTRATOR: int = 8001
     SERVICE_PORT_AUTH_BROKER: int = 8002

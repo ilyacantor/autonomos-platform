@@ -17,6 +17,7 @@ from .service import (
     get_connection_by_id,
     list_connections
 )
+from .startup_check import validate_configuration
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -38,7 +39,10 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup_event():
-    """Initialize database on startup"""
+    """Initialize database and validate configuration on startup"""
+    logger.info("Validating configuration...")
+    validate_configuration()
+    
     logger.info("Initializing database...")
     await init_db()
     logger.info("Database initialized successfully")

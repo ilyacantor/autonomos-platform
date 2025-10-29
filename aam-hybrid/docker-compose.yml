@@ -42,6 +42,9 @@ services:
     environment:
       - REDIS_URL=redis://redis:6379
       - SUPABASE_DB_URL=postgresql://aam_user:aam_password@postgres:5432/aam_registry
+      - SALESFORCE_CLIENT_ID=${SALESFORCE_CLIENT_ID}
+      - SALESFORCE_CLIENT_SECRET=${SALESFORCE_CLIENT_SECRET}
+      - SALESFORCE_REFRESH_TOKEN=${SALESFORCE_REFRESH_TOKEN}
     depends_on:
       - redis
       - postgres
@@ -57,7 +60,11 @@ services:
     environment:
       - REDIS_URL=redis://redis:6379
       - SUPABASE_DB_URL=postgresql://aam_user:aam_password@postgres:5432/aam_registry
-      - AIRBYTE_API_URL=http://host.docker.internal:8000/api/public/v1
+      - AIRBYTE_API_URL=${AIRBYTE_API_URL:-http://host.docker.internal:8000/api/public/v1}
+      - AIRBYTE_CLIENT_ID=${AIRBYTE_CLIENT_ID}
+      - AIRBYTE_CLIENT_SECRET=${AIRBYTE_CLIENT_SECRET}
+      - AIRBYTE_WORKSPACE_ID=${AIRBYTE_WORKSPACE_ID}
+      - AIRBYTE_DESTINATION_ID=${AIRBYTE_DESTINATION_ID}
     depends_on:
       - redis
       - postgres
@@ -74,7 +81,11 @@ services:
     environment:
       - REDIS_URL=redis://redis:6379
       - SUPABASE_DB_URL=postgresql://aam_user:aam_password@postgres:5432/aam_registry
-      - AIRBYTE_API_URL=http://host.docker.internal:8000/api/public/v1
+      - AIRBYTE_API_URL=${AIRBYTE_API_URL:-http://host.docker.internal:8000/api/public/v1}
+      - AIRBYTE_CLIENT_ID=${AIRBYTE_CLIENT_ID}
+      - AIRBYTE_CLIENT_SECRET=${AIRBYTE_CLIENT_SECRET}
+      - AIRBYTE_WORKSPACE_ID=${AIRBYTE_WORKSPACE_ID}
+      - AIRBYTE_DESTINATION_ID=${AIRBYTE_DESTINATION_ID}
     depends_on:
       - redis
       - postgres
