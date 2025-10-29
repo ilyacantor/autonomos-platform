@@ -96,6 +96,10 @@ export default function LiveSankeyGraph() {
       if (rafRef.current) {
         cancelAnimationFrame(rafRef.current);
       }
+      // Clean up tooltip event listeners
+      if ((window as any).__cleanupTooltipListeners) {
+        (window as any).__cleanupTooltipListeners();
+      }
     };
   }, [state, animatingEdges, containerSize]);
 
@@ -489,7 +493,8 @@ function renderSankey(
         .html(tooltipContent)
         .style('left', (event.pageX + 10) + 'px')
         .style('top', (event.pageY - 10) + 'px')
-        .style('opacity', '1');
+        .style('opacity', '1')
+        .style('display', 'block');
     })
     .on('mousemove', function(event: MouseEvent) {
       d3.select('.sankey-edge-tooltip')
@@ -510,7 +515,39 @@ function renderSankey(
           d3.select(this).attr('stroke-opacity', 0.4);
         }
       }
-      d3.select('.sankey-edge-tooltip').style('opacity', '0');
+      d3.select('.sankey-edge-tooltip').style('opacity', '0').style('display', 'none');
+    })
+    .on('click', function(event: MouseEvent) {
+      // Prevent click from propagating to document (which would dismiss tooltip)
+      event.stopPropagation();
+    })
+    .on('touchstart', function(event: TouchEvent, d: any) {
+      // Handle touch on mobile - stop propagation and show tooltip
+      event.stopPropagation();
+      
+      const linkIndex = links.indexOf(d);
+      const originalLink = sankeyLinks[linkIndex];
+      
+      const sourceNodeData = sankeyNodes.find(n => n.name === d.source.name);
+      const targetNodeData = sankeyNodes.find(n => n.name === d.target.name);
+      
+      const tooltipContent = getEdgeTooltip(sourceNodeData, targetNodeData, originalLink);
+      
+      const touch = event.touches[0];
+      const edgeTooltip = d3.select('.sankey-edge-tooltip');
+      
+      if (edgeTooltip.style('opacity') === '1') {
+        // If already showing, hide it
+        edgeTooltip.style('opacity', '0').style('display', 'none');
+      } else {
+        // Show tooltip at touch position
+        edgeTooltip
+          .html(tooltipContent)
+          .style('left', (touch.pageX + 10) + 'px')
+          .style('top', (touch.pageY - 10) + 'px')
+          .style('opacity', '1')
+          .style('display', 'block');
+      }
     });
 
   const nodeGroups = mainGroup.append('g').selectAll('g').data(nodes).join('g');
@@ -881,4 +918,31 @@ function renderSankey(
     
     return tooltip;
   }
+
+  // Add global click/touch handler to dismiss tooltips on any click (especially helpful on mobile)
+  svg.on('click', function() {
+    d3.select('.sankey-edge-tooltip').style('opacity', '0').style('display', 'none');
+    d3.select('.sankey-tooltip').style('opacity', '0');
+  });
+
+  svg.on('touchstart', function() {
+    d3.select('.sankey-edge-tooltip').style('opacity', '0').style('display', 'none');
+    d3.select('.sankey-tooltip').style('opacity', '0');
+  });
+
+  // Also add a global document listener to catch clicks outside the SVG
+  const dismissTooltips = () => {
+    d3.select('.sankey-edge-tooltip').style('opacity', '0').style('display', 'none');
+    d3.select('.sankey-tooltip').style('opacity', '0');
+  };
+
+  document.addEventListener('click', dismissTooltips);
+  document.addEventListener('touchstart', dismissTooltips);
+
+  // Clean up listeners when component unmounts or re-renders
+  // Store cleanup function for later use
+  (window as any).__cleanupTooltipListeners = () => {
+    document.removeEventListener('click', dismissTooltips);
+    document.removeEventListener('touchstart', dismissTooltips);
+  };
 }
