@@ -356,15 +356,15 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
             </div>
           </div>
 
-          <div className="relative pb-24" style={{ minHeight: '500px' }}>
+          <div className="relative pb-8" style={{ minHeight: '500px' }}>
             <LiveSankeyGraph />
             
-            {/* Agent Robots - positioned to overlap with FinOps/RevOps pilot nodes, horizontally centered */}
-            <div className="absolute bottom-0 left-1/2 pointer-events-none" style={{ transform: 'translate(-50%, 20%)' }}>
+            {/* Agent Robots - anchored at right middle side, overlapping FinOps/RevOps pilot labels */}
+            <div className="absolute right-0 top-1/2 pointer-events-none" style={{ transform: 'translate(10%, -50%)' }}>
               <img 
                 src="/assets/robot-agents.png" 
                 alt="AI Agents with holographic interfaces"
-                className="w-80 h-auto object-contain opacity-90"
+                className="w-64 sm:w-80 h-auto object-contain opacity-90"
                 style={{ filter: 'drop-shadow(0 0 20px rgba(147, 51, 234, 0.3))' }}
               />
             </div>

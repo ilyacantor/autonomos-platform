@@ -413,14 +413,17 @@ function renderSankey(
   tempGroup.remove();
   
   // Use the measured maxLabelWidth to calculate viewBox dimensions
+  // Reduced bottom padding for mobile (8px bottom vs 20px top/left)
   const labelOffset = 8;
-  const viewBoxPadding = 20;
-  const extendedRightPadding = viewBoxPadding + labelOffset + maxMeasuredLabelWidth;
+  const viewBoxPaddingTop = 20;
+  const viewBoxPaddingBottom = 8; // Reduced bottom padding for mobile
+  const viewBoxPaddingLeft = 20;
+  const extendedRightPadding = viewBoxPaddingTop + labelOffset + maxMeasuredLabelWidth;
   
-  const viewBoxX = minX - viewBoxPadding;
-  const viewBoxY = minY - viewBoxPadding;
-  const viewBoxWidth = boundingWidth + viewBoxPadding + extendedRightPadding;
-  const viewBoxHeight = boundingHeight + (2 * viewBoxPadding);
+  const viewBoxX = minX - viewBoxPaddingLeft;
+  const viewBoxY = minY - viewBoxPaddingTop;
+  const viewBoxWidth = boundingWidth + viewBoxPaddingLeft + extendedRightPadding;
+  const viewBoxHeight = boundingHeight + viewBoxPaddingTop + viewBoxPaddingBottom;
 
   svg
     .attr('viewBox', `${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}`)
