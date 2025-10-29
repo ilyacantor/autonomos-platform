@@ -362,7 +362,7 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
             </div>
           </div>
 
-          <div className="relative pb-2" style={{ minHeight: '500px' }}>
+          <div className="relative pb-2 md:min-h-[500px]">
             <LiveSankeyGraph />
           </div>
         </div>

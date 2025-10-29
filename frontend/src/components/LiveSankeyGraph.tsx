@@ -153,9 +153,9 @@ export default function LiveSankeyGraph() {
   }, []);
 
   return (
-    <div ref={containerRef} className="rounded-xl bg-gray-800/40 border border-gray-700 shadow-sm ring-1 ring-cyan-500/10 p-1 w-full" style={{ minHeight: '400px' }}>
+    <div ref={containerRef} className="rounded-xl bg-gray-800/40 border border-gray-700 shadow-sm ring-1 ring-cyan-500/10 p-1 w-full md:min-h-[400px]">
       {isRendering && containerSize.width === 0 && (
-        <div className="flex items-center justify-center" style={{ minHeight: '400px' }}>
+        <div className="flex items-center justify-center md:min-h-[400px]">
           <div className="text-sm text-gray-400 animate-pulse">Loading graph...</div>
         </div>
       )}
@@ -246,7 +246,9 @@ function renderSankey(
 
   const containerRect = container.getBoundingClientRect();
   const validWidth = Math.max(containerRect.width, 320);
-  const validHeight = Math.max(containerRect.height, 400);
+  // Allow mobile to shrink below 400px, only enforce minimum on desktop
+  const isMobile = window.innerWidth < 768; // md breakpoint
+  const validHeight = Math.max(containerRect.height, isMobile ? 200 : 400);
 
   const layerMap: Record<string, number> = {
     'source_parent': 0,
