@@ -19,10 +19,10 @@ export default function FAQPage() {
       answer: (
         <div className="space-y-4">
           <p className="text-gray-300">
-            AutonomOS is an AI-native, enterprise-grade platform that turns your scattered company data into action.
+            AutonomOS is an AI-native, <strong className="text-white">enterprise-grade</strong> platform that turns your scattered company data into action.
           </p>
           <p className="text-gray-300">
-            It autonomously connects to all your apps, databases, and files, learning how they fit together to create a single, unified enterprise ontology. This allows our specialized AI agents to reason, act, and get work done.
+            It autonomously connects to all your apps, databases, and files, learning how they fit together to create a single, unified enterprise <strong className="text-white">ontology</strong>. This allows our specialized AI agents to reason, act, and get work done.
           </p>
           
           <div className="mt-6">
@@ -35,7 +35,7 @@ export default function FAQPage() {
           <div className="mt-6">
             <h4 className="text-[#0BCAD9] font-medium text-lg mb-3">Our Solution</h4>
             <p className="text-gray-300">
-              AutonomOS bridges this gap. It not only unifies your data but empowers pre-built AI agents to execute complex workflows. You remain in control with Human-in-the-Loop (HITL) guardrails. We deliver a complete, secure, and scalable solution—combining technology with the domain expertise to ensure you get results, not just another proof-of-concept (POC).
+              AutonomOS bridges this gap. It not only unifies your data but empowers pre-built AI agents to execute complex workflows. You remain in control with Human-in-the-Loop (HITL) guardrails. We deliver a complete, <strong className="text-white">secure</strong>, and scalable solution—combining technology with the domain expertise to ensure you get results, not just another proof-of-concept (POC).
             </p>
           </div>
         </div>
