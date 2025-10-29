@@ -153,7 +153,7 @@ export default function LiveSankeyGraph() {
   }, []);
 
   return (
-    <div ref={containerRef} className="rounded-xl bg-gray-800/40 border border-gray-700 shadow-sm ring-1 ring-cyan-500/10 p-1 w-full md:min-h-[400px]">
+    <div ref={containerRef} className="rounded-xl bg-gray-800/40 border border-gray-700 shadow-sm ring-1 ring-cyan-500/10 p-1 w-full md:min-h-[400px] flex items-center justify-center">
       {isRendering && containerSize.width === 0 && (
         <div className="flex items-center justify-center md:min-h-[400px]">
           <div className="text-sm text-gray-400 animate-pulse">Loading graph...</div>
@@ -391,10 +391,10 @@ function renderSankey(
         label = label.replace(/\s*\(unified\)\s*/i, '').trim();
       }
       
-      // Agent labels are 50% larger for emphasis (same as label creation logic)
+      // All labels use consistent sizing
       const isAgent = nodeData.type === 'agent';
-      const padding = isAgent ? 6 : 4;
-      const fontSize = isAgent ? 15 : 10;
+      const padding = 4;
+      const fontSize = 10;
       
       // Create a temporary text element to measure width
       const tempText = tempGroup
@@ -731,11 +731,11 @@ function renderSankey(
         label = label.replace(/\s*\(unified\)\s*/i, '').trim();
       }
       
-      // Agent labels are 50% larger for emphasis
+      // All labels use consistent sizing
       const isAgent = nodeData.type === 'agent';
-      const padding = isAgent ? 6 : 4;
-      const fontSize = isAgent ? 15 : 10;
-      const pillHeight = isAgent ? 24 : 16;
+      const padding = 4;
+      const fontSize = 10;
+      const pillHeight = 16;
       
       // Create a temporary text element to measure width
       const tempText = d3.select(this)
