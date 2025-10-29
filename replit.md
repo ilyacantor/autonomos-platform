@@ -23,7 +23,7 @@ AutonomOS is built with FastAPI, PostgreSQL, Redis, and Python RQ, implementing 
 - Authentication is disabled by default. Login and Sign Up buttons in the TopBar replace the user profile dropdown. The auth modal only appears when users explicitly click these buttons.
 - **FAQ Page:** Comprehensive FAQ section accessible via navigation tab, featuring accordion-style Q&A about AutonomOS AI capabilities, including detailed explanations of AAM, DCL, Prebuilt Domain Agents, security architecture, and technology stack.
 - The frontend features interactive DCL graph controls, data source and intelligence agent selection, and a real-time status panel with a two-column design.
-- Agent robots are anchored at the right middle side of the DCL graph, positioned to slightly overlap with FinOps and RevOps pilot labels. The robots have a purple glow effect and use absolute positioning (right: 0, top: 50%, translate 10% -50%) for consistent placement across all screen sizes.
+- Agent robot figures temporarily removed from display (image retained in assets/robot-agents.png for future use).
 - The description "Provides persistent, versioned entity mappings..." is now a subheadline under the "Data Connection Layer (DCL)" heading.
 - Hero section uses the autonomOS logo image instead of text, with exact styling matching the design spec including varied text colors (cyan for "autonomOS" and "Stop building pipelines", white for other text).
 - DCL header is teal/cyan colored to match the Agentic Orchestration section.
