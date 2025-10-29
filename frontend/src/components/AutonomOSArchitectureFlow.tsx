@@ -1,4 +1,4 @@
-import { ArrowRight, ArrowDown, Database, Network, Layers, Users, TrendingUp, MousePointerClick } from 'lucide-react';
+import { ArrowRight, ArrowDown, Database, Network, Layers, Users, TrendingUp, Hand } from 'lucide-react';
 import autonomosArrow from '../assets/autonomos-arrow.png';
 
 const AutonomOSArchitectureFlow = () => {
@@ -74,9 +74,9 @@ const AutonomOSArchitectureFlow = () => {
                         {module.title}
                       </h3>
                       {index === 2 && (
-                        <div className="flex items-center gap-1 ml-auto bg-[#0BCAD9]/20 px-2 py-1 rounded border border-[#0BCAD9]/40">
-                          <MousePointerClick className="w-3 h-3 text-[#0BCAD9]" />
-                          <span className="text-[10px] text-[#0BCAD9] font-medium">Interactive Demo</span>
+                        <div className="flex items-center gap-1.5 ml-auto">
+                          <Hand className="w-5 h-5 text-[#0BCAD9]" />
+                          <span className="text-xs text-[#0BCAD9] font-medium">Interactive Demo</span>
                         </div>
                       )}
                     </div>
