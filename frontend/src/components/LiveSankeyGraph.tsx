@@ -96,10 +96,6 @@ export default function LiveSankeyGraph() {
       if (rafRef.current) {
         cancelAnimationFrame(rafRef.current);
       }
-      // Clean up tooltip event listeners
-      if ((window as any).__cleanupTooltipListeners) {
-        (window as any).__cleanupTooltipListeners();
-      }
     };
   }, [state, animatingEdges, containerSize]);
 
@@ -252,11 +248,6 @@ function renderSankey(
   const validWidth = Math.max(containerRect.width, 320);
   const validHeight = Math.max(containerRect.height, 400);
 
-  // Mobile-responsive scaling: scale down labels on small screens
-  const isMobile = validWidth < 640;
-  const isSmallMobile = validWidth < 480;
-  const responsiveScale = isSmallMobile ? 0.7 : isMobile ? 0.85 : 1.0;
-
   const layerMap: Record<string, number> = {
     'source_parent': 0,
     'source':        1,
@@ -282,9 +273,8 @@ function renderSankey(
   
   const { nodes, links } = graph;
   
-  // Mobile-responsive padding: reduce on small screens
-  const leftPadding = isMobile ? 10 : 20;
-  const rightPadding = isMobile ? 10 : 20;
+  const leftPadding = 20;
+  const rightPadding = 20;
   const layerWidth = (validWidth - leftPadding - rightPadding) / 3;
   const layerXPositions = [
     leftPadding,
@@ -381,21 +371,75 @@ function renderSankey(
   const boundingWidth = maxX - minX;
   const boundingHeight = maxY - minY;
   
-  // Minimal viewBox padding to reduce dead space while preventing edge clipping
-  const viewBoxPadding = isSmallMobile ? 10 : isMobile ? 15 : 20;
+  // Pre-calculate maximum label width by measuring all labels that will be displayed
+  // This prevents label clipping for long agent names like "Autonomous Optimization Agent"
+  let maxMeasuredLabelWidth = 0;
+  
+  // Create a temporary SVG group for measurement (will be removed after measurement)
+  const tempGroup = svg.append('g');
+  
+  nodes.forEach((d: any) => {
+    const nodeData = sankeyNodes.find(n => n.name === d.name);
+    
+    // Only measure labels for source_parent, ontology, and agent nodes (same as label creation logic)
+    if (nodeData && (nodeData.type === 'source_parent' || nodeData.type === 'ontology' || nodeData.type === 'agent')) {
+      // For ontology nodes, remove "(Unified)" or "(unified)" suffix (same as label creation logic)
+      let label = d.name || 'Unknown';
+      if (nodeData.type === 'ontology') {
+        label = label.replace(/\s*\(unified\)\s*/i, '').trim();
+      }
+      
+      // Agent labels are 50% larger for emphasis (same as label creation logic)
+      const isAgent = nodeData.type === 'agent';
+      const padding = isAgent ? 6 : 4;
+      const fontSize = isAgent ? 15 : 10;
+      
+      // Create a temporary text element to measure width
+      const tempText = tempGroup
+        .append('text')
+        .attr('font-size', fontSize)
+        .attr('font-family', 'system-ui, -apple-system, sans-serif')
+        .text(label);
+      
+      const textWidth = (tempText.node() as SVGTextElement)?.getComputedTextLength() || 0;
+      const pillWidth = textWidth + (padding * 2);
+      
+      // Track the maximum pill width
+      maxMeasuredLabelWidth = Math.max(maxMeasuredLabelWidth, pillWidth);
+    }
+  });
+  
+  // Remove the temporary measurement group
+  tempGroup.remove();
+  
+  // Use the measured maxLabelWidth to calculate viewBox dimensions
+  const labelOffset = 8;
+  const viewBoxPadding = 20;
+  const extendedRightPadding = viewBoxPadding + labelOffset + maxMeasuredLabelWidth;
+  
   const viewBoxX = minX - viewBoxPadding;
   const viewBoxY = minY - viewBoxPadding;
-  const viewBoxWidth = boundingWidth + (2 * viewBoxPadding);
+  const viewBoxWidth = boundingWidth + viewBoxPadding + extendedRightPadding;
   const viewBoxHeight = boundingHeight + (2 * viewBoxPadding);
 
   svg
     .attr('viewBox', `${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}`)
     .attr('preserveAspectRatio', 'xMidYMid meet')
-    .attr('height', viewBoxHeight); // Set explicit height for proper scaling
+    .attr('height', viewBoxHeight);
+
+  // Add clipPath to prevent edges from bleeding outside container
+  svg.append('defs')
+    .append('clipPath')
+    .attr('id', 'graph-clip')
+    .append('rect')
+    .attr('x', viewBoxX)
+    .attr('y', viewBoxY)
+    .attr('width', viewBoxWidth)
+    .attr('height', viewBoxHeight);
 
   const mainGroup = svg
     .append('g')
-    .attr('transform', `translate(${validWidth / 2}, ${calculatedHeight / 2}) rotate(90) translate(${-validWidth / 2}, ${-calculatedHeight / 2})`);
+    .attr('clip-path', 'url(#graph-clip)');
 
   mainGroup
     .append('g')
@@ -516,38 +560,6 @@ function renderSankey(
         }
       }
       d3.select('.sankey-edge-tooltip').style('opacity', '0').style('display', 'none');
-    })
-    .on('click', function(event: MouseEvent) {
-      // Prevent click from propagating to document (which would dismiss tooltip)
-      event.stopPropagation();
-    })
-    .on('touchstart', function(event: TouchEvent, d: any) {
-      // Handle touch on mobile - stop propagation and show tooltip
-      event.stopPropagation();
-      
-      const linkIndex = links.indexOf(d);
-      const originalLink = sankeyLinks[linkIndex];
-      
-      const sourceNodeData = sankeyNodes.find(n => n.name === d.source.name);
-      const targetNodeData = sankeyNodes.find(n => n.name === d.target.name);
-      
-      const tooltipContent = getEdgeTooltip(sourceNodeData, targetNodeData, originalLink);
-      
-      const touch = event.touches[0];
-      const edgeTooltip = d3.select('.sankey-edge-tooltip');
-      
-      if (edgeTooltip.style('opacity') === '1') {
-        // If already showing, hide it
-        edgeTooltip.style('opacity', '0').style('display', 'none');
-      } else {
-        // Show tooltip at touch position
-        edgeTooltip
-          .html(tooltipContent)
-          .style('left', (touch.pageX + 10) + 'px')
-          .style('top', (touch.pageY - 10) + 'px')
-          .style('opacity', '1')
-          .style('display', 'block');
-      }
     });
 
   const nodeGroups = mainGroup.append('g').selectAll('g').data(nodes).join('g');
@@ -714,16 +726,11 @@ function renderSankey(
         label = label.replace(/\s*\(unified\)\s*/i, '').trim();
       }
       
-      // Agent labels are 50% larger, with mobile-responsive scaling
+      // Agent labels are 50% larger for emphasis
       const isAgent = nodeData.type === 'agent';
-      const basePadding = isAgent ? 6 : 4;
-      const baseFontSize = isAgent ? 15 : 10;
-      const basePillHeight = isAgent ? 24 : 16;
-      
-      // Apply responsive scaling with WCAG-compliant minimum font size
-      const padding = Math.max(3, Math.round(basePadding * responsiveScale));
-      const fontSize = Math.max(10, Math.round(baseFontSize * responsiveScale));
-      const pillHeight = Math.max(14, Math.round(basePillHeight * responsiveScale));
+      const padding = isAgent ? 6 : 4;
+      const fontSize = isAgent ? 15 : 10;
+      const pillHeight = isAgent ? 24 : 16;
       
       // Create a temporary text element to measure width
       const tempText = d3.select(this)
@@ -738,7 +745,7 @@ function renderSankey(
       const pillWidth = textWidth + (padding * 2);
       
       // Calculate position (offset to the right of the node)
-      const xPos = d.x1 + 8;
+      const xPos = d.x1 + labelOffset;
       const yPos = (d.y0 + d.y1) / 2;
       
       // Determine border color based on node type
@@ -783,15 +790,15 @@ function renderSankey(
     // Sort by Y position
     layerItems.sort((a, b) => a.yPos - b.yPos);
     
-    // Adjust positions if overlapping (labels extend in Y direction after -90° rotation)
+    // Adjust positions if overlapping (labels extend vertically in horizontal layout)
     const minGap = 4; // minimum gap between labels
     for (let i = 1; i < layerItems.length; i++) {
       const prev = layerItems[i - 1];
       const curr = layerItems[i];
       
-      // After -90° rotation, pillWidth extends vertically
-      const prevBottom = prev.yPos + (prev.pillWidth / 2);
-      const currTop = curr.yPos - (curr.pillWidth / 2);
+      // Labels extend vertically by pillHeight
+      const prevBottom = prev.yPos + (prev.pillHeight / 2);
+      const currTop = curr.yPos - (curr.pillHeight / 2);
       
       if (prevBottom + minGap > currTop) {
         // Overlap detected, push current label down
@@ -803,16 +810,15 @@ function renderSankey(
   
   // Third pass: render all labels with adjusted positions
   labelData.forEach(item => {
-    // Create group for pillbox anchored to node edge, rotated -90 degrees to be horizontal
-    // Use data-bound coordinates to ensure labels move with nodes
+    // Create group for pillbox anchored to node edge (horizontal layout)
     const pillGroup = d3.select(item.element)
       .append('g')
       .attr('class', 'node-label-group')
-      .attr('transform', `translate(${item.d.x1 + 8}, ${(item.d.y0 + item.d.y1) / 2}) rotate(-90)`);
+      .attr('transform', `translate(${item.d.x1 + 8}, ${item.yPos})`);
     
-    // Background pill (centered at origin after rotation)
+    // Background pill
     pillGroup.append('rect')
-      .attr('x', -item.pillWidth / 2)
+      .attr('x', 0)
       .attr('y', -item.pillHeight / 2)
       .attr('width', item.pillWidth)
       .attr('height', item.pillHeight)
@@ -824,9 +830,9 @@ function renderSankey(
       .attr('fill-opacity', 0.9)
       .attr('stroke-opacity', 0.9);
     
-    // Text label (centered at origin after rotation)
+    // Text label positioned inside pill
     pillGroup.append('text')
-      .attr('x', 0)
+      .attr('x', item.pillWidth / 2)
       .attr('y', 0)
       .attr('text-anchor', 'middle')
       .attr('dominant-baseline', 'central')
@@ -918,31 +924,4 @@ function renderSankey(
     
     return tooltip;
   }
-
-  // Add global click/touch handler to dismiss tooltips on any click (especially helpful on mobile)
-  svg.on('click', function() {
-    d3.select('.sankey-edge-tooltip').style('opacity', '0').style('display', 'none');
-    d3.select('.sankey-tooltip').style('opacity', '0');
-  });
-
-  svg.on('touchstart', function() {
-    d3.select('.sankey-edge-tooltip').style('opacity', '0').style('display', 'none');
-    d3.select('.sankey-tooltip').style('opacity', '0');
-  });
-
-  // Also add a global document listener to catch clicks outside the SVG
-  const dismissTooltips = () => {
-    d3.select('.sankey-edge-tooltip').style('opacity', '0').style('display', 'none');
-    d3.select('.sankey-tooltip').style('opacity', '0');
-  };
-
-  document.addEventListener('click', dismissTooltips);
-  document.addEventListener('touchstart', dismissTooltips);
-
-  // Clean up listeners when component unmounts or re-renders
-  // Store cleanup function for later use
-  (window as any).__cleanupTooltipListeners = () => {
-    document.removeEventListener('click', dismissTooltips);
-    document.removeEventListener('touchstart', dismissTooltips);
-  };
 }
