@@ -14,6 +14,7 @@ const AutonomOSArchitectureFlow = () => {
       icon: Database,
       title: 'Enterprise Data',
       tags: ['SaaS Applications', 'Databases & Warehouses', 'Legacy Systems', 'APIs & Files'],
+      linkedTags: [] as string[],
       bgColor: 'bg-[#0A2540]',
       borderColor: 'border-[#1E4A6F]',
       linkTo: null
@@ -22,6 +23,7 @@ const AutonomOSArchitectureFlow = () => {
       icon: Network,
       title: 'Adaptive API Mesh (AAM)',
       tags: ['Self-Healing Integration', 'Autonomous Drift Repair', 'Real-time Schema Normalization', 'Universal Connectivity', 'Governed Data Exchange'],
+      linkedTags: [] as string[],
       bgColor: 'bg-[#0D2F3F]',
       borderColor: 'border-[#1A4D5E]',
       linkTo: 'adaptive-api-mesh'
@@ -30,14 +32,16 @@ const AutonomOSArchitectureFlow = () => {
       icon: Layers,
       title: 'Data Connectivity Layer',
       tags: ['Unified Enterprise Ontology', 'Semantic Context Engine', 'AI-Ready Data Streams', 'Contextual RAG Indexing', 'Real-time Observability'],
+      linkedTags: [] as string[],
       bgColor: 'bg-[#1A2F4A]',
       borderColor: 'border-[#2A4A6F]',
       linkTo: 'dcl-graph-container'
     },
     {
       icon: Users,
-      title: 'Prebuilt Domain Agents',
-      tags: ['Productized Domain Expertise', 'FinOps/RevOps Blueprints', 'Autonomous Workflow Orchestration', 'Custom Agent Deployment', 'Business Process and Integration Support'],
+      title: 'Custom Domain Agents',
+      tags: ['FinOps', 'RevOps', 'Productized Domain Expertise', 'FinOps/RevOps Blueprints', 'Autonomous Workflow Orchestration', 'Business Process and Integration Support', 'Insight to Action at Scale'],
+      linkedTags: ['FinOps', 'RevOps'] as string[],
       bgColor: 'bg-[#2A1F4A]',
       borderColor: 'border-[#3F2F6F]',
       linkTo: 'agent-performance-monitor'
@@ -82,14 +86,21 @@ const AutonomOSArchitectureFlow = () => {
                     </div>
 
                     <div className="flex flex-wrap gap-1.5">
-                      {module.tags.map((tag, tagIndex) => (
-                        <span
-                          key={tagIndex}
-                          className="text-xs px-2 py-1 rounded bg-[#0BCAD9]/10 text-[#0BCAD9] border border-[#0BCAD9]/30"
-                        >
-                          {tag}
-                        </span>
-                      ))}
+                      {module.tags.map((tag, tagIndex) => {
+                        const isLinked = module.linkedTags.includes(tag);
+                        return (
+                          <span
+                            key={tagIndex}
+                            className={`text-xs px-2 py-1 rounded border ${
+                              isLinked 
+                                ? 'bg-[#0BCAD9]/20 text-white border-[#0BCAD9] font-medium shadow-lg shadow-[#0BCAD9]/30 animate-pulse' 
+                                : 'bg-[#0BCAD9]/10 text-[#0BCAD9] border-[#0BCAD9]/30'
+                            }`}
+                          >
+                            {tag}
+                          </span>
+                        );
+                      })}
                     </div>
                   </div>
 
