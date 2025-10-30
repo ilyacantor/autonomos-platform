@@ -182,33 +182,6 @@ export default function FAQPage() {
       )
     },
     {
-      question: "How does AutonomOS use AI to power this platform?",
-      answer: (
-        <div className="space-y-4">
-          <p className="text-gray-300">
-            The demo runs on AutonomOS, our new AI-native platform. We've built intelligence into every layer, from the data fabric to the agentic execution:
-          </p>
-          <ul className="space-y-3 text-gray-300">
-            <li>
-              <strong className="text-[#0BCAD9]">AI-Driven Connectivity (AAM):</strong> Our Adaptive API Mesh uses AI to proactively build and learn connectivity between systems. This isn't just a static setup; it provides autonomous drift repair and self-healing integration to ensure workflows are resilient to the constant changes in your underlying data sources and APIs.
-            </li>
-            <li>
-              <strong className="text-[#0BCAD9]">AI-Powered Data Layer (DCL):</strong> The Data Connectivity Layer (DCL) is the core data intelligence engine. It uses AI to autonomously map disparate data sets into a Unified Enterprise Ontology. This feeds a Contextual RAG engine that continuously learns from your data, creating AI-ready streams. This process is orchestrated by our AOA engine, using an embedded DuckDB for high-performance in-memory analytics.
-            </li>
-            <li>
-              <strong className="text-[#0BCAD9]">Autonomous Agent Execution:</strong> Our Prebuilt Domain Agents leverage this AI-prepared data fabric to execute complex, end-to-end business workflows. The system is designed with an LLM service abstraction (supporting Gemini, OpenAI, etc.) allowing agents to use the best model for the job to reason, learn, and act.
-            </li>
-            <li>
-              <strong className="text-[#0BCAD9]">Enterprise-Grade Foundation:</strong> This all runs on a secure, scalable multi-tenant backend. The stack is built on FastAPI (with Pydantic validation) for the API, PostgreSQL/SQLAlchemy for persistence, and Redis with Python RQ for robust, asynchronous task orchestration. This manages the entire task lifecycle, including automatic retries, timeouts, callbacks, and task chaining for complex workflows.
-            </li>
-            <li>
-              <strong className="text-[#0BCAD9]">Secure by Design:</strong> The platform is fully multi-tenant, with complete data isolation enforced at the database level (tenant_id scoping). All authentication is handled via JWT with industry-standard Argon2 password hashing.
-            </li>
-          </ul>
-        </div>
-      )
-    },
-    {
       question: "What is the Adaptive API Mesh (AAM)?",
       answer: "The Adaptive API Mesh is an intelligent connectivity layer that uses AI to automatically build, maintain, and repair connections between disparate enterprise systems. It provides self-healing integration capabilities that adapt to changes in your data sources and APIs, ensuring your workflows remain resilient and operational without manual intervention."
     },
@@ -221,16 +194,8 @@ export default function FAQPage() {
       answer: "Prebuilt Domain Agents are productized domain expertise packages designed for specific business functions like FinOps and RevOps. These agents leverage the AI-prepared data fabric to autonomously execute complex, end-to-end business workflows. They use advanced LLM capabilities (supporting multiple providers like Gemini and OpenAI) to reason about your data, learn from patterns, and take intelligent actions."
     },
     {
-      question: "What technology stack powers AutonomOS?",
-      answer: "AutonomOS runs on a modern, production-ready stack: FastAPI with Pydantic validation for the API layer, PostgreSQL with SQLAlchemy for data persistence, Redis with Python RQ for asynchronous task orchestration, and DuckDB for high-performance in-memory analytics. The frontend is built with React and TypeScript using Vite for optimal performance."
-    },
-    {
       question: "Can I customize the agents and workflows?",
       answer: "Yes, while we provide Prebuilt Domain Agents for common use cases, the platform supports custom agent deployment. You can leverage our AI-prepared data fabric and orchestration capabilities to build agents tailored to your specific business needs. The LLM service abstraction allows you to choose the best model for each task."
-    },
-    {
-      question: "How does AutonomOS handle data from multiple sources?",
-      answer: "AutonomOS uses the Adaptive API Mesh to connect to various data sources (SaaS applications, databases, warehouses, legacy systems, APIs, and files). The DCL then autonomously maps this disparate data into a Unified Enterprise Ontology, creating a semantic layer that agents can understand and act upon. This eliminates the need for manual data pipeline construction."
     }
   ];
 
