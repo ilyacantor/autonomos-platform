@@ -54,13 +54,6 @@ function AppContent() {
         return <OntologyPage />;
       case 'faq':
         return <FAQPage />;
-      case 'settings':
-        return (
-          <div className="text-center py-12">
-            <h1 className="text-3xl font-bold text-white mb-4">Settings</h1>
-            <p className="text-gray-400">Platform settings coming soon</p>
-          </div>
-        );
       default:
         return <DashboardPage />;
     }

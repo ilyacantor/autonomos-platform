@@ -1,4 +1,4 @@
-import { LayoutDashboard, GitBranch, Cable, Network, Settings, X } from 'lucide-react';
+import { LayoutDashboard, GitBranch, Cable, Network, X } from 'lucide-react';
 import autonomosLogo from '../assets/autonomos-logo.png';
 
 interface LeftNavProps {
@@ -23,7 +23,6 @@ export default function LeftNav({ isCollapsed, currentPage, onNavigate, isMobile
     { id: 'lineage', label: 'Data Lineage', icon: <GitBranch className="w-5 h-5" /> },
     { id: 'connections', label: 'Connections', icon: <Cable className="w-5 h-5" /> },
     { id: 'ontology', label: 'Ontology', icon: <Network className="w-5 h-5" /> },
-    { id: 'settings', label: 'Settings', icon: <Settings className="w-5 h-5" /> },
   ];
 
   return (
