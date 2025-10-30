@@ -191,12 +191,12 @@ const AutonomOSArchitectureFlow = () => {
             <div className="flex justify-center">
               <div className="flex items-center gap-3 bg-[#0D2F3F] rounded-xl px-6 py-3 border border-[#0BCAD9]/30">
                 <TrendingUp className="w-5 h-5 text-[#0BCAD9]" />
-                <span className="text-white font-medium">Outcomes</span>
+                <span className="text-white font-medium text-[23px]">Outcomes</span>
                 <div className="flex flex-wrap gap-1.5 ml-2">
                   {['Intent-Driven Operations', 'Autonomous Execution', 'Insight-to-Action Acceleration', 'Guaranteed Data Reliability', 'Proactive Decision Intelligence'].map((tag, index) => (
                     <span
                       key={index}
-                      className="text-xs px-2 py-1 rounded bg-[#0BCAD9]/10 text-[#0BCAD9] border border-[#0BCAD9]/30"
+                      className="text-[19px] px-2 py-1 rounded bg-[#0BCAD9]/10 text-[#0BCAD9] border border-[#0BCAD9]/30"
                     >
                       {tag}
                     </span>
