@@ -90,8 +90,7 @@ const AutonomOSArchitectureFlow = () => {
 
                     {/* Enterprise Data icons */}
                     {index === 0 && (
-                      <div className="flex items-center justify-center gap-4 mb-4 py-3 bg-red-500/20">
-                        <div className="text-xs text-white">DEBUG: Icon container</div>
+                      <div className="flex items-center justify-center gap-4 mb-4 py-3">
                         <div 
                           className="text-[#29B5E8] opacity-80 hover:opacity-100 transition-opacity"
                           style={{ filter: 'drop-shadow(0 0 8px rgba(41, 181, 232, 0.4))' }}
