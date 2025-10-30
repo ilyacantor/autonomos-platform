@@ -1,5 +1,6 @@
 import { ArrowRight, ArrowDown, Database, Network, Layers, Users, TrendingUp, MousePointerClick } from 'lucide-react';
 import autonomosArrow from '../assets/autonomos-arrow.png';
+import snowflakeIcon from '../assets/snowflake-icon.svg';
 
 const AutonomOSArchitectureFlow = () => {
   const scrollToSection = (sectionId: string) => {
@@ -80,6 +81,18 @@ const AutonomOSArchitectureFlow = () => {
                         </div>
                       )}
                     </div>
+
+                    {/* Enterprise Data icons */}
+                    {index === 0 && (
+                      <div className="flex items-center justify-center gap-4 mb-4 py-3">
+                        <img 
+                          src={snowflakeIcon} 
+                          alt="Snowflake" 
+                          className="w-12 h-12 text-[#29B5E8] opacity-80 hover:opacity-100 transition-opacity"
+                          style={{ filter: 'drop-shadow(0 0 8px rgba(41, 181, 232, 0.4))' }}
+                        />
+                      </div>
+                    )}
 
                     <div className="flex flex-wrap gap-1.5">
                       {module.tags.map((tag, tagIndex) => (
