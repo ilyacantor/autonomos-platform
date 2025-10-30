@@ -31,7 +31,7 @@ const AutonomOSArchitectureFlow = () => {
     {
       icon: Layers,
       title: 'Data Connectivity Layer',
-      tags: ['Unified Enterprise Ontology', 'Semantic Context Engine', 'AI-Ready Data Streams', 'Contextual RAG Indexing', 'Real-time Observability'],
+      tags: ['Unified Enterprise Ontology', 'Semantic Context Engine', 'Autonomous RAG Indexing', 'Real-time AI Data Streams', 'Unified Data Observability'],
       linkedTags: [] as string[],
       bgColor: 'bg-[#1A2F4A]',
       borderColor: 'border-[#2A4A6F]',
