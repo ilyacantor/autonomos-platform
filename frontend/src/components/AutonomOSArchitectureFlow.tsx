@@ -78,13 +78,13 @@ const AutonomOSArchitectureFlow = () => {
                   >
                     <div className="flex items-center gap-2 mb-3">
                       <module.icon className="w-6 h-6 text-[#0BCAD9]" />
-                      <h3 className="text-white font-medium text-base leading-tight">
+                      <h3 className="text-white font-medium text-lg leading-tight">
                         {module.title}
                       </h3>
                       {index === 2 && (
                         <div className="flex items-center gap-1.5 ml-auto">
                           <MousePointerClick className="w-5 h-5 text-[#0BCAD9]" />
-                          <span className="text-xs text-[#0BCAD9] font-medium">Interactive Demo</span>
+                          <span className="text-sm text-[#0BCAD9] font-medium">Interactive Demo</span>
                         </div>
                       )}
                     </div>
@@ -102,7 +102,7 @@ const AutonomOSArchitectureFlow = () => {
                               href={tagLink}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-xs px-2 py-1 rounded border bg-[#0BCAD9]/20 text-white border-[#0BCAD9] font-medium shadow-lg shadow-[#0BCAD9]/30 animate-pulse hover:bg-[#0BCAD9]/30 hover:scale-105 transition-all cursor-pointer"
+                              className="text-sm px-2 py-1 rounded border bg-[#0BCAD9]/20 text-white border-[#0BCAD9] font-medium shadow-lg shadow-[#0BCAD9]/30 animate-pulse hover:bg-[#0BCAD9]/30 hover:scale-105 transition-all cursor-pointer"
                             >
                               {tag}
                             </a>
@@ -112,7 +112,7 @@ const AutonomOSArchitectureFlow = () => {
                         return (
                           <span
                             key={tagIndex}
-                            className={`text-xs px-2 py-1 rounded border ${
+                            className={`text-sm px-2 py-1 rounded border ${
                               isOntology
                                 ? 'bg-[#0BCAD9]/10 text-white border-[#0BCAD9]/30'
                                 : isLinked 
