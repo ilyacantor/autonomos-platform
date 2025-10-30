@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { LayoutDashboard, Cable, Network, Settings, Bell, Menu, X, LogIn, UserPlus, HelpCircle } from 'lucide-react';
+import { LayoutDashboard, Cable, Network, Bell, Menu, X, LogIn, UserPlus, HelpCircle } from 'lucide-react';
 import AutonomyModeToggle from './AutonomyModeToggle';
 import type { PersonaType } from '../types';
 import autonomosLogo from '../assets/autonomos-logo.png';
@@ -26,7 +26,6 @@ export default function TopBar({ onAuthOpen, currentPage, onNavigate }: TopBarPr
     { id: 'connections', label: 'Connections', icon: <Cable className="w-5 h-5" /> },
     { id: 'ontology', label: 'Ontology', icon: <Network className="w-5 h-5" /> },
     { id: 'faq', label: 'FAQ', icon: <HelpCircle className="w-5 h-5" /> },
-    { id: 'settings', label: 'Settings', icon: <Settings className="w-5 h-5" /> },
   ];
 
   return (
