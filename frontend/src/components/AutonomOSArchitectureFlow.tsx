@@ -1,12 +1,6 @@
 import { ArrowRight, ArrowDown, Database, Network, Layers, Users, TrendingUp, MousePointerClick } from 'lucide-react';
 import autonomosArrow from '../assets/autonomos-arrow.png';
 
-const SnowflakeIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" className="w-12 h-12" style={{ fill: '#29B5E8' }}>
-    <path fill="#29B5E8" d="M128 32c-8.8 0-16 7.2-16 16v24.8l-21.2-21.2c-6.2-6.2-16.4-6.2-22.6 0-6.2 6.2-6.2 16.4 0 22.6l21.2 21.2H64.8c-8.8 0-16 7.2-16 16s7.2 16 16 16h24.6l-21.2 21.2c-6.2 6.2-6.2 16.4 0 22.6 6.2 6.2 16.4 6.2 22.6 0L112 149v24.8c0 8.8 7.2 16 16 16s16-7.2 16-16V149l21.2 21.2c6.2 6.2 16.4 6.2 22.6 0 6.2-6.2 6.2-16.4 0-22.6L166.6 127h24.6c8.8 0 16-7.2 16-16s-7.2-16-16-16h-24.6l21.2-21.2c6.2-6.2 6.2-16.4 0-22.6-6.2-6.2-16.4-6.2-22.6 0L144 72.8V48c0-8.8-7.2-16-16-16zm0 56c-4.4 0-8 3.6-8 8v16h-16c-4.4 0-8 3.6-8 8s3.6 8 8 8h16v16c0 4.4 3.6 8 8 8s8-3.6 8-8v-16h16c4.4 0 8-3.6 8-8s-3.6-8-8-8h-16V96c0-4.4-3.6-8-8-8z"/>
-  </svg>
-);
-
 const AutonomOSArchitectureFlow = () => {
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId);
@@ -20,8 +14,8 @@ const AutonomOSArchitectureFlow = () => {
       icon: Database,
       title: 'Enterprise Data',
       tags: ['SaaS Applications', 'Databases & Warehouses', 'Legacy Systems', 'APIs & Files'],
-      bgColor: 'bg-[#1A1A2E]',
-      borderColor: 'border-[#2A2A4E]',
+      bgColor: 'bg-[#0A2540]',
+      borderColor: 'border-[#1E4A6F]',
       linkTo: null
     },
     {
@@ -86,18 +80,6 @@ const AutonomOSArchitectureFlow = () => {
                         </div>
                       )}
                     </div>
-
-                    {/* Enterprise Data icons */}
-                    {index === 0 && (
-                      <div className="flex items-center justify-center gap-4 mb-4 py-3">
-                        <div 
-                          className="text-[#29B5E8] opacity-80 hover:opacity-100 transition-opacity"
-                          style={{ filter: 'drop-shadow(0 0 8px rgba(41, 181, 232, 0.4))' }}
-                        >
-                          <SnowflakeIcon />
-                        </div>
-                      </div>
-                    )}
 
                     <div className="flex flex-wrap gap-1.5">
                       {module.tags.map((tag, tagIndex) => (
