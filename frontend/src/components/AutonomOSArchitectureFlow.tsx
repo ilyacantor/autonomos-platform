@@ -42,6 +42,10 @@ const AutonomOSArchitectureFlow = () => {
       title: 'Custom Domain Agents',
       tags: ['FinOps', 'RevOps', 'Productized Domain Expertise', 'FinOps/RevOps Blueprints', 'Autonomous Workflow Orchestration', 'Business Process and Integration Support', 'Insight to Action at Scale'],
       linkedTags: ['FinOps', 'RevOps'] as string[],
+      tagLinks: {
+        'FinOps': 'https://finopsagent.onrender.com/',
+        'RevOps': 'https://autonomos-revops-agent.onrender.com/'
+      } as Record<string, string>,
       bgColor: 'bg-[#2A1F4A]',
       borderColor: 'border-[#3F2F6F]',
       linkTo: 'agent-performance-monitor'
@@ -88,6 +92,22 @@ const AutonomOSArchitectureFlow = () => {
                     <div className="flex flex-wrap gap-1.5">
                       {module.tags.map((tag, tagIndex) => {
                         const isLinked = module.linkedTags.includes(tag);
+                        const tagLink = module.tagLinks?.[tag];
+                        
+                        if (tagLink) {
+                          return (
+                            <a
+                              key={tagIndex}
+                              href={tagLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs px-2 py-1 rounded border bg-[#0BCAD9]/20 text-white border-[#0BCAD9] font-medium shadow-lg shadow-[#0BCAD9]/30 animate-pulse hover:bg-[#0BCAD9]/30 hover:scale-105 transition-all cursor-pointer"
+                            >
+                              {tag}
+                            </a>
+                          );
+                        }
+                        
                         return (
                           <span
                             key={tagIndex}
