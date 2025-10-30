@@ -45,11 +45,7 @@ export default function FAQPage() {
       question: "What are your security standards?",
       answer: (
         <div className="space-y-6">
-          <p className="text-gray-300">
-            Yes, AutonomOS is built with enterprise security as a core principle. The platform is fully multi-tenant with complete data isolation enforced at the database level through tenant_id scoping. All authentication uses JWT tokens with industry-standard Argon2 password hashing. The architecture ensures that each organization's data remains completely isolated and secure.
-          </p>
-          
-          <div className="mt-6">
+          <div>
             <h4 className="text-[#0BCAD9] font-medium text-lg mb-4">Security & Compliance Roadmap</h4>
             <div className="overflow-x-auto">
               <table className="w-full border-collapse">
