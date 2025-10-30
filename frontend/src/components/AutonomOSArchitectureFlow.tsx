@@ -93,6 +93,7 @@ const AutonomOSArchitectureFlow = () => {
                       {module.tags.map((tag, tagIndex) => {
                         const isLinked = module.linkedTags.includes(tag);
                         const tagLink = module.tagLinks?.[tag];
+                        const isOntology = tag.includes('Ontology');
                         
                         if (tagLink) {
                           return (
@@ -112,7 +113,9 @@ const AutonomOSArchitectureFlow = () => {
                           <span
                             key={tagIndex}
                             className={`text-xs px-2 py-1 rounded border ${
-                              isLinked 
+                              isOntology
+                                ? 'bg-[#0BCAD9]/10 text-white border-[#0BCAD9]/30'
+                                : isLinked 
                                 ? 'bg-[#0BCAD9]/20 text-white border-[#0BCAD9] font-medium shadow-lg shadow-[#0BCAD9]/30 animate-pulse' 
                                 : 'bg-[#0BCAD9]/10 text-[#0BCAD9] border-[#0BCAD9]/30'
                             }`}
