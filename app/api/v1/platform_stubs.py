@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Request, status
 from fastapi.responses import JSONResponse
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import os
 import logging
 from services.aam.canonical.subscriber import get_canonical_opportunities, get_canonical_accounts
@@ -20,7 +20,7 @@ async def health_check() -> Dict[str, Any]:
 def get_opportunities_view(
     page: int = 1,
     page_size: int = 10,
-    request: Request = None
+    request: Optional[Request] = None
 ) -> Dict[str, Any]:
     """Real implementation - fetch from canonical_streams if FEATURE_USE_FILESOURCE enabled"""
     try:
@@ -51,7 +51,7 @@ def get_opportunities_view(
 def get_accounts_view(
     page: int = 1,
     page_size: int = 10,
-    request: Request = None
+    request: Optional[Request] = None
 ) -> Dict[str, Any]:
     """Real implementation - fetch from canonical_streams if FEATURE_USE_FILESOURCE enabled"""
     try:

@@ -26,6 +26,11 @@ async def tenant_auth_middleware(request: Request, call_next: Callable):
         "/users/register",           # Legacy registration endpoint
         "/api/v1/auth/login",        # JSON-based login endpoint
         "/api/v1/auth/register",     # JSON-based registration endpoint
+        "/api/v1/health",            # Platform health endpoint (dev)
+        "/api/v1/dcl/views/opportunities",  # DCL views (dev)
+        "/api/v1/dcl/views/accounts",       # DCL views (dev)
+        "/api/v1/intents/revops/execute",   # Intent endpoints (dev)
+        "/api/v1/intents/finops/execute",   # Intent endpoints (dev)
     ]
     
     # Check if path starts with any public path
