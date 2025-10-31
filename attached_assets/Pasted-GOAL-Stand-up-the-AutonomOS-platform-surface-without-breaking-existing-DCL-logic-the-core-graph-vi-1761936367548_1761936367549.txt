@@ -1,0 +1,115 @@
+GOAL
+Stand up the AutonomOS platform surface without breaking existing DCL logic, the core graph visual, or any GUI layout.
+
+GIT (remote-only)
+- git fetch origin
+- git checkout -b initiative/platformization-2025-10-31
+- git add -A
+- git commit -m "WIP: pre-platformization snapshot" || true
+- git push -u origin initiative/platformization-2025-10-31
+- git status
+
+ENV & CONFIG
+Create .env.sample with:
+POSTGRES_URL=...
+REDIS_URL=...
+JWT_SECRET=dev-change-me
+JWT_ISSUER=autonomos.dev
+JWT_AUDIENCE=aos.agents
+FEATURE_USE_FILESOURCE=true
+FEATURE_DRIFT_AUTOFIX=false
+MONITOR_POLLING=false
+
+GATEWAY (services/gateway, FastAPI, /api/v1 base)
+Middlewares:
+- TenantAuth: verify HS256 JWT; require claims tenant_id, agent_id, scopes.
+- RateLimit: Redis token-bucket per {tenant:agent:route}; 60 rpm, burst 10; env-tunable.
+- Idempotency: respect "Idempotency-Key" on POST; cache 10 min.
+- AuditJournal: table api_journal(tenant_id,agent_id,route,method,status,latency_ms,trace_id,body_sha256,ts).
+- Tracing: generate X-Trace-Id; propagate downstream.
+
+Routes:
+- GET /health → {build_sha, time, deps_ok}
+- GET /dcl/views/{entity} → tenant-scoped; filters, fields, page/page_size; validate inputs.
+- POST /intents/{agent}/{action} → enqueue RQ task; return {task_id, trace_id}; NO vendor logic here.
+- GET /streams/{domain}/{entity} → placeholder; WS/SSE TODO.
+- /mesh/* → internal proxies (orchestrator, repair, auth-broker).
+
+OpenAPI:
+- Full examples for /dcl/views/opportunities and /intents/*; unknown fields = 400.
+
+AAM — CONNECTORS
+1) Salesforce (already live): Confirm it emits RAW, then normalized Canonical Events (topic: aam.streams.crm.opportunity/account).
+2) FileSource (9 CSV mocks):
+   - Folder: services/aam/connectors/filesource
+   - Read /mock_sources/{name}.csv → emit Canonical Events matching canonical v1 (below).
+   - Topics: aam.streams.demo.<entity>
+   - Provide "filesource:replay --all" CLI to re-emit rows.
+3) Postgres (controllable):
+   - Folder: services/aam/connectors/postgres
+   - Read tables/oplog and emit Canonical Events.
+   - Add /mesh/test/pg/mutate to simulate drift: rename_column, add_column(nullable), change_type(compatible).
+   - Emit aam.events.schema.change and record to a schema_changes table.
+
+NORMALIZATION & DRIFT REPAIR
+- Mapping Registry (YAML/JSON + CRUD) for vendor→canonical field maps + coercions.
+- Deterministic Normalizer: vendor→canonical; unknowns → unknown_fields[], confidence=0.
+- Schema Observer: fingerprint RAW payloads, detect deltas, raise repair tickets (aam.events.repair.ticket).
+- RAG-Assist: suggest patches with confidence; store suggestions table.
+- Drift-Repair Agent:
+  • If confidence>=0.85 AND change is green-zone (additive, compatible types): auto-apply after tests.
+  • Else: require approval via /mesh/repair/approve.
+  • Always version mappings; emit aam.events.repair.applied with diff.
+
+CANONICAL v1 (strict typing)
+- account: account_id, external_ids[], name, type, industry, owner_id, status, created_at, updated_at, extras
+- opportunity: opportunity_id, account_id, name, stage, amount(decimal), currency, close_date(date), owner_id, probability(float), created_at, updated_at, extras
+Envelope:
+{
+  "meta":{"version":"1.0.0","tenant":"<uuid>","trace_id":"...","emitted_at":"ISO8601"},
+  "source":{"system":"<vendor|filesource|pg>","connection_id":"...","schema_version":"..."},
+  "entity":"<account|opportunity>",
+  "op":"upsert",
+  "data":{...}
+}
+
+DCL — ONTOLOGY & READ MODELS (services/dcl)
+- Subscribe ONLY to canonical streams; never read CSV or vendors directly.
+- Apply canonical→ontology transforms (deterministic).
+- Materialize per-tenant views:
+  • /dcl/views/opportunities
+  • /dcl/views/accounts
+- Low-confidence fields go to extras JSONB; do not block ingestion.
+- Add pagination, sort, filter (owner_id, stage, date ranges), field selection.
+
+AAM MONITOR (existing tab)
+- Development: MONITOR_POLLING=false by default; show Manual Refresh button.
+- Staging: 60–120s polling. Demo: allow 5–10s.
+- Add Intelligence Readouts:
+  • Mapping status: total, last_update, %autofix vs %HITL
+  • Drift events (24h) by source
+  • RAG suggestion queue (pending/accepted/rejected)
+  • Repair test pass rate, avg confidence
+- Lazy-load long lists; ensure zero layout shift; do NOT change core graph visual styles.
+
+GUARDRAILS (HARD)
+- Do NOT modify existing graph CSS/layout; pixel-perfect stability required.
+- Do NOT change legacy endpoints; add new under /api/v1 only.
+- DCL logic must remain functionally identical for existing code paths.
+- Add feature flags:
+  FEATURE_USE_FILESOURCE (on in dev)
+  FEATURE_DRIFT_AUTOFIX (off)
+  MONITOR_POLLING (off in dev)
+- Provide smoke tests:
+  • CSV→canonical→DCL happy path
+  • Salesforce→canonical→DCL path
+  • PG drift mutation → observer → suggestion → HITL approve → view updated
+
+ACCEPTANCE
+- GET /api/v1/dcl/views/opportunities returns mixed data (SF + CSV) tenant-scoped.
+- POST /api/v1/intents/{agent}/{action} journals and enqueues.
+- Monitor shows intelligence readouts; polling behavior per env flags.
+- One command replays CSVs; DCL views refresh accordingly.
+
+GIT
+- Commit in small chunks; push to branch; open PR "Platformization: Gateway+AAM Normalization+DCL Views+Monitor Intelligence".
