@@ -21,7 +21,7 @@ from app.security import (
     get_current_user,
     ACCESS_TOKEN_EXPIRE_MINUTES
 )
-from app.api.v1 import auth, aoa, aam_monitoring
+from app.api.v1 import auth, aoa, aam_monitoring, platform_stubs
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -76,6 +76,7 @@ except Exception as e:
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(aoa.router, prefix="/api/v1/aoa", tags=["AOA Orchestration"])
 app.include_router(aam_monitoring.router, prefix="/api/v1/aam", tags=["AAM Monitoring"])
+app.include_router(platform_stubs.router, prefix="/api/v1", tags=["Platform Stubs"])
 
 STATIC_DIR = "static"
 if os.path.exists(STATIC_DIR) and os.path.isdir(STATIC_DIR):

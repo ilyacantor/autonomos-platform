@@ -11,7 +11,11 @@ import {
   Brain,
   Eye,
   Wrench,
-  TrendingUp
+  TrendingUp,
+  RefreshCw,
+  Map,
+  GitMerge,
+  Target
 } from 'lucide-react';
 import { API_CONFIG } from '../config/api';
 
@@ -122,13 +126,6 @@ export default function AAMDashboard() {
 
   useEffect(() => {
     fetchAllData();
-
-    // Poll every 10 seconds
-    const interval = setInterval(() => {
-      fetchAllData();
-    }, 10000);
-
-    return () => clearInterval(interval);
   }, []);
 
   const getStatusColor = (status: string) => {
@@ -218,9 +215,18 @@ export default function AAMDashboard() {
             Real-time monitoring of Adaptive API Mesh services and connections
           </p>
         </div>
-        <div className="flex items-center gap-2 text-sm text-gray-500">
-          <Activity className="w-4 h-4 animate-pulse" />
-          <span>Auto-refresh: 10s</span>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={fetchAllData}
+            disabled={loading}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 text-white rounded-lg transition-colors"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            Manual Refresh
+          </button>
+          <div className="text-sm text-gray-500">
+            Manual refresh required
+          </div>
         </div>
       </div>
 
@@ -254,6 +260,63 @@ export default function AAMDashboard() {
               {getStatusBadge(service.status)}
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* Intelligence Readout Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <Map className="w-5 h-5 text-purple-400" />
+              <h3 className="text-sm font-medium text-gray-400">Mappings</h3>
+            </div>
+          </div>
+          <div className="text-3xl font-bold text-white">0</div>
+          <div className="text-sm text-gray-500 mt-2 space-y-1">
+            <div>Autofix: 0%</div>
+            <div>HITL: 0%</div>
+          </div>
+        </div>
+
+        <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-orange-400" />
+              <h3 className="text-sm font-medium text-gray-400">Drift Events (24h)</h3>
+            </div>
+          </div>
+          <div className="text-3xl font-bold text-white">0</div>
+          <div className="text-sm text-gray-500 mt-2">
+            No sources detected
+          </div>
+        </div>
+
+        <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <Brain className="w-5 h-5 text-cyan-400" />
+              <h3 className="text-sm font-medium text-gray-400">RAG Suggestions</h3>
+            </div>
+          </div>
+          <div className="text-3xl font-bold text-white">0</div>
+          <div className="text-sm text-gray-500 mt-2 space-y-1">
+            <div>Pending: 0</div>
+            <div>Accepted: 0 | Rejected: 0</div>
+          </div>
+        </div>
+
+        <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <Target className="w-5 h-5 text-green-400" />
+              <h3 className="text-sm font-medium text-gray-400">Repair Confidence</h3>
+            </div>
+          </div>
+          <div className="text-3xl font-bold text-white">0%</div>
+          <div className="text-sm text-gray-500 mt-2">
+            Test Pass Rate: 0%
+          </div>
         </div>
       </div>
 
