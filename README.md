@@ -1,912 +1,925 @@
 # AutonomOS - Multi-Tenant AI Orchestration Platform
 
-A robust, scalable **multi-tenant SaaS** backend system for task orchestration built with Python, FastAPI, PostgreSQL, and Redis.
+A production-ready **full-stack SaaS platform** for AI-driven data orchestration with real-time monitoring, multi-tenant isolation, and intelligent schema management. Built with React, TypeScript, Python, FastAPI, PostgreSQL, and Redis.
 
-## Overview
+![Platform](https://img.shields.io/badge/Platform-Full--Stack-blue) ![Frontend](https://img.shields.io/badge/Frontend-React%20%2B%20TypeScript-61dafb) ![Backend](https://img.shields.io/badge/Backend-Python%20%2B%20FastAPI-009688) ![Status](https://img.shields.io/badge/Status-Production--Ready-success)
 
-AutonomOS is a production-ready multi-tenant platform that provides complete data isolation between organizations. Each tenant can orchestrate asynchronous tasks via API, with automatic background processing, comprehensive audit logging, and enterprise-grade features like retries, timeouts, and task chaining.
+---
 
-## Architecture
+## 🎯 Overview
 
-- **API Framework**: FastAPI
-- **Database**: PostgreSQL
-- **Task Queue**: Redis
-- **Worker Framework**: Python RQ (Redis Queue)
-- **ORM**: SQLAlchemy 2.0
-- **Validation**: Pydantic
+**AutonomOS** is an enterprise-grade platform that combines advanced AI-powered data orchestration with real-time monitoring and self-healing capabilities. The platform features:
 
-## Project Structure
+- 🎨 **Modern Web Interface** - React/TypeScript dashboard with real-time updates
+- 🔄 **Adaptive API Mesh (AAM)** - Self-healing data connectivity with drift detection
+- 📊 **DCL Engine** - AI-driven data source mapping and unified view creation
+- 🏢 **Multi-Tenant Architecture** - Complete data isolation between organizations
+- 🔐 **Enterprise Security** - JWT authentication with Argon2 password hashing
+- ⚡ **Real-Time Monitoring** - Live dashboard with auto-refresh and health metrics
+
+### Key Capabilities
+
+**For Data Engineers:**
+- Connect multiple data sources (Salesforce, SAP, NetSuite, HubSpot, etc.)
+- AI-powered schema mapping with RAG (Retrieval-Augmented Generation)
+- Automated drift detection and repair
+- Unified data views across heterogeneous sources
+
+**For Platform Teams:**
+- Real-time AAM monitoring dashboard
+- Connection health tracking
+- Sync job history and metrics
+- Service health status
+
+**For Developers:**
+- RESTful API with OpenAPI documentation
+- Async task orchestration with Python RQ
+- WebSocket support for real-time updates
+- Complete audit trail and logging
+
+---
+
+## 🏗️ Architecture
+
+### Full-Stack Platform
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        AUTONOMOS PLATFORM                        │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │              FRONTEND (React + TypeScript)                 │ │
+│  │  ┌──────────────┐  ┌──────────────┐  ┌────────────────┐   │ │
+│  │  │ AAM Monitor  │  │  DCL Graph   │  │  Ontology View │   │ │
+│  │  │  Dashboard   │  │ Visualization│  │   & Mappings   │   │ │
+│  │  └──────────────┘  └──────────────┘  └────────────────┘   │ │
+│  │  • Vite build system                                       │ │
+│  │  • Real-time WebSocket updates                             │ │
+│  │  • Responsive design with Quicksand typography             │ │
+│  └────────────────────────────────────────────────────────────┘ │
+│                               │                                  │
+│                               ▼                                  │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │              BACKEND (Python + FastAPI)                    │ │
+│  │  ┌────────────┐  ┌────────────┐  ┌────────────────────┐   │ │
+│  │  │    API     │  │    DCL     │  │   AAM Monitor      │   │ │
+│  │  │  Endpoints │  │   Engine   │  │    Endpoints       │   │ │
+│  │  └────────────┘  └────────────┘  └────────────────────┘   │ │
+│  │  ┌────────────┐  ┌────────────┐  ┌────────────────────┐   │ │
+│  │  │   Worker   │  │   Redis    │  │    PostgreSQL      │   │ │
+│  │  │  (RQ Jobs) │  │   Queue    │  │   + DuckDB (DCL)   │   │ │
+│  │  └────────────┘  └────────────┘  └────────────────────┘   │ │
+│  └────────────────────────────────────────────────────────────┘ │
+│                               │                                  │
+│  ┌────────────────────────────▼──────────────────────────────┐ │
+│  │       AAM HYBRID (Airbyte OSS + Microservices)            │ │
+│  │  • Orchestrator, Auth Broker, Drift Repair Agent          │ │
+│  │  • Schema Observer (skeleton), RAG Engine (skeleton)      │ │
+│  │  • Airbyte for data movement (Execution Plane)            │ │
+│  │  • PostgreSQL Connector Registry (Control Plane)          │ │
+│  └───────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Technology Stack
+
+**Frontend:**
+- React 18 + TypeScript
+- Vite (build system)
+- D3.js (for Sankey diagrams)
+- WebSocket (real-time updates)
+
+**Backend:**
+- FastAPI (Python web framework)
+- SQLAlchemy 2.0 (async ORM)
+- Python RQ + Redis (task queue)
+- DuckDB (embedded analytics for DCL)
+- Pydantic (validation)
+
+**Database & Storage:**
+- PostgreSQL (primary database)
+- Redis (queue + caching)
+- DuckDB (DCL data processing)
+
+**AI/ML:**
+- Gemini API (Google Generative AI)
+- OpenAI API
+- RAG with sentence-transformers (multilingual-e5-large)
+- Pinecone (vector database for embeddings)
+
+**Deployment:**
+- Uvicorn (ASGI server)
+- Docker support
+- Replit-optimized workflows
+
+---
+
+## ✨ Features
+
+### 1. AAM Monitoring Dashboard (October 2025)
+
+**Real-time visibility into your Adaptive API Mesh:**
+
+- **Service Health Status** - Monitor all AAM microservices (Orchestrator, Auth Broker, Drift Repair, Schema Observer, RAG Engine)
+- **Key Metrics Cards:**
+  - Total active connections
+  - Drift detections (24h)
+  - Successful auto-repairs (24h)
+  - Manual reviews required
+  - Average confidence score
+  - Average repair time
+- **Connection Health Table** - See all data source connections with status badges
+- **Recent Events Log** - Live feed of sync jobs, drift detections, and repairs
+- **Auto-refresh** - Polls every 10 seconds for latest data
+- **Graceful Fallback** - Shows mock data when services unavailable
+
+**Access:** Click "**AAM Monitor**" in the navigation bar
+
+---
+
+### 2. DCL Graph Visualization
+
+**Interactive data mapping visualization:**
+
+- **Sankey Diagram** - Visual flow from data sources → ontology → unified views
+- **Color-Coded Nodes:**
+  - 🟢 Green: Data sources (Salesforce, SAP, etc.)
+  - 🔵 Blue: Ontology entities (accounts, opportunities)
+  - 🟣 Purple: Agent actions
+- **Smart Label Positioning** - Collision detection prevents overlaps
+- **Responsive Design** - Adapts to mobile, tablet, and desktop
+- **Real-Time Updates** - WebSocket-driven state changes
+
+**How to Use:**
+1. Open the app homepage
+2. Click "**Connect Sources**" to trigger DCL mapping
+3. Watch the graph populate in real-time
+
+---
+
+### 3. AI-Powered Schema Mapping
+
+**RAG-enhanced data source integration:**
+
+- **Semantic Similarity Search** - Finds matching fields across sources using embeddings
+- **Heuristic Filtering** - Domain-aware field validation
+- **Multi-Provider LLM Support** - Gemini or OpenAI for mapping decisions
+- **Confidence Scoring** - Transparent mapping quality metrics
+- **Production Mode** - Toggle between AI-driven vs. heuristic-only mapping
+
+**Supported Data Sources:**
+- Salesforce
+- SAP
+- NetSuite
+- HubSpot
+- Dynamics 365
+- Legacy SQL databases
+- Cloud platforms (AWS, Azure)
+
+---
+
+### 4. Multi-Tenant Architecture
+
+**Complete organizational isolation:**
+
+- Each tenant has dedicated data space
+- All tasks, logs, and connections scoped to tenant_id
+- JWT-based authentication with 30-minute expiration
+- Argon2 password hashing (OWASP recommended)
+- Database-level tenant filtering
+
+**Security Model:**
+```
+User → JWT Token → API Request → Tenant Validation → Data Access
+                                     ↓
+                            (Only tenant's data visible)
+```
+
+---
+
+### 5. Async Task Orchestration
+
+**Background job processing with RQ:**
+
+- **Task Lifecycle:** `queued` → `in_progress` → `success`/`failed`
+- **Automatic Retries** - Exponential backoff (10s, 30s, 60s)
+- **Timeouts** - Prevent infinite execution
+- **Callbacks** - Webhook notifications on completion
+- **Task Chaining** - Multi-step workflows
+- **Audit Logging** - Full execution trail
+
+**Use Cases:**
+- DCL source connections
+- AOA orchestration operations
+- Slack notifications
+- Data sync triggers
+
+---
+
+### 6. Adaptive API Mesh (AAM)
+
+**Self-healing data connectivity layer:**
+
+- **Airbyte Integration** - OSS data movement engine
+- **Drift Detection** - Monitors schema changes across sources
+- **Auto-Repair** - Autonomous catalog updates
+- **Versioning** - Full schema history (SyncCatalogVersion)
+- **Job Tracking** - Complete sync job audit trail
+
+**AAM Microservices:**
+- **Orchestrator** (:8001) - Connection onboarding
+- **Auth Broker** (:8002) - Credential management
+- **Drift Repair Agent** (:8003) - Catalog updates
+- **Schema Observer** - Automated drift detection (skeleton)
+- **RAG Engine** - AI mapping recommendations (skeleton)
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- **Node.js 18+** (for frontend build)
+- **Python 3.11+**
+- **PostgreSQL** (Replit built-in or external)
+- **Redis** (installed as system dependency)
+
+### Running on Replit (Recommended)
+
+1. **Open Project** - Fork or import into Replit
+2. **Install Dependencies** - Auto-installed on first run
+3. **Configure Secrets** - Add required API keys:
+   - `GEMINI_API_KEY` or `OPENAI_API_KEY` (for LLM features)
+   - `PINECONE_API_KEY` (for RAG embeddings)
+   - `SLACK_WEBHOOK_URL` (optional, for notifications)
+4. **Click Run** - The AutonomOS API workflow starts automatically
+5. **Access Web Interface** - Opens in Replit webview at port 5000
+
+The platform will be available at: `https://<your-repl>.replit.dev`
+
+### Local Development
+
+```bash
+# 1. Clone repository
+git clone <your-repo-url>
+cd autonomos
+
+# 2. Install Python dependencies
+pip install -r requirements.txt
+
+# 3. Set up environment variables
+cp .env.example .env
+# Edit .env with your credentials
+
+# 4. Start PostgreSQL and Redis
+# (Ensure both are running locally)
+
+# 5. Start backend server
+./start.sh
+# Or manually:
+# python -m app.worker &  # Start RQ worker
+# uvicorn app.main:app --host 0.0.0.0 --port 5000
+
+# 6. Access the app
+open http://localhost:5000
+```
+
+---
+
+## 📂 Project Structure
 
 ```
 /
-├── app/
-│   ├── __init__.py
-│   ├── main.py         # FastAPI application
-│   ├── worker.py       # RQ worker logic
-│   ├── models.py       # SQLAlchemy database models
-│   ├── schemas.py      # Pydantic schemas
-│   ├── crud.py         # Database operations
-│   ├── database.py     # Database session management
-│   └── config.py       # Configuration settings
-├── requirements.txt    # Python dependencies
-├── .env.example       # Example environment variables
-└── README.md          # This file
+├── app/                          # Backend application
+│   ├── main.py                   # FastAPI app entry point
+│   ├── worker.py                 # RQ worker for async tasks
+│   ├── models.py                 # SQLAlchemy database models
+│   ├── schemas.py                # Pydantic request/response schemas
+│   ├── crud.py                   # Database operations
+│   ├── database.py               # DB session management
+│   ├── config.py                 # Configuration settings
+│   └── api/
+│       └── v1/
+│           ├── auth.py           # Authentication endpoints
+│           ├── tasks.py          # Task management
+│           ├── aoa.py            # AOA orchestration
+│           ├── aam_monitoring.py # AAM dashboard API
+│           └── dcl.py            # DCL engine endpoints
+├── dcl/                          # Data Catalog Layer
+│   ├── engine.py                 # Main DCL orchestration
+│   ├── llm_service.py            # LLM abstraction layer
+│   ├── rag_engine.py             # RAG embeddings & retrieval
+│   └── mock_data.py              # Sample data sources
+├── frontend/                     # React/TypeScript UI
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── AAMDashboard.tsx  # AAM monitoring UI
+│   │   │   ├── DCLGraph.tsx      # Sankey visualization
+│   │   │   ├── TopBar.tsx        # Navigation
+│   │   │   └── FAQ.tsx           # Help section
+│   │   ├── App.tsx               # Main app component
+│   │   └── main.tsx              # Entry point
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── vite.config.ts
+├── static/                       # Compiled frontend assets
+│   ├── index.html
+│   ├── assets/                   # Built JS/CSS
+│   └── *.png                     # Images
+├── aam-hybrid/                   # AAM microservices
+│   ├── services/
+│   │   ├── orchestrator/
+│   │   ├── auth_broker/
+│   │   ├── drift_repair_agent/
+│   │   ├── schema_observer/
+│   │   └── rag_engine/
+│   ├── shared/
+│   │   ├── airbyte_client.py
+│   │   ├── database.py
+│   │   ├── models.py
+│   │   └── config.py
+│   └── README.md                 # AAM-specific docs
+├── requirements.txt              # Python dependencies
+├── start.sh                      # Startup script
+├── replit.md                     # Project memory/notes
+└── README.md                     # This file
 ```
 
-## Features
+---
 
-### Multi-Tenant Architecture
+## 🎨 Using the Web Interface
 
-AutonomOS provides **complete tenant isolation** ensuring organizations cannot access each other's data:
+### Homepage
 
-- Each organization has its own dedicated tenant space
-- All tasks, logs, and data are automatically scoped to the tenant
-- JWT-based authentication with user management
-- Secure password hashing using Argon2
+**Hero Section:**
+- Overview of AutonomOS capabilities
+- "Connect Sources" button to trigger DCL mapping
 
-### Authentication & Security
+**Agent Layer:**
+- Visual representation of AI agents (Schema Mapper, Drift Detector, etc.)
 
-AutonomOS uses **JWT (JSON Web Tokens)** for authentication with complete tenant isolation.
+**DCL Graph:**
+- Interactive Sankey diagram showing data flows
+- Real-time updates via WebSocket
 
-**Getting Started:**
-1. **Register** - Create a new user and automatically create/join a tenant organization
-2. **Login** - Receive a JWT access token (valid for 30 minutes)
-3. **API Requests** - Include the JWT in the `Authorization: Bearer <token>` header
-4. **Data Isolation** - Users can only access tasks belonging to their tenant
+**Architecture Flow:**
+- System diagram with directional arrows
+- Responsive layout for mobile/desktop
 
-**Security Features:**
-- Argon2 password hashing (industry-standard secure hashing)
-- JWT tokens with configurable expiration
-- Complete tenant data isolation via database-level filtering
-- Protected endpoints - all task operations require valid JWT
+**FAQ Section:**
+- Common questions about features and technology
 
-### API Endpoints
+### AAM Monitor Dashboard
 
-#### Authentication Endpoints
+**Navigation:**
+1. Click "**AAM Monitor**" in the top navigation bar
+2. Dashboard loads with four sections:
 
-##### 1. Register User
-- **Endpoint**: `POST /users/register`
-- **Description**: Create a new user and automatically create/join a tenant organization
-- **Authentication**: None required
-- **Request Body**:
-  ```json
-  {
-    "tenant_name": "Acme Corp",
-    "email": "alice@acmecorp.com",
-    "password": "secure_password_123"
-  }
-  ```
-- **Response**: Returns the created user with tenant information
+**Service Health Panel:**
+- Shows status of all AAM microservices
+- Green (running) or Red (stopped) indicators
+- Note: Services integrated as background tasks show "stopped" (expected)
 
-##### 2. Login
-- **Endpoint**: `POST /token`
-- **Description**: Authenticate and receive a JWT access token
-- **Authentication**: None required
-- **Request Body** (form data):
-  ```
-  username=alice@acmecorp.com&password=secure_password_123
-  ```
-- **Response**: Returns JWT access token
-  ```json
-  {
-    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "token_type": "bearer"
-  }
-  ```
+**Metrics Cards:**
+- Total connections, drift detections, repairs, reviews
+- Average confidence score and repair time
+- Auto-refreshes every 10 seconds
 
-##### 3. Get Current User
-- **Endpoint**: `GET /users/me`
-- **Description**: Get information about the currently authenticated user
-- **Authentication**: Requires JWT token in `Authorization: Bearer <token>` header
-- **Response**: Returns current user information
+**Connection Health Table:**
+| Connection Name | Source Type | Status | Created At |
+|----------------|-------------|--------|------------|
+| Salesforce Production | Salesforce | 🟢 ACTIVE | Oct 16, 2025 |
 
-#### Task Endpoints
+**Recent Events Log:**
+- Live feed of sync jobs, drift detections, repairs
+- Timestamps and event details
+- Scrollable list of recent activity
 
-##### 4. Create Task
-- **Endpoint**: `POST /api/v1/tasks`
-- **Description**: Creates a new task and enqueues it for processing
-- **Authentication**: Requires JWT token in `Authorization: Bearer <token>` header
-- **Request Body**:
-  ```json
-  {
-    "payload": {
-      "action": "post_to_slack",
-      "channel": "#general",
-      "message": "Your message here"
-    },
-    "callback_url": "https://example.com/webhook/task-complete" 
-  }
-  ```
-  - `payload` (required): Task-specific data
-  - `callback_url` (optional): URL to receive task completion notification
-  - `max_retries` (optional): Maximum number of retry attempts (default: 0)
-  - `timeout_seconds` (optional): Maximum execution time in seconds
-- **Response**: Returns the created task with status "queued"
+---
 
-##### 5. Get Task
-- **Endpoint**: `GET /api/v1/tasks/{task_id}`
-- **Description**: Retrieves a task by its ID (only tasks belonging to your tenant)
-- **Authentication**: Requires JWT token in `Authorization: Bearer <token>` header
-- **Response**: Returns the task with its current status and result
+## 🔌 API Documentation
 
-##### 6. Cancel Task
-- **Endpoint**: `DELETE /api/v1/tasks/{task_id}`
-- **Description**: Cancels a task (only tasks belonging to your tenant)
-- **Authentication**: Requires JWT token in `Authorization: Bearer <token>` header
-- **Response**: Returns the canceled task with updated status
+### Interactive Docs
 
-### Slack Integration
+Once the server is running, visit:
+- **Swagger UI**: `http://localhost:5000/docs`
+- **ReDoc**: `http://localhost:5000/redoc`
 
-The worker can post messages to Slack using incoming webhooks.
+### Core API Endpoints
 
-**Setting up Slack Integration:**
-1. Go to https://api.slack.com/messaging/webhooks
-2. Create a new incoming webhook for your workspace
-3. Select the channel where messages should be posted
-4. Copy the webhook URL
-5. In your Replit project, add a new secret with key `SLACK_WEBHOOK_URL`
-6. Paste the webhook URL as the value
+#### Authentication
 
-**Supported Actions:**
-- `post_to_slack`: Posts a message to a Slack channel
+**Register New User**
+```bash
+POST /api/v1/auth/register
+Content-Type: application/json
 
-### Callback System
-
-AutonomOS supports optional callbacks to notify external systems when tasks complete. This is perfect for building event-driven architectures.
-
-**How it works:**
-1. When creating a task, include a `callback_url` in your request
-2. After the worker processes the task (success or failure), it automatically sends a POST request to your callback URL
-3. The callback contains the complete task data including status, result, and timestamps
-
-**Callback Payload:**
-```json
 {
-  "id": "123e4567-e89b-12d3-a456-426614174000",
-  "status": "success",
-  "payload": { ... },
-  "result": { ... },
-  "callback_url": "https://example.com/webhook",
-  "created_at": "2025-10-19T12:00:00",
-  "updated_at": "2025-10-19T12:00:15"
+  "name": "Acme Corp",
+  "email": "alice@acmecorp.com",
+  "password": "SecurePass123!"
 }
 ```
 
-**Important Notes:**
-- Callbacks are sent via HTTP POST with JSON content
-- Failed callbacks do not affect the task status (task is still marked as success/failed)
-- Callback errors are logged but don't retry automatically
-- Callbacks have a 10-second timeout
-
-### Task Reliability (Retries & Timeouts)
-
-AutonomOS provides enterprise-grade reliability with automatic retry logic and task timeouts.
-
-**Automatic Retries:**
-- Specify `max_retries` when creating a task to enable automatic retries on failure
-- Uses exponential backoff strategy: 10s, 30s, 60s between retries
-- Each retry attempt is tracked in the `retry_count` field
-- After all retries are exhausted, the task status is permanently set to "failed"
-
-**Task Timeouts:**
-- Specify `timeout_seconds` to prevent tasks from running indefinitely
-- If a task exceeds its timeout, it will be automatically terminated
-- Helps prevent resource exhaustion and ensures system stability
-
-**How it works:**
-1. Create a task with `max_retries` and/or `timeout_seconds`
-2. If the task fails, the worker automatically retries with exponential backoff
-3. The `retry_count` field tracks how many retries have been attempted
-4. After the final retry fails, the task is marked as "failed" permanently
-
-**Example: Task with retries and timeout:**
+**Login**
 ```bash
-curl -X POST "http://localhost:5000/api/v1/tasks" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{
-    "payload": {
-      "action": "post_to_slack",
-      "channel": "#general",
-      "message": "Mission-critical notification"
-    },
-    "max_retries": 3,
-    "timeout_seconds": 300
-  }'
-```
+POST /api/v1/auth/login
+Content-Type: application/json
 
-This task will:
-- Retry up to 3 times if it fails
-- Timeout after 5 minutes of execution
-- Track each retry attempt in the database
-
-### Audit Trail & Logging
-
-AutonomOS automatically creates detailed audit logs for every task, tracking all significant events throughout the task lifecycle.
-
-**Automatic Logging:**
-- Task logs are stored in the `task_logs` database table
-- Each log entry includes a timestamp and descriptive message
-- Logs capture key events: task start, API calls, successes, failures, retries, and callbacks
-
-**Log Events Captured:**
-- "Task execution started"
-- "Attempting to post message to Slack channel #channel"
-- "Successfully posted to Slack with status 200"
-- "Task failed with error: [error details]"
-- "Scheduling retry X/Y"
-- "Attempting to send callback to [URL]"
-- "Successfully sent callback with status 200"
-- "Task canceled by user request"
-- "Task permanently failed after all retries"
-
-**Accessing Logs:**
-Query the `task_logs` table filtered by `task_id` to view the complete audit trail for any task.
-
-### Task Cancellation
-
-Cancel scheduled or running tasks at any time using the DELETE endpoint.
-
-**Endpoint**: `DELETE /api/v1/tasks/{task_id}`
-
-**Behavior:**
-- Cancels the job in the RQ queue
-- Updates task status to "canceled"
-- Creates an audit log entry
-- Cannot cancel tasks that are already completed, failed, or canceled
-
-**Example: Cancel a task**
-```bash
-curl -X DELETE "http://localhost:5000/api/v1/tasks/TASK_ID" \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-Response:
-```json
 {
-  "id": "TASK_ID",
-  "status": "canceled",
-  "result": {"message": "Task canceled by user"},
-  ...
+  "email": "alice@acmecorp.com",
+  "password": "SecurePass123!"
 }
-```
-
-### Task Chaining (Workflow Orchestration)
-
-Build complex workflows by automatically triggering new tasks when a task completes successfully.
-
-**How it works:**
-1. Include `on_success_next_task` when creating a task
-2. When the task succeeds, the worker automatically creates and enqueues the next task
-3. The original task's `next_task_id` field is updated with the chained task's ID
-4. Chains can be extended indefinitely by including `on_success_next_task` in subsequent tasks
-
-**Use Cases:**
-- Multi-step workflows (e.g., process data → analyze results → notify team)
-- Sequential notifications to different channels
-- Data pipeline orchestration
-- Approval workflows
-
-**Example: Create a chained workflow**
-```bash
-curl -X POST "http://localhost:5000/api/v1/tasks" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{
-    "payload": {
-      "action": "post_to_slack",
-      "channel": "#general",
-      "message": "Step 1: Data processing started"
-    },
-    "on_success_next_task": {
-      "payload": {
-        "action": "post_to_slack",
-        "channel": "#results",
-        "message": "Step 2: Data processing completed"
-      }
-    }
-  }'
-```
-
-When Task A completes:
-- Task B is automatically created and enqueued
-- Task A's `next_task_id` field contains Task B's ID
-- Audit logs show: "Task succeeded, creating chained task" and "Created and enqueued chained task {id}"
-
-**Important Notes:**
-- The `on_success_next_task` must contain a complete, valid task payload with all required fields
-- Chaining only happens on successful task completion
-- Failed tasks do not trigger the next task in the chain
-- Each task in the chain can have its own retry policy, timeout, and callback
-- Ensure all required payload fields (action, channel, message, etc.) are explicitly specified to avoid validation errors
-
-### Task States
-
-Tasks go through the following lifecycle:
-1. **queued**: Initial state when task is created
-2. **in_progress**: Worker has picked up the task
-3. **success**: Task completed successfully
-4. **failed**: Task encountered an error
-5. **canceled**: Task was canceled by user
-
-## Database Schema
-
-### Tenants Table
-
-| Column     | Type      | Description                          |
-|------------|-----------|--------------------------------------|
-| id         | UUID      | Primary key, auto-generated          |
-| name       | String    | Tenant organization name (unique)    |
-| created_at | DateTime  | Timestamp when tenant was created    |
-
-### Users Table
-
-| Column          | Type      | Description                          |
-|-----------------|-----------|--------------------------------------|
-| id              | UUID      | Primary key, auto-generated          |
-| tenant_id       | UUID      | Foreign key to tenants table         |
-| email           | String    | User email (unique)                  |
-| hashed_password | String    | Argon2 hashed password               |
-| created_at      | DateTime  | Timestamp when user was created      |
-
-### Tasks Table
-
-| Column                | Type      | Description                          |
-|-----------------------|-----------|--------------------------------------|
-| id                    | UUID      | Primary key, auto-generated          |
-| tenant_id             | UUID      | Foreign key to tenants table         |
-| status                | String    | Task status (queued/in_progress/success/failed/canceled) |
-| payload               | JSON      | Input data for the task              |
-| result                | JSON      | Output data or error message         |
-| callback_url          | String    | Optional URL for completion callback |
-| retry_count           | Integer   | Number of retries attempted          |
-| max_retries           | Integer   | Maximum retries allowed              |
-| on_success_next_task  | JSON      | Payload for next task in chain       |
-| next_task_id          | UUID      | ID of the chained task created       |
-| created_at            | DateTime  | Timestamp when task was created      |
-| updated_at            | DateTime  | Timestamp when task was last updated |
-
-### TaskLogs Table
-
-| Column    | Type      | Description                          |
-|-----------|-----------|--------------------------------------|
-| id        | UUID      | Primary key, auto-generated          |
-| task_id   | UUID      | Foreign key to tasks table           |
-| tenant_id | UUID      | Foreign key to tenants table         |
-| timestamp | DateTime  | When the log entry was created       |
-| message   | String    | Descriptive log message              |
-
-## Running on Replit
-
-This project is configured to run seamlessly on Replit:
-
-1. **PostgreSQL**: Uses Replit's built-in PostgreSQL database
-2. **Redis**: Installed as a system dependency
-3. **Workflows**: Two workflows run automatically:
-   - FastAPI server on port 5000
-   - RQ worker for background processing
-
-### API Access
-
-Once running, access the API at:
-- **Web Interface**: Automatically opens in Replit's webview
-- **API Documentation**: Visit `/docs` for interactive Swagger UI
-- **Alternative Docs**: Visit `/redoc` for ReDoc documentation
-
-## Usage Examples
-
-### Complete Authentication Workflow
-
-**Step 1: Register a new user**
-
-```bash
-curl -X POST "http://localhost:5000/users/register" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "tenant_name": "Acme Corp",
-    "email": "alice@acmecorp.com",
-    "password": "secure_password_123"
-  }'
-```
-
-**Step 2: Login and get your JWT token**
-
-```bash
-curl -X POST "http://localhost:5000/token" \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "username=alice@acmecorp.com&password=secure_password_123"
-```
 
 Response:
-```json
 {
   "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "token_type": "bearer"
 }
 ```
 
-**Step 3: Use the token to create tasks**
-
-Save the token and use it in subsequent requests:
-
+**Get Current User**
 ```bash
-export TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+GET /api/v1/auth/me
+Authorization: Bearer <token>
+```
 
-curl -X POST "http://localhost:5000/api/v1/tasks" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{
-    "payload": {
-      "action": "post_to_slack",
-      "channel": "#general",
-      "message": "Hello from AutonomOS! 🚀"
+#### DCL Operations
+
+**Get DCL State**
+```bash
+GET /dcl/state
+Authorization: Bearer <token>
+
+Response:
+{
+  "sources_connected": true,
+  "agents": [...],
+  "source_schemas": {...},
+  "rag_mappings": [...],
+  "dev_mode": false
+}
+```
+
+**Connect Data Sources (Async)**
+```bash
+POST /dcl/connect
+Authorization: Bearer <token>
+
+Returns: Task object (status: "queued")
+```
+
+**Reset DCL State**
+```bash
+POST /dcl/reset
+Authorization: Bearer <token>
+
+Returns: Task object (status: "queued")
+```
+
+**WebSocket Updates**
+```javascript
+const ws = new WebSocket('wss://your-domain.com/dcl/ws');
+ws.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  console.log('DCL Event:', data.type, data);
+};
+```
+
+#### AAM Monitoring
+
+**Get Metrics**
+```bash
+GET /api/v1/aam/metrics
+Authorization: Bearer <token>
+
+Response:
+{
+  "total_connections": 8,
+  "active_drift_detections_24h": 3,
+  "successful_repairs_24h": 12,
+  "manual_reviews_required_24h": 1,
+  "average_confidence_score": 0.94,
+  "average_repair_time_seconds": 45.2,
+  "timestamp": "2025-10-31T12:00:00Z",
+  "data_source": "database"
+}
+```
+
+**Get Connections**
+```bash
+GET /api/v1/aam/connections
+Authorization: Bearer <token>
+
+Response:
+{
+  "connections": [
+    {
+      "id": "uuid",
+      "name": "Salesforce Production",
+      "source_type": "Salesforce",
+      "status": "ACTIVE",
+      "created_at": "2025-10-16T12:00:00Z",
+      "updated_at": "2025-10-31T12:00:00Z"
     }
-  }'
+  ],
+  "total": 1,
+  "data_source": "database"
+}
 ```
 
-### Post to Slack with Callback
-
-Create a task with a callback URL to get notified when complete:
-
+**Get Recent Events**
 ```bash
-curl -X POST "http://localhost:5000/api/v1/tasks" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{
-    "payload": {
-      "action": "post_to_slack",
-      "channel": "#general",
-      "message": "Hello from AutonomOS! 🚀"
-    },
-    "callback_url": "https://webhook.site/your-unique-id"
-  }'
-```
-
-After the task completes, AutonomOS will POST the complete task data to your callback URL.
+GET /api/v1/aam/events?limit=50
+Authorization: Bearer <token>
 
 Response:
-```json
 {
-  "id": "123e4567-e89b-12d3-a456-426614174000",
-  "status": "queued",
+  "events": [
+    {
+      "id": "uuid",
+      "connection_id": "uuid",
+      "connection_name": "Salesforce Production",
+      "event_type": "sync_succeeded",
+      "timestamp": "2025-10-31T10:00:00Z",
+      "metadata": {...}
+    }
+  ],
+  "total": 50,
+  "data_source": "database"
+}
+```
+
+**Service Health**
+```bash
+GET /api/v1/aam/health
+Authorization: Bearer <token>
+
+Response:
+{
+  "services": [
+    {"name": "Orchestrator", "port": 8001, "status": "running"},
+    {"name": "Auth Broker", "port": 8002, "status": "running"},
+    {"name": "Drift Repair Agent", "port": 8003, "status": "running"},
+    {"name": "Schema Observer", "port": 8004, "status": "stopped"},
+    {"name": "RAG Engine", "port": 8005, "status": "stopped"}
+  ]
+}
+```
+
+#### Task Management
+
+**Create Task**
+```bash
+POST /api/v1/tasks
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
   "payload": {
     "action": "post_to_slack",
     "channel": "#general",
-    "message": "Hello from AutonomOS! 🚀"
+    "message": "Hello from AutonomOS!"
   },
-  "result": null,
-  "created_at": "2025-10-19T12:00:00Z",
-  "updated_at": "2025-10-19T12:00:00Z"
+  "max_retries": 3,
+  "timeout_seconds": 300,
+  "callback_url": "https://example.com/webhook"
 }
-```
-
-### Check Task Status
-
-```bash
-curl "http://localhost:5000/api/v1/tasks/123e4567-e89b-12d3-a456-426614174000" \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-Once the worker processes the task, you'll see:
-```json
-{
-  "id": "123e4567-e89b-12d3-a456-426614174000",
-  "status": "success",
-  "payload": {
-    "action": "post_to_slack",
-    "channel": "#general",
-    "message": "Hello from AutonomOS! 🚀"
-  },
-  "result": {
-    "message": "Successfully posted to Slack",
-    "channel": "#general",
-    "slack_response_status": 200
-  },
-  "created_at": "2025-10-19T12:00:00Z",
-  "updated_at": "2025-10-19T12:00:15Z"
-}
-```
-
-### Multi-Tenant Isolation Example
-
-Users from different tenants cannot access each other's tasks:
-
-**Tenant A (Acme Corp) creates a task:**
-```bash
-TOKEN_A="<alice's JWT token>"
-TASK_ID=$(curl -s -X POST "http://localhost:5000/api/v1/tasks" \
-  -H "Authorization: Bearer $TOKEN_A" \
-  -H "Content-Type: application/json" \
-  -d '{"payload": {"action": "post_to_slack", "channel": "#acme", "message": "test"}}' \
-  | jq -r '.id')
-```
-
-**Tenant B (Beta Industries) tries to access Tenant A's task:**
-```bash
-TOKEN_B="<bob's JWT token>"
-curl "http://localhost:5000/api/v1/tasks/$TASK_ID" \
-  -H "Authorization: Bearer $TOKEN_B"
-```
-
-Response:
-```json
-{
-  "detail": "Task not found"
-}
-```
-
-This demonstrates complete data isolation between tenants!
-
-## AOA Proxy & Auth Integration
-
-AutonomOS now includes **AOA (Autonomous Orchestration Architecture) integration** that allows secure proxy connections to a Legacy DCL backend while maintaining complete multi-tenant isolation.
-
-### Authentication API
-
-The authentication system has been reorganized under `/api/v1/auth/` for consistency:
-
-#### POST /api/v1/auth/register
-Create a new user and organization (tenant):
-
-```bash
-curl -X POST "http://localhost:5000/api/v1/auth/register" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Acme Corp",
-    "email": "alice@acmecorp.com",
-    "password": "SecurePass123!"
-  }'
-```
-
-Response includes user ID, tenant ID, and creation timestamp.
-
-#### POST /api/v1/auth/login
-Authenticate and receive JWT token (JSON body instead of form data):
-
-```bash
-curl -X POST "http://localhost:5000/api/v1/auth/login" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "alice@acmecorp.com",
-    "password": "SecurePass123!"
-  }'
-```
-
-Response:
-```json
-{
-  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "token_type": "bearer"
-}
-```
-
-JWT tokens expire after 30 minutes and include `user_id` and `tenant_id` claims for authorization.
-
-#### GET /api/v1/auth/me
-Get current user profile (requires JWT):
-
-```bash
-curl -X GET "http://localhost:5000/api/v1/auth/me" \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-### AOA Orchestration Endpoints
-
-All AOA endpoints require JWT authentication and are automatically scoped to the authenticated user's tenant.
-
-#### GET /api/v1/aoa/state
-**Synchronous proxy** to Legacy DCL backend state endpoint. Returns current AOA system state immediately (no background job).
-
-```bash
-curl -X GET "http://localhost:5000/api/v1/aoa/state" \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-#### POST /api/v1/aoa/run
-Enqueue a background job to connect AOA by calling the Legacy DCL `/connect` endpoint.
-
-```bash
-curl -X POST "http://localhost:5000/api/v1/aoa/run" \
-  -H "Authorization: Bearer $TOKEN"
-```
 
 Response: Task object with status "queued"
+```
 
-#### POST /api/v1/aoa/reset
-Enqueue a background job to reset AOA by calling the Legacy DCL `/reset` endpoint.
-
+**Get Task Status**
 ```bash
-curl -X POST "http://localhost:5000/api/v1/aoa/reset" \
-  -H "Authorization: Bearer $TOKEN"
+GET /api/v1/tasks/{task_id}
+Authorization: Bearer <token>
 ```
 
-Response: Task object with status "queued"
-
-#### POST /api/v1/aoa/prod-mode
-Enqueue a background job to toggle production mode by calling the Legacy DCL `/toggle_dev_mode` endpoint.
-
+**Cancel Task**
 ```bash
-curl -X POST "http://localhost:5000/api/v1/aoa/prod-mode" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{
-    "enabled": true
-  }'
+DELETE /api/v1/tasks/{task_id}
+Authorization: Bearer <token>
 ```
 
-Response: Task object with status "queued"
+#### AOA Orchestration
 
-### AOA Job Behavior
-
-**Automatic Retry Policy:**
-- All AOA jobs automatically retry up to 3 times on failure
-- Retry intervals: 10s → 30s → 60s (exponential backoff)
-- Each retry is logged in the task_logs table
-
-**1 Active Job Per Tenant:**
-- Only one AOA job can be active (queued or in_progress) per tenant at a time
-- Attempting to create a new AOA job while one is active returns 409 Conflict
-- This prevents race conditions and ensures AOA operations complete sequentially
-
-**Audit Logging:**
-- All AOA actions are logged with:
-  - Tenant ID and user ID
-  - Request parameters
-  - Downstream HTTP status codes and response bodies
-  - Error details on failure
-- Logs are stored in the `task_logs` table for compliance and debugging
-
-**Task Status Transitions:**
-```
-queued → in_progress → success/failed
-```
-
-### Health Endpoints
-
-#### GET /health/api
-Check if the API is running:
-
+**Get AOA State (Sync)**
 ```bash
+GET /api/v1/aoa/state
+Authorization: Bearer <token>
+```
+
+**Run AOA Connection (Async)**
+```bash
+POST /api/v1/aoa/run
+Authorization: Bearer <token>
+
+Returns: Task object
+```
+
+**Reset AOA (Async)**
+```bash
+POST /api/v1/aoa/reset
+Authorization: Bearer <token>
+
+Returns: Task object
+```
+
+**Toggle Production Mode**
+```bash
+POST /api/v1/aoa/prod-mode
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "enabled": true
+}
+
+Returns: Task object
+```
+
+#### Health Checks
+
+**API Health**
+```bash
+GET /health/api
+Response: {"status": "ok"}
+```
+
+**Worker Health**
+```bash
+GET /health/worker
+Response: {"status": "ok", "redis": "connected"}
+```
+
+---
+
+## 🔧 Configuration
+
+### Environment Variables
+
+**Required:**
+- `DATABASE_URL` - PostgreSQL connection string (auto-set on Replit)
+- `REDIS_URL` - Redis connection string (auto-set on Replit)
+- `SECRET_KEY` - JWT signing secret (auto-generated)
+
+**LLM Providers (at least one required for DCL AI features):**
+- `GEMINI_API_KEY` - Google Gemini API key
+- `OPENAI_API_KEY` - OpenAI API key
+
+**RAG Features:**
+- `PINECONE_API_KEY` - Pinecone vector database
+- `PINECONE_ENVIRONMENT` - Pinecone environment (e.g., "us-west1-gcp")
+- `PINECONE_INDEX` - Index name (default: "schema-mappings-e5")
+
+**Optional:**
+- `SLACK_WEBHOOK_URL` - Slack incoming webhook for notifications
+- `LEGACY_DCL_BASE_URL` - Legacy DCL backend (if using AOA proxy)
+- `ALLOWED_WEB_ORIGIN` - CORS origin for external frontends
+- `JWT_EXPIRE_MINUTES` - Token expiration (default: 30)
+
+**AAM/Airbyte (for AAM Hybrid features):**
+- `AIRBYTE_API_URL` - Airbyte API endpoint
+- `AIRBYTE_CLIENT_ID` - OAuth client ID
+- `AIRBYTE_CLIENT_SECRET` - OAuth client secret
+- `AIRBYTE_WORKSPACE_ID` - Airbyte workspace ID
+- `AIRBYTE_DESTINATION_ID` - Target destination ID
+- `SALESFORCE_CLIENT_ID` - Salesforce OAuth client ID
+- `SALESFORCE_CLIENT_SECRET` - Salesforce OAuth secret
+- `SALESFORCE_REFRESH_TOKEN` - Salesforce refresh token
+
+### Adding Secrets on Replit
+
+1. Click the lock icon (🔒) in the sidebar
+2. Click "**+ New Secret**"
+3. Enter key and value
+4. Click "**Add Secret**"
+5. Restart the workflow
+
+---
+
+## 📊 Database Schema
+
+### Core Tables
+
+**tenants**
+- `id` (UUID, PK)
+- `name` (String, unique)
+- `created_at` (DateTime)
+
+**users**
+- `id` (UUID, PK)
+- `tenant_id` (UUID, FK → tenants)
+- `email` (String, unique)
+- `hashed_password` (String, Argon2)
+- `created_at` (DateTime)
+
+**tasks**
+- `id` (UUID, PK)
+- `tenant_id` (UUID, FK → tenants)
+- `status` (Enum: queued/in_progress/success/failed/canceled)
+- `payload` (JSON)
+- `result` (JSON)
+- `callback_url` (String, nullable)
+- `retry_count` (Integer)
+- `max_retries` (Integer)
+- `on_success_next_task` (JSON, nullable)
+- `next_task_id` (UUID, nullable)
+- `created_at`, `updated_at` (DateTime)
+
+**task_logs**
+- `id` (UUID, PK)
+- `task_id` (UUID, FK → tasks)
+- `tenant_id` (UUID, FK → tenants)
+- `timestamp` (DateTime)
+- `message` (String)
+
+### AAM Tables
+
+**connections**
+- `id` (UUID, PK)
+- `name` (String)
+- `source_type` (String)
+- `airbyte_source_id` (UUID, nullable)
+- `airbyte_connection_id` (UUID, nullable)
+- `status` (Enum: PENDING/ACTIVE/FAILED/HEALING/INACTIVE)
+- `created_at`, `updated_at` (DateTime)
+
+**sync_catalog_versions**
+- `id` (UUID, PK)
+- `connection_id` (UUID, FK → connections)
+- `sync_catalog` (JSONB)
+- `version_number` (Integer)
+- `created_at` (DateTime)
+
+**job_history**
+- `id` (UUID, PK)
+- `connection_id` (UUID, FK → connections)
+- `airbyte_job_id` (String, nullable)
+- `status` (Enum: pending/running/succeeded/failed/cancelled)
+- `started_at`, `completed_at` (DateTime)
+- `error_message` (Text, nullable)
+
+---
+
+## 🧪 Testing
+
+### Manual Testing
+
+**Test DCL Connection:**
+1. Open homepage
+2. Click "**Connect Sources**"
+3. Watch Sankey graph populate
+4. Check browser console for WebSocket events
+
+**Test AAM Dashboard:**
+1. Click "**AAM Monitor**" in nav bar
+2. Verify metrics cards display
+3. Check connection health table
+4. Observe auto-refresh (10s intervals)
+
+**Test API:**
+```bash
+# Health check
 curl http://localhost:5000/health/api
+
+# Get DCL state (requires auth)
+export TOKEN="<your-jwt-token>"
+curl http://localhost:5000/dcl/state -H "Authorization: Bearer $TOKEN"
 ```
 
-Response: `{"status": "ok"}`
+### Automated Testing
 
-#### GET /health/worker
-Check if Redis and RQ worker are connected:
-
-```bash
-curl http://localhost:5000/health/worker
-```
-
-Response: `{"status": "ok", "redis": "connected"}`
-
-### Required Environment Variables (AOA)
-
-Add these to Replit Secrets:
-
-- **LEGACY_DCL_BASE_URL**: Base URL of the Legacy DCL backend (e.g., `https://example.com`)
-- **ALLOWED_WEB_ORIGIN**: CORS origin for Modern UI (e.g., `https://agenticdataconnectsankey.onrender.com`)
-- **JWT_SECRET_KEY**: (Optional) Falls back to SECRET_KEY if not set
-- **JWT_EXPIRE_MINUTES**: (Optional) Token expiration in minutes (default: 30)
-
-### Complete Example: AOA Workflow
-
-```bash
-# 1. Register
-curl -X POST http://localhost:5000/api/v1/auth/register \
-  -H 'Content-Type: application/json' \
-  -d '{"name":"Acme","email":"user@acme.com","password":"Test1234!"}'
-
-# 2. Login and save token
-TOKEN=$(curl -s -X POST http://localhost:5000/api/v1/auth/login \
-  -H 'Content-Type: application/json' \
-  -d '{"email":"user@acme.com","password":"Test1234!"}' \
-  | python3 -c "import sys, json; print(json.load(sys.stdin)['access_token'])")
-
-# 3. Check AOA state
-curl -X GET http://localhost:5000/api/v1/aoa/state \
-  -H "Authorization: Bearer $TOKEN"
-
-# 4. Run AOA connection
-TASK=$(curl -s -X POST http://localhost:5000/api/v1/aoa/run \
-  -H "Authorization: Bearer $TOKEN")
-
-# 5. Get task ID and check status
-TASK_ID=$(echo $TASK | python3 -c "import sys, json; print(json.load(sys.stdin)['id'])")
-curl -X GET http://localhost:5000/api/v1/tasks/$TASK_ID \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-## Worker Processing
-
-The worker processes tasks based on the action specified in the payload:
-
-1. Updates task status to "in_progress"
-2. Executes the specified action (e.g., posts to Slack)
-3. Updates task status to "success" with result details or "failed" with error information
-
-Currently supported actions:
-- **post_to_slack**: Posts a message to a Slack channel via webhook
-
-## Environment Variables
-
-### Automatically Configured by Replit:
-- `DATABASE_URL`: PostgreSQL connection string
-- `REDIS_HOST`: Redis host (default: localhost)
-- `REDIS_PORT`: Redis port (default: 6379)
-- `REDIS_DB`: Redis database number (default: 0)
-
-### Required Secrets (set in Replit Secrets):
-- `SECRET_KEY`: Secret key for JWT token signing (32+ character random string)
-- `SLACK_WEBHOOK_URL`: Slack incoming webhook URL for posting messages
-
-## Development
-
-### Local Installation (Non-Replit)
-
-If running locally with Docker Compose:
-
-1. Create a `.env` file based on `.env.example`
-2. Run: `docker-compose up --build`
-3. Access the API at `http://localhost:5000`
-
-Note: Docker Compose configuration would need to be added for local development.
-
-## Testing
-
-Monitor task processing in real-time:
-1. Set up your SECRET_KEY and SLACK_WEBHOOK_URL in Replit Secrets
-2. Register a new user via POST /users/register
-3. Login via POST /token to get a JWT access token
-4. Create a task using POST /api/v1/tasks with the Authorization: Bearer <token> header
-5. Note the task ID from the response
-6. Poll the GET endpoint to watch status transitions
-7. Check your Slack channel to see the posted message
-
-Test multi-tenant isolation:
-1. Register two users with different tenant_name values
-2. Login as User A and create a task
-3. Login as User B and try to access User A's task
-4. Verify you get a 404 "Task not found" response
-
-## Automated Testing
-
-AutonomOS includes a comprehensive automated test suite with **31 tests** to verify multi-tenant security, authentication, and task functionality. The test suite achieved **100% pass rate on critical security tests**, proving complete tenant isolation.
-
-### Test Results Summary
-
-After upgrading to FastAPI 0.119.0 and Starlette 0.48.0:
-
-- **Total tests**: 31
-- **Passing**: 29 (93.5%)
-- **Critical security tests passing**: 6/6 (100%) ✅
-
-### Test Suite Structure
-
-```
-tests/
-├── conftest.py           # Shared fixtures and test database setup
-├── test_auth.py          # Authentication and user management (10 tests)
-├── test_isolation.py     # Multi-tenant isolation security (6 tests) 🔒
-└── test_tasks.py         # Task creation and management (15 tests)
-```
-
-### Critical Security Tests (100% Pass Rate)
-
-The following tests **PROVE** complete tenant isolation:
-
-1. ✅ **test_user_from_tenant_b_cannot_access_tenant_a_task** - Users from Tenant B cannot read Tenant A's tasks
-2. ✅ **test_user_from_tenant_b_cannot_delete_tenant_a_task** - Users from Tenant B cannot delete Tenant A's tasks
-3. ✅ **test_tenant_can_only_see_their_own_user_info** - Users can only access their own profile data
-4. ✅ **test_multiple_tasks_across_tenants_remain_isolated** - Multiple tasks across tenants remain completely isolated
-5. ✅ **test_task_with_sensitive_data_not_leaked_across_tenants** - Sensitive task data never leaks between tenants
-6. ✅ **test_jwt_token_contains_correct_tenant_scope** - JWT tokens correctly include tenant_id claims
-
-### Running Tests
-
-**Install test dependencies:**
-```bash
-pip install -r requirements-dev.txt
-```
-
-**Run all tests:**
+**Run Python Tests:**
 ```bash
 pytest tests/ -v
 ```
 
-**Run specific test modules:**
+**Frontend Tests:**
 ```bash
-# Authentication tests
-pytest tests/test_auth.py -v
-
-# Critical isolation tests
-pytest tests/test_isolation.py -v
-
-# Task functionality tests
-pytest tests/test_tasks.py -v
+cd frontend
+npm test
 ```
 
-**Run a specific test:**
+---
+
+## 🚢 Deployment
+
+### Replit Deployment (Recommended)
+
+1. Click "**Deploy**" in Replit
+2. Configure deployment settings:
+   - **Deployment Type**: Autoscale (for web apps)
+   - **Build Command**: `npm run build` (if needed)
+   - **Run Command**: `bash start.sh`
+3. Set production environment variables
+4. Click "**Deploy**" to publish
+
+Your app will be available at: `https://<your-repl>.replit.app`
+
+### Docker Deployment
+
+**Build Image:**
 ```bash
-pytest tests/test_isolation.py::TestCrossTenantIsolation::test_user_from_tenant_b_cannot_access_tenant_a_task -v
+docker build -t autonomos:latest .
 ```
 
-### Test Coverage
-
-**Authentication Tests (test_auth.py):**
-- User registration creates both tenant and user
-- Duplicate email registration is rejected
-- Password validation enforces minimum length
-- Login with valid credentials returns JWT
-- Login with wrong password fails with 401
-- Login with non-existent user fails with 401
-- Valid JWT token allows access to /users/me
-- Missing token returns 401
-- Invalid token returns 401
-- Malformed token returns 403
-
-**Multi-Tenant Isolation Tests (test_isolation.py):**
-- Cross-tenant task access is blocked (404)
-- Cross-tenant task deletion is blocked (404)
-- User profiles are tenant-scoped
-- Multiple tasks across tenants remain isolated
-- Sensitive data never leaks between tenants
-- JWT tokens contain correct tenant_id claims
-
-**Task Functionality Tests (test_tasks.py):**
-- Creating tasks requires JWT authentication
-- Tasks are automatically scoped to user's tenant
-- Task creation returns queued status
-- Retrieving tasks returns correct data
-- Retrieving non-existent tasks returns 404
-- Canceling tasks updates status to canceled
-- Task processing (2 timing-sensitive tests - acceptable failures)
-- Multiple tasks for same tenant work correctly
-
-### Test Infrastructure
-
-The test suite uses:
-- **pytest** for test execution and fixtures
-- **FastAPI TestClient** for API testing
-- **PostgreSQL development database** with UUID-based unique tenant names per test to avoid conflicts
-- **Fixture-based authentication** for JWT token generation
-- **Optional TEST_DATABASE_URL** environment variable for custom test database isolation
-
-**Database Safety:**
-- Tests use the development PostgreSQL database (DATABASE_URL)
-- Each test generates unique tenant names (e.g., `Test-Tenant-a1b2c3d4`) to prevent conflicts
-- For complete isolation, set `TEST_DATABASE_URL` to a separate test database
-- On Replit, the default DATABASE_URL points to development (not production) database
-
-**Known Test Behavior:**
-- 2 task lifecycle tests may fail if the RQ worker is not actively processing during test execution
-- These failures are expected and acceptable - they test async worker behavior which is timing-sensitive
-- All 6 critical security tests (tenant isolation) consistently pass with 100% success rate
-
-### Upgrading for Test Compatibility
-
-If you encounter `TypeError: Client.__init__() got an unexpected keyword argument 'app'`, upgrade FastAPI and Starlette:
-
+**Run Container:**
 ```bash
-pip install --upgrade fastapi starlette
+docker run -d \
+  -p 5000:5000 \
+  -e DATABASE_URL="postgresql://..." \
+  -e REDIS_URL="redis://..." \
+  -e GEMINI_API_KEY="..." \
+  autonomos:latest
 ```
 
-Required versions:
-- FastAPI >= 0.119.0
-- Starlette >= 0.48.0
+**Docker Compose:**
+```bash
+docker-compose up -d
+```
 
-## Future Enhancements
+---
 
-- Role-based access control (RBAC) within tenants
-- Task prioritization and scheduling
-- Metrics instrumentation (Prometheus counters for retries, failures, callbacks)
-- Health monitoring endpoints
-- Support for additional task types beyond Slack integration
-- Webhook event subscriptions
-- Task search and filtering by status/date
-- Rate limiting per tenant
+## 📚 Documentation
 
-## License
+- **AAM Hybrid Guide**: See `aam-hybrid/README.md`
+- **AAM Full Context**: See `aam-hybrid/AAM_FULL_CONTEXT.md`
+- **AAM Dashboard Guide**: See `AAM_DASHBOARD_GUIDE.md`
+- **Airbyte Setup**: See `aam-hybrid/AIRBYTE_SETUP.md`
+- **Project Notes**: See `replit.md`
 
-MIT License
+---
+
+## 🤝 Contributing
+
+We welcome contributions! Please follow these guidelines:
+
+1. **Fork** the repository
+2. **Create** a feature branch (`git checkout -b feature/amazing-feature`)
+3. **Commit** your changes (`git commit -m 'Add amazing feature'`)
+4. **Push** to the branch (`git push origin feature/amazing-feature`)
+5. **Open** a Pull Request
+
+### Code Standards
+
+- **Python**: Follow PEP 8, use type hints
+- **TypeScript**: Use strict mode, avoid `any`
+- **Commits**: Use conventional commit messages
+- **Tests**: Add tests for new features
+
+---
+
+## 📝 License
+
+This project is licensed under the **MIT License** - see LICENSE file for details.
+
+---
+
+## 🙏 Acknowledgments
+
+- **Airbyte** - Open-source data integration platform
+- **FastAPI** - Modern Python web framework
+- **React** - UI library
+- **D3.js** - Data visualization
+- **Pinecone** - Vector database
+- **Google Gemini** - AI language model
+- **Replit** - Cloud development platform
+
+---
+
+## 📞 Support
+
+**Issues:** [GitHub Issues](https://github.com/your-org/autonomos/issues)  
+**Discussions:** [GitHub Discussions](https://github.com/your-org/autonomos/discussions)  
+**Email:** support@autonomos.dev  
+
+---
+
+## 🗺️ Roadmap
+
+### Current (October 2025)
+- ✅ AAM Monitoring Dashboard with real-time updates
+- ✅ Full-stack platform with React UI
+- ✅ Multi-tenant task orchestration
+- ✅ DCL graph visualization
+- ✅ RAG-powered schema mapping
+
+### Q4 2025
+- [ ] Advanced drift detection algorithms
+- [ ] Multi-source schema unification
+- [ ] Enhanced RAG mapping confidence
+- [ ] Kubernetes deployment support
+
+### Q1 2026
+- [ ] Self-service data source onboarding UI
+- [ ] Advanced analytics dashboard
+- [ ] Schema evolution tracking
+- [ ] Custom connector SDK
+
+---
+
+**Built with ❤️ by the AutonomOS Team**
+
+*Empowering organizations with intelligent, self-healing data orchestration*
