@@ -8,7 +8,10 @@ from typing import List, Dict, Any, Tuple, Optional
 from sqlalchemy.orm import Session
 from app.models import CanonicalStream
 from services.aam.canonical.mapping_registry import mapping_registry
-from services.aam.canonical.schemas import CanonicalEvent, CanonicalMeta, CanonicalSource
+from services.aam.canonical.schemas import (
+    CanonicalEvent, CanonicalMeta, CanonicalSource,
+    CanonicalAccount, CanonicalOpportunity, CanonicalContact
+)
 
 logger = logging.getLogger(__name__)
 
@@ -100,10 +103,13 @@ class FileSourceConnector:
         trace_id: str
     ) -> Tuple[CanonicalEvent, List[str]]:
         """
-        Build CanonicalEvent envelope by applying mapping registry
+        Build CanonicalEvent envelope by applying mapping registry with strict typing
         
         Returns:
             Tuple of (CanonicalEvent, unknown_fields)
+        
+        Raises:
+            ValueError: If required canonical fields are missing or validation fails
         """
         # Apply mapping registry to transform source data
         canonical_data, unknown_fields = mapping_registry.apply_mapping(
@@ -111,6 +117,22 @@ class FileSourceConnector:
             entity=entity,
             source_row=source_row
         )
+        
+        # Instantiate the appropriate canonical model (enforces strict typing)
+        try:
+            if entity == 'account':
+                typed_data = CanonicalAccount(**canonical_data)
+            elif entity == 'opportunity':
+                typed_data = CanonicalOpportunity(**canonical_data)
+            elif entity == 'contact':
+                typed_data = CanonicalContact(**canonical_data)
+            else:
+                raise ValueError(f"Unknown entity type: {entity}")
+        except Exception as e:
+            logger.error(f"Failed to validate canonical data for {entity}: {e}")
+            logger.error(f"Source row: {source_row}")
+            logger.error(f"Canonical data: {canonical_data}")
+            raise ValueError(f"Canonical validation failed for {entity}: {e}")
         
         # Build metadata
         meta = CanonicalMeta(
@@ -127,13 +149,13 @@ class FileSourceConnector:
             schema_version="v1"
         )
         
-        # Build canonical event
+        # Build canonical event with strictly typed data
         event = CanonicalEvent(
             meta=meta,
             source=source,
             entity=entity,
             op="upsert",
-            data=canonical_data,
+            data=typed_data,
             unknown_fields=unknown_fields
         )
         
@@ -144,7 +166,7 @@ class FileSourceConnector:
         canonical_entry = CanonicalStream(
             tenant_id=self.tenant_id,
             entity=event.entity,
-            data=event.data,
+            data=event.data.dict() if hasattr(event.data, 'dict') else event.data,  # Convert Pydantic model to dict
             meta=event.meta.dict(),
             source=event.source.dict(),
             emitted_at=event.meta.emitted_at

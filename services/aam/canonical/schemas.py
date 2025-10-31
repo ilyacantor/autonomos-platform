@@ -4,8 +4,8 @@ Strict typing for account and opportunity entities
 """
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional, List, Dict, Any, Literal
-from pydantic import BaseModel, Field, validator
+from typing import Optional, List, Dict, Any, Literal, Union
+from pydantic import BaseModel, Field, validator, model_validator
 
 
 class CanonicalMeta(BaseModel):
@@ -77,14 +77,33 @@ class CanonicalContact(BaseModel):
 
 
 class CanonicalEvent(BaseModel):
-    """Complete canonical event envelope"""
+    """Complete canonical event envelope with strict typing"""
     meta: CanonicalMeta
     source: CanonicalSource
     entity: Literal["account", "opportunity", "contact"] = Field(..., description="Entity type")
     op: Literal["upsert", "delete"] = Field("upsert", description="Operation type")
-    data: Dict[str, Any] = Field(..., description="Canonical entity data")
+    data: Union[CanonicalAccount, CanonicalOpportunity, CanonicalContact] = Field(..., description="Canonical entity data (strictly typed)")
     unknown_fields: List[str] = Field(default_factory=list, description="Fields that couldn't be mapped")
+    
+    @model_validator(mode='after')
+    def validate_entity_matches_data(self):
+        """Ensure entity type matches data model type"""
+        if self.entity == 'account' and not isinstance(self.data, CanonicalAccount):
+            raise ValueError(f"Entity type 'account' requires CanonicalAccount data, got {type(self.data)}")
+        elif self.entity == 'opportunity' and not isinstance(self.data, CanonicalOpportunity):
+            raise ValueError(f"Entity type 'opportunity' requires CanonicalOpportunity data, got {type(self.data)}")
+        elif self.entity == 'contact' and not isinstance(self.data, CanonicalContact):
+            raise ValueError(f"Entity type 'contact' requires CanonicalContact data, got {type(self.data)}")
+        
+        return self
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization"""
-        return self.dict(exclude_none=False)
+        result = self.dict(exclude_none=False)
+        # Convert nested Pydantic model to dict
+        if isinstance(result['data'], dict):
+            return result
+        return {
+            **result,
+            'data': result['data'] if isinstance(result['data'], dict) else self.data.dict()
+        }
