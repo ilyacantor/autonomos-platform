@@ -1,0 +1,13 @@
+opportunity:
+  fields:
+    id: opportunity_id
+    org_id: account_id
+    title: name
+    stage_name: stage
+    value: amount
+    currency: currency
+    expected_close_date: close_date
+    user_id: owner_id
+    probability: probability
+    add_time: created_at
+    update_time: updated_at

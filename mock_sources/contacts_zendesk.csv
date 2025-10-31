@@ -1,0 +1,6 @@
+id,organization_id,name,email,phone,role,tags,created_at,updated_at
+ZD-U-5001,ZD-ORG-101,Christopher Lee,chris.lee@support-co.com,+1-555-2001,Support Manager,vip|technical,2024-05-10T09:00:00Z,2024-10-31T12:00:00Z
+ZD-U-5002,ZD-ORG-102,Patricia White,p.white@customer-inc.com,+1-555-2002,Customer Success,enterprise|priority,2024-06-15T10:30:00Z,2024-10-30T14:30:00Z
+ZD-U-5003,ZD-ORG-103,Daniel Harris,d.harris@client-corp.com,+1-555-2003,Technical Lead,technical|api,2024-07-20T11:45:00Z,2024-10-29T16:15:00Z
+ZD-U-5004,ZD-ORG-104,Michelle Clark,m.clark@business-org.com,+1-555-2004,Account Manager,vip|billing,2024-08-25T13:00:00Z,2024-10-28T11:30:00Z
+ZD-U-5005,ZD-ORG-105,Kevin Rodriguez,k.rodriguez@service-ltd.com,+1-555-2005,Integration Specialist,technical|integrations,2024-09-30T14:15:00Z,2024-10-31T10:00:00Z

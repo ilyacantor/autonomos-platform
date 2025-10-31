@@ -1,0 +1,24 @@
+account:
+  fields:
+    account_id: account_id
+    name: name
+    type: type
+    industry: industry
+    owner_id: owner_id
+    status: status
+    created_at: created_at
+    updated_at: updated_at
+
+opportunity:
+  fields:
+    opportunity_id: opportunity_id
+    account_id: account_id
+    name: name
+    stage: stage
+    amount: amount
+    currency: currency
+    close_date: close_date
+    owner_id: owner_id
+    probability: probability
+    created_at: created_at
+    updated_at: updated_at

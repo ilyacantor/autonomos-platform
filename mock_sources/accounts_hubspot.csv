@@ -1,0 +1,6 @@
+hs_object_id,company_name,company_type,hs_industry,owner_email,lifecycle_stage,createdate,hs_lastmodifieddate,annualrevenue,numberofemployees
+HS-12345,CloudTech Partners,customer,Cloud Services,john@example.com,customer,2024-06-01,2024-10-31,4500000,220
+HS-12346,DataFlow Systems,lead,Data Analytics,jane@example.com,lead,2024-07-15,2024-10-30,1800000,90
+HS-12347,AI Innovations Group,opportunity,Artificial Intelligence,bob@example.com,opportunity,2024-08-20,2024-10-29,6200000,310
+HS-12348,Mobile First Inc,customer,Mobile Apps,alice@example.com,customer,2024-09-10,2024-10-28,2100000,125
+HS-12349,SecureNet Solutions,lead,Cybersecurity,charlie@example.com,lead,2024-10-05,2024-10-31,3800000,195
