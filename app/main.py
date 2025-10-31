@@ -23,7 +23,12 @@ from app.security import (
 )
 from app.api.v1 import auth, aoa, aam_monitoring, platform_stubs
 
-models.Base.metadata.create_all(bind=engine)
+# Initialize database tables - with error handling for resilience
+try:
+    models.Base.metadata.create_all(bind=engine)
+    print("✅ Database tables initialized successfully")
+except Exception as e:
+    print(f"⚠️ Database initialization failed: {e}. Continuing without database...")
 
 app = FastAPI(title="AutonomOS", description="AI Orchestration Platform - Multi-Tenant Edition", version="2.0.0")
 

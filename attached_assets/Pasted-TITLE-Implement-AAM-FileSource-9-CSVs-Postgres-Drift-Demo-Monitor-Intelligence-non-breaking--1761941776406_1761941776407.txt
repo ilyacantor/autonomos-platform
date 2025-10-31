@@ -1,0 +1,149 @@
+TITLE: Implement AAM FileSource (9 CSVs) + Postgres Drift Demo + Monitor Intelligence (non-breaking)
+
+BRANCH
+- Ensure branch: initiative/platformization-2025-10-31
+- If not on it: git fetch origin && git checkout -b initiative/platformization-2025-10-31 || git checkout initiative/platformization-2025-10-31
+
+HARD GUARDRAILS (DO NOT BREAK)
+- Do NOT modify existing DCL transforms/logic.
+- Do NOT change core graph visual or any GUI layout/CSS.
+- All new APIs under /api/v1 only; do not rename/remove existing endpoints.
+- Dev mode: MONITOR_POLLING=false (manual refresh only). Staging/demo can differ.
+- Always return JSON; never HTML error pages.
+
+ENV (+ .env.sample additions)
+- POSTGRES_URL=… (already set)
+- REDIS_URL=…   (already set)
+- JWT_SECRET=dev-change-me
+- JWT_ISSUER=autonomos.dev
+- JWT_AUDIENCE=aos.agents
+- FEATURE_USE_FILESOURCE=true
+- FEATURE_DRIFT_AUTOFIX=false
+- MONITOR_POLLING=false
+
+============= PART A — AAM FILESOURCE CONNECTORS (CSV → Canonical) =============
+Goal: All mock CSVs are ingested through AAM (single ingestion path). DCL subscribes only to canonical streams.
+
+1) Create folder structure:
+   services/aam/connectors/filesource/
+   mock_sources/  (CSV files live here)
+
+2) Auto-discover CSVs:
+   - On startup, scan mock_sources/*.csv
+   - For each file, infer domain/entity from filename convention:
+     accounts_*.csv  → entity=account
+     opportunities_*.csv → entity=opportunity
+   - If unknown, default entity by header heuristic (presence of account/opportunity fields).
+
+3) Canonical v1 schemas (strict typing):
+   account: {
+     account_id, external_ids[], name, type, industry, owner_id,
+     status, created_at, updated_at, extras(JSON)
+   }
+   opportunity: {
+     opportunity_id, account_id, name, stage, amount(decimal),
+     currency, close_date(date), owner_id, probability(float),
+     created_at, updated_at, extras(JSON)
+   }
+   Envelope:
+   {
+     "meta":{"version":"1.0.0","tenant":"demo-tenant","trace_id":"<uuid>","emitted_at":"ISO8601"},
+     "source":{"system":"filesource","connection_id":"<csv-file-basename>","schema_version":"v1"},
+     "entity":"<account|opportunity>",
+     "op":"upsert",
+     "data":{...canonical fields...}
+   }
+
+4) Mapping Registry integration:
+   - Implement vendor→canonical field maps for filesource in Mapping Registry (YAML/JSON + CRUD).
+   - Deterministic normalization: coerce types; if unmapped → put into unknown_fields[] and extras with confidence=0.
+   - Emit Canonical Events to Redis topics:
+     aam.streams.demo.account
+     aam.streams.demo.opportunity
+
+5) Replay CLI:
+   - Add CLI command: yarn filesource:replay --all
+     • Re-emits all CSV rows as Canonical Events (tenant=demo-tenant).
+   - Add yarn filesource:replay --entity opportunity (filter).
+
+6) DCL wiring:
+   - Ensure DCL subscribes only to Canonical streams above.
+   - Upsert into per-tenant materialized tables powering:
+     GET /api/v1/dcl/views/accounts
+     GET /api/v1/dcl/views/opportunities
+   - Low-confidence fields remain in extras JSONB; do not block ingestion.
+
+============= PART B — CONTROLLABLE POSTGRES CONNECTOR + DRIFT DEMO ============
+Goal: Simulate schema drift against a live-ish PG source; show observer + repair loop events.
+
+1) Create folder:
+   services/aam/connectors/postgres/
+
+2) Connector:
+   - Read base tables (accounts, opportunities) from a configured PG (POSTGRES_URL_PG_DEMO or reuse).
+   - Emit Canonical Events (same envelope, system="postgres", connection_id="pg-demo").
+
+3) Drift Mutator endpoint:
+   - POST /api/v1/mesh/test/pg/mutate
+     Body: { "op":"rename_column"|"add_column"|"change_type", "table":"opportunities", "from":"amount", "to":"amount_usd", "type":"decimal" }
+   - Apply mutation; record change in schema_changes table; emit aam.events.schema.change with diff.
+
+4) Schema Observer + RAG-Assist:
+   - Observer fingerprints RAW PG rows; detects deltas; raises repair tickets: aam.events.repair.ticket
+   - RAG-Assist proposes mapping patch; store suggestion with confidence.
+   - Drift-Repair Agent policy (dev): confidence ≥ 0.85 AND green-zone (additive / compatible widening) → auto-apply after running tests; else require manual approval:
+     POST /api/v1/mesh/repair/approve { ticket_id: "...", apply:true }
+
+5) Tests:
+   - yarn drift:demo → sequence:
+     a) mutate rename_column amount→amount_usd
+     b) observer raises ticket
+     c) RAG suggests patch
+     d) agent requires HITL (non-green) → simulate approve
+     e) re-emit one row; confirm canonical contains amount mapped again
+
+============= PART C — AAM MONITOR: INTELLIGENCE READOUTS ======================
+Goal: Quiet by default in dev; manual refresh; show counts that update after replay/mutate.
+
+1) Dev behavior:
+   - Ensure MONITOR_POLLING=false (dev). Add “Manual Refresh” button that fetches stats via:
+     GET /api/v1/monitor/metrics
+     Returns:
+     {
+       "mappings":{"total":N,"autofix_pct":X},
+       "drift":{"last_24h":N_by_source},
+       "suggestions":{"pending":N,"accepted":N,"rejected":N},
+       "repair":{"test_pass_pct":X,"avg_confidence":Y}
+     }
+
+2) UI:
+   - Add four small cards using those fields. No layout/CSS changes elsewhere. Lazy-load lists.
+
+============= PART D — SMOKE & ACCEPTANCE ======================================
+1) Smoke script (scripts/smoke_test.py or node):
+   - GET /api/v1/health → expect ok:true
+   - GET /api/v1/dcl/views/opportunities?page=1&page_size=5 → 200 JSON (empty or data)
+   - POST /api/v1/intents/revops/execute { "intent":"noop","explain_only":true } → task_id, trace_id
+   - POST /api/v1/intents/finops/execute { "intent":"noop","dry_run":true } → task_id, trace_id
+   - Print PASS summary with timings.
+
+2) Replay test:
+   - Run: yarn filesource:replay --all
+   - GET /api/v1/dcl/views/opportunities?page=1&page_size=5 → now returns rows (if CSVs present).
+
+3) Drift test:
+   - yarn drift:demo (as defined above)
+   - Confirm Monitor → Manual Refresh reflects drift/suggestions/repairs counts > 0.
+
+============= PART E — GIT & OUTPUT ============================================
+- git add -A
+- git commit -m "feat(aam): filesource csv ingestion + pg drift demo + monitor intelligence (dev-safe)"
+- git push
+
+Print:
+- Base URL for /api/v1
+- Count of CSV files discovered
+- Result of smoke test (PASS + avg latency)
+- Example of 1 canonical event (redacted)
+- Monitor metrics JSON after replay and after drift demo
+- Statement: "All guardrails respected. No DCL/GUI regressions. Dev polling OFF."
