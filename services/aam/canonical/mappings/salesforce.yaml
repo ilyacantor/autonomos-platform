@@ -22,3 +22,16 @@ opportunity:
     probability: probability
     created_at: created_at
     updated_at: updated_at
+
+contact:
+  fields:
+    contact_id: contact_id
+    account_id: account_id
+    first_name: first_name
+    last_name: last_name
+    email: email
+    phone: phone
+    title: title
+    department: department
+    created_at: created_at
+    updated_at: updated_at

@@ -24,3 +24,16 @@ opportunity:
     hs_probability: probability
     createdate: created_at
     hs_lastmodifieddate: updated_at
+
+contact:
+  fields:
+    hs_object_id: contact_id
+    hs_associated_company_id: account_id
+    firstname: first_name
+    lastname: last_name
+    email: email
+    phone: phone
+    jobtitle: title
+    department: department
+    createdate: created_at
+    lastmodifieddate: updated_at

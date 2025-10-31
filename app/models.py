@@ -159,3 +159,88 @@ class SchemaChange(Base):
     __table_args__ = (
         Index('idx_schema_tenant_applied', 'tenant_id', 'applied_at'),
     )
+
+
+class MaterializedAccount(Base):
+    """Materialized view of canonical accounts"""
+    __tablename__ = "materialized_accounts"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True)
+    account_id = Column(String, nullable=False)
+    external_ids = Column(JSON, default=list)
+    name = Column(String)
+    type = Column(String)
+    industry = Column(String)
+    owner_id = Column(String)
+    status = Column(String)
+    extras = Column(JSON, default=dict)
+    source_system = Column(String)
+    source_connection_id = Column(String)
+    created_at = Column(DateTime)
+    updated_at = Column(DateTime)
+    synced_at = Column(DateTime, default=datetime.utcnow)
+    
+    __table_args__ = (
+        Index('idx_mat_account_tenant_id', 'tenant_id', 'account_id'),
+        Index('idx_mat_account_source', 'source_system', 'source_connection_id'),
+    )
+
+
+class MaterializedOpportunity(Base):
+    """Materialized view of canonical opportunities"""
+    __tablename__ = "materialized_opportunities"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True)
+    opportunity_id = Column(String, nullable=False)
+    account_id = Column(String)
+    name = Column(String)
+    stage = Column(String)
+    amount = Column(Float)
+    currency = Column(String)
+    close_date = Column(DateTime)
+    owner_id = Column(String)
+    probability = Column(Float)
+    extras = Column(JSON, default=dict)
+    source_system = Column(String)
+    source_connection_id = Column(String)
+    created_at = Column(DateTime)
+    updated_at = Column(DateTime)
+    synced_at = Column(DateTime, default=datetime.utcnow)
+    
+    __table_args__ = (
+        Index('idx_mat_opp_tenant_id', 'tenant_id', 'opportunity_id'),
+        Index('idx_mat_opp_account', 'account_id'),
+        Index('idx_mat_opp_source', 'source_system', 'source_connection_id'),
+    )
+
+
+class MaterializedContact(Base):
+    """Materialized view of canonical contacts"""
+    __tablename__ = "materialized_contacts"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True)
+    contact_id = Column(String, nullable=False)
+    account_id = Column(String)
+    first_name = Column(String)
+    last_name = Column(String)
+    name = Column(String)
+    email = Column(String)
+    phone = Column(String)
+    title = Column(String)
+    department = Column(String)
+    role = Column(String)
+    extras = Column(JSON, default=dict)
+    source_system = Column(String)
+    source_connection_id = Column(String)
+    created_at = Column(DateTime)
+    updated_at = Column(DateTime)
+    synced_at = Column(DateTime, default=datetime.utcnow)
+    
+    __table_args__ = (
+        Index('idx_mat_contact_tenant_id', 'tenant_id', 'contact_id'),
+        Index('idx_mat_contact_account', 'account_id'),
+        Index('idx_mat_contact_source', 'source_system', 'source_connection_id'),
+    )

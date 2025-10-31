@@ -8,7 +8,9 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit -p tsconfig.app.json"
+    "typecheck": "tsc --noEmit -p tsconfig.app.json",
+    "filesource:replay": "node scripts/filesource-replay.js",
+    "filesource:discover": "node scripts/filesource-discover.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",

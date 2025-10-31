@@ -21,7 +21,7 @@ from app.security import (
     get_current_user,
     ACCESS_TOKEN_EXPIRE_MINUTES
 )
-from app.api.v1 import auth, aoa, aam_monitoring, platform_stubs
+from app.api.v1 import auth, aoa, aam_monitoring, platform_stubs, filesource, dcl_views
 
 # Initialize database tables - with error handling for resilience
 try:
@@ -101,6 +101,8 @@ except Exception as e:
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(aoa.router, prefix="/api/v1/aoa", tags=["AOA Orchestration"])
 app.include_router(aam_monitoring.router, prefix="/api/v1/aam", tags=["AAM Monitoring"])
+app.include_router(filesource.router, prefix="/api/v1/filesource", tags=["FileSource Connector"])
+app.include_router(dcl_views.router, prefix="/api/v1/dcl/views", tags=["DCL Views"])
 app.include_router(platform_stubs.router, prefix="/api/v1", tags=["Platform Stubs"])
 
 STATIC_DIR = "static"

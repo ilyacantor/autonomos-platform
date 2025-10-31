@@ -59,11 +59,28 @@ class CanonicalOpportunity(BaseModel):
         return v
 
 
+class CanonicalContact(BaseModel):
+    """Canonical contact entity schema"""
+    contact_id: str = Field(..., description="Primary contact identifier")
+    account_id: Optional[str] = Field(None, description="Associated account/organization ID")
+    first_name: Optional[str] = Field(None, description="Contact first name")
+    last_name: Optional[str] = Field(None, description="Contact last name")
+    name: Optional[str] = Field(None, description="Full name (if first/last not separate)")
+    email: Optional[str] = Field(None, description="Email address")
+    phone: Optional[str] = Field(None, description="Phone number")
+    title: Optional[str] = Field(None, description="Job title")
+    department: Optional[str] = Field(None, description="Department")
+    role: Optional[str] = Field(None, description="Role or position")
+    created_at: Optional[datetime] = Field(None, description="Creation timestamp")
+    updated_at: Optional[datetime] = Field(None, description="Last update timestamp")
+    extras: Dict[str, Any] = Field(default_factory=dict, description="Additional unmapped fields")
+
+
 class CanonicalEvent(BaseModel):
     """Complete canonical event envelope"""
     meta: CanonicalMeta
     source: CanonicalSource
-    entity: Literal["account", "opportunity"] = Field(..., description="Entity type")
+    entity: Literal["account", "opportunity", "contact"] = Field(..., description="Entity type")
     op: Literal["upsert", "delete"] = Field("upsert", description="Operation type")
     data: Dict[str, Any] = Field(..., description="Canonical entity data")
     unknown_fields: List[str] = Field(default_factory=list, description="Fields that couldn't be mapped")
