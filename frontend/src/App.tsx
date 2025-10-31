@@ -10,6 +10,7 @@ import OntologyPage from './components/OntologyPage';
 import FAQPage from './components/FAQPage';
 import LegacyDCLUI from './components/LegacyDCLUI';
 import AuthModal from './components/AuthModal';
+import AAMDashboard from './components/AAMDashboard';
 
 function AppContent() {
   const [currentPage, setCurrentPage] = useState('dashboard');
@@ -52,6 +53,8 @@ function AppContent() {
         return <ConnectionsPage />;
       case 'ontology':
         return <OntologyPage />;
+      case 'aam-monitor':
+        return <AAMDashboard />;
       case 'faq':
         return <FAQPage />;
       default:
