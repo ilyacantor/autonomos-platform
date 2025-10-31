@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, JSON, DateTime, Integer, ForeignKey, func
+from sqlalchemy import Column, String, JSON, DateTime, Integer, Float, ForeignKey, func, Index
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
@@ -59,3 +59,103 @@ class TaskLog(Base):
     
     task = relationship("Task", back_populates="logs")
     tenant = relationship("Tenant", back_populates="task_logs")
+
+
+class ApiJournal(Base):
+    __tablename__ = "api_journal"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"))
+    agent_id = Column(String, nullable=True)
+    route = Column(String, nullable=False)
+    method = Column(String, nullable=False)
+    status = Column(Integer, nullable=False)
+    latency_ms = Column(Integer)
+    trace_id = Column(String)
+    body_sha256 = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class IdempotencyKey(Base):
+    __tablename__ = "idempotency_keys"
+    
+    key = Column(String, primary_key=True)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"))
+    response_body = Column(JSON)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    expires_at = Column(DateTime)
+
+
+class RateLimitCounter(Base):
+    __tablename__ = "rate_limit_counters"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"))
+    agent_id = Column(String)
+    route = Column(String)
+    tokens_remaining = Column(Integer)
+    last_refill = Column(DateTime)
+    window_start = Column(DateTime)
+
+
+class CanonicalStream(Base):
+    __tablename__ = "canonical_streams"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"))
+    entity = Column(String)
+    data = Column(JSON)
+    meta = Column(JSON)
+    source = Column(JSON)
+    emitted_at = Column(DateTime, default=datetime.utcnow)
+
+
+class MappingRegistry(Base):
+    __tablename__ = "mapping_registry"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True)
+    vendor = Column(String)
+    canonical_field = Column(String)
+    vendor_field = Column(String)
+    coercion = Column(String, nullable=True)
+    confidence = Column(Float)
+    version = Column(Integer)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    __table_args__ = (
+        Index('idx_mapping_tenant_vendor', 'tenant_id', 'vendor'),
+    )
+
+
+class DriftEvent(Base):
+    __tablename__ = "drift_events"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True)
+    connection_id = Column(UUID(as_uuid=True))
+    event_type = Column(String)
+    old_schema = Column(JSON)
+    new_schema = Column(JSON)
+    confidence = Column(Float)
+    status = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    __table_args__ = (
+        Index('idx_drift_tenant_created', 'tenant_id', 'created_at'),
+    )
+
+
+class SchemaChange(Base):
+    __tablename__ = "schema_changes"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True)
+    connection_id = Column(UUID(as_uuid=True))
+    change_type = Column(String)
+    details = Column(JSON)
+    applied_at = Column(DateTime, default=datetime.utcnow)
+    
+    __table_args__ = (
+        Index('idx_schema_tenant_applied', 'tenant_id', 'applied_at'),
+    )

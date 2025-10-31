@@ -1,0 +1,6 @@
+account_id,name,type,industry,owner_id,status,created_at,updated_at
+ACC001,Acme Corporation,Enterprise,Technology,USR001,active,2024-01-15,2024-10-01
+ACC002,Global Solutions Inc,Mid-Market,Finance,USR002,active,2024-02-20,2024-09-15
+ACC003,Tech Innovators Ltd,Startup,Software,USR001,active,2024-03-10,2024-10-20
+ACC004,Enterprise Systems,Enterprise,IT Services,USR003,active,2024-01-05,2024-08-30
+ACC005,Cloud Dynamics,Mid-Market,Cloud Computing,USR002,active,2024-04-12,2024-10-10

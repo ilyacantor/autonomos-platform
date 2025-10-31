@@ -59,6 +59,28 @@ interface AAMEvent {
   message?: string;
 }
 
+interface IntelligenceMappingsData {
+  total: number;
+  autofix_pct: number;
+  hitl_pct: number;
+}
+
+interface IntelligenceDriftData {
+  total: number;
+  by_source: Record<string, number>;
+}
+
+interface IntelligenceRAGData {
+  pending: number;
+  accepted: number;
+  rejected: number;
+}
+
+interface IntelligenceRepairData {
+  avg_confidence: number;
+  test_pass_rate: number;
+}
+
 export default function AAMDashboard() {
   const [services, setServices] = useState<ServiceStatus[]>([]);
   const [metrics, setMetrics] = useState<AAMMetrics | null>(null);
@@ -67,6 +89,14 @@ export default function AAMDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const eventsRef = useRef<HTMLDivElement>(null);
+
+  // Intelligence data state
+  const [mappingsData, setMappingsData] = useState<IntelligenceMappingsData | null>(null);
+  const [driftData, setDriftData] = useState<IntelligenceDriftData | null>(null);
+  const [ragData, setRAGData] = useState<IntelligenceRAGData | null>(null);
+  const [repairData, setRepairData] = useState<IntelligenceRepairData | null>(null);
+  const [intelligenceLoading, setIntelligenceLoading] = useState(true);
+  const [intelligenceError, setIntelligenceError] = useState<string | null>(null);
 
   const fetchAAMStatus = async () => {
     try {
@@ -113,13 +143,38 @@ export default function AAMDashboard() {
     }
   };
 
+  const fetchIntelligenceData = async () => {
+    setIntelligenceLoading(true);
+    setIntelligenceError(null);
+    
+    try {
+      const [mappings, drift, rag, repair] = await Promise.all([
+        fetch(API_CONFIG.buildApiUrl('/aam/intelligence/mappings')).then(r => r.json()),
+        fetch(API_CONFIG.buildApiUrl('/aam/intelligence/drift_events_24h')).then(r => r.json()),
+        fetch(API_CONFIG.buildApiUrl('/aam/intelligence/rag_queue')).then(r => r.json()),
+        fetch(API_CONFIG.buildApiUrl('/aam/intelligence/repair_metrics')).then(r => r.json())
+      ]);
+
+      setMappingsData(mappings);
+      setDriftData(drift);
+      setRAGData(rag);
+      setRepairData(repair);
+    } catch (err) {
+      console.error('Error fetching intelligence data:', err);
+      setIntelligenceError('Failed to load intelligence data');
+    } finally {
+      setIntelligenceLoading(false);
+    }
+  };
+
   const fetchAllData = async () => {
     setLoading(true);
     await Promise.all([
       fetchAAMStatus(),
       fetchAAMMetrics(),
       fetchAAMConnections(),
-      fetchAAMEvents()
+      fetchAAMEvents(),
+      fetchIntelligenceData()
     ]);
     setLoading(false);
   };
@@ -271,12 +326,18 @@ export default function AAMDashboard() {
               <Map className="w-5 h-5 text-purple-400" />
               <h3 className="text-sm font-medium text-gray-400">Mappings</h3>
             </div>
+            {intelligenceLoading && <Activity className="w-4 h-4 text-gray-400 animate-spin" />}
           </div>
-          <div className="text-3xl font-bold text-white">0</div>
+          <div className="text-3xl font-bold text-white">
+            {intelligenceLoading ? '...' : mappingsData?.total || 0}
+          </div>
           <div className="text-sm text-gray-500 mt-2 space-y-1">
-            <div>Autofix: 0%</div>
-            <div>HITL: 0%</div>
+            <div>Autofix: {intelligenceLoading ? '...' : `${mappingsData?.autofix_pct || 0}%`}</div>
+            <div>HITL: {intelligenceLoading ? '...' : `${mappingsData?.hitl_pct || 0}%`}</div>
           </div>
+          {intelligenceError && (
+            <div className="text-xs text-red-400 mt-2">{intelligenceError}</div>
+          )}
         </div>
 
         <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
@@ -285,11 +346,25 @@ export default function AAMDashboard() {
               <AlertTriangle className="w-5 h-5 text-orange-400" />
               <h3 className="text-sm font-medium text-gray-400">Drift Events (24h)</h3>
             </div>
+            {intelligenceLoading && <Activity className="w-4 h-4 text-gray-400 animate-spin" />}
           </div>
-          <div className="text-3xl font-bold text-white">0</div>
+          <div className="text-3xl font-bold text-white">
+            {intelligenceLoading ? '...' : driftData?.total || 0}
+          </div>
           <div className="text-sm text-gray-500 mt-2">
-            No sources detected
+            {intelligenceLoading ? 'Loading...' : (
+              driftData && Object.keys(driftData.by_source).length > 0 ? (
+                <div className="space-y-1">
+                  {Object.entries(driftData.by_source).map(([source, count]) => (
+                    <div key={source}>{source}: {count}</div>
+                  ))}
+                </div>
+              ) : 'No sources detected'
+            )}
           </div>
+          {intelligenceError && (
+            <div className="text-xs text-red-400 mt-2">{intelligenceError}</div>
+          )}
         </div>
 
         <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
@@ -298,12 +373,21 @@ export default function AAMDashboard() {
               <Brain className="w-5 h-5 text-cyan-400" />
               <h3 className="text-sm font-medium text-gray-400">RAG Suggestions</h3>
             </div>
+            {intelligenceLoading && <Activity className="w-4 h-4 text-gray-400 animate-spin" />}
           </div>
-          <div className="text-3xl font-bold text-white">0</div>
+          <div className="text-3xl font-bold text-white">
+            {intelligenceLoading ? '...' : ragData?.pending || 0}
+          </div>
           <div className="text-sm text-gray-500 mt-2 space-y-1">
-            <div>Pending: 0</div>
-            <div>Accepted: 0 | Rejected: 0</div>
+            <div>Pending: {intelligenceLoading ? '...' : ragData?.pending || 0}</div>
+            <div>
+              Accepted: {intelligenceLoading ? '...' : ragData?.accepted || 0} | 
+              Rejected: {intelligenceLoading ? '...' : ragData?.rejected || 0}
+            </div>
           </div>
+          {intelligenceError && (
+            <div className="text-xs text-red-400 mt-2">{intelligenceError}</div>
+          )}
         </div>
 
         <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
@@ -312,11 +396,17 @@ export default function AAMDashboard() {
               <Target className="w-5 h-5 text-green-400" />
               <h3 className="text-sm font-medium text-gray-400">Repair Confidence</h3>
             </div>
+            {intelligenceLoading && <Activity className="w-4 h-4 text-gray-400 animate-spin" />}
           </div>
-          <div className="text-3xl font-bold text-white">0%</div>
+          <div className="text-3xl font-bold text-white">
+            {intelligenceLoading ? '...' : `${((repairData?.avg_confidence || 0) * 100).toFixed(0)}%`}
+          </div>
           <div className="text-sm text-gray-500 mt-2">
-            Test Pass Rate: 0%
+            Test Pass Rate: {intelligenceLoading ? '...' : `${((repairData?.test_pass_rate || 0) * 100).toFixed(0)}%`}
           </div>
+          {intelligenceError && (
+            <div className="text-xs text-red-400 mt-2">{intelligenceError}</div>
+          )}
         </div>
       </div>
 

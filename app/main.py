@@ -55,6 +55,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Add Gateway Middleware (Platform Infrastructure)
+try:
+    from app.gateway.middleware.auth import tenant_auth_middleware
+    from app.gateway.middleware.tracing import tracing_middleware
+    from app.gateway.middleware.rate_limit import rate_limit_middleware
+    from app.gateway.middleware.idempotency import idempotency_middleware
+    from app.gateway.middleware.audit import audit_middleware
+    
+    # Register middleware in correct order (FIRST = outermost, LAST = innermost)
+    # Order: Tracing → Auth → RateLimit → Idempotency → Audit
+    app.middleware("http")(tracing_middleware)
+    app.middleware("http")(tenant_auth_middleware)
+    app.middleware("http")(rate_limit_middleware)
+    app.middleware("http")(idempotency_middleware)
+    app.middleware("http")(audit_middleware)
+    
+    print("✅ Gateway middleware registered successfully")
+except Exception as e:
+    print(f"⚠️ Gateway middleware not available: {e}")
+
 # Use REDIS_URL if available (production), otherwise use host/port (development)
 # Redis is optional - if not available, task queue features will be disabled
 redis_conn = None
