@@ -18,14 +18,14 @@ async def health_check() -> Dict[str, Any]:
 
 @router.get("/dcl/views/opportunities")
 def get_opportunities_view(
+    request: Request,
     page: int = 1,
-    page_size: int = 10,
-    request: Optional[Request] = None
+    page_size: int = 10
 ) -> Dict[str, Any]:
     """Real implementation - fetch from canonical_streams if FEATURE_USE_FILESOURCE enabled"""
     try:
         if os.getenv("FEATURE_USE_FILESOURCE", "false").lower() == "true":
-            tenant_id = getattr(request.state, "tenant_id", None) if request else None
+            tenant_id = getattr(request.state, "tenant_id", None)
             
             if tenant_id:
                 opportunities = get_canonical_opportunities(tenant_id, limit=100)
@@ -49,14 +49,14 @@ def get_opportunities_view(
 
 @router.get("/dcl/views/accounts")
 def get_accounts_view(
+    request: Request,
     page: int = 1,
-    page_size: int = 10,
-    request: Optional[Request] = None
+    page_size: int = 10
 ) -> Dict[str, Any]:
     """Real implementation - fetch from canonical_streams if FEATURE_USE_FILESOURCE enabled"""
     try:
         if os.getenv("FEATURE_USE_FILESOURCE", "false").lower() == "true":
-            tenant_id = getattr(request.state, "tenant_id", None) if request else None
+            tenant_id = getattr(request.state, "tenant_id", None)
             
             if tenant_id:
                 accounts = get_canonical_accounts(tenant_id, limit=100)
