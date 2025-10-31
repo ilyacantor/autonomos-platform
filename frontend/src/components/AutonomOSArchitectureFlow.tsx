@@ -14,6 +14,7 @@ const AutonomOSArchitectureFlow = () => {
       icon: Database,
       title: 'Enterprise Data',
       tags: ['SaaS Applications', 'Databases & Warehouses', 'Legacy Systems', 'APIs & Files'],
+      linkedTags: [] as string[],
       bgColor: 'bg-[#0A2540]',
       borderColor: 'border-[#1E4A6F]',
       linkTo: null
@@ -22,6 +23,7 @@ const AutonomOSArchitectureFlow = () => {
       icon: Network,
       title: 'Adaptive API Mesh (AAM)',
       tags: ['Self-Healing Integration', 'Autonomous Drift Repair', 'Real-time Schema Normalization', 'Universal Connectivity', 'Governed Data Exchange'],
+      linkedTags: [] as string[],
       bgColor: 'bg-[#0D2F3F]',
       borderColor: 'border-[#1A4D5E]',
       linkTo: 'adaptive-api-mesh'
@@ -29,15 +31,21 @@ const AutonomOSArchitectureFlow = () => {
     {
       icon: Layers,
       title: 'Data Connectivity Layer',
-      tags: ['Unified Enterprise Ontology', 'Semantic Context Engine', 'AI-Ready Data Streams', 'Contextual RAG Indexing', 'Real-time Observability'],
+      tags: ['Unified Enterprise Ontology', 'Semantic Context Engine', 'Autonomous RAG Indexing', 'Real-time AI Data Streams', 'Unified Data Observability'],
+      linkedTags: [] as string[],
       bgColor: 'bg-[#1A2F4A]',
       borderColor: 'border-[#2A4A6F]',
       linkTo: 'dcl-graph-container'
     },
     {
       icon: Users,
-      title: 'Prebuilt Domain Agents',
-      tags: ['Productized Domain Expertise', 'FinOps/RevOps Blueprints', 'Autonomous Workflow Orchestration', 'Custom Agent Deployment', 'Business Process and Integration Support'],
+      title: 'Custom Domain Agents',
+      tags: ['FinOps', 'RevOps', 'Productized Domain Expertise', 'FinOps/RevOps Blueprints', 'Autonomous Workflow Orchestration', 'Business Process and Integration Support', 'Insight to Action at Scale'],
+      linkedTags: ['FinOps', 'RevOps'] as string[],
+      tagLinks: {
+        'FinOps': 'https://finopsagent.onrender.com/',
+        'RevOps': 'https://autonomos-revops-agent.onrender.com/'
+      } as Record<string, string>,
       bgColor: 'bg-[#2A1F4A]',
       borderColor: 'border-[#3F2F6F]',
       linkTo: 'agent-performance-monitor'
@@ -70,26 +78,52 @@ const AutonomOSArchitectureFlow = () => {
                   >
                     <div className="flex items-center gap-2 mb-3">
                       <module.icon className="w-6 h-6 text-[#0BCAD9]" />
-                      <h3 className="text-white font-medium text-base leading-tight">
+                      <h3 className="text-white font-medium text-lg leading-tight">
                         {module.title}
                       </h3>
                       {index === 2 && (
                         <div className="flex items-center gap-1.5 ml-auto">
                           <MousePointerClick className="w-5 h-5 text-[#0BCAD9]" />
-                          <span className="text-xs text-[#0BCAD9] font-medium">Interactive Demo</span>
+                          <span className="text-sm text-[#0BCAD9] font-medium">Interactive Demo</span>
                         </div>
                       )}
                     </div>
 
                     <div className="flex flex-wrap gap-1.5">
-                      {module.tags.map((tag, tagIndex) => (
-                        <span
-                          key={tagIndex}
-                          className="text-xs px-2 py-1 rounded bg-[#0BCAD9]/10 text-[#0BCAD9] border border-[#0BCAD9]/30"
-                        >
-                          {tag}
-                        </span>
-                      ))}
+                      {module.tags.map((tag, tagIndex) => {
+                        const isLinked = module.linkedTags.includes(tag);
+                        const tagLink = module.tagLinks?.[tag];
+                        const isOntology = tag.includes('Ontology');
+                        
+                        if (tagLink) {
+                          return (
+                            <a
+                              key={tagIndex}
+                              href={tagLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sm px-2 py-1 rounded border bg-[#0BCAD9]/20 text-white border-[#0BCAD9] font-medium shadow-lg shadow-[#0BCAD9]/30 animate-pulse hover:bg-[#0BCAD9]/30 hover:scale-105 transition-all cursor-pointer"
+                            >
+                              {tag}
+                            </a>
+                          );
+                        }
+                        
+                        return (
+                          <span
+                            key={tagIndex}
+                            className={`text-sm px-2 py-1 rounded border ${
+                              isOntology
+                                ? 'bg-[#0BCAD9]/10 text-white border-[#0BCAD9]/30'
+                                : isLinked 
+                                ? 'bg-[#0BCAD9]/20 text-white border-[#0BCAD9] font-medium shadow-lg shadow-[#0BCAD9]/30 animate-pulse' 
+                                : 'bg-[#0BCAD9]/10 text-[#0BCAD9] border-[#0BCAD9]/30'
+                            }`}
+                          >
+                            {tag}
+                          </span>
+                        );
+                      })}
                     </div>
                   </div>
 
@@ -150,19 +184,19 @@ const AutonomOSArchitectureFlow = () => {
               <img 
                 src={autonomosArrow} 
                 alt="Summary transition" 
-                className="w-32 md:w-48 h-auto opacity-30 hover:opacity-50 transition-opacity duration-300"
+                className="w-32 md:w-48 h-auto opacity-30 hover:opacity-50 transition-opacity duration-300 scale-y-[-1]"
               />
             </div>
 
             <div className="flex justify-center">
               <div className="flex items-center gap-3 bg-[#0D2F3F] rounded-xl px-6 py-3 border border-[#0BCAD9]/30">
                 <TrendingUp className="w-5 h-5 text-[#0BCAD9]" />
-                <span className="text-white font-medium">Outcomes</span>
+                <span className="text-white font-medium text-[23px]">Outcomes</span>
                 <div className="flex flex-wrap gap-1.5 ml-2">
                   {['Intent-Driven Operations', 'Autonomous Execution', 'Insight-to-Action Acceleration', 'Guaranteed Data Reliability', 'Proactive Decision Intelligence'].map((tag, index) => (
                     <span
                       key={index}
-                      className="text-xs px-2 py-1 rounded bg-[#0BCAD9]/10 text-[#0BCAD9] border border-[#0BCAD9]/30"
+                      className="text-[19px] px-2 py-1 rounded bg-[#0BCAD9]/10 text-[#0BCAD9] border border-[#0BCAD9]/30"
                     >
                       {tag}
                     </span>

@@ -42,29 +42,142 @@ export default function FAQPage() {
       )
     },
     {
-      question: "How does AutonomOS use AI to power this platform?",
+      question: "What are your security standards?",
       answer: (
-        <div className="space-y-4">
-          <p className="text-gray-300">
-            The demo runs on AutonomOS, our new AI-native platform. We've built intelligence into every layer, from the data fabric to the agentic execution:
-          </p>
-          <ul className="space-y-3 text-gray-300">
-            <li>
-              <strong className="text-[#0BCAD9]">AI-Driven Connectivity (AAM):</strong> Our Adaptive API Mesh uses AI to proactively build and learn connectivity between systems. This isn't just a static setup; it provides autonomous drift repair and self-healing integration to ensure workflows are resilient to the constant changes in your underlying data sources and APIs.
-            </li>
-            <li>
-              <strong className="text-[#0BCAD9]">AI-Powered Data Layer (DCL):</strong> The Data Connectivity Layer (DCL) is the core data intelligence engine. It uses AI to autonomously map disparate data sets into a Unified Enterprise Ontology. This feeds a Contextual RAG engine that continuously learns from your data, creating AI-ready streams. This process is orchestrated by our AOA engine, using an embedded DuckDB for high-performance in-memory analytics.
-            </li>
-            <li>
-              <strong className="text-[#0BCAD9]">Autonomous Agent Execution:</strong> Our Prebuilt Domain Agents leverage this AI-prepared data fabric to execute complex, end-to-end business workflows. The system is designed with an LLM service abstraction (supporting Gemini, OpenAI, etc.) allowing agents to use the best model for the job to reason, learn, and act.
-            </li>
-            <li>
-              <strong className="text-[#0BCAD9]">Enterprise-Grade Foundation:</strong> This all runs on a secure, scalable multi-tenant backend. The stack is built on FastAPI (with Pydantic validation) for the API, PostgreSQL/SQLAlchemy for persistence, and Redis with Python RQ for robust, asynchronous task orchestration. This manages the entire task lifecycle, including automatic retries, timeouts, callbacks, and task chaining for complex workflows.
-            </li>
-            <li>
-              <strong className="text-[#0BCAD9]">Secure by Design:</strong> The platform is fully multi-tenant, with complete data isolation enforced at the database level (tenant_id scoping). All authentication is handled via JWT with industry-standard Argon2 password hashing.
-            </li>
-          </ul>
+        <div className="space-y-6">
+          <div>
+            <h4 className="text-[#0BCAD9] font-medium text-lg mb-4">Security & Compliance Roadmap</h4>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="bg-[#0D2F3F]">
+                    <th className="border border-[#1A4D5E] px-4 py-3 text-left text-white font-medium">
+                      Phase 0: Secure Core (Today)
+                    </th>
+                    <th className="border border-[#1A4D5E] px-4 py-3 text-left text-white font-medium">
+                      Phase 1: Enterprise Readiness (0–6 Months)
+                    </th>
+                    <th className="border border-[#1A4D5E] px-4 py-3 text-left text-white font-medium">
+                      Phase 2: Continuous Compliance (6–18 Months)
+                    </th>
+                  </tr>
+                  <tr className="bg-[#0A2540]">
+                    <th className="border border-[#1A4D5E] px-4 py-2 text-left text-[#0BCAD9] font-normal text-sm">
+                      Status: Implemented
+                    </th>
+                    <th className="border border-[#1A4D5E] px-4 py-2 text-left text-[#0BCAD9] font-normal text-sm">
+                      Goal: Pass Enterprise Security Assessments
+                    </th>
+                    <th className="border border-[#1A4D5E] px-4 py-2 text-left text-[#0BCAD9] font-normal text-sm">
+                      Goal: Operate with Automated Trust at Scale
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="border border-[#1A4D5E] px-4 py-3 text-gray-300 align-top">
+                      <div className="flex items-start gap-2">
+                        <span className="text-green-400">✓</span>
+                        <span><strong className="text-white">Zero Data Retention Model</strong> (Ephemeral in-memory processing)</span>
+                      </div>
+                    </td>
+                    <td className="border border-[#1A4D5E] px-4 py-3 text-gray-300 align-top">
+                      <div className="flex items-start gap-2">
+                        <span className="text-gray-500">🔲</span>
+                        <span><strong className="text-white">SOC 2 Type I Certification</strong> (Fast-tracked)</span>
+                      </div>
+                    </td>
+                    <td className="border border-[#1A4D5E] px-4 py-3 text-gray-300 align-top">
+                      <div className="flex items-start gap-2">
+                        <span className="text-gray-500">🔲</span>
+                        <span><strong className="text-white">SOC 2 Type II + ISO 27001</strong></span>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border border-[#1A4D5E] px-4 py-3 text-gray-300 align-top">
+                      <div className="flex items-start gap-2">
+                        <span className="text-green-400">✓</span>
+                        <span><strong className="text-white">Robust Multi-Tenant Isolation</strong> (DB-level, tenant-scoped queries)</span>
+                      </div>
+                    </td>
+                    <td className="border border-[#1A4D5E] px-4 py-3 text-gray-300 align-top">
+                      <div className="flex items-start gap-2">
+                        <span className="text-gray-500">🔲</span>
+                        <span><strong className="text-white">3rd-Party Penetration Test</strong></span>
+                      </div>
+                    </td>
+                    <td className="border border-[#1A4D5E] px-4 py-3 text-gray-300 align-top">
+                      <div className="flex items-start gap-2">
+                        <span className="text-gray-500">🔲</span>
+                        <span><strong className="text-white">Bring Your Own Key (BYOK)</strong></span>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border border-[#1A4D5E] px-4 py-3 text-gray-300 align-top">
+                      <div className="flex items-start gap-2">
+                        <span className="text-green-400">✓</span>
+                        <span><strong className="text-white">Zero-Trust Infrastructure</strong> (VPC, TLS 1.3, Secrets Mgmt)</span>
+                      </div>
+                    </td>
+                    <td className="border border-[#1A4D5E] px-4 py-3 text-gray-300 align-top">
+                      <div className="flex items-start gap-2">
+                        <span className="text-gray-500">🔲</span>
+                        <span><strong className="text-white">Single Sign-On (SSO)</strong> (Okta, Azure AD)</span>
+                      </div>
+                    </td>
+                    <td className="border border-[#1A4D5E] px-4 py-3 text-gray-300 align-top">
+                      <div className="flex items-start gap-2">
+                        <span className="text-gray-500">🔲</span>
+                        <span><strong className="text-white">Customer-Managed RBAC</strong></span>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border border-[#1A4D5E] px-4 py-3 text-gray-300 align-top">
+                      <div className="flex items-start gap-2">
+                        <span className="text-green-400">✓</span>
+                        <span><strong className="text-white">Secure API & Software Lifecycle</strong> (Pydantic validation, CI/CD scans)</span>
+                      </div>
+                    </td>
+                    <td className="border border-[#1A4D5E] px-4 py-3 text-gray-300 align-top">
+                      <div className="flex items-start gap-2">
+                        <span className="text-gray-500">🔲</span>
+                        <span><strong className="text-white">Private Connectivity</strong> (AWS PrivateLink)</span>
+                      </div>
+                    </td>
+                    <td className="border border-[#1A4D5E] px-4 py-3 text-gray-300 align-top">
+                      <div className="flex items-start gap-2">
+                        <span className="text-gray-500">🔲</span>
+                        <span><strong className="text-white">Regional Data Residency Controls</strong></span>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="border border-[#1A4D5E] px-4 py-3 text-gray-300 align-top">
+                      <div className="flex items-start gap-2">
+                        <span className="text-green-400">✓</span>
+                        <span><strong className="text-white">Immutable Audit Trail</strong> (Metadata-only logging)</span>
+                      </div>
+                    </td>
+                    <td className="border border-[#1A4D5E] px-4 py-3 text-gray-300 align-top">
+                      <div className="flex items-start gap-2">
+                        <span className="text-gray-500">🔲</span>
+                        <span><strong className="text-white">Public Trust Portal & Incident Response Plan</strong></span>
+                      </div>
+                    </td>
+                    <td className="border border-[#1A4D5E] px-4 py-3 text-gray-300 align-top">
+                      <div className="flex items-start gap-2">
+                        <span className="text-gray-500">🔲</span>
+                        <span><strong className="text-white">AI-Driven Threat Detection</strong></span>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )
     },
@@ -81,178 +194,8 @@ export default function FAQPage() {
       answer: "Prebuilt Domain Agents are productized domain expertise packages designed for specific business functions like FinOps and RevOps. These agents leverage the AI-prepared data fabric to autonomously execute complex, end-to-end business workflows. They use advanced LLM capabilities (supporting multiple providers like Gemini and OpenAI) to reason about your data, learn from patterns, and take intelligent actions."
     },
     {
-      question: "Is AutonomOS secure for enterprise use?",
-      answer: (
-        <div className="space-y-6">
-          <p className="text-gray-300">
-            Yes, AutonomOS is built with enterprise security as a core principle. The platform is fully multi-tenant with complete data isolation enforced at the database level through tenant_id scoping. All authentication uses JWT tokens with industry-standard Argon2 password hashing. The architecture ensures that each organization's data remains completely isolated and secure.
-          </p>
-          
-          <div className="mt-6">
-            <h4 className="text-[#0BCAD9] font-medium text-lg mb-4">Security & Compliance Roadmap</h4>
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="bg-[#0D2F3F]">
-                    <th className="border border-[#1A4D5E] px-4 py-3 text-left text-white font-medium">
-                      PHASE 0: SECURE CORE (NOW)
-                    </th>
-                    <th className="border border-[#1A4D5E] px-4 py-3 text-left text-white font-medium">
-                      PHASE 1: FOUNDATION (NEXT 6 MO.)
-                    </th>
-                    <th className="border border-[#1A4D5E] px-4 py-3 text-left text-white font-medium">
-                      PHASE 2: ENTERPRISE READY (12 MO.)
-                    </th>
-                    <th className="border border-[#1A4D5E] px-4 py-3 text-left text-white font-medium">
-                      PHASE 3: MARKET LEADER (FUTURE)
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td className="border border-[#1A4D5E] px-4 py-3 text-gray-300 align-top">
-                      <div className="flex items-start gap-2 mb-2">
-                        <span className="text-green-400">✓</span>
-                        <span><strong className="text-white">Zero Data Retention Model</strong> (Ephemeral in-memory processing)</span>
-                      </div>
-                    </td>
-                    <td className="border border-[#1A4D5E] px-4 py-3 text-gray-300 align-top">
-                      <div className="flex items-start gap-2 mb-2">
-                        <span className="text-gray-500">☐</span>
-                        <span><strong className="text-white">Formal Security Policy</strong> & Incident Response Plan</span>
-                      </div>
-                    </td>
-                    <td className="border border-[#1A4D5E] px-4 py-3 text-gray-300 align-top">
-                      <div className="flex items-start gap-2 mb-2">
-                        <span className="text-gray-500">☐</span>
-                        <span><strong className="text-white">SOC 2 Type 2 Certification</strong></span>
-                      </div>
-                    </td>
-                    <td className="border border-[#1A4D5E] px-4 py-3 text-gray-300 align-top">
-                      <div className="flex items-start gap-2 mb-2">
-                        <span className="text-gray-500">☐</span>
-                        <span><strong className="text-white">ISO 27001 Certification</strong></span>
-                      </div>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="border border-[#1A4D5E] px-4 py-3 text-gray-300 align-top">
-                      <div className="flex items-start gap-2 mb-2">
-                        <span className="text-green-400">✓</span>
-                        <span><strong className="text-white">Robust Multi-Tenant Isolation</strong> (DB-level, tenant-scoped queries)</span>
-                      </div>
-                    </td>
-                    <td className="border border-[#1A4D5E] px-4 py-3 text-gray-300 align-top">
-                      <div className="flex items-start gap-2 mb-2">
-                        <span className="text-gray-500">☐</span>
-                        <span><strong className="text-white">3rd-Party Penetration Test</strong> (VAPT)</span>
-                      </div>
-                    </td>
-                    <td className="border border-[#1A4D5E] px-4 py-3 text-gray-300 align-top">
-                      <div className="flex items-start gap-2 mb-2">
-                        <span className="text-gray-500">☐</span>
-                        <span><strong className="text-white">Single Sign-On (SSO)</strong> (Okta, Azure AD)</span>
-                      </div>
-                    </td>
-                    <td className="border border-[#1A4D5E] px-4 py-3 text-gray-300 align-top">
-                      <div className="flex items-start gap-2 mb-2">
-                        <span className="text-gray-500">☐</span>
-                        <span><strong className="text-white">Bring Your Own Key (BYOK)</strong></span>
-                      </div>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="border border-[#1A4D5E] px-4 py-3 text-gray-300 align-top">
-                      <div className="flex items-start gap-2 mb-2">
-                        <span className="text-green-400">✓</span>
-                        <span><strong className="text-white">Zero-Trust Infrastructure</strong> (VPC, TLS, Secrets Management)</span>
-                      </div>
-                    </td>
-                    <td className="border border-[#1A4D5E] px-4 py-3 text-gray-300 align-top">
-                      <div className="flex items-start gap-2 mb-2">
-                        <span className="text-gray-500">☐</span>
-                        <span><strong className="text-white">Compliance Automation</strong> (Vanta / Drata Integration)</span>
-                      </div>
-                    </td>
-                    <td className="border border-[#1A4D5E] px-4 py-3 text-gray-300 align-top">
-                      <div className="flex items-start gap-2 mb-2">
-                        <span className="text-gray-500">☐</span>
-                        <span><strong className="text-white">Private Connectivity</strong> (AWS PrivateLink)</span>
-                      </div>
-                    </td>
-                    <td className="border border-[#1A4D5E] px-4 py-3 text-gray-300 align-top">
-                      <div className="flex items-start gap-2 mb-2">
-                        <span className="text-gray-500">☐</span>
-                        <span><strong className="text-white">Confidential Computing</strong></span>
-                      </div>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="border border-[#1A4D5E] px-4 py-3 text-gray-300 align-top">
-                      <div className="flex items-start gap-2 mb-2">
-                        <span className="text-green-400">✓</span>
-                        <span><strong className="text-white">Secure Software Lifecycle</strong> (Static analysis, secure CI/CD)</span>
-                      </div>
-                    </td>
-                    <td className="border border-[#1A4D5E] px-4 py-3 text-gray-300 align-top">
-                      <div className="flex items-start gap-2 mb-2">
-                        <span className="text-gray-500">☐</span>
-                        <span><strong className="text-white">Public Trust Portal</strong> & Responsible Disclosure Policy</span>
-                      </div>
-                    </td>
-                    <td className="border border-[#1A4D5E] px-4 py-3 text-gray-300 align-top">
-                      <div className="flex items-start gap-2 mb-2">
-                        <span className="text-gray-500">☐</span>
-                        <span><strong className="text-white">Customer-Managed RBAC</strong></span>
-                      </div>
-                    </td>
-                    <td className="border border-[#1A4D5E] px-4 py-3 text-gray-300 align-top">
-                      <div className="flex items-start gap-2 mb-2">
-                        <span className="text-gray-500">☐</span>
-                        <span><strong className="text-white">AI-Driven Threat Detection</strong></span>
-                      </div>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="border border-[#1A4D5E] px-4 py-3 text-gray-300 align-top">
-                      <div className="flex items-start gap-2">
-                        <span className="text-green-400">✓</span>
-                        <span><strong className="text-white">Immutable Audit Trail</strong> (Metadata-only logging)</span>
-                      </div>
-                    </td>
-                    <td className="border border-[#1A4D5E] px-4 py-3 text-gray-300 align-top">
-                    </td>
-                    <td className="border border-[#1A4D5E] px-4 py-3 text-gray-300 align-top">
-                      <div className="flex items-start gap-2">
-                        <span className="text-gray-500">☐</span>
-                        <span><strong className="text-white">Regional Data Residency</strong></span>
-                      </div>
-                    </td>
-                    <td className="border border-[#1A4D5E] px-4 py-3 text-gray-300 align-top">
-                      <div className="flex items-start gap-2">
-                        <span className="text-gray-500">☐</span>
-                        <span><strong className="text-white">FedRAMP Alignment</strong></span>
-                      </div>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )
-    },
-    {
-      question: "What technology stack powers AutonomOS?",
-      answer: "AutonomOS runs on a modern, production-ready stack: FastAPI with Pydantic validation for the API layer, PostgreSQL with SQLAlchemy for data persistence, Redis with Python RQ for asynchronous task orchestration, and DuckDB for high-performance in-memory analytics. The frontend is built with React and TypeScript using Vite for optimal performance."
-    },
-    {
       question: "Can I customize the agents and workflows?",
       answer: "Yes, while we provide Prebuilt Domain Agents for common use cases, the platform supports custom agent deployment. You can leverage our AI-prepared data fabric and orchestration capabilities to build agents tailored to your specific business needs. The LLM service abstraction allows you to choose the best model for each task."
-    },
-    {
-      question: "How does AutonomOS handle data from multiple sources?",
-      answer: "AutonomOS uses the Adaptive API Mesh to connect to various data sources (SaaS applications, databases, warehouses, legacy systems, APIs, and files). The DCL then autonomously maps this disparate data into a Unified Enterprise Ontology, creating a semantic layer that agents can understand and act upon. This eliminates the need for manual data pipeline construction."
     }
   ];
 

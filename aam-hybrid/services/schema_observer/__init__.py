@@ -1,0 +1,1 @@
+# Schema Observer Service (Skeleton)
