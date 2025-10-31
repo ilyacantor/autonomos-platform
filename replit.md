@@ -14,6 +14,7 @@ AutonomOS is built with FastAPI, PostgreSQL, Redis, and Python RQ, implementing 
 **UI/UX Decisions:**
 The frontend is a React/TypeScript application with a focus on a clean, minimalist design. Key UI/UX features include:
 - Interactive DCL graph visualization for data mapping and orchestration, with color-coded, collision-detected labels and dynamic sizing for optimal visibility across devices.
+- **AAM Monitoring Dashboard (October 2025):** Real-time dashboard for monitoring Adaptive API Mesh operations, including service health status, drift detection metrics, auto-repair success rates, connection health table, and recent events log. Features auto-refresh polling (10s intervals) with graceful mock data fallback. See `AAM_DASHBOARD_GUIDE.md` for complete users guide.
 - A hero section showcasing the product value proposition and an agent layer container for AI agents.
 - Comprehensive FAQ section explaining AutonomOS capabilities and technology.
 - Mobile-first design with responsive typography, touch-optimized elements, and dynamic adjustments for various screen sizes, including a horizontal Sankey layout for the DCL graph and layout-aware directional arrows for architecture flow.
