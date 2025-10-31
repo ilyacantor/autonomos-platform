@@ -31,10 +31,20 @@ async def tenant_auth_middleware(request: Request, call_next: Callable):
         "/api/v1/dcl/views/accounts",       # DCL views (dev)
         "/api/v1/intents/revops/execute",   # Intent endpoints (dev)
         "/api/v1/intents/finops/execute",   # Intent endpoints (dev)
+        "/dcl/state",                # DCL state endpoint (for frontend graph)
+        "/dcl/connect",              # DCL connect endpoint (for frontend graph)
+        "/dcl/ws",                   # DCL WebSocket (for real-time updates)
     ]
     
-    # Check if path starts with any public path
-    if any(request.url.path.startswith(path) for path in public_paths):
+    # Also bypass static frontend paths
+    static_prefixes = ["/assets/", "/static/", "/favicon", "/robot"]
+    
+    # Check exact match for root path
+    if request.url.path == "/":
+        return await call_next(request)
+    
+    # Check if path starts with any public path or static prefix
+    if any(request.url.path.startswith(path) for path in public_paths + static_prefixes):
         return await call_next(request)
     
     auth_header = request.headers.get("Authorization")
