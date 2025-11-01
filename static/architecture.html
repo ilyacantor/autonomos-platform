@@ -231,7 +231,7 @@
                 <li><a href="#canonical">Canonical Types</a></li>
                 <li><a href="#probe">Functional Probe</a></li>
                 <li><a href="#exec-view">Executive View</a></li>
-                <li><a href="#swimlanes">Functional Swimlanes</a></li>
+                <li><a href="#engineer-view">Engineer View</a></li>
                 <li><a href="#outcomes">Outcomes & KPIs</a></li>
                 <li><a href="#stats">Platform Stats</a></li>
             </ul>
@@ -708,18 +708,18 @@ sequenceDiagram
             <pre class="mermaid">
 %%{init: {'theme': 'neutral'}}%%
 flowchart TB
-  subgraph ExecView["AutonomOS — Executive View"]
+  subgraph ExecView["AutonomOS Executive View"]
     direction TB
-    A[Business Apps & Domain Agents<br/>(RevOps, FinOps, etc.)]
-    B[Light API Gateway<br/>(Auth, Limits, Audit)]
-    C[Adaptive API Mesh - AAM<br/>(Normalize, Drift-Repair)]
-    D[Data Connectivity Layer - DCL<br/>(Unified Ontology, Views)]
-    E[Enterprise Systems<br/>(Salesforce • Supabase • Mongo • CSV)]
+    A[Business Apps & Domain Agents<br/>RevOps, FinOps, etc]
+    B[Light API Gateway<br/>Auth, Limits, Audit]
+    C[Adaptive API Mesh AAM<br/>Normalize, Drift-Repair]
+    D[Data Connectivity Layer DCL<br/>Unified Ontology, Views]
+    E[Enterprise Systems<br/>Salesforce | Supabase | Mongo | CSV]
   end
 
   A -->|Read Views / Post Intents| B --> C --> D
   E -->|Events & Data| C
-  D -->|Stable Views /dcl/views/*| A
+  D -->|Stable Views /dcl/views| A
 
   style A fill:#87CEEB,color:#0D1117
   style B fill:#E6E6FA,color:#0D1117
@@ -730,47 +730,66 @@ flowchart TB
             <p><em>Why this works:</em> 5 boxes, verbs on edges. No tech jargon beyond what matters. Shows "front door → normalize → unify → consume."</p>
         </div>
 
-        <!-- Section 10: Functional Swimlanes -->
-        <div class="diagram-section" id="swimlanes">
-            <h2>🔟 Functional Swimlanes: Ownership & Responsibilities</h2>
-            <p><strong>For Stakeholders:</strong> Who does what across business, control, intelligence, and data source layers.</p>
+        <!-- Section 10: Engineer View -->
+        <div class="diagram-section" id="engineer-view">
+            <h2>🔟 Engineer View: Agentic Orchestration Architecture (AOA)</h2>
+            <p><strong>For Engineers:</strong> Bottom-up data flow from sources through intelligent normalization layers to domain agents, with technology stack highlighted.</p>
             <pre class="mermaid">
 %%{init: {'theme': 'neutral'}}%%
-flowchart LR
-  subgraph Lane1["Business"]
-    U1[Leaders & Users]
-    U2[Agents - RevOps/FinOps]
-  end
-  subgraph Lane2["Control"]
-    G[API Gateway<br/>Policy • Audit • SLAs]
-    CP[Control Plane<br/>Agent Registry • Intents Router]
-  end
-  subgraph Lane3["Data & Intelligence"]
-    AAM[AAM<br/>Connectors • Normalization • Drift-Repair]
-    DCL[DCL<br/>Unified Ontology • Read Models]
-  end
-  subgraph Lane4["Sources"]
-    S1[Salesforce]
-    S2[Supabase - Postgres]
-    S3[MongoDB]
-    S4[CSV/Legacy]
+flowchart TB
+  subgraph Sources["Data Sources Layer"]
+    direction LR
+    SF[Salesforce<br/>REST API]
+    SB[Supabase<br/>PostgreSQL]
+    MG[MongoDB<br/>NoSQL]
+    CS[CSV Files<br/>FileSource]
   end
 
-  U1 --> U2
-  U2 -->|Views & Intents| G --> CP
-  CP --> AAM --> DCL --> U2
-  S1 & S2 & S3 & S4 --> AAM
+  subgraph AAM["Adaptive API Mesh (AAM) - Intelligence Layer"]
+    direction TB
+    CONN[Connectors<br/>Python | FastAPI]
+    NORM[Normalization<br/>YAML Mappings | Pydantic]
+    INTEL[AAM Intelligence<br/>Schema Observer | Drift Repair | RAG]
+  end
 
-  style U2 fill:#87CEEB,color:#0D1117
-  style G fill:#E6E6FA,color:#0D1117
+  subgraph DCL["Data Catalog Layer (DCL) - Unified Ontology"]
+    direction TB
+    CANON[Canonical Events<br/>PostgreSQL | canonical_streams]
+    MAT[Materialized Views<br/>DuckDB | SQL]
+    DCLI[DCL Intelligence<br/>Entity Mapping | Join Inference]
+  end
+
+  subgraph Gateway["Light API Gateway"]
+    direction TB
+    READ[Read: GET /dcl/views/*<br/>JWT Auth | Rate Limits]
+    WRITE[Write: POST /aoa/actions<br/>Audit | Idempotency]
+  end
+
+  subgraph Agents["Domain Agents Layer"]
+    direction LR
+    REVOPS[RevOps Pilot<br/>Revenue Intelligence]
+    FINOPS[FinOps Pilot<br/>Cost Optimization]
+  end
+
+  SF & SB & MG & CS -->|Raw Events| CONN
+  CONN --> NORM
+  NORM -->|Validated Events| INTEL
+  INTEL -->|Emit| CANON
+  CANON -->|Subscribe| MAT
+  MAT -->|Transform| DCLI
+  DCLI -->|Expose| READ
+  READ --> REVOPS
+  READ --> FINOPS
+  REVOPS & FINOPS -->|Actions| WRITE
+  WRITE -->|Execute| INTEL
+
+  style Sources fill:#FFB6C1,color:#0D1117
   style AAM fill:#FFD700,color:#0D1117
   style DCL fill:#90EE90,color:#0D1117
-  style S1 fill:#FFB6C1,color:#0D1117
-  style S2 fill:#FFB6C1,color:#0D1117
-  style S3 fill:#FFB6C1,color:#0D1117
-  style S4 fill:#FFB6C1,color:#0D1117
+  style Gateway fill:#E6E6FA,color:#0D1117
+  style Agents fill:#87CEEB,color:#0D1117
             </pre>
-            <p><em>Use when:</em> You want to highlight ownership and responsibilities by function.</p>
+            <p><em>Key Technologies:</em> Python/FastAPI (AAM), PostgreSQL (canonical streams), DuckDB (DCL views), Redis (locking), Pydantic (validation), YAML (mapping configs)</p>
         </div>
 
         <!-- Section 11: Outcomes & KPIs -->
