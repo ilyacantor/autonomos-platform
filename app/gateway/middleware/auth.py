@@ -36,6 +36,7 @@ async def tenant_auth_middleware(request: Request, call_next: Callable):
         "/dcl/ws",                   # DCL WebSocket (for real-time updates)
         "/dcl/ontology_schema",      # DCL ontology schema (for Ontology tab)
         "/api/v1/aam/",              # All AAM endpoints (for Monitor dashboard)
+        "/api/v1/debug/",            # Debug endpoints (dev-only, feature-flagged)
     ]
     
     # Also bypass static frontend paths
