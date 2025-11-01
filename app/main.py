@@ -155,6 +155,14 @@ if os.path.exists(STATIC_DIR) and os.path.isdir(STATIC_DIR):
             return FileResponse(script_path, media_type="application/javascript")
         raise HTTPException(status_code=404, detail="DCL bridge script not found")
     
+    @app.get("/architecture.html")
+    def serve_architecture():
+        """Serve the architecture visualization page"""
+        arch_path = os.path.join(STATIC_DIR, "architecture.html")
+        if os.path.exists(arch_path):
+            return FileResponse(arch_path, media_type="text/html")
+        raise HTTPException(status_code=404, detail="Architecture page not found")
+    
     @app.get("/__version")
     def version_info():
         """Debug endpoint for build verification"""
