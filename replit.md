@@ -7,6 +7,7 @@ AutonomOS is a production-ready, multi-tenant SaaS backend system in Python for 
 
 ## Key Documentation
 - **📊 [Architecture Visualizations](./ARCHITECTURE.md)** - Complete Mermaid diagrams of all platform components
+- **🌐 [Interactive Architecture Viewer](/architecture.html)** - Web-based architecture documentation with 8 comprehensive diagrams (accessible at `/architecture.html` on any deployment URL)
 - **📘 [AAM Full Technical Docs](./aam-hybrid/AAM_FULL_CONTEXT.md)** - Adaptive API Mesh implementation details
 - **🔬 [Functional Probe Guide](./scripts/QUICKSTART.md)** - End-to-end testing for Salesforce → AAM → DCL
 - **📖 [AAM Dashboard Guide](./AAM_DASHBOARD_GUIDE.md)** - Monitor dashboard user guide
@@ -64,3 +65,6 @@ The frontend is a React/TypeScript application with a focus on a clean, minimali
 - **Replit's PostgreSQL:** Built-in database service.
 - **Upstash Redis:** External Redis for production.
 - **Slack Incoming Webhooks:** For notifications.
+
+## Recent Updates
+- **November 2025:** Added interactive architecture documentation viewer at `/architecture.html` with 8 comprehensive Mermaid diagrams covering system architecture, data flows, AAM components, middleware stack, database schema, frontend architecture, canonical types, and functional probe flows. All diagrams use accessible high-contrast colors (dark text on light backgrounds) for optimal readability.

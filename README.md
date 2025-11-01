@@ -115,6 +115,42 @@ A production-ready **full-stack SaaS platform** for AI-driven data orchestration
 
 ---
 
+## 📊 Visual Architecture Documentation
+
+### Interactive Architecture Viewer
+
+For a comprehensive visual guide to the platform architecture, visit the **interactive architecture documentation**:
+
+**🔗 Access:** `/architecture.html` (available at your deployed URL)
+
+**Features:**
+- **8 Detailed Mermaid Diagrams** - Complete system visualization
+- **Interactive Navigation** - Jump between architecture sections
+- **Dark Theme** - GitHub-style, easy on the eyes
+- **Accessible Design** - High-contrast text for readability
+- **Mobile-Friendly** - Responsive across all devices
+
+### Documentation Contents
+
+The architecture viewer includes:
+
+1. **High-Level System Architecture** - Complete platform overview
+2. **Data Flow Diagrams** - Source → AAM → DCL pipeline
+3. **AAM Components** - Intelligence, Execution, and Control planes
+4. **Gateway Middleware Stack** - 5-layer security pipeline
+5. **Database Schema** - Entity relationships and tables
+6. **Frontend Architecture** - React components and WebSocket flows
+7. **Canonical Schema Types** - Strict typing with Pydantic
+8. **Functional Probe Flow** - End-to-end testing sequence
+
+**Source Files:**
+- `ARCHITECTURE.md` - Markdown source with all diagrams
+- `static/architecture.html` - Interactive HTML viewer
+
+**Accessibility:** All diagrams use high-contrast colors with dark text on light backgrounds for optimal readability.
+
+---
+
 ## ✨ Features
 
 ### 1. AAM Monitoring Dashboard (October 2025)
