@@ -113,6 +113,12 @@ async def get_aam_metrics():
     """
     Get AAM dashboard metrics
     Returns key performance metrics for the AAM system
+    
+    Extended metrics include:
+    - mappings: total mappings and autofix percentage
+    - drift: drift events per system (salesforce, supabase, mongodb)
+    - suggestions: pending, accepted, rejected suggestions
+    - repair: test pass percentage and average confidence
     """
     if not AsyncSessionLocal or not AAM_MODELS_AVAILABLE:
         # Return mock data if database not available
@@ -123,6 +129,26 @@ async def get_aam_metrics():
             "manual_reviews_required_24h": 1,
             "average_confidence_score": 0.94,
             "average_repair_time_seconds": 45.2,
+            "mappings": {
+                "total": 13383,
+                "autofix_pct": 94.2
+            },
+            "drift": {
+                "last_24h": {
+                    "salesforce": 0,
+                    "supabase": 0,
+                    "mongodb": 0
+                }
+            },
+            "suggestions": {
+                "pending": 2,
+                "accepted": 45,
+                "rejected": 3
+            },
+            "repair": {
+                "test_pass_pct": 97.5,
+                "avg_confidence": 0.89
+            },
             "timestamp": datetime.utcnow().isoformat(),
             "data_source": "mock"
         }
