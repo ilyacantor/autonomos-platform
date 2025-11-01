@@ -710,16 +710,18 @@ sequenceDiagram
 flowchart TB
   subgraph ExecView["AutonomOS Executive View"]
     direction TB
-    A[Business Apps & Domain Agents<br/>RevOps, FinOps, etc]
-    B[Light API Gateway<br/>Auth, Limits, Audit]
-    C[Adaptive API Mesh AAM<br/>Normalize, Drift-Repair]
-    D[Data Connectivity Layer DCL<br/>Unified Ontology, Views]
-    E[Enterprise Systems<br/>Salesforce | Supabase | Mongo | CSV]
+    A["Business Apps & Domain Agents<br/>RevOps, FinOps, etc"]
+    B["Light API Gateway<br/>Auth, Limits, Audit"]
+    C["Adaptive API Mesh AAM<br/>Normalize, Drift Repair"]
+    D["Data Connectivity Layer DCL<br/>Unified Ontology, Views"]
+    E["Enterprise Systems<br/>Salesforce, Supabase, Mongo, CSV"]
   end
 
-  A -->|Read Views / Post Intents| B --> C --> D
-  E -->|Events & Data| C
-  D -->|Stable Views /dcl/views| A
+  A -->|Read Views, Post Intents| B
+  B --> C
+  C --> D
+  E -->|Events and Data| C
+  D -->|Stable Views API| A
 
   style A fill:#87CEEB,color:#0D1117
   style B fill:#E6E6FA,color:#0D1117
@@ -739,36 +741,36 @@ flowchart TB
 flowchart TB
   subgraph Sources["Data Sources Layer"]
     direction LR
-    SF[Salesforce<br/>REST API]
-    SB[Supabase<br/>PostgreSQL]
-    MG[MongoDB<br/>NoSQL]
-    CS[CSV Files<br/>FileSource]
+    SF["Salesforce<br/>REST API"]
+    SB["Supabase<br/>PostgreSQL"]
+    MG["MongoDB<br/>NoSQL"]
+    CS["CSV Files<br/>FileSource"]
   end
 
-  subgraph AAM["Adaptive API Mesh (AAM) - Intelligence Layer"]
+  subgraph AAM["Adaptive API Mesh AAM - Intelligence Layer"]
     direction TB
-    CONN[Connectors<br/>Python | FastAPI]
-    NORM[Normalization<br/>YAML Mappings | Pydantic]
-    INTEL[AAM Intelligence<br/>Schema Observer | Drift Repair | RAG]
+    CONN["Connectors<br/>Python, FastAPI"]
+    NORM["Normalization<br/>YAML Mappings, Pydantic"]
+    INTEL["AAM Intelligence<br/>Schema Observer, Drift Repair, RAG"]
   end
 
-  subgraph DCL["Data Catalog Layer (DCL) - Unified Ontology"]
+  subgraph DCL["Data Catalog Layer DCL - Unified Ontology"]
     direction TB
-    CANON[Canonical Events<br/>PostgreSQL | canonical_streams]
-    MAT[Materialized Views<br/>DuckDB | SQL]
-    DCLI[DCL Intelligence<br/>Entity Mapping | Join Inference]
+    CANON["Canonical Events<br/>PostgreSQL, canonical_streams"]
+    MAT["Materialized Views<br/>DuckDB, SQL"]
+    DCLI["DCL Intelligence<br/>Entity Mapping, Join Inference"]
   end
 
   subgraph Gateway["Light API Gateway"]
     direction TB
-    READ[Read: GET /dcl/views/*<br/>JWT Auth | Rate Limits]
-    WRITE[Write: POST /aoa/actions<br/>Audit | Idempotency]
+    READ["Read API<br/>GET views, JWT Auth, Rate Limits"]
+    WRITE["Write API<br/>POST actions, Audit, Idempotency"]
   end
 
   subgraph Agents["Domain Agents Layer"]
     direction LR
-    REVOPS[RevOps Pilot<br/>Revenue Intelligence]
-    FINOPS[FinOps Pilot<br/>Cost Optimization]
+    REVOPS["RevOps Pilot<br/>Revenue Intelligence"]
+    FINOPS["FinOps Pilot<br/>Cost Optimization"]
   end
 
   SF & SB & MG & CS -->|Raw Events| CONN
@@ -799,11 +801,11 @@ flowchart TB
             <pre class="mermaid">
 %%{init: {'theme': 'neutral'}}%%
 flowchart TB
-  O1[Integrate Any System<br/>Days → Minutes]
-  O2[Trustworthy Data<br/>Unified Ontology]
-  O3[Faster Decisions<br/>Agent Actions w/ Audit]
-  O4[Governance & Risk<br/>Drift Detection • HITL]
-  O5[Lower Cost to Change<br/>No Rebuilds on Breakage]
+  O1["Integrate Any System<br/>Days to Minutes"]
+  O2["Trustworthy Data<br/>Unified Ontology"]
+  O3["Faster Decisions<br/>Agent Actions with Audit"]
+  O4["Governance and Risk<br/>Drift Detection, HITL"]
+  O5["Lower Cost to Change<br/>No Rebuilds on Breakage"]
 
   O1 --> O2 --> O3
   O2 --> O4
