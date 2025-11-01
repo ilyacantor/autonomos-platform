@@ -3,7 +3,13 @@
 ## Overview
 AutonomOS is a production-ready, multi-tenant SaaS backend system in Python for AI-driven task orchestration. It ensures complete data isolation, providing secure, scalable, and enterprise-grade task processing with JWT authentication and user management. The platform's core purpose is to enable advanced AI-powered data orchestration, including a Data Catalog Layer (DCL) engine for AI-driven data source connection, entity mapping, and unified view creation. 
 
-**AAM Hybrid MVP (January 2025):** The platform now includes a production-ready implementation of the Adaptive API Mesh (Phases 1 & 2), combining Airbyte OSS for data movement with FastAPI microservices for intelligent orchestration and drift repair. **For complete technical documentation, see `aam-hybrid/AAM_FULL_CONTEXT.md`**.
+**AAM Hybrid MVP (January 2025):** The platform now includes a production-ready implementation of the Adaptive API Mesh (Phases 1 & 2), combining Airbyte OSS for data movement with FastAPI microservices for intelligent orchestration and drift repair.
+
+## Key Documentation
+- **📊 [Architecture Visualizations](./ARCHITECTURE.md)** - Complete Mermaid diagrams of all platform components
+- **📘 [AAM Full Technical Docs](./aam-hybrid/AAM_FULL_CONTEXT.md)** - Adaptive API Mesh implementation details
+- **🔬 [Functional Probe Guide](./scripts/QUICKSTART.md)** - End-to-end testing for Salesforce → AAM → DCL
+- **📖 [AAM Dashboard Guide](./AAM_DASHBOARD_GUIDE.md)** - Monitor dashboard user guide
 
 ## User Preferences
 I prefer clear, concise explanations and direct answers. I value iterative development with frequent, small updates. Please ask for my approval before implementing major architectural changes or significant feature additions. I prefer detailed explanations for complex concepts but require brevity for straightforward ones. Do not make changes to folder `Z` and file `Y`.
