@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { LayoutDashboard, Cable, Network, Bell, Menu, X, LogIn, UserPlus, HelpCircle, Activity, FileText } from 'lucide-react';
+import { LayoutDashboard, Cable, Network, Bell, Menu, X, LogIn, UserPlus, HelpCircle, Activity } from 'lucide-react';
 import AutonomyModeToggle from './AutonomyModeToggle';
 import type { PersonaType } from '../types';
 import autonomosLogo from '../assets/autonomos-logo.png';
