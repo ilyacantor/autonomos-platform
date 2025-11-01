@@ -21,7 +21,6 @@ AutonomOS is built with FastAPI, PostgreSQL, Redis, and Python RQ, implementing 
 The frontend is a React/TypeScript application with a focus on a clean, minimalist design. Key UI/UX features include:
 - Interactive DCL graph visualization for data mapping and orchestration, with color-coded, collision-detected labels and dynamic sizing for optimal visibility across devices.
 - **AAM Monitoring Dashboard (October 2025):** Real-time dashboard for monitoring Adaptive API Mesh operations, including service health status, drift detection metrics, auto-repair success rates, connection health table, and recent events log. Features auto-refresh polling (10s intervals) with graceful mock data fallback. See `AAM_DASHBOARD_GUIDE.md` for complete users guide.
-- **Live Architecture Diagrams (November 2025):** Interactive Mermaid diagram viewer at `/diagrams` route, sourced from `public/diagrams.md`. Features 8 fully-rendered architecture diagrams (system overview, data flow, AAM components, middleware stack, database schema, frontend architecture, canonical types, functional probe sequence). Supports HMR (Hot Module Replacement) for real-time updates during development without rebuild.
 - A hero section showcasing the product value proposition and an agent layer container for AI agents.
 - Comprehensive FAQ section explaining AutonomOS capabilities and technology.
 - Mobile-first design with responsive typography, touch-optimized elements, and dynamic adjustments for various screen sizes, including a horizontal Sankey layout for the DCL graph and layout-aware directional arrows for architecture flow.
@@ -65,4 +64,3 @@ The frontend is a React/TypeScript application with a focus on a clean, minimali
 - **Replit's PostgreSQL:** Built-in database service.
 - **Upstash Redis:** External Redis for production.
 - **Slack Incoming Webhooks:** For notifications.
-- **mermaid:** Interactive diagram rendering library for architecture visualizations.

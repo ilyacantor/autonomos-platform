@@ -26,7 +26,6 @@ export default function TopBar({ onAuthOpen, currentPage, onNavigate }: TopBarPr
     { id: 'connections', label: 'Connections', icon: <Cable className="w-5 h-5" /> },
     { id: 'ontology', label: 'Ontology', icon: <Network className="w-5 h-5" /> },
     { id: 'aam-monitor', label: 'AAM Monitor', icon: <Activity className="w-5 h-5" />, tooltip: 'Adaptive API Mesh Monitoring' },
-    { id: 'diagrams', label: 'Architecture', icon: <FileText className="w-5 h-5" />, tooltip: 'Live Architecture Diagrams' },
     { id: 'faq', label: 'FAQ', icon: <HelpCircle className="w-5 h-5" /> },
   ];
 
