@@ -1,0 +1,160 @@
+TITLE: Add live Supabase (Postgres) + MongoDB connectors to AAM, with drift demos (non-breaking)
+
+GOAL
+Add two real sources in AAM:
+  1) Supabase Postgres → canonical (Account, Opportunity) + drift mutator
+  2) MongoDB → canonical (Account, Opportunity) + drift mutator
+Materialize into DCL views (no UI changes), and provide one-command functional proofs.
+Do NOT break existing DCL logic, graph visuals, or any GUI layout.
+
+BRANCH
+- Ensure branch: initiative/platformization-2025-10-31
+- If missing: git fetch origin && git checkout -b initiative/platformization-2025-10-31 || git checkout initiative/platformization-2025-10-31
+
+HARD GUARDRAILS
+- No edits to existing DCL transforms beyond adding new source ingestion.
+- No CSS/layout/graph changes anywhere.
+- All new endpoints live under /api/v1; keep existing routes intact.
+- Dev: MONITOR_POLLING=false (manual refresh only); always return JSON.
+
+ENV (add to .env.sample and read from .env)
+SUPABASE_DB_URL=postgres://<user>:<pass>@<host>:<port>/<db>
+SUPABASE_SCHEMA=public
+MONGODB_URI=mongodb+srv://<user>:<pass>@<cluster>/<db>?retryWrites=true&w=majority
+MONGODB_DB=<db-name>
+TENANT_ID_DEMO=demo-tenant
+
+============================ PART A — SUPABASE (POSTGRES) ============================
+1) Connector (services/aam/connectors/postgres/supabase.ts)
+   - Connect via SUPABASE_DB_URL, schema SUPABASE_SCHEMA.
+   - Read tables: accounts, opportunities (create minimal seed if missing).
+     • accounts: account_id (pk), name, type, industry, owner_id, status, created_at, updated_at
+     • opportunities: opportunity_id (pk), account_id (fk), name, stage, amount (numeric), currency, close_date (date), owner_id, probability (real), created_at, updated_at
+   - Normalize vendor→canonical v1 (strict types), emit Canonical Events to topics:
+     aam.streams.crm.account
+     aam.streams.crm.opportunity
+   - Source metadata: system="postgres", connection_id="supabase"
+
+2) Seed (idempotent)
+   - If tables are empty, insert 3 demo accounts + 5 demo opportunities with realistic fields.
+
+3) Drift Mutator Endpoint (dev-only)
+   - POST /api/v1/mesh/test/supabase/mutate
+     Body: { op: "rename_column"|"add_column"|"change_type", table: "opportunities"|"accounts", from?: "amount", to?: "amount_usd", type?: "numeric" }
+   - Apply ALTER TABLE accordingly and record in schema_changes (table).
+   - Emit aam.events.schema.change with diff.
+
+4) Observer & Repair
+   - Extend Schema Observer to fingerprint Supabase tables.
+   - On drift: raise repair ticket (aam.events.repair.ticket).
+   - RAG-Assist suggests mapping patch; auto-apply ONLY green-zone (additive/compatible type widenings) with confidence ≥ 0.85; others require approve:
+     POST /api/v1/mesh/repair/approve { ticket_id:"...", apply:true }
+
+============================== PART B — MONGODB =====================================
+1) Connector (services/aam/connectors/mongo/mongo.ts)
+   - Connect via MONGODB_URI; database MONGODB_DB.
+   - Collections: accounts, opportunities (create minimal seed if missing).
+     • accounts doc: { _id:ObjectId, external_ids:[...], name, type, industry, owner_id, status, created_at, updated_at }
+     • opportunities doc: { _id:ObjectId, account_external_id, name, stage, amount:Number, currency, close_date:Date, owner_id, probability:Number, created_at, updated_at }
+   - Normalize doc→canonical v1 and emit to:
+     aam.streams.crm.account
+     aam.streams.crm.opportunity
+   - Source metadata: system="mongodb", connection_id="mongo-main"
+
+2) Seed (idempotent)
+   - If empty, insert 3 accounts + 5 opportunities. Ensure one opportunity references an existing account.
+
+3) Drift Mutator Endpoint (dev-only)
+   - POST /api/v1/mesh/test/mongo/mutate
+     Body: { op: "rename_field"|"add_field"|"coerce_type", collection: "opportunities"|"accounts", from?: "amount", to?: "amount_usd", path?: "amount", type?: "Number"|"String" }
+   - For rename_field: update all docs {$rename:{from:to}}
+   - For add_field: set a new nullable field on all docs
+   - For coerce_type: rewrite a small sample (≤10 docs) to new type
+   - Record a schema_changes entry; emit aam.events.schema.change.
+
+4) Observer & Repair
+   - Fingerprint Mongo docs (sample 50), detect deltas, raise tickets; same RAG-Assist + repair policy as Supabase.
+
+============================= PART C — DCL MATERIALIZATION ===========================
+- DCL subscribers are already hooked to canonical topics. Ensure Supabase+Mongo canonical events insert into the same per-tenant materialized tables used by:
+  GET /api/v1/dcl/views/accounts
+  GET /api/v1/dcl/views/opportunities
+- Preserve canonical→ontology rules; low-confidence → extras JSONB. Zero blocking.
+
+========================== PART D — MONITOR INTELLIGENCE ============================
+- Extend monitor metrics to aggregate by source system:
+  GET /api/v1/monitor/metrics → include
+  {
+    "mappings":{"total":N,"autofix_pct":X},
+    "drift":{"last_24h":{"salesforce":n1,"supabase":n2,"mongodb":n3}},
+    "suggestions":{"pending":N,"accepted":N,"rejected":N},
+    "repair":{"test_pass_pct":X,"avg_confidence":Y}
+  }
+- Keep MONITOR_POLLING=false in dev; Manual Refresh updates counts.
+
+============================ PART E — ONE-COMMAND TESTS =============================
+Add npm/yarn scripts (or python scripts) that print EXACT lines.
+
+1) Seed & basic ingest
+   - yarn ingest:seed
+     Steps:
+       a) Ensure seeds in Supabase & Mongo exist (create if empty).
+       b) Emit canonical for 5 latest opportunities across both sources.
+       c) Wait up to 10s for DCL materialization.
+     Output (exact lines):
+       INGEST_SUPABASE: OK items=<n>
+       INGEST_MONGO: OK items=<n>
+       DCL_OPPORTUNITIES_COUNT: <n>
+       INGEST_SMOKE: PASS
+
+2) Supabase drift demo
+   - yarn drift:supabase
+     Steps:
+       a) POST /api/v1/mesh/test/supabase/mutate { "op":"rename_column","table":"opportunities","from":"amount","to":"amount_usd" }
+       b) Observer raises ticket; RAG suggests patch (no auto-apply for rename).
+       c) Call POST /api/v1/mesh/repair/approve { ticket_id:"..." }
+       d) Re-emit one row; confirm /dcl/views/opportunities returns mapped amount again.
+     Output:
+       SUPABASE_DRIFT_EVENT: RAISED ticket_id=<id>
+       SUPABASE_REPAIR: APPLIED ticket_id=<id>
+       SUPABASE_VIEW_RESTORED: YES
+       SUPABASE_DRIFT_DEMO: PASS
+
+3) Mongo drift demo
+   - yarn drift:mongo
+     Steps:
+       a) POST /api/v1/mesh/test/mongo/mutate { "op":"rename_field","collection":"opportunities","from":"amount","to":"amount_usd" }
+       b) Observer ticket; approve as above.
+       c) Re-emit one doc; view shows amount again.
+     Output:
+       MONGO_DRIFT_EVENT: RAISED ticket_id=<id>
+       MONGO_REPAIR: APPLIED ticket_id=<id>
+       MONGO_VIEW_RESTORED: YES
+       MONGO_DRIFT_DEMO: PASS
+
+4) End-to-end proof (supabase→AAM→DCL→RevOps)
+   - yarn e2e:revops:probe
+     Steps:
+       a) Pick the most recent Supabase opportunity id.
+       b) Emit canonical; backoff GET /api/v1/dcl/views/opportunities?opportunity_id=<id>
+       c) Print trace_id and row count.
+     Output:
+       REVOPS_PROBE_SOURCE: supabase
+       REVOPS_PROBE_TRACE_ID: <id>
+       REVOPS_PROBE_VIEW_ROWS: 1
+       REVOPS_PROBE: PASS
+
+============================= PART F — GIT & OUTPUT ================================
+- git add -A
+- git commit -m "feat(aam): supabase+mongo connectors with drift demos; monitor metrics by source"
+- git push
+
+At the end, PRINT ONLY:
+- AOS_BASE: <base-url>/api/v1
+- INGEST_SUPABASE: OK items=<n>
+- INGEST_MONGO: OK items=<n>
+- DCL_OPPORTUNITIES_COUNT: <n>
+- SUPABASE_DRIFT_DEMO: PASS
+- MONGO_DRIFT_DEMO: PASS
+- REVOPS_PROBE: PASS
+- MONITOR_POLLING: false
