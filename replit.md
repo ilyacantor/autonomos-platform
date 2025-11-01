@@ -7,7 +7,7 @@ AutonomOS is a production-ready, multi-tenant SaaS backend system in Python for 
 
 ## Key Documentation
 - **📊 [Architecture Visualizations](./ARCHITECTURE.md)** - Complete Mermaid diagrams of all platform components
-- **🌐 [Interactive Architecture Viewer](/architecture.html)** - Web-based architecture documentation with 10 comprehensive diagrams including 2 executive-level views for business stakeholders (accessible at `/architecture.html` on any deployment URL)
+- **🌐 [Interactive Architecture Viewer](/architecture.html)** - Web-based architecture documentation with 9 comprehensive diagrams. The primary diagram (#1) is the Systems Overview (AOA) with plain-English annotations explaining data sources, event types, AAM intelligence functions, and key junctions (accessible at `/architecture.html` on any deployment URL)
 - **📘 [AAM Full Technical Docs](./aam-hybrid/AAM_FULL_CONTEXT.md)** - Adaptive API Mesh implementation details
 - **🔬 [Functional Probe Guide](./scripts/QUICKSTART.md)** - End-to-end testing for Salesforce → AAM → DCL
 - **📖 [AAM Dashboard Guide](./AAM_DASHBOARD_GUIDE.md)** - Monitor dashboard user guide
@@ -68,5 +68,5 @@ The frontend is a React/TypeScript application with a focus on a clean, minimali
 
 ## Recent Updates
 - **November 2025:** 
-  - Added interactive architecture documentation viewer at `/architecture.html` with 10 comprehensive Mermaid diagrams: 8 technical diagrams (system architecture, data flows, AAM components, middleware stack, database schema, frontend architecture, canonical types, functional probe flows) + 2 executive-level diagrams (executive view, engineer view for AOA). All diagrams use accessible high-contrast colors for optimal readability.
+  - Added interactive architecture documentation viewer at `/architecture.html` with 9 comprehensive Mermaid diagrams. Primary diagram is Systems Overview (AOA) with plain-English annotations explaining what data sources ingest (Accounts, Opportunities, Contacts, Transactions), raw event types (account.created, opportunity.updated, contact.merged), AAM intelligence functions (drift detection, auto-repair, RAG matching), and key architectural junctions (normalization, event store, gateway). All diagrams use accessible high-contrast colors for optimal readability.
   - Implemented Supabase (Postgres) and MongoDB connectors with drift detection, canonical event emission, and self-healing repair capabilities. Added drift mutation endpoints, schema fingerprinting, and 4 functional test scripts for end-to-end validation.

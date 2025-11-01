@@ -222,7 +222,8 @@
         <nav>
             <h3>📋 Quick Navigation</h3>
             <ul>
-                <li><a href="#overview">System Overview</a></li>
+                <li><a href="#engineer-view">Systems Overview (AOA)</a></li>
+                <li><a href="#overview">High-Level Architecture</a></li>
                 <li><a href="#dataflow">Data Flow</a></li>
                 <li><a href="#aam">AAM Components</a></li>
                 <li><a href="#middleware">Middleware Stack</a></li>
@@ -230,15 +231,92 @@
                 <li><a href="#frontend">Frontend Architecture</a></li>
                 <li><a href="#canonical">Canonical Types</a></li>
                 <li><a href="#probe">Functional Probe</a></li>
-                <li><a href="#exec-view">Executive View</a></li>
-                <li><a href="#engineer-view">Engineer View</a></li>
                 <li><a href="#stats">Platform Stats</a></li>
             </ul>
         </nav>
 
-        <!-- Section 1: High-Level Overview -->
+        <!-- Section 1: Systems Overview (Engineer View) -->
+        <div class="diagram-section" id="engineer-view">
+            <h2>1️⃣ Systems Overview: Agentic Orchestration Architecture (AOA)</h2>
+            <p><strong>Definitive Technical Overview:</strong> Bottom-up data flow from external sources through intelligent normalization layers to domain agents. This is the primary architecture diagram showing how all platform components work together.</p>
+            
+            <pre class="mermaid">
+%%{init: {'theme': 'neutral'}}%%
+flowchart TB
+  subgraph Sources["📊 Data Sources Layer<br/>What we ingest: Accounts, Opportunities, Contacts, Transactions, Usage Metrics"]
+    direction LR
+    SF["Salesforce<br/>REST API<br/>CRM Data"]
+    SB["Supabase<br/>PostgreSQL<br/>Product Analytics"]
+    MG["MongoDB<br/>NoSQL<br/>Customer Events"]
+    CS["CSV Files<br/>FileSource<br/>Legacy Systems"]
+  end
+
+  subgraph AAM["🔧 Adaptive API Mesh AAM - Intelligence Layer<br/>Smart normalization with self-healing capabilities"]
+    direction TB
+    CONN["Connectors<br/>Extract raw events from each system<br/>Python, FastAPI"]
+    NORM["Normalization Engine<br/>Transform to canonical schema<br/>YAML Mappings, Pydantic Validation"]
+    INTEL["AAM Intelligence<br/>Drift Detection: Monitor schema changes<br/>Auto-Repair: Fix broken mappings<br/>RAG: Match fields with context"]
+  end
+
+  subgraph DCL["📚 Data Catalog Layer DCL - Unified Ontology<br/>One source of truth for all business entities"]
+    direction TB
+    CANON["Canonical Event Store<br/>Immutable append-only log<br/>PostgreSQL canonical_streams table"]
+    MAT["Materialized Views<br/>Queryable entity tables<br/>DuckDB in-memory SQL"]
+    DCLI["DCL Intelligence<br/>Entity Mapping: Link related records<br/>Join Inference: Auto-detect relationships"]
+  end
+
+  subgraph Gateway["🚪 Light API Gateway<br/>Secure access control and audit trail"]
+    direction TB
+    READ["Read API<br/>GET unified views<br/>JWT Auth, Rate Limits, Caching"]
+    WRITE["Write API<br/>POST agent actions<br/>Audit Logging, Idempotency Checks"]
+  end
+
+  subgraph Agents["🤖 Domain Agents Layer<br/>AI agents that take action on unified data"]
+    direction LR
+    REVOPS["RevOps Pilot<br/>Revenue Intelligence<br/>Deal scoring, pipeline health"]
+    FINOPS["FinOps Pilot<br/>Cost Optimization<br/>Spend anomalies, savings"]
+  end
+
+  SF & SB & MG & CS -->|"Raw Events<br/>account.created, opportunity.updated<br/>contact.merged, transaction.processed"| CONN
+  CONN -->|"Extract and validate"| NORM
+  NORM -->|"Validated Canonical Events<br/>Standardized schema with metadata"| INTEL
+  INTEL -->|"Emit to event store<br/>After drift detection passes"| CANON
+  CANON -->|"Subscribe and process<br/>Stream processing"| MAT
+  MAT -->|"Transform to queryable views<br/>JOIN, AGGREGATE, FILTER"| DCLI
+  DCLI -->|"Expose via REST API<br/>Stable schema guaranteed"| READ
+  READ -->|"Query unified data"| REVOPS
+  READ -->|"Query unified data"| FINOPS
+  REVOPS & FINOPS -->|"Execute Actions<br/>update_deal, flag_anomaly"| WRITE
+  WRITE -->|"Execute via connectors<br/>Write back to sources"| INTEL
+
+  style Sources fill:#FFB6C1,color:#0D1117
+  style AAM fill:#FFD700,color:#0D1117
+  style DCL fill:#90EE90,color:#0D1117
+  style Gateway fill:#E6E6FA,color:#0D1117
+  style Agents fill:#87CEEB,color:#0D1117
+            </pre>
+            
+            <div style="margin-top: 20px; padding: 15px; background-color: rgba(255,255,255,0.05); border-left: 4px solid #FFD700; border-radius: 4px;">
+                <h4 style="margin-top: 0; color: #FFD700;">📖 Plain English Explanation</h4>
+                <ul style="line-height: 1.8;">
+                    <li><strong>Data Sources:</strong> We connect to Salesforce (CRM), Supabase (product analytics), MongoDB (event logs), and CSV files (legacy systems). These provide Accounts, Opportunities, Contacts, Transactions, and Usage Metrics.</li>
+                    <li><strong>Raw Events:</strong> Every change creates an event like <code>account.created</code>, <code>opportunity.updated</code>, or <code>contact.merged</code>. These are messy—different formats, field names, types.</li>
+                    <li><strong>AAM Intelligence:</strong> The Adaptive API Mesh normalizes chaos into order. <em>Drift Detection</em> watches for schema changes (new fields, renamed columns). <em>Auto-Repair</em> fixes broken mappings automatically. <em>RAG</em> uses AI context to match similar fields.</li>
+                    <li><strong>Canonical Events:</strong> After normalization, we store clean, validated events in an append-only log (PostgreSQL). This is immutable truth—once written, never changed.</li>
+                    <li><strong>Materialized Views:</strong> DCL transforms the event log into queryable SQL tables (Accounts, Opportunities, etc.) using DuckDB. Agents query these, not raw sources.</li>
+                    <li><strong>Domain Agents:</strong> AI agents like RevOps Pilot (revenue intelligence) and FinOps Pilot (cost optimization) read unified data and take actions—scoring deals, flagging anomalies, updating records.</li>
+                    <li><strong>Key Junction - Normalization:</strong> This is where chaos becomes order. YAML mappings + Pydantic validation ensure every field is typed, validated, and conforms to canonical schema.</li>
+                    <li><strong>Key Junction - Event Store:</strong> The append-only log is the backbone. It enables time-travel queries, audit trails, and replay-ability. Everything downstream rebuilds from this.</li>
+                    <li><strong>Key Junction - Gateway:</strong> The API gateway ensures security (JWT auth), reliability (rate limits), and accountability (audit logs). Agents can't bypass it.</li>
+                </ul>
+            </div>
+            
+            <p><em>Key Technologies:</em> Python/FastAPI (AAM microservices), PostgreSQL (canonical event store), DuckDB (materialized views), Redis (distributed locking), Pydantic (schema validation), YAML (field mappings), JWT (authentication)</p>
+        </div>
+
+        <!-- Section 2: High-Level Overview -->
         <div class="diagram-section" id="overview">
-            <h2>1️⃣ High-Level System Architecture</h2>
+            <h2>2️⃣ High-Level System Architecture</h2>
             <p>Complete view of AutonomOS showing external systems, frontend layer, API gateway, backend services, data layer, and AI integration.</p>
             <pre class="mermaid">
 graph TB
@@ -700,102 +778,9 @@ sequenceDiagram
             </pre>
         </div>
 
-        <!-- Section 9: Executive View -->
-        <div class="diagram-section" id="exec-view">
-            <h2>9️⃣ Executive View: Platform Layers</h2>
-            <p><strong>For Business Leaders:</strong> Five-layer architecture showing how AutonomOS connects business applications to enterprise systems through intelligent normalization and unified data views.</p>
-            <pre class="mermaid">
-%%{init: {'theme': 'neutral'}}%%
-flowchart TB
-  subgraph ExecView["AutonomOS Executive View"]
-    direction TB
-    A["Business Apps & Domain Agents<br/>RevOps, FinOps, etc"]
-    B["Light API Gateway<br/>Auth, Limits, Audit"]
-    C["Adaptive API Mesh AAM<br/>Normalize, Drift Repair"]
-    D["Data Connectivity Layer DCL<br/>Unified Ontology, Views"]
-    E["Enterprise Systems<br/>Salesforce, Supabase, Mongo, CSV"]
-  end
-
-  A -->|Read Views, Post Intents| B
-  B --> C
-  C --> D
-  E -->|Events and Data| C
-  D -->|Stable Views API| A
-
-  style A fill:#87CEEB,color:#0D1117
-  style B fill:#E6E6FA,color:#0D1117
-  style C fill:#FFD700,color:#0D1117
-  style D fill:#90EE90,color:#0D1117
-  style E fill:#FFB6C1,color:#0D1117
-            </pre>
-            <p><em>Why this works:</em> 5 boxes, verbs on edges. No tech jargon beyond what matters. Shows "front door → normalize → unify → consume."</p>
-        </div>
-
-        <!-- Section 10: Engineer View -->
-        <div class="diagram-section" id="engineer-view">
-            <h2>🔟 Engineer View: Agentic Orchestration Architecture (AOA)</h2>
-            <p><strong>For Engineers:</strong> Bottom-up data flow from sources through intelligent normalization layers to domain agents, with technology stack highlighted.</p>
-            <pre class="mermaid">
-%%{init: {'theme': 'neutral'}}%%
-flowchart TB
-  subgraph Sources["Data Sources Layer"]
-    direction LR
-    SF["Salesforce<br/>REST API"]
-    SB["Supabase<br/>PostgreSQL"]
-    MG["MongoDB<br/>NoSQL"]
-    CS["CSV Files<br/>FileSource"]
-  end
-
-  subgraph AAM["Adaptive API Mesh AAM - Intelligence Layer"]
-    direction TB
-    CONN["Connectors<br/>Python, FastAPI"]
-    NORM["Normalization<br/>YAML Mappings, Pydantic"]
-    INTEL["AAM Intelligence<br/>Schema Observer, Drift Repair, RAG"]
-  end
-
-  subgraph DCL["Data Catalog Layer DCL - Unified Ontology"]
-    direction TB
-    CANON["Canonical Events<br/>PostgreSQL, canonical_streams"]
-    MAT["Materialized Views<br/>DuckDB, SQL"]
-    DCLI["DCL Intelligence<br/>Entity Mapping, Join Inference"]
-  end
-
-  subgraph Gateway["Light API Gateway"]
-    direction TB
-    READ["Read API<br/>GET views, JWT Auth, Rate Limits"]
-    WRITE["Write API<br/>POST actions, Audit, Idempotency"]
-  end
-
-  subgraph Agents["Domain Agents Layer"]
-    direction LR
-    REVOPS["RevOps Pilot<br/>Revenue Intelligence"]
-    FINOPS["FinOps Pilot<br/>Cost Optimization"]
-  end
-
-  SF & SB & MG & CS -->|Raw Events| CONN
-  CONN --> NORM
-  NORM -->|Validated Events| INTEL
-  INTEL -->|Emit| CANON
-  CANON -->|Subscribe| MAT
-  MAT -->|Transform| DCLI
-  DCLI -->|Expose| READ
-  READ --> REVOPS
-  READ --> FINOPS
-  REVOPS & FINOPS -->|Actions| WRITE
-  WRITE -->|Execute| INTEL
-
-  style Sources fill:#FFB6C1,color:#0D1117
-  style AAM fill:#FFD700,color:#0D1117
-  style DCL fill:#90EE90,color:#0D1117
-  style Gateway fill:#E6E6FA,color:#0D1117
-  style Agents fill:#87CEEB,color:#0D1117
-            </pre>
-            <p><em>Key Technologies:</em> Python/FastAPI (AAM), PostgreSQL (canonical streams), DuckDB (DCL views), Redis (locking), Pydantic (validation), YAML (mapping configs)</p>
-        </div>
-
-        <!-- Section 11: Platform Statistics -->
+        <!-- Section 9: Platform Statistics -->
         <div class="diagram-section" id="stats">
-            <h2>1️⃣1️⃣ Platform Statistics & Technology Stack</h2>
+            <h2>9️⃣ Platform Statistics & Technology Stack</h2>
             
             <div class="stats-grid">
                 <div class="stat-card">
