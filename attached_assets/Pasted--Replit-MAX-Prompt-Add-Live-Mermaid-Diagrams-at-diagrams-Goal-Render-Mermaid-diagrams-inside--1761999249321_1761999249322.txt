@@ -1,0 +1,289 @@
+🔧 Replit MAX Prompt — Add Live Mermaid Diagrams at /diagrams
+
+Goal:
+Render Mermaid diagrams inside the existing React/Vite frontend at the route /diagrams, sourced from public/diagrams.md, auto-updating on file changes (HMR). Include an optional script to export all diagrams to SVG for decks.
+
+Assumptions:
+
+Frontend = React + TypeScript + Vite.
+
+Repo already has a src folder with app shell.
+
+If React Router exists, integrate a route. If not, add one with BrowserRouter.
+
+0) Create a working branch and safety net
+
+Create a branch:
+
+git checkout -b feat/live-mermaid-diagrams
+
+Confirm clean working tree:
+
+git status must show no unintended local changes.
+
+If anything fails later, hard-reset to main:
+
+git reset --hard && git checkout main && git branch -D feat/live-mermaid-diagrams
+
+1) Install dependency
+
+Run: npm i mermaid
+
+2) Add source file public/diagrams.md
+
+Create public/diagrams.md (if not present).
+
+If there’s an existing markdown of diagrams in the repo, copy/merge its Mermaid ```mermaid blocks into this file.
+
+Put a minimal header and sample (keep existing content if available):
+
+# High-Level System Architecture
+```mermaid
+flowchart LR
+  Sources[[Data Sources]] -->|APIs/DBs/Files| AAM[Adaptive API Mesh]
+  AAM --> DCL[Data Connectivity Layer]
+  DCL --> AGENTS[Domain Agents]
+  AGENTS --> Outcomes[(Outcomes & Actions)]
+
+
+*(Keep all existing sections/blocks from your current document, do not overwrite.)*
+
+---
+
+## 3) Add the Mermaid Gallery component
+Create `src/components/MermaidGallery.tsx`:
+
+```tsx
+import React, { useEffect, useMemo, useState } from "react";
+import mermaid from "mermaid";
+
+type Section = { title: string; code: string };
+
+const extractMermaidSections = (md: string): Section[] => {
+  const sections: Section[] = [];
+  const codeRe = /```mermaid\s+?([\s\S]*?)```/g;
+  let match: RegExpExecArray | null;
+  while ((match = codeRe.exec(md))) {
+    const start = match.index;
+    const before = md.slice(0, start);
+    const headingMatches = [...before.matchAll(/^(#{1,6})\s+(.*)$/gm)];
+    const lastHeading = headingMatches.length
+      ? headingMatches[headingMatches.length - 1][2].trim()
+      : "Diagram";
+    sections.push({ title: lastHeading, code: match[1].trim() });
+  }
+  return sections;
+};
+
+export default function MermaidGallery({ src = "/diagrams.md" }: { src?: string }) {
+  const [raw, setRaw] = useState<string>("");
+
+  // Load markdown
+  useEffect(() => {
+    let mounted = true;
+    fetch(src, { cache: "no-store" })
+      .then(r => r.text())
+      .then(t => { if (mounted) setRaw(t); });
+    return () => { mounted = false; };
+  }, [src]);
+
+  const sections = useMemo(() => extractMermaidSections(raw), [raw]);
+
+  // Initialize Mermaid whenever sections change
+  useEffect(() => {
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: "dark",
+      securityLevel: "loose",
+      fontFamily: "Inter, system-ui, Arial, sans-serif",
+      sequence: { useMaxWidth: true, wrap: true }
+    });
+    const id = requestAnimationFrame(() => {
+      mermaid.init(undefined, document.querySelectorAll(".mermaid"));
+    });
+    return () => cancelAnimationFrame(id);
+  }, [sections]);
+
+  // Dev HMR re-fetch
+  if (import.meta.hot) {
+    import.meta.hot.on("vite:afterUpdate", () => {
+      fetch(src + `?v=${Date.now()}`, { cache: "no-store" })
+        .then(r => r.text())
+        .then(setRaw)
+        .catch(() => {});
+    });
+  }
+
+  return (
+    <div className="max-w-6xl mx-auto p-4 space-y-6">
+      {sections.map((s, i) => (
+        <section key={i} className="space-y-2">
+          <h2 className="text-xl font-semibold">{i + 1}. {s.title}</h2>
+          <pre className="mermaid">{s.code}</pre>
+        </section>
+      ))}
+      {!sections.length && (
+        <p className="opacity-70">No Mermaid blocks found in {src}.</p>
+      )}
+    </div>
+  );
+}
+
+4) Add a page at /diagrams
+
+Create src/pages/Diagrams.tsx:
+
+import React from "react";
+import MermaidGallery from "@/components/MermaidGallery";
+
+export default function Diagrams() {
+  return (
+    <main className="min-h-screen" style={{ background: "#0b0f14", color: "#e6edf3" }}>
+      <div className="px-6 pt-8">
+        <h1 className="text-2xl font-bold mb-2">AutonomOS – Live Diagrams</h1>
+        <p className="opacity-80 mb-6">
+          Rendered automatically from <code>/public/diagrams.md</code>.
+        </p>
+        <MermaidGallery src="/diagrams.md" />
+      </div>
+    </main>
+  );
+}
+
+5) Wire the route
+If the app already uses React Router:
+
+Open src/main.tsx or src/App.tsx (where routes are defined).
+
+Add this route (adjust imports/structure as needed):
+
+// Example using React Router v6/7 style
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import Diagrams from "@/pages/Diagrams";
+
+// Ensure BrowserRouter wraps the app (if not already)
+<BrowserRouter>
+  <Routes>
+    {/* existing routes */}
+    <Route path="/diagrams" element={<Diagrams />} />
+  </Routes>
+</BrowserRouter>
+
+
+Add an optional nav link in your header to /diagrams.
+
+If no router exists:
+
+Install router and wire up a minimal shell:
+
+npm i react-router-dom
+
+In src/main.tsx, wrap root with <BrowserRouter> and render <Routes> + the /diagrams route above.
+
+6) Optional: Auto-generate a diagram from config (agents/services)
+
+If the platform emits JSON (e.g., public/config/agents.json), add a helper:
+
+Create src/utils/mermaidFromConfig.ts:
+
+export type Agent = { name: string; inputs?: string[]; outputs?: string[] };
+
+export function agentsToMermaid(agents: Agent[]) {
+  const lines = ["flowchart LR"];
+  for (const a of agents) {
+    lines.push(`${a.name}["${a.name}"]`);
+    (a.inputs || []).forEach(i => lines.push(`${i} --> ${a.name}`));
+    (a.outputs || []).forEach(o => lines.push(`${a.name} --> ${o}`));
+  }
+  return lines.join("\n");
+}
+
+
+Enhance MermaidGallery.tsx to fetch and append (below the current fetch):
+
+// AFTER loading diagrams.md, optionally also fetch JSON to append as an extra Mermaid section
+useEffect(() => {
+  const url = "/config/agents.json";
+  fetch(url, { cache: "no-store" })
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      if (!data) return;
+      import("@/utils/mermaidFromConfig").then(({ agentsToMermaid }) => {
+        const code = agentsToMermaid(data);
+        // Append virtual section
+        setRaw(prev => prev + `\n\n# Generated: Agents Graph\n\`\`\`mermaid\n${code}\n\`\`\`\n`);
+      });
+    })
+    .catch(() => {});
+}, []);
+
+
+(Create public/config/agents.json to test. Example:)
+
+[
+  { "name": "FinOps", "inputs": ["Snowflake"], "outputs": ["Dashboards"] },
+  { "name": "RevOps", "inputs": ["Salesforce"], "outputs": ["Alerts"] }
+]
+
+7) Optional: Export all diagrams to SVG for decks
+
+Install CLI:
+
+npm i -D @mermaid-js/mermaid-cli execa
+
+Create tools/export-diagrams.mjs:
+
+import fs from "node:fs";
+import path from "node:path";
+import { execa } from "execa";
+
+const mdPath = path.join(process.cwd(), "public", "diagrams.md");
+const outDir = path.join(process.cwd(), "public", "diagrams_export");
+fs.mkdirSync(outDir, { recursive: true });
+
+const md = fs.readFileSync(mdPath, "utf8");
+const blocks = [...md.matchAll(/```mermaid\s+?([\s\S]*?)```/g)].map(m => m[1].trim());
+
+for (let i = 0; i < blocks.length; i++) {
+  const src = path.join(outDir, `d${i + 1}.mmd`);
+  const out = path.join(outDir, `d${i + 1}.svg`);
+  fs.writeFileSync(src, blocks[i], "utf8");
+  await execa("npx", ["mmdc", "-i", src, "-o", out, "-t", "dark"]);
+}
+console.log(`Exported ${blocks.length} diagrams to ${outDir}`);
+
+
+Add npm script to package.json:
+
+"scripts": {
+  "export:diagrams": "node tools/export-diagrams.mjs"
+}
+
+
+Run when needed: npm run export:diagrams
+
+8) Dev workflow & HMR
+
+Start dev: npm run dev
+
+Open the app → visit /diagrams.
+
+Edit public/diagrams.md; diagrams update automatically.
+
+If the page doesn’t refresh, it still reloads diagrams on navigation or hard refresh.
+
+9) Acceptance tests (must pass)
+
+Rendering: /diagrams shows each Mermaid block with its heading index (1., 2., …).
+
+HMR: Editing public/diagrams.md changes render within 2–3s without restarting dev server.
+
+Dark Theme: Flowcharts, sequence, and ERD render in dark theme without console errors.
+
+No security warnings: No CSP/securityLevel issues in console.
+
+Config-Generated: If public/config/agents.json exists, a final “Generated: Agents Graph” section appears.
+
+Build: npm run build succeeds; npm run preview renders /diagrams.
+
+Export (optional): npm run export:diagrams produces SVGs in public/diagrams_export.
