@@ -230,6 +230,9 @@
                 <li><a href="#frontend">Frontend Architecture</a></li>
                 <li><a href="#canonical">Canonical Types</a></li>
                 <li><a href="#probe">Functional Probe</a></li>
+                <li><a href="#exec-view">Executive View</a></li>
+                <li><a href="#swimlanes">Functional Swimlanes</a></li>
+                <li><a href="#outcomes">Outcomes & KPIs</a></li>
                 <li><a href="#stats">Platform Stats</a></li>
             </ul>
         </nav>
@@ -698,9 +701,107 @@ sequenceDiagram
             </pre>
         </div>
 
-        <!-- Section 9: Platform Statistics -->
+        <!-- Section 9: Executive View -->
+        <div class="diagram-section" id="exec-view">
+            <h2>9️⃣ Executive View: Platform Layers</h2>
+            <p><strong>For Business Leaders:</strong> Five-layer architecture showing how AutonomOS connects business applications to enterprise systems through intelligent normalization and unified data views.</p>
+            <pre class="mermaid">
+%%{init: {'theme': 'neutral'}}%%
+flowchart TB
+  subgraph ExecView["AutonomOS — Executive View"]
+    direction TB
+    A[Business Apps & Domain Agents<br/>(RevOps, FinOps, etc.)]
+    B[Light API Gateway<br/>(Auth, Limits, Audit)]
+    C[Adaptive API Mesh - AAM<br/>(Normalize, Drift-Repair)]
+    D[Data Connectivity Layer - DCL<br/>(Unified Ontology, Views)]
+    E[Enterprise Systems<br/>(Salesforce • Supabase • Mongo • CSV)]
+  end
+
+  A -->|Read Views / Post Intents| B --> C --> D
+  E -->|Events & Data| C
+  D -->|Stable Views /dcl/views/*| A
+
+  style A fill:#87CEEB,color:#0D1117
+  style B fill:#E6E6FA,color:#0D1117
+  style C fill:#FFD700,color:#0D1117
+  style D fill:#90EE90,color:#0D1117
+  style E fill:#FFB6C1,color:#0D1117
+            </pre>
+            <p><em>Why this works:</em> 5 boxes, verbs on edges. No tech jargon beyond what matters. Shows "front door → normalize → unify → consume."</p>
+        </div>
+
+        <!-- Section 10: Functional Swimlanes -->
+        <div class="diagram-section" id="swimlanes">
+            <h2>🔟 Functional Swimlanes: Ownership & Responsibilities</h2>
+            <p><strong>For Stakeholders:</strong> Who does what across business, control, intelligence, and data source layers.</p>
+            <pre class="mermaid">
+%%{init: {'theme': 'neutral'}}%%
+flowchart LR
+  subgraph Lane1["Business"]
+    U1[Leaders & Users]
+    U2[Agents - RevOps/FinOps]
+  end
+  subgraph Lane2["Control"]
+    G[API Gateway<br/>Policy • Audit • SLAs]
+    CP[Control Plane<br/>Agent Registry • Intents Router]
+  end
+  subgraph Lane3["Data & Intelligence"]
+    AAM[AAM<br/>Connectors • Normalization • Drift-Repair]
+    DCL[DCL<br/>Unified Ontology • Read Models]
+  end
+  subgraph Lane4["Sources"]
+    S1[Salesforce]
+    S2[Supabase - Postgres]
+    S3[MongoDB]
+    S4[CSV/Legacy]
+  end
+
+  U1 --> U2
+  U2 -->|Views & Intents| G --> CP
+  CP --> AAM --> DCL --> U2
+  S1 & S2 & S3 & S4 --> AAM
+
+  style U2 fill:#87CEEB,color:#0D1117
+  style G fill:#E6E6FA,color:#0D1117
+  style AAM fill:#FFD700,color:#0D1117
+  style DCL fill:#90EE90,color:#0D1117
+  style S1 fill:#FFB6C1,color:#0D1117
+  style S2 fill:#FFB6C1,color:#0D1117
+  style S3 fill:#FFB6C1,color:#0D1117
+  style S4 fill:#FFB6C1,color:#0D1117
+            </pre>
+            <p><em>Use when:</em> You want to highlight ownership and responsibilities by function.</p>
+        </div>
+
+        <!-- Section 11: Outcomes & KPIs -->
+        <div class="diagram-section" id="outcomes">
+            <h2>1️⃣1️⃣ Outcomes & KPIs: Why It Matters</h2>
+            <p><strong>For Executives:</strong> Business value and measurable outcomes delivered by the platform.</p>
+            <pre class="mermaid">
+%%{init: {'theme': 'neutral'}}%%
+flowchart TB
+  O1[Integrate Any System<br/>Days → Minutes]
+  O2[Trustworthy Data<br/>Unified Ontology]
+  O3[Faster Decisions<br/>Agent Actions w/ Audit]
+  O4[Governance & Risk<br/>Drift Detection • HITL]
+  O5[Lower Cost to Change<br/>No Rebuilds on Breakage]
+
+  O1 --> O2 --> O3
+  O2 --> O4
+  O3 --> O5
+
+  style O1 fill:#87CEEB,color:#0D1117
+  style O2 fill:#90EE90,color:#0D1117
+  style O3 fill:#FFD700,color:#0D1117
+  style O4 fill:#FFB6C1,color:#0D1117
+  style O5 fill:#E6E6FA,color:#0D1117
+            </pre>
+            <p><em>Use when:</em> You're pitching benefits, not architecture. Focus on outcomes over components.</p>
+        </div>
+
+        <!-- Section 12: Platform Statistics -->
         <div class="diagram-section" id="stats">
-            <h2>9️⃣ Platform Statistics & Technology Stack</h2>
+            <h2>1️⃣2️⃣ Platform Statistics & Technology Stack</h2>
             
             <div class="stats-grid">
                 <div class="stat-card">
