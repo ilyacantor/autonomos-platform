@@ -31,5 +31,5 @@ trap "if [ -n \"$WORKER_PID\" ] && kill -0 $WORKER_PID 2>/dev/null; then kill $W
 echo "Starting FastAPI server..."
 export DEV_DEBUG=true
 export FEATURE_USE_FILESOURCE=true
-export REQUIRED_SOURCES=filesource
+export REQUIRED_SOURCES=salesforce,supabase,mongodb,filesource
 exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-5000} --proxy-headers

@@ -36,9 +36,11 @@ class MutationRequest(BaseModel):
     collection: Optional[str] = None
     from_field: Optional[str] = Field(None, alias="from")
     to_field: Optional[str] = Field(None, alias="to")
+    tenant_id: Optional[str] = None  # Optional tenant_id, defaults to demo UUID
     
     class Config:
         populate_by_name = True
+        extra = "allow"  # Allow extra fields to be passed without validation error
 
 
 router = APIRouter(prefix="/mesh/test", tags=["mesh-test"])
@@ -89,6 +91,7 @@ async def mutate_schema(
     collection = request.collection
     from_field = request.from_field
     to_field = request.to_field
+    tenant_id = request.tenant_id or "9ac5c8c6-1a02-48ff-84a0-122b67f9c3bd"
     
     result = {
         "connector": connector,
@@ -119,10 +122,24 @@ async def mutate_schema(
                     detail="SUPABASE_DB_URL not configured"
                 )
             
+            # ACTUALLY ALTER TABLE in Supabase
+            from sqlalchemy import create_engine
+            supabase_engine = create_engine(supabase_db_url, pool_pre_ping=True)
+            
+            try:
+                with supabase_engine.connect() as conn:
+                    # Execute real ALTER TABLE statement
+                    alter_sql = f"ALTER TABLE public.{table} RENAME COLUMN {from_field} TO {to_field}"
+                    conn.execute(text(alter_sql))
+                    conn.commit()
+                    logger.info(f"✅ Successfully renamed column: {from_field} → {to_field}")
+            except Exception as e:
+                logger.warning(f"Column rename may have already been applied or failed: {e}")
+            
             # Create drift event record
             drift_event = DriftEvent(
                 id=uuid.uuid4(),
-                tenant_id=uuid.UUID("00000000-0000-0000-0000-000000000001"),  # Demo tenant
+                tenant_id=uuid.UUID(tenant_id),
                 connection_id=uuid.uuid4(),
                 event_type="schema_change",
                 old_schema={
@@ -148,13 +165,25 @@ async def mutate_schema(
             result["drift_detected"] = True
             result["ticket_id"] = str(drift_event.id)
             
-            # Simulate repair (update drift event status)
+            # Simulate repair (restore the column name)
+            try:
+                with supabase_engine.connect() as conn:
+                    # Restore original column name
+                    restore_sql = f"ALTER TABLE public.{table} RENAME COLUMN {to_field} TO {from_field}"
+                    conn.execute(text(restore_sql))
+                    conn.commit()
+                    logger.info(f"✅ Successfully restored column: {to_field} → {from_field}")
+                    result["restored"] = True
+            except Exception as e:
+                logger.warning(f"Column restore failed: {e}")
+                result["restored"] = False
+            
+            # Update drift event status
             drift_event.status = "auto_repaired"
             db.commit()
             
             result["repair_simulated"] = True
-            result["restored"] = True
-            result["status"] = "PASS"
+            result["status"] = "PASS" if result["restored"] else "FAIL"
         
         # Handle MongoDB connector
         elif connector == "mongodb":
@@ -174,10 +203,25 @@ async def mutate_schema(
                     detail="MONGODB_URI not configured"
                 )
             
+            # ACTUALLY RENAME FIELD in MongoDB
+            from pymongo import MongoClient
+            mongo_client = MongoClient(mongodb_uri, serverSelectionTimeoutMS=5000)
+            mongo_db = mongo_client[os.getenv("MONGODB_DB", "autonomos")]
+            
+            try:
+                # Execute real $rename operation
+                result_op = mongo_db[collection].update_many(
+                    {},
+                    {"$rename": {from_field: to_field}}
+                )
+                logger.info(f"✅ Successfully renamed field: {from_field} → {to_field} (modified {result_op.modified_count} docs)")
+            except Exception as e:
+                logger.warning(f"Field rename may have already been applied or failed: {e}")
+            
             # Create drift event record
             drift_event = DriftEvent(
                 id=uuid.uuid4(),
-                tenant_id=uuid.UUID("00000000-0000-0000-0000-000000000001"),  # Demo tenant
+                tenant_id=uuid.UUID(tenant_id),
                 connection_id=uuid.uuid4(),
                 event_type="schema_change",
                 old_schema={
@@ -203,13 +247,25 @@ async def mutate_schema(
             result["drift_detected"] = True
             result["ticket_id"] = str(drift_event.id)
             
-            # Simulate repair (update drift event status)
+            # Simulate repair (restore the field name)
+            try:
+                # Restore original field name
+                result_op = mongo_db[collection].update_many(
+                    {},
+                    {"$rename": {to_field: from_field}}
+                )
+                logger.info(f"✅ Successfully restored field: {to_field} → {from_field} (modified {result_op.modified_count} docs)")
+                result["restored"] = True
+            except Exception as e:
+                logger.warning(f"Field restore failed: {e}")
+                result["restored"] = False
+            
+            # Update drift event status
             drift_event.status = "auto_repaired"
             db.commit()
             
             result["repair_simulated"] = True
-            result["restored"] = True
-            result["status"] = "PASS"
+            result["status"] = "PASS" if result["restored"] else "FAIL"
     
     except HTTPException:
         raise

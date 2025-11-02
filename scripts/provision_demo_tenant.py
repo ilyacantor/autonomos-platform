@@ -22,6 +22,7 @@ from app import models
 from app.security import get_password_hash, create_access_token
 
 # Demo credentials
+DEMO_TENANT_UUID = "9ac5c8c6-1a02-48ff-84a0-122b67f9c3bd"
 DEMO_TENANT_NAME = "demo-corp"
 DEMO_USER_EMAIL = "demo@autonomos.dev"
 DEMO_USER_PASSWORD = "demo-password-2024"
@@ -31,18 +32,33 @@ def provision_demo_tenant():
     db = next(get_db())
     
     try:
-        # 1. Check if demo tenant already exists
+        # 1. Check if demo tenant already exists (by UUID or by name)
         existing_tenant = db.query(models.Tenant).filter(
-            models.Tenant.name == DEMO_TENANT_NAME
+            (models.Tenant.id == uuid.UUID(DEMO_TENANT_UUID)) | 
+            (models.Tenant.name == DEMO_TENANT_NAME)
         ).first()
         
         if existing_tenant:
             print(f"✅ Demo tenant already exists: {existing_tenant.id}")
-            tenant = existing_tenant
+            # Update to correct UUID if needed
+            if str(existing_tenant.id) != DEMO_TENANT_UUID:
+                print(f"⚠️  Updating tenant UUID from {existing_tenant.id} to {DEMO_TENANT_UUID}")
+                # Delete old and create new with correct UUID
+                db.delete(existing_tenant)
+                tenant = models.Tenant(
+                    id=uuid.UUID(DEMO_TENANT_UUID),
+                    name=DEMO_TENANT_NAME
+                )
+                db.add(tenant)
+                db.commit()
+                db.refresh(tenant)
+                print(f"✅ Created demo tenant with correct UUID: {tenant.id}")
+            else:
+                tenant = existing_tenant
         else:
-            # Create new demo tenant
+            # Create new demo tenant with specific UUID
             tenant = models.Tenant(
-                id=uuid.uuid4(),
+                id=uuid.UUID(DEMO_TENANT_UUID),
                 name=DEMO_TENANT_NAME
             )
             db.add(tenant)
