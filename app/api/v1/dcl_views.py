@@ -4,7 +4,7 @@ Provides read access to materialized canonical data
 """
 import logging
 from typing import Optional
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from app.database import get_db
@@ -18,9 +18,10 @@ router = APIRouter()
 
 @router.get("/accounts")
 async def get_accounts(
-    tenant_id: str = Query("demo-tenant", description="Tenant identifier"),
+    request: Request,
     limit: int = Query(100, ge=1, le=1000, description="Max records to return"),
     offset: int = Query(0, ge=0, description="Number of records to skip"),
+    tenant_id: Optional[str] = Query(None, description="Tenant identifier (overrides auth)"),
     db: Session = Depends(get_db)
 ):
     """
@@ -29,15 +30,18 @@ async def get_accounts(
     Returns paginated list of canonical accounts from materialized table
     """
     try:
+        # Get tenant_id from auth middleware or fallback to query param
+        actual_tenant_id = getattr(request.state, 'tenant_id', None) or tenant_id or "demo-tenant"
+        
         # Process any pending canonical streams first
         try:
-            process_canonical_streams(db, tenant_id, limit=1000)
+            process_canonical_streams(db, actual_tenant_id, limit=1000)
         except Exception as e:
             logger.warning(f"Failed to process canonical streams: {e}")
         
         # Query materialized accounts
         query = db.query(MaterializedAccount).filter(
-            MaterializedAccount.tenant_id == tenant_id
+            MaterializedAccount.tenant_id == actual_tenant_id
         ).order_by(desc(MaterializedAccount.synced_at))
         
         total = query.count()
@@ -85,9 +89,10 @@ async def get_accounts(
 
 @router.get("/opportunities")
 async def get_opportunities(
-    tenant_id: str = Query("demo-tenant", description="Tenant identifier"),
+    request: Request,
     limit: int = Query(100, ge=1, le=1000, description="Max records to return"),
     offset: int = Query(0, ge=0, description="Number of records to skip"),
+    tenant_id: Optional[str] = Query(None, description="Tenant identifier (overrides auth)"),
     db: Session = Depends(get_db)
 ):
     """
@@ -96,15 +101,18 @@ async def get_opportunities(
     Returns paginated list of canonical opportunities from materialized table
     """
     try:
+        # Get tenant_id from auth middleware or fallback to query param
+        actual_tenant_id = getattr(request.state, 'tenant_id', None) or tenant_id or "demo-tenant"
+        
         # Process any pending canonical streams first
         try:
-            process_canonical_streams(db, tenant_id, limit=1000)
+            process_canonical_streams(db, actual_tenant_id, limit=1000)
         except Exception as e:
             logger.warning(f"Failed to process canonical streams: {e}")
         
         # Query materialized opportunities
         query = db.query(MaterializedOpportunity).filter(
-            MaterializedOpportunity.tenant_id == tenant_id
+            MaterializedOpportunity.tenant_id == actual_tenant_id
         ).order_by(desc(MaterializedOpportunity.synced_at))
         
         total = query.count()
