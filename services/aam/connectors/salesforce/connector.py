@@ -24,25 +24,59 @@ class SalesforceConnector:
     Salesforce REST API connector for AAM
     
     Features:
-    - OAuth 2.0 authentication
+    - OAuth 2.0 authentication with refresh token support
     - REST API queries for Opportunities
     - Automatic normalization to canonical format
     - Event emission to canonical_streams table
+    - Auto-refresh on 401 errors
     """
     
     def __init__(self, db: Session, tenant_id: str = "demo-tenant"):
+        from services.aam.connectors.salesforce.oauth_refresh import get_access_token
+        
         self.db = db
         self.tenant_id = tenant_id
-        self.instance_url = os.getenv("SALESFORCE_INSTANCE_URL", "")
-        self.access_token = os.getenv("SALESFORCE_ACCESS_TOKEN", "")
+        self.instance_url = os.getenv("SALESFORCE_INSTANCE_URL", "https://login.salesforce.com")
         self.api_version = "v59.0"
         
+        # OAuth credentials
+        self.client_id = os.getenv("SALESFORCE_CLIENT_ID")
+        self.client_secret = os.getenv("SALESFORCE_CLIENT_SECRET")
+        self.refresh_token = os.getenv("SALESFORCE_REFRESH_TOKEN")
+        direct_token = os.getenv("SALESFORCE_ACCESS_TOKEN")
+        
+        # Get access token using OAuth refresh or direct token
+        self.access_token = get_access_token(
+            client_id=self.client_id,
+            client_secret=self.client_secret,
+            refresh_token=self.refresh_token,
+            direct_access_token=direct_token
+        )
+        
         if not self.access_token:
-            logger.warning("SALESFORCE_ACCESS_TOKEN not set - connector will not be able to fetch live data")
+            logger.warning("SALESFORCE credentials not configured - set either ACCESS_TOKEN or (CLIENT_ID + CLIENT_SECRET + REFRESH_TOKEN)")
+    
+    def _refresh_token_if_needed(self):
+        """Refresh access token if using OAuth refresh flow"""
+        from services.aam.connectors.salesforce.oauth_refresh import get_access_token
+        
+        if self.refresh_token and self.client_id and self.client_secret:
+            new_token = get_access_token(
+                client_id=self.client_id,
+                client_secret=self.client_secret,
+                refresh_token=self.refresh_token,
+                direct_access_token=None
+            )
+            if new_token:
+                self.access_token = new_token
+                logger.info("Access token refreshed successfully")
+                return True
+        return False
     
     async def get_latest_opportunity(self) -> Optional[Dict[str, Any]]:
         """
         Fetch the most recent Salesforce Opportunity using REST API
+        Auto-refreshes token on 401 errors
         
         Returns:
             Dict with opportunity data or None if not available
@@ -70,6 +104,15 @@ class SalesforceConnector:
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.get(url, headers=headers, params=params, timeout=30.0)
+                
+                # Handle 401 - try to refresh token
+                if response.status_code == 401:
+                    logger.warning("Received 401, attempting to refresh token")
+                    if self._refresh_token_if_needed():
+                        # Retry with new token
+                        headers["Authorization"] = f"Bearer {self.access_token}"
+                        response = await client.get(url, headers=headers, params=params, timeout=30.0)
+                
                 response.raise_for_status()
                 
                 data = response.json()

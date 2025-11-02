@@ -70,11 +70,14 @@ async def get_source_status(db: Session = Depends(get_db)):
     
     # Query canonical_streams for last emitted_at per source_system
     try:
+        from sqlalchemy import text
         for source_name in connectors.keys():
             # Query for most recent canonical stream for this source
+            # Use JSON ->> operator with raw SQL (source column is JSON type)
             result = (
                 db.query(func.max(CanonicalStream.emitted_at))
-                .filter(CanonicalStream.source['system'].astext == source_name)
+                .filter(text(f"source->>'system' = :source_val"))
+                .params(source_val=source_name)
                 .scalar()
             )
             
@@ -128,9 +131,10 @@ async def get_last_canonical_events(
     # Query the canonical_streams table for the last N events
     query = db.query(CanonicalStream).filter(CanonicalStream.entity == entity)
     
-    # Filter by source if provided
+    # Filter by source if provided (use JSON ->> operator with raw SQL)
     if source:
-        query = query.filter(CanonicalStream.source['system'].astext == source)
+        from sqlalchemy import text
+        query = query.filter(text(f"source->>'system' = :source_val")).params(source_val=source)
     
     events = query.order_by(desc(CanonicalStream.emitted_at)).limit(limit).all()
     

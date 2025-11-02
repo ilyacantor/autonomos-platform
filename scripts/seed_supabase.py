@@ -28,18 +28,38 @@ def seed_supabase():
         print("Supabase Canonical Event Primer")
         print("=" * 60)
         
-        # Check if SUPABASE_DB_URL is set
-        if not os.getenv("SUPABASE_DB_URL"):
+        # Check if SUPABASE_DB_URL is set and valid
+        supabase_url = os.getenv("SUPABASE_DB_URL")
+        if not supabase_url:
             print("⚠️  SUPABASE_DB_URL not set - skipping")
+            print("SUPABASE_URL_INVALID: Please provide real URL")
             return False
+        
+        # Validate URL doesn't contain placeholder values
+        if "xxx" in supabase_url or "<" in supabase_url or ">" in supabase_url:
+            print("⚠️  SUPABASE_DB_URL contains invalid placeholder values")
+            print("SUPABASE_URL_INVALID: Please provide real URL")
+            return False
+        
+        print("✅ SUPABASE_DB_URL is valid")
         
         connector = SupabaseConnector(db=db, tenant_id=DEMO_TENANT_UUID)
         
         if not connector.engine:
             print("❌ Failed to connect to Supabase")
+            print("SUPABASE_URL_INVALID: Connection failed")
             return False
         
-        print("✅ Connected to Supabase")
+        # Test connection with SELECT 1
+        from sqlalchemy import text
+        try:
+            with connector.engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            print("✅ Connected to Supabase - connection test passed")
+        except Exception as e:
+            print(f"❌ Connection test failed: {e}")
+            print("SUPABASE_URL_INVALID: Connection test failed")
+            return False
         
         # Seed data (creates tables and inserts demo data)
         print("\n📝 Seeding Supabase tables...")
@@ -52,7 +72,6 @@ def seed_supabase():
         total_emitted = 0
         
         # Fetch and emit accounts
-        from sqlalchemy import text
         with connector.engine.connect() as conn:
             result = conn.execute(text(f"SELECT * FROM {connector.schema}.accounts"))
             accounts = [dict(row._mapping) for row in result]

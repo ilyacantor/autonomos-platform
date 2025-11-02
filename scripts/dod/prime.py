@@ -52,12 +52,14 @@ def run_seed_script(script_name):
 
 def verify_canonical_streams(source_name):
     """Verify that canonical_streams has data for a given source"""
+    from sqlalchemy import text
     db = next(get_db())
     
     try:
+        # Use JSON ->> operator with raw SQL (source column is JSON type)
         count = db.query(CanonicalStream).filter(
-            CanonicalStream.source['system'].astext == source_name
-        ).count()
+            text(f"source->>'system' = :source_val")
+        ).params(source_val=source_name).count()
         
         print(f"   📊 {source_name}: {count} records in canonical_streams")
         return count > 0

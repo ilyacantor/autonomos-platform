@@ -35,7 +35,7 @@ def seed_mongodb():
         
         connector = MongoDBConnector(db=db, tenant_id=DEMO_TENANT_UUID)
         
-        if not connector.mongo_db:
+        if connector.mongo_db is None:
             print("❌ Failed to connect to MongoDB")
             return False
         

@@ -22,11 +22,8 @@ from app.models import CanonicalStream
 DEMO_TENANT_UUID = "9ac5c8c6-1a02-48ff-84a0-122b67f9c3bd"
 
 
-async def fetch_salesforce_opportunities():
+async def fetch_salesforce_opportunities(access_token, instance_url):
     """Fetch 5 most recent opportunities from Salesforce"""
-    instance_url = os.getenv("SALESFORCE_INSTANCE_URL", "")
-    access_token = os.getenv("SALESFORCE_ACCESS_TOKEN", "")
-    
     if not access_token or not instance_url:
         print("❌ SALESFORCE credentials not configured")
         return []
@@ -85,6 +82,8 @@ def normalize_opportunity(sf_opportunity):
 
 async def seed_salesforce_async():
     """Async version of seed_salesforce"""
+    from services.aam.connectors.salesforce.oauth_refresh import get_access_token
+    
     db = next(get_db())
     
     try:
@@ -92,16 +91,32 @@ async def seed_salesforce_async():
         print("Salesforce Canonical Event Primer")
         print("=" * 60)
         
-        # Check if Salesforce credentials are set
-        if not os.getenv("SALESFORCE_ACCESS_TOKEN"):
-            print("⚠️  SALESFORCE_ACCESS_TOKEN not set - skipping")
+        # Get access token - try OAuth refresh first, fall back to direct token
+        client_id = os.getenv("SALESFORCE_CLIENT_ID")
+        client_secret = os.getenv("SALESFORCE_CLIENT_SECRET")
+        refresh_token = os.getenv("SALESFORCE_REFRESH_TOKEN")
+        direct_token = os.getenv("SALESFORCE_ACCESS_TOKEN")
+        instance_url = os.getenv("SALESFORCE_INSTANCE_URL", "https://login.salesforce.com")
+        
+        # Get access token using OAuth refresh or direct token
+        access_token = get_access_token(
+            client_id=client_id,
+            client_secret=client_secret,
+            refresh_token=refresh_token,
+            direct_access_token=direct_token
+        )
+        
+        if not access_token:
+            print("⚠️  SALESFORCE credentials not configured")
+            print("    Set either SALESFORCE_ACCESS_TOKEN or")
+            print("    SALESFORCE_CLIENT_ID + SALESFORCE_CLIENT_SECRET + SALESFORCE_REFRESH_TOKEN")
             return False
         
-        print("✅ Salesforce credentials configured")
+        print("✅ Salesforce credentials configured (OAuth refresh enabled)" if refresh_token else "✅ Salesforce credentials configured (direct token)")
         
         # Fetch opportunities from Salesforce
         print("\n📤 Fetching opportunities from Salesforce...")
-        opportunities = await fetch_salesforce_opportunities()
+        opportunities = await fetch_salesforce_opportunities(access_token, instance_url)
         
         if not opportunities:
             print("⚠️  No opportunities fetched from Salesforce")
