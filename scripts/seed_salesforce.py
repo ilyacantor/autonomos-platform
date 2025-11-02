@@ -31,8 +31,9 @@ async def fetch_salesforce_opportunities(access_token, instance_url):
     api_version = "v59.0"
     
     # SOQL query to fetch 5 most recent opportunities with Account data
+    # Note: CurrencyIsoCode removed (requires multi-currency feature)
     soql = (
-        "SELECT Id, AccountId, Account.Name, Name, StageName, Amount, CurrencyIsoCode, "
+        "SELECT Id, AccountId, Account.Name, Name, StageName, Amount, "
         "CloseDate, OwnerId, Probability, LastModifiedDate "
         "FROM Opportunity "
         "ORDER BY LastModifiedDate DESC "
@@ -82,7 +83,7 @@ def normalize_opportunity(sf_opportunity):
 
 async def seed_salesforce_async():
     """Async version of seed_salesforce"""
-    from services.aam.connectors.salesforce.oauth_refresh import get_access_token
+    from services.aam.connectors.salesforce.oauth_refresh import get_access_token_and_instance
     
     db = next(get_db())
     
@@ -96,23 +97,25 @@ async def seed_salesforce_async():
         client_secret = os.getenv("SALESFORCE_CLIENT_SECRET")
         refresh_token = os.getenv("SALESFORCE_REFRESH_TOKEN")
         direct_token = os.getenv("SALESFORCE_ACCESS_TOKEN")
-        instance_url = os.getenv("SALESFORCE_INSTANCE_URL", "https://login.salesforce.com")
+        direct_instance_url = os.getenv("SALESFORCE_INSTANCE_URL")
         
-        # Get access token using OAuth refresh or direct token
-        access_token = get_access_token(
+        # Get access token and instance URL using OAuth refresh or direct token
+        access_token, instance_url = get_access_token_and_instance(
             client_id=client_id,
             client_secret=client_secret,
             refresh_token=refresh_token,
-            direct_access_token=direct_token
+            direct_access_token=direct_token,
+            direct_instance_url=direct_instance_url
         )
         
-        if not access_token:
+        if not access_token or not instance_url:
             print("⚠️  SALESFORCE credentials not configured")
             print("    Set either SALESFORCE_ACCESS_TOKEN or")
             print("    SALESFORCE_CLIENT_ID + SALESFORCE_CLIENT_SECRET + SALESFORCE_REFRESH_TOKEN")
             return False
         
         print("✅ Salesforce credentials configured (OAuth refresh enabled)" if refresh_token else "✅ Salesforce credentials configured (direct token)")
+        print(f"✅ Instance URL: {instance_url}")
         
         # Fetch opportunities from Salesforce
         print("\n📤 Fetching opportunities from Salesforce...")

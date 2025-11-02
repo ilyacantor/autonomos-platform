@@ -139,3 +139,38 @@ def get_access_token(
             return None
     
     return None
+
+
+def get_access_token_and_instance(
+    client_id: Optional[str] = None,
+    client_secret: Optional[str] = None,
+    refresh_token: Optional[str] = None,
+    direct_access_token: Optional[str] = None,
+    direct_instance_url: Optional[str] = None
+) -> tuple[Optional[str], Optional[str]]:
+    """
+    Get access token and instance URL - either from direct token or via refresh flow
+    
+    Args:
+        client_id: Salesforce Client ID (for refresh flow)
+        client_secret: Salesforce Client Secret (for refresh flow)
+        refresh_token: Salesforce refresh token (for refresh flow)
+        direct_access_token: Direct access token (if available)
+        direct_instance_url: Direct instance URL (if available)
+    
+    Returns:
+        Tuple of (access_token, instance_url) or (None, None) if unavailable
+    """
+    # If direct access token provided, use it
+    if direct_access_token:
+        return (direct_access_token, direct_instance_url or "https://login.salesforce.com")
+    
+    # Otherwise, use refresh flow
+    if client_id and client_secret and refresh_token:
+        try:
+            token_data = refresh_access_token(client_id, client_secret, refresh_token)
+            return (token_data.get("access_token"), token_data.get("instance_url"))
+        except Exception:
+            return (None, None)
+    
+    return (None, None)
