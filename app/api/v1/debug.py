@@ -44,7 +44,10 @@ async def get_source_status(db: Session = Depends(get_db)):
     # Define connectors and their configuration checks
     connectors = {
         "salesforce": {
-            "configured": bool(os.getenv("SALESFORCE_ACCESS_TOKEN") and os.getenv("SALESFORCE_INSTANCE_URL")),
+            "configured": bool(
+                (os.getenv("SALESFORCE_ACCESS_TOKEN") and os.getenv("SALESFORCE_INSTANCE_URL")) or
+                (os.getenv("SALESFORCE_CLIENT_ID") and os.getenv("SALESFORCE_CLIENT_SECRET") and os.getenv("SALESFORCE_REFRESH_TOKEN"))
+            ),
             "last_ingest_at": None,
             "last_canonical_at": None
         },
