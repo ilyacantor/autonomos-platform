@@ -11,6 +11,7 @@ import FAQPage from './components/FAQPage';
 import LegacyDCLUI from './components/LegacyDCLUI';
 import AuthModal from './components/AuthModal';
 import AAMDashboard from './components/AAMDashboard';
+import LiveFlow from './components/monitor/LiveFlow';
 
 function AppContent() {
   const [currentPage, setCurrentPage] = useState('dashboard');
@@ -55,6 +56,8 @@ function AppContent() {
         return <OntologyPage />;
       case 'aam-monitor':
         return <AAMDashboard />;
+      case 'live-flow':
+        return <LiveFlow />;
       case 'faq':
         return <FAQPage />;
       default:

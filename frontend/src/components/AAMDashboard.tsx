@@ -15,9 +15,11 @@ import {
   RefreshCw,
   Map,
   GitMerge,
-  Target
+  Target,
+  BarChart3
 } from 'lucide-react';
 import { API_CONFIG } from '../config/api';
+import LiveFlow from './monitor/LiveFlow';
 
 interface ServiceStatus {
   name: string;
@@ -82,6 +84,7 @@ interface IntelligenceRepairData {
 }
 
 export default function AAMDashboard() {
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'live-flow'>('dashboard');
   const [services, setServices] = useState<ServiceStatus[]>([]);
   const [metrics, setMetrics] = useState<AAMMetrics | null>(null);
   const [connections, setConnections] = useState<AAMConnection[]>([]);
@@ -249,7 +252,7 @@ export default function AAMDashboard() {
     return `${minutes}m ${remainingSeconds.toFixed(0)}s`;
   };
 
-  if (loading && !metrics) {
+  if (loading && !metrics && activeTab === 'dashboard') {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
@@ -262,28 +265,67 @@ export default function AAMDashboard() {
 
   return (
     <div className="space-y-6 pb-8">
-      {/* Header */}
+      {/* Header with Tabs */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-white mb-2">AAM Monitoring Dashboard</h1>
+        <div className="flex-1">
+          <h1 className="text-3xl font-bold text-white mb-2">AAM Monitoring</h1>
           <p className="text-gray-400">
             Real-time monitoring of Adaptive API Mesh services and connections
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={fetchAllData}
-            disabled={loading}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 text-white rounded-lg transition-colors"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            Manual Refresh
-          </button>
-          <div className="text-sm text-gray-500">
-            Manual refresh required
+        {activeTab === 'dashboard' && (
+          <div className="flex items-center gap-3">
+            <button
+              onClick={fetchAllData}
+              disabled={loading}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 text-white rounded-lg transition-colors"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              Manual Refresh
+            </button>
+            <div className="text-sm text-gray-500">
+              Manual refresh required
+            </div>
           </div>
-        </div>
+        )}
       </div>
+
+      {/* Tabs Navigation */}
+      <div className="flex items-center gap-2 border-b border-gray-800">
+        <button
+          onClick={() => setActiveTab('dashboard')}
+          className={`flex items-center gap-2 px-4 py-3 font-medium transition-colors border-b-2 ${
+            activeTab === 'dashboard'
+              ? 'text-blue-400 border-blue-400'
+              : 'text-gray-400 border-transparent hover:text-gray-300'
+          }`}
+        >
+          <BarChart3 className="w-4 h-4" />
+          Dashboard
+        </button>
+        <button
+          onClick={() => setActiveTab('live-flow')}
+          className={`flex items-center gap-2 px-4 py-3 font-medium transition-colors border-b-2 ${
+            activeTab === 'live-flow'
+              ? 'text-blue-400 border-blue-400'
+              : 'text-gray-400 border-transparent hover:text-gray-300'
+          }`}
+        >
+          <Activity className="w-4 h-4" />
+          Live Flow
+          <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
+            beta
+          </span>
+        </button>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'live-flow' ? (
+        <div className="h-[calc(100vh-240px)]">
+          <LiveFlow />
+        </div>
+      ) : (
+        <div>
 
       {/* Service Status Panel */}
       <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
@@ -600,6 +642,8 @@ export default function AAMDashboard() {
       {metrics?.data_source && (
         <div className="text-center text-xs text-gray-600">
           Data source: {metrics.data_source} • Last updated: {formatTimestamp(metrics.timestamp)}
+        </div>
+      )}
         </div>
       )}
     </div>

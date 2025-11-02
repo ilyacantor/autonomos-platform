@@ -52,6 +52,46 @@ async def tenant_auth_middleware(request: Request, call_next: Callable):
     if any(request.url.path.startswith(path) for path in public_paths + static_prefixes):
         return await call_next(request)
     
+    # Special handling for SSE endpoint - authenticate via query token
+    # EventSource cannot send Authorization headers, so we use query params
+    if request.url.path == "/api/v1/events/stream":
+        token = request.query_params.get("token")
+        
+        if not token:
+            return JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={"detail": "Missing token query parameter"}
+            )
+        
+        try:
+            payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+            
+            request.state.tenant_id = payload.get("tenant_id")
+            request.state.agent_id = payload.get("agent_id")
+            request.state.scopes = payload.get("scopes", [])
+            request.state.user_id = payload.get("sub")
+            
+            if not request.state.tenant_id:
+                return JSONResponse(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    content={"detail": "Invalid token: missing tenant_id"}
+                )
+            
+            # Token validated, allow request to pass through
+            response = await call_next(request)
+            return response
+            
+        except jwt.ExpiredSignatureError:
+            return JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={"detail": "Token has expired"}
+            )
+        except jwt.InvalidTokenError:
+            return JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={"detail": "Invalid token"}
+            )
+    
     auth_header = request.headers.get("Authorization")
     
     if not auth_header or not auth_header.startswith("Bearer "):
