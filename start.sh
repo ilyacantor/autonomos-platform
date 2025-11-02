@@ -29,4 +29,6 @@ fi
 trap "if [ -n \"$WORKER_PID\" ] && kill -0 $WORKER_PID 2>/dev/null; then kill $WORKER_PID; fi; redis-cli shutdown 2>/dev/null; exit" SIGINT SIGTERM
 
 echo "Starting FastAPI server..."
+export DEV_DEBUG=true
+export FEATURE_USE_FILESOURCE=true
 exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-5000} --proxy-headers
