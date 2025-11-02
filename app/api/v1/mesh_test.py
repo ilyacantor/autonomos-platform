@@ -38,9 +38,10 @@ class MutationRequest(BaseModel):
     to_field: Optional[str] = Field(None, alias="to")
     tenant_id: Optional[str] = None  # Optional tenant_id, defaults to demo UUID
     
-    class Config:
-        populate_by_name = True
-        extra = "allow"  # Allow extra fields to be passed without validation error
+    model_config = {
+        "populate_by_name": True,
+        "extra": "allow"
+    }
 
 
 router = APIRouter(prefix="/mesh/test", tags=["mesh-test"])

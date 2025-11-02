@@ -31,17 +31,17 @@ def main():
         # Prepare mutation payload
         if source_name == "supabase":
             payload = {
-                "operation": "rename_column",
+                "op": "rename_column",
                 "table": "opportunities",
-                "from": "amount",
-                "to": "amount_usd"
+                "from_field": "stage",
+                "to_field": "sales_stage"
             }
         else:  # mongodb
             payload = {
-                "operation": "rename_field",
+                "op": "rename_field",
                 "collection": "opportunities",
-                "from": "amount",
-                "to": "amount_usd"
+                "from_field": "amount",
+                "to_field": "amount_usd"
             }
         
         # Call drift mutation endpoint
@@ -52,6 +52,8 @@ def main():
         )
         
         if response.status_code != 200:
+            print(f"# ERROR: Status {response.status_code}")
+            print(f"# ERROR: Response: {response.text}")
             print(f"DOD_DRIFT:{source_name}:TICKET: FAIL")
             print(f"DOD_DRIFT:{source_name}:REPAIR: FAIL")
             print(f"DOD_DRIFT:{source_name}:RESTORED: NO")
