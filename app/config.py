@@ -8,11 +8,14 @@ class Settings:
     REDIS_HOST: str = os.getenv("REDIS_HOST", "localhost")
     REDIS_PORT: int = int(os.getenv("REDIS_PORT", "6379"))
     REDIS_DB: int = int(os.getenv("REDIS_DB", "0"))
+    REDIS_URL: str = os.getenv("REDIS_URL", "")
     SECRET_KEY: str = os.getenv("SECRET_KEY", "")
     SLACK_WEBHOOK_URL: str = os.getenv("SLACK_WEBHOOK_URL", "")
     ALLOWED_WEB_ORIGIN: str = os.getenv("ALLOWED_WEB_ORIGIN", "http://localhost:3000")
     JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "")
     JWT_EXPIRE_MINUTES: int = int(os.getenv("JWT_EXPIRE_MINUTES", "30"))
+    EVENT_STREAM_ENABLED: bool = os.getenv("EVENT_STREAM_ENABLED", "true").lower() == "true"
+    EVENT_STREAM_HEARTBEAT_MS: int = int(os.getenv("EVENT_STREAM_HEARTBEAT_MS", "15000"))
     
     def __init__(self):
         if not self.DATABASE_URL:
