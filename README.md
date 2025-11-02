@@ -73,11 +73,11 @@ A production-ready **full-stack SaaS platform** for AI-driven data orchestration
 │  └────────────────────────────────────────────────────────────┘ │
 │                               │                                  │
 │  ┌────────────────────────────▼──────────────────────────────┐ │
-│  │       AAM HYBRID (Airbyte OSS + Microservices)            │ │
-│  │  • Orchestrator, Auth Broker, Drift Repair Agent          │ │
-│  │  • Schema Observer (skeleton), RAG Engine (skeleton)      │ │
-│  │  • Airbyte for data movement (Execution Plane)            │ │
-│  │  • PostgreSQL Connector Registry (Control Plane)          │ │
+│  │       AAM HYBRID (4 Production Connectors)                │ │
+│  │  • Salesforce (OAuth2), FileSource (CSV), Supabase (PG)   │ │
+│  │  • MongoDB (NoSQL), Drift Detection, Auto-Repair          │ │
+│  │  • Canonical Event Normalization (Accounts, Opps)         │ │
+│  │  • Schema Fingerprinting, YAML Mappings, Testing Suite    │ │
 │  └───────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────┘
 ```
