@@ -1,7 +1,7 @@
 # AutonomOS - Multi-Tenant AI Orchestration Platform
 
 ## Overview
-AutonomOS is a production-ready, multi-tenant SaaS backend system in Python for AI-driven task orchestration. It ensures complete data isolation, providing secure, scalable, and enterprise-grade task processing with JWT authentication and user management. The platform's core purpose is to enable advanced AI-powered data orchestration, including a Data Catalog Layer (DCL) engine for AI-driven data source connection, entity mapping, and unified view creation. 
+AutonomOS is a production-ready, multi-tenant SaaS backend system in Python for AI-driven task orchestration. It ensures complete data isolation, providing secure, scalable, and enterprise-grade task processing with JWT authentication and user management. The platform's core purpose is to enable advanced AI-powered data orchestration, including a Data Connectivity Layer (DCL) engine for AI-driven data source connection, entity mapping, and unified view creation. 
 
 **AAM Hybrid MVP (January 2025):** The platform now includes a production-ready implementation of the Adaptive API Mesh (Phases 1 & 2), combining Airbyte OSS for data movement with FastAPI microservices for intelligent orchestration and drift repair.
 
