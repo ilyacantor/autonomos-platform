@@ -59,7 +59,7 @@ class MongoDBConnector:
         Idempotent seed data method
         Inserts demo data into accounts and opportunities collections
         """
-        if not self.mongo_db:
+        if self.mongo_db is None:
             logger.error("No MongoDB connection available")
             return
         
@@ -212,7 +212,7 @@ class MongoDBConnector:
     
     def get_latest_opportunities(self, limit: int = 5) -> List[Dict[str, Any]]:
         """Fetch latest opportunities from MongoDB"""
-        if not self.mongo_db:
+        if self.mongo_db is None:
             logger.error("No MongoDB connection available")
             return []
         
@@ -235,7 +235,7 @@ class MongoDBConnector:
     
     def get_accounts(self) -> List[Dict[str, Any]]:
         """Fetch all accounts from MongoDB"""
-        if not self.mongo_db:
+        if self.mongo_db is None:
             logger.error("No MongoDB connection available")
             return []
         
