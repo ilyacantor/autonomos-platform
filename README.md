@@ -20,9 +20,9 @@ A production-ready **full-stack SaaS platform** for AI-driven data orchestration
 ### Key Capabilities
 
 **For Data Engineers:**
-- Connect multiple data sources (Salesforce, SAP, NetSuite, HubSpot, etc.)
-- AI-powered schema mapping with RAG (Retrieval-Augmented Generation)
-- Automated drift detection and repair
+- Connect multiple data sources with 4 production-ready connectors (Salesforce, FileSource CSV, Supabase PostgreSQL, MongoDB)
+- Canonical event normalization with Pydantic validation
+- Automated drift detection and self-healing repair
 - Unified data views across heterogeneous sources
 
 **For Platform Teams:**
@@ -180,7 +180,7 @@ The architecture viewer includes:
 
 - **Sankey Diagram** - Visual flow from data sources → ontology → unified views
 - **Color-Coded Nodes:**
-  - 🟢 Green: Data sources (Salesforce, SAP, etc.)
+  - 🟢 Green: Data sources (Salesforce, Supabase, MongoDB, FileSource)
   - 🔵 Blue: Ontology entities (accounts, opportunities)
   - 🟣 Purple: Agent actions
 - **Smart Label Positioning** - Collision detection prevents overlaps
@@ -194,24 +194,31 @@ The architecture viewer includes:
 
 ---
 
-### 3. AI-Powered Schema Mapping
+### 3. Production-Ready Connector Suite
 
-**RAG-enhanced data source integration:**
+**4 Connectors with Full Drift Detection:**
 
-- **Semantic Similarity Search** - Finds matching fields across sources using embeddings
-- **Heuristic Filtering** - Domain-aware field validation
-- **Multi-Provider LLM Support** - Gemini or OpenAI for mapping decisions
-- **Confidence Scoring** - Transparent mapping quality metrics
-- **Production Mode** - Toggle between AI-driven vs. heuristic-only mapping
+**Salesforce:**
+- CRM data connector with OAuth2 authentication
+- Account, Opportunity, Contact entities
+- Full CRUD operations and canonical event emission
 
-**Supported Data Sources:**
-- Salesforce
-- SAP
-- NetSuite
-- HubSpot
-- Dynamics 365
-- Legacy SQL databases
-- Cloud platforms (AWS, Azure)
+**FileSource (CSV/Excel):**
+- Local file ingestion with schema detection
+- Supports accounts and opportunities from CSV files
+- Idempotent uploads and data validation
+
+**Supabase (PostgreSQL):**
+- Cloud PostgreSQL connector
+- Schema mutation testing endpoints
+- Drift detection with SHA-256 fingerprinting
+- Auto-repair capabilities with confidence scoring
+
+**MongoDB (NoSQL):**
+- Document database connector with BSON handling
+- Collections: accounts, opportunities
+- Schema drift detection and repair workflow
+- Canonical event normalization
 
 ---
 
@@ -255,20 +262,30 @@ User → JWT Token → API Request → Tenant Validation → Data Access
 
 ### 6. Adaptive API Mesh (AAM)
 
-**Self-healing data connectivity layer:**
+**Self-healing data connectivity layer with 4 production-ready connectors:**
 
-- **Airbyte Integration** - OSS data movement engine
-- **Drift Detection** - Monitors schema changes across sources
-- **Auto-Repair** - Autonomous catalog updates
-- **Versioning** - Full schema history (SyncCatalogVersion)
-- **Job Tracking** - Complete sync job audit trail
+- **Drift Detection** - SHA-256 schema fingerprinting detects changes across all connectors
+- **Auto-Repair** - Autonomous schema updates with confidence scoring (threshold: 85%)
+- **Canonical Events** - Unified event stream for Accounts, Opportunities, Contacts
+- **Testing Infrastructure** - Functional test scripts for end-to-end validation
+- **Mutation Endpoints** - Trigger schema changes for drift testing
 
-**AAM Microservices:**
-- **Orchestrator** (:8001) - Connection onboarding
-- **Auth Broker** (:8002) - Credential management
-- **Drift Repair Agent** (:8003) - Catalog updates
-- **Schema Observer** - Automated drift detection (skeleton)
-- **RAG Engine** - AI mapping recommendations (skeleton)
+**Production Connectors:**
+- **Salesforce** - OAuth2 CRM connector with full CRUD
+- **FileSource** - CSV/Excel ingestion with local storage
+- **Supabase** - PostgreSQL cloud connector with schema mutations
+- **MongoDB** - NoSQL document connector with BSON handling
+
+**Drift Detection Workflow:**
+1. Schema Observer monitors connector schemas via fingerprinting
+2. Drift tickets created in `drift_events` table with confidence scores
+3. Auto-repair executes if confidence ≥85%, otherwise requires manual approval
+4. Canonical event stream updated with normalized data
+
+**Testing Scripts:**
+- `scripts/aam/ingest_seed.py` - Seed Supabase and MongoDB with demo data
+- `scripts/aam/drift_supabase.py` - Test Supabase drift detection workflow
+- `scripts/aam/drift_mongo.py` - Test MongoDB drift detection workflow
 
 ---
 
