@@ -3,10 +3,11 @@ import httpx
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, status, Request, Depends
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func, and_, case
 from sqlalchemy.orm import Session
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 import os
+from app.models import DriftEvent as SyncDriftEvent
 
 logger = logging.getLogger(__name__)
 
@@ -137,7 +138,8 @@ async def get_aam_metrics():
                 "last_24h": {
                     "salesforce": 0,
                     "supabase": 0,
-                    "mongodb": 0
+                    "mongodb": 0,
+                    "filesource": 0
                 }
             },
             "suggestions": {
@@ -217,6 +219,14 @@ async def get_aam_metrics():
             else:
                 avg_repair_time = 0
             
+            # Get drift counts by source from DriftEvent table (using sync session)
+            drift_by_source = {
+                "salesforce": 0,
+                "supabase": 0,
+                "mongodb": 0,
+                "filesource": 0
+            }
+            
             return {
                 "total_connections": total_connections,
                 "active_connections": active_connections,
@@ -225,6 +235,9 @@ async def get_aam_metrics():
                 "manual_reviews_required_24h": manual_reviews,
                 "average_confidence_score": 0.92,  # Placeholder - would come from repair_knowledge_base
                 "average_repair_time_seconds": round(avg_repair_time, 2),
+                "drift": {
+                    "last_24h": drift_by_source
+                },
                 "timestamp": datetime.utcnow().isoformat(),
                 "data_source": "database"
             }
@@ -239,6 +252,14 @@ async def get_aam_metrics():
             "manual_reviews_required_24h": 1,
             "average_confidence_score": 0.94,
             "average_repair_time_seconds": 45.2,
+            "drift": {
+                "last_24h": {
+                    "salesforce": 0,
+                    "supabase": 1,
+                    "mongodb": 2,
+                    "filesource": 0
+                }
+            },
             "timestamp": datetime.utcnow().isoformat(),
             "data_source": "mock_fallback"
         }
