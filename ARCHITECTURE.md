@@ -19,7 +19,7 @@
 **What AutonomOS Does:** Connects messy data sources, cleans them up intelligently, and gives AI agents a unified view.
 
 ```mermaid
-flowchart LR
+flowchart TB
     subgraph DS["📊 DATA SOURCES"]
         direction TB
         DS_DESC["<b>Function:</b> Provide raw business data<br/><br/><b>What they do:</b><br/>• Salesforce stores CRM data<br/>• Supabase tracks product usage<br/>• MongoDB logs customer events<br/>• CSV files hold legacy data<br/><br/><b>Problem:</b> Different formats,<br/>field names, structures"]
