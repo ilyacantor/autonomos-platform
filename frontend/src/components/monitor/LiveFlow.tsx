@@ -10,10 +10,13 @@ import {
   Activity,
   Network,
   Bot,
-  AlertTriangle
+  AlertTriangle,
+  Zap,
+  RefreshCw
 } from 'lucide-react';
 import { useEventStream } from '../../hooks/useEventStream';
 import { EventItem, SourceSystem } from '../../types/events';
+import { API_CONFIG } from '../../config/api';
 
 const LANE_NAMES = ['Sources', 'AAM', 'DCL', 'Gateway', 'Agents'];
 
@@ -52,6 +55,7 @@ export default function LiveFlow() {
   const [selectedSources, setSelectedSources] = useState<Set<SourceSystem>>(new Set());
   const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
   const [displayedEvents, setDisplayedEvents] = useState<EventItem[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   useEffect(() => {
     if (!isPaused) {
@@ -84,6 +88,28 @@ export default function LiveFlow() {
     setSelectedSources(new Set());
   };
 
+  const handleGenerateEvents = async () => {
+    setIsGenerating(true);
+    try {
+      const response = await fetch(API_CONFIG.buildApiUrl('/dcl/connect'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to generate events');
+      }
+      
+      console.log('[Live Flow] Events generation triggered successfully');
+    } catch (err) {
+      console.error('[Live Flow] Failed to generate events:', err);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const getAnimationDuration = () => {
     return 2 / speed;
   };
@@ -110,6 +136,25 @@ export default function LiveFlow() {
           </div>
           
           <div className="flex items-center gap-2">
+            <button
+              onClick={handleGenerateEvents}
+              disabled={isGenerating}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-lg transition-colors font-medium"
+              title="Trigger connectors to generate real events"
+            >
+              {isGenerating ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Zap className="w-4 h-4" />
+                  Generate Events
+                </>
+              )}
+            </button>
+            
             {isMockMode && (
               <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-amber-500/10 text-amber-500 border border-amber-500/20">
                 <AlertTriangle className="w-4 h-4" />
