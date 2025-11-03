@@ -249,71 +249,70 @@ export default function LiveFlow() {
         )}
       </div>
 
-      <div className="flex-1 overflow-hidden relative">
-        <div className="absolute inset-0 flex flex-col">
-          {LANE_NAMES.map((laneName, laneIndex) => {
-            const LaneIcon = LANE_ICONS[laneIndex];
-            const laneEvents = filteredEvents.filter(e => getLaneForEvent(e) === laneIndex);
+      <div className="flex-1 relative" style={{ minHeight: '500px' }}>
+        {LANE_NAMES.map((laneName, laneIndex) => {
+          const LaneIcon = LANE_ICONS[laneIndex];
+          const laneEvents = filteredEvents.filter(e => getLaneForEvent(e) === laneIndex);
 
-            return (
-              <div
-                key={laneName}
-                className="flex-1 border-b border-gray-800 last:border-b-0 relative overflow-hidden"
-              >
-                <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-gray-900 to-transparent z-10 flex items-center px-4">
-                  <div className="flex items-center gap-2">
-                    <LaneIcon className="w-5 h-5 text-gray-400" />
-                    <span className="text-sm font-medium text-gray-300">{laneName}</span>
-                  </div>
-                </div>
-
-                <div className="absolute inset-0 pl-32">
-                  <AnimatePresence mode="popLayout">
-                    {laneEvents.map((event) => {
-                      const xPosition = Math.random() * 80 + 10;
-                      
-                      return (
-                        <motion.div
-                          key={event.id}
-                          initial={{ x: '0%', opacity: 0, scale: 0.8 }}
-                          animate={{ 
-                            x: '100%', 
-                            opacity: 1, 
-                            scale: 1,
-                          }}
-                          exit={{ opacity: 0, scale: 0.5 }}
-                          transition={{
-                            x: { 
-                              duration: getAnimationDuration(), 
-                              ease: 'linear' 
-                            },
-                            opacity: { duration: 0.3 },
-                            scale: { duration: 0.3 }
-                          }}
-                          className="absolute cursor-pointer"
-                          style={{
-                            top: `${xPosition}%`,
-                            transform: 'translateY(-50%)'
-                          }}
-                          onClick={() => setSelectedEvent(event)}
-                        >
-                          <div className={`${SOURCE_COLORS[event.source_system]} rounded-full px-3 py-1 shadow-lg hover:shadow-xl transition-shadow`}>
-                            <div className="flex items-center gap-2">
-                              <div className="w-2 h-2 bg-white rounded-full" />
-                              <span className="text-xs font-medium text-white whitespace-nowrap">
-                                {event.entity}
-                              </span>
-                            </div>
-                          </div>
-                        </motion.div>
-                      );
-                    })}
-                  </AnimatePresence>
+          return (
+            <div
+              key={laneName}
+              className="h-[100px] border-b border-gray-800 last:border-b-0 relative bg-gray-950/50"
+            >
+              <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-gray-900 to-transparent z-10 flex items-center px-4">
+                <div className="flex items-center gap-2">
+                  <LaneIcon className="w-5 h-5 text-gray-400" />
+                  <span className="text-sm font-medium text-gray-300">{laneName}</span>
                 </div>
               </div>
-            );
-          })}
-        </div>
+
+              <div className="absolute top-0 bottom-0 left-32 right-0">
+                <AnimatePresence mode="popLayout">
+                  {laneEvents.map((event) => {
+                    const yPosition = Math.random() * 60 + 20;
+                    
+                    return (
+                      <motion.div
+                        key={event.id}
+                        initial={{ x: 0, opacity: 0, scale: 0.8 }}
+                        animate={{ 
+                          x: window.innerWidth - 400, 
+                          opacity: 1, 
+                          scale: 1,
+                        }}
+                        exit={{ opacity: 0, scale: 0.5 }}
+                        transition={{
+                          x: { 
+                            duration: getAnimationDuration(), 
+                            ease: 'linear' 
+                          },
+                          opacity: { duration: 0.5 },
+                          scale: { duration: 0.5 }
+                        }}
+                        className="absolute cursor-pointer z-20"
+                        style={{
+                          left: '20px',
+                          top: `${yPosition}%`,
+                          transform: 'translateY(-50%)'
+                        }}
+                        onClick={() => setSelectedEvent(event)}
+                      >
+                        <div className={`${SOURCE_COLORS[event.source_system]} rounded-full px-3 py-1 shadow-lg hover:shadow-xl transition-shadow`}>
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 bg-white rounded-full" />
+                            <span className="text-xs font-medium text-white whitespace-nowrap">
+                              {event.entity}
+                            </span>
+                          </div>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {selectedEvent && (
