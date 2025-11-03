@@ -22,13 +22,23 @@
 flowchart TB
     DS["📊 DATA SOURCES<br/><br/><b>Function:</b> Provide raw business data<br/><br/><b>What they do:</b><br/>• Salesforce stores CRM data<br/>• Supabase tracks product usage<br/>• MongoDB logs customer events<br/>• CSV files hold legacy data<br/><br/><b>Problem:</b> Different formats,<br/>field names, structures"]
     
+    DS_EX["💡 Example: Same deal, 3 formats<br/>Salesforce: 'StageName': 'Closed Won'<br/>Supabase: 'stage': 'closed_won'<br/>MongoDB: 'opportunity_stage': 'WON'"]
+    
     AAM["🔧 ADAPTIVE API MESH<br/><br/><b>Function:</b> Normalize chaos into order<br/><br/><b>What it does:</b><br/>• Connects to each source<br/>• Transforms to standard format<br/>• Detects schema changes<br/>• Auto-repairs broken mappings<br/>• Uses AI to match similar fields<br/><br/><b>Output:</b> Clean, validated,<br/>canonical events"]
     
+    AAM_EX["💡 Example: Normalized output<br/>CanonicalOpportunity {<br/>  'id': 'opp_123',<br/>  'status': 'closed_won',<br/>  'source': 'salesforce'<br/>}"]
+    
     DCL["📚 DATA CONNECTION LAYER<br/><br/><b>Function:</b> Create unified queryable views<br/><br/><b>What it does:</b><br/>• Stores canonical events<br/>• Builds materialized tables<br/>• Links related records<br/>• Infers relationships<br/>• Provides SQL-like queries<br/><br/><b>Output:</b> Single source of truth<br/>for all business entities"]
+    
+    DCL_EX["💡 Example: Unified query<br/>SELECT * FROM opportunities<br/>WHERE status = 'closed_won'<br/><br/>Returns deals from ALL sources<br/>in single, consistent format"]
     
     AGENTS["🤖 AI AGENTS<br/><br/><b>Function:</b> Take intelligent action<br/><br/><b>What they do:</b><br/>• RevOps: Score deals, predict revenue<br/>• FinOps: Find cost anomalies<br/>• Query unified data (no ETL)<br/>• Execute actions automatically<br/>• Write back to sources<br/><br/><b>Result:</b> Automated insights<br/>and actions"]
     
     HITL["📢 HITL ALERTS<br/><br/><b>Function:</b> Human-in-the-loop notifications<br/><br/><b>Channels:</b><br/>• Slack<br/>• Email<br/>• SMS<br/>• Webhooks<br/><br/><b>Use cases:</b><br/>• High-confidence alerts<br/>• Manual review required<br/>• Anomaly detection"]
+    
+    DS -.->|"example"| DS_EX
+    AAM -.->|"example"| AAM_EX
+    DCL -.->|"example"| DCL_EX
     
     DS -->|"Raw events<br/>(messy, inconsistent)"| AAM
     AAM -->|"Canonical events<br/>(clean, validated)"| DCL
