@@ -16,7 +16,7 @@
 
 ## Functional Overview
 
-**What AutonomOS Does:** Connects messy data sources, cleans them up intelligently, and gives AI agents a unified view.
+**What AutonomOS Does:** Enterprise-grade agentic orchestration platform that unifies fragmented data sources, provides AI agents with real-time intelligence, and enables autonomous execution at scale with human oversight.
 
 ```mermaid
 flowchart TB
@@ -28,10 +28,14 @@ flowchart TB
     
     AGENTS["🤖 AI AGENTS<br/><br/><b>Function:</b> Take intelligent action<br/><br/><b>What they do:</b><br/>• RevOps: Score deals, predict revenue<br/>• FinOps: Find cost anomalies<br/>• Query unified data (no ETL)<br/>• Execute actions automatically<br/>• Write back to sources<br/><br/><b>Result:</b> Automated insights<br/>and actions"]
     
+    HITL["📢 HITL ALERTS<br/><br/><b>Function:</b> Human-in-the-loop notifications<br/><br/><b>Channels:</b><br/>• Slack<br/>• Email<br/>• SMS<br/>• Webhooks<br/><br/><b>Use cases:</b><br/>• High-confidence alerts<br/>• Manual review required<br/>• Anomaly detection"]
+    
     DS -->|"Raw events<br/>(messy, inconsistent)"| AAM
     AAM -->|"Canonical events<br/>(clean, validated)"| DCL
     DCL -->|"Unified data<br/>(queryable, linked)"| AGENTS
-    AGENTS -->|"Actions<br/>(update, alert, optimize)"| AAM
+    AGENTS -->|"Insight-to-Action Loop<br/>(update, alert, optimize)"| AAM
+    AAM -->|"Insight-to-Action Loop<br/>(Autonomous execution)"| DS
+    AGENTS -->|"Critical alerts<br/>(human oversight)"| HITL
 ```
 
 **Key Functional Benefits:**
