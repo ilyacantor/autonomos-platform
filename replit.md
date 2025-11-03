@@ -21,7 +21,8 @@ AutonomOS is built with FastAPI, PostgreSQL, Redis, and Python RQ, implementing 
 **UI/UX Decisions:**
 The frontend is a React/TypeScript application with a focus on a clean, minimalist design. Key UI/UX features include:
 - Interactive DCL graph visualization for data mapping and orchestration, with color-coded, collision-detected labels and dynamic sizing for optimal visibility across devices.
-- **AAM Monitoring Dashboard (October 2025):** Real-time dashboard for monitoring Adaptive API Mesh operations, including service health status, drift detection metrics, auto-repair success rates, connection health table, and recent events log. Features auto-refresh polling (10s intervals) with graceful mock data fallback. See `AAM_DASHBOARD_GUIDE.md` for complete users guide.
+- **AAM Monitor (November 2025):** Streamlined dashboard for Adaptive API Mesh intelligence metrics and connection health. Displays intelligence readout cards (mappings, drift events, RAG suggestions, repair confidence), performance metrics, and connection health table. Optimized for fast loading by removing service status boxes and event logs.
+- **Live Flow (November 2025):** Dedicated page for real-time event visualization showing canonical events flowing through the 5-stage pipeline (Ingestion → Normalization → Intelligence → Distribution → Delivery). Features animated event pills, speed controls, pause/play functionality, and source filtering. Uses Server-Sent Events (SSE) with JWT query-token authentication for multi-tenant event streaming.
 - A hero section showcasing the product value proposition and an agent layer container for AI agents.
 - Comprehensive FAQ section explaining AutonomOS capabilities and technology.
 - Mobile-first design with responsive typography, touch-optimized elements, and dynamic adjustments for various screen sizes, including a horizontal Sankey layout for the DCL graph and layout-aware directional arrows for architecture flow.
@@ -68,5 +69,7 @@ The frontend is a React/TypeScript application with a focus on a clean, minimali
 
 ## Recent Updates
 - **November 2025:** 
+  - **Live Flow Separation:** Created dedicated Live Flow page with independent navigation item, separating it from AAM Monitor for improved performance and user experience. Live Flow uses SSE with query-token JWT auth for real-time event streaming.
+  - **AAM Monitor Optimization:** Simplified AAM Monitor by removing service status boxes and recent events log, significantly improving load times. Now focuses on intelligence metrics and connection health.
   - Added interactive architecture documentation viewer at `/architecture.html` with 9 comprehensive Mermaid diagrams. Primary diagram is Systems Overview (AOA) with plain-English annotations explaining what data sources ingest (Accounts, Opportunities, Contacts, Transactions), raw event types (account.created, opportunity.updated, contact.merged), AAM intelligence functions (drift detection, auto-repair, RAG matching), and key architectural junctions (normalization, event store, gateway). All diagrams use accessible high-contrast colors for optimal readability.
   - Implemented Supabase (Postgres) and MongoDB connectors with drift detection, canonical event emission, and self-healing repair capabilities. Added drift mutation endpoints, schema fingerprinting, and 4 functional test scripts for end-to-end validation.
