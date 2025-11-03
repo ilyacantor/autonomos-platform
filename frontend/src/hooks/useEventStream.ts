@@ -55,7 +55,8 @@ export function useEventStream(): UseEventStreamResult {
   }, []);
 
   const startMockGenerator = useCallback(() => {
-    if (isMockMode) return;
+    // Check if already running via ref, not state
+    if (mockGeneratorRef.current) return;
     
     setIsMockMode(true);
     console.log('[EventStream] Starting mock event generator (fallback mode)');
@@ -65,14 +66,16 @@ export function useEventStream(): UseEventStreamResult {
     
     const generateMock = () => {
       const event = generateMockEvent();
+      console.log('[EventStream] Generated mock event:', event.id, event.source_system, event.entity);
       addEvent(event);
       
       const nextDelay = Math.random() * 3000 + 1000;
       mockGeneratorRef.current = setTimeout(generateMock, nextDelay);
     };
     
+    // Start generating immediately
     generateMock();
-  }, [isMockMode, addEvent]);
+  }, [addEvent]);
 
   const stopMockGenerator = useCallback(() => {
     if (mockGeneratorRef.current) {
