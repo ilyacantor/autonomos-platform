@@ -14,7 +14,14 @@ import AAMDashboard from './components/AAMDashboard';
 import LiveFlow from './components/monitor/LiveFlow';
 
 function AppContent() {
-  const [currentPage, setCurrentPage] = useState('dashboard');
+  // Initialize page from URL path
+  const getInitialPage = () => {
+    const path = window.location.pathname.slice(1); // Remove leading slash
+    const validPages = ['dashboard', 'lineage', 'connections', 'ontology', 'aam-monitor', 'live-flow', 'faq'];
+    return validPages.includes(path) ? path : 'dashboard';
+  };
+  
+  const [currentPage, setCurrentPage] = useState(getInitialPage());
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const { legacyMode } = useAutonomy();
@@ -26,12 +33,30 @@ function AppContent() {
       const page = customEvent.detail?.page;
       if (page) {
         setCurrentPage(page);
+        // Update URL to match page
+        window.history.pushState({}, '', `/${page}`);
       }
     };
 
     window.addEventListener('navigate', handleNavigation);
     return () => {
       window.removeEventListener('navigate', handleNavigation);
+    };
+  }, []);
+
+  // Sync URL changes (browser back/forward) with currentPage
+  useEffect(() => {
+    const handlePopState = () => {
+      const path = window.location.pathname.slice(1);
+      const validPages = ['dashboard', 'lineage', 'connections', 'ontology', 'aam-monitor', 'live-flow', 'faq'];
+      if (validPages.includes(path)) {
+        setCurrentPage(path);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
     };
   }, []);
 

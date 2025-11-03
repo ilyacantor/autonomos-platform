@@ -64,8 +64,7 @@ export default function LiveFlow() {
   }, [events, isPaused]);
 
   const filteredEvents = useMemo(() => {
-    if (selectedSources.size === 0) return displayedEvents;
-    return displayedEvents.filter(e => selectedSources.has(e.source_system));
+    return selectedSources.size === 0 ? displayedEvents : displayedEvents.filter(e => selectedSources.has(e.source_system));
   }, [displayedEvents, selectedSources]);
 
   const handleClear = () => {
