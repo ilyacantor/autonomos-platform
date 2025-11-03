@@ -91,8 +91,10 @@ export default function LiveFlow() {
   const handleGenerateEvents = async () => {
     setIsGenerating(true);
     try {
-      const response = await fetch(API_CONFIG.buildApiUrl('/dcl/connect'), {
-        method: 'POST',
+      // Use the correct endpoint - /dcl/connect (not /api/v1/dcl/connect)
+      const baseUrl = API_CONFIG.getBaseUrl();
+      const response = await fetch(`${baseUrl}/dcl/connect`, {
+        method: 'GET',  // DCL connect uses GET, not POST
         headers: {
           'Content-Type': 'application/json'
         }
