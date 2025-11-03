@@ -359,7 +359,7 @@ open http://localhost:5000
 │           ├── aoa.py            # AOA orchestration
 │           ├── aam_monitoring.py # AAM dashboard API
 │           └── dcl.py            # DCL engine endpoints
-├── dcl/                          # Data Catalog Layer
+├── dcl/                          # Data Connection Layer
 │   ├── engine.py                 # Main DCL orchestration
 │   ├── llm_service.py            # LLM abstraction layer
 │   ├── rag_engine.py             # RAG embeddings & retrieval
