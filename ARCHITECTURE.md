@@ -1,12 +1,67 @@
 # AutonomOS Platform Architecture
 
 ## Table of Contents
-1. [High-Level System Architecture](#high-level-system-architecture)
-2. [Data Flow: Source → AAM → DCL](#data-flow-source--aam--dcl)
-3. [AAM Components](#aam-components)
-4. [Gateway Middleware Stack](#gateway-middleware-stack)
-5. [Database Schema](#database-schema)
-6. [Frontend Architecture](#frontend-architecture)
+1. [Systems Overview (AOA)](#systems-overview-aoa)
+2. [High-Level System Architecture](#high-level-system-architecture)
+3. [Data Flow: Source → AAM → DCL](#data-flow-source--aam--dcl)
+4. [AAM Components](#aam-components)
+5. [Gateway Middleware Stack](#gateway-middleware-stack)
+6. [Database Schema](#database-schema)
+7. [Frontend Architecture](#frontend-architecture)
+8. [Canonical Schema Types](#canonical-schema-types)
+9. [Technology Stack](#technology-stack)
+
+---
+
+## Systems Overview (AOA)
+
+**Agentic Orchestration Architecture** - The complete data flow from sources to AI agents.
+
+```mermaid
+flowchart TB
+  subgraph Sources["Data Sources Layer"]
+    SF["Salesforce<br/>CRM Data"]
+    SB["Supabase<br/>Product Analytics"]
+    MG["MongoDB<br/>Customer Events"]
+    FS["FileSource<br/>CSV/Legacy"]
+  end
+
+  subgraph AAM["Adaptive API Mesh - Intelligence Layer"]
+    CONN["Connectors<br/>Extract & Normalize"]
+    INTEL["AAM Intelligence<br/>Drift Detection, Auto-Repair, RAG"]
+  end
+
+  subgraph DCL["Data Catalog Layer - Unified Ontology"]
+    CANON["Canonical Event Store<br/>PostgreSQL"]
+    MAT["Materialized Views<br/>DuckDB"]
+  end
+
+  subgraph Gateway["API Gateway"]
+    READ["Read API<br/>JWT Auth"]
+    WRITE["Write API<br/>Audit Logs"]
+  end
+
+  subgraph Agents["Domain Agents"]
+    REVOPS["RevOps Pilot"]
+    FINOPS["FinOps Pilot"]
+  end
+
+  SF & SB & MG & FS --> CONN
+  CONN --> INTEL
+  INTEL --> CANON
+  CANON --> MAT
+  MAT --> READ
+  READ --> REVOPS & FINOPS
+  REVOPS & FINOPS --> WRITE
+  WRITE --> INTEL
+```
+
+**Key Data Flow:**
+1. **Sources** emit raw events (account.created, opportunity.updated)
+2. **AAM** normalizes to canonical schema with drift detection
+3. **DCL** materializes queryable views
+4. **Gateway** provides secure API access
+5. **Agents** query unified data and take actions
 
 ---
 
@@ -14,29 +69,26 @@
 
 ```mermaid
 graph TB
-    subgraph "External Systems"
+    subgraph "Data Sources"
         SF[Salesforce]
-        HS[HubSpot]
-        DY[Dynamics]
-        CSV[CSV Files]
+        SB[Supabase]
+        MG[MongoDB]
+        FS[FileSource/CSV]
     end
 
     subgraph "AutonomOS Platform"
-        subgraph "Frontend Layer"
-            UI[React/TypeScript UI]
-            DCL_UI[DCL Graph Viz]
-            AAM_UI[AAM Monitor Dashboard]
+        subgraph "Frontend"
+            UI[React UI]
+            DCL_VIZ[DCL Graph]
+            AAM_MON[AAM Monitor]
+            LIVE[Live Flow]
         end
 
         subgraph "API Gateway"
-            MW_TRACE[Tracing Middleware]
-            MW_AUTH[Auth Middleware]
-            MW_RATE[Rate Limit Middleware]
-            MW_IDEMPOT[Idempotency Middleware]
-            MW_AUDIT[Audit Middleware]
+            MW[Middleware Stack<br/>Auth, Rate Limit, Audit]
         end
 
-        subgraph "Backend Services"
+        subgraph "Backend"
             API[FastAPI Server]
             DCL[DCL Engine]
             AAM[AAM Orchestrator]
@@ -46,43 +98,22 @@ graph TB
         subgraph "Data Layer"
             PG[(PostgreSQL)]
             REDIS[(Redis)]
-            DUCKDB[(DuckDB)]
+            DUCK[(DuckDB)]
         end
 
-        subgraph "AI Layer"
-            GEMINI[Gemini AI]
-            OPENAI[OpenAI]
+        subgraph "AI"
+            GEMINI[Gemini]
             RAG[RAG Engine]
         end
     end
 
-    SF --> AAM
-    HS --> AAM
-    DY --> AAM
-    CSV --> AAM
-
-    UI --> MW_TRACE
-    DCL_UI --> MW_TRACE
-    AAM_UI --> MW_TRACE
-
-    MW_TRACE --> MW_AUTH
-    MW_AUTH --> MW_RATE
-    MW_RATE --> MW_IDEMPOT
-    MW_IDEMPOT --> MW_AUDIT
-    MW_AUDIT --> API
-
-    API --> DCL
-    API --> AAM
-    API --> WORKER
-
-    AAM --> PG
-    DCL --> DUCKDB
+    SF & SB & MG & FS --> AAM
+    UI & DCL_VIZ & AAM_MON & LIVE --> MW
+    MW --> API
+    API --> DCL & AAM & WORKER
+    AAM --> PG & GEMINI & RAG
+    DCL --> DUCK
     WORKER --> REDIS
-    
-    AAM --> GEMINI
-    AAM --> OPENAI
-    DCL --> RAG
-
 ```
 
 ---
@@ -91,105 +122,79 @@ graph TB
 
 ```mermaid
 graph LR
-    subgraph "Data Sources"
+    subgraph "Sources"
         SF_OPP[Salesforce<br/>Opportunity]
-        CSV_OPP[CSV File<br/>Opportunity]
+        SB_ACC[Supabase<br/>Account]
+        MG_USG[MongoDB<br/>Usage]
+        FS_CSV[FileSource<br/>CSV]
     end
 
-    subgraph "AAM - Adaptive API Mesh"
-        CONN_SF[Salesforce<br/>Connector]
-        CONN_FS[FileSource<br/>Connector]
-        MAP_REG[Mapping<br/>Registry]
-        CANON[Canonical<br/>Schema]
-        STREAM[Canonical<br/>Streams DB]
+    subgraph "AAM"
+        CONN[Connectors]
+        MAP[Mapping Registry]
+        CANON[Canonical Schema]
+        STREAM[Streams DB]
     end
 
-    subgraph "DCL - Data Catalog Layer"
-        SUB[DCL<br/>Subscriber]
-        MAT[Materialized<br/>Tables]
-        VIEWS[DCL Views<br/>API]
+    subgraph "DCL"
+        SUB[Subscriber]
+        MAT[Materialized Tables]
+        API[Views API]
     end
 
     subgraph "Frontend"
         UI[React UI]
-        DEBUG[Debug<br/>Endpoint]
     end
 
-    SF_OPP -->|REST API| CONN_SF
-    CSV_OPP -->|CSV Read| CONN_FS
-
-    CONN_SF -->|Apply Mapping| MAP_REG
-    CONN_FS -->|Apply Mapping| MAP_REG
-
-    MAP_REG -->|Transform| CANON
-    CANON -->|Validate| STREAM
-
-    STREAM -->|Process| SUB
-    SUB -->|Upsert| MAT
-
-    MAT -->|Query| VIEWS
-    STREAM -->|Query| DEBUG
-
-    VIEWS --> UI
-    DEBUG --> UI
-
+    SF_OPP & SB_ACC & MG_USG & FS_CSV --> CONN
+    CONN --> MAP
+    MAP --> CANON
+    CANON --> STREAM
+    STREAM --> SUB
+    SUB --> MAT
+    MAT --> API
+    API --> UI
 ```
 
 ---
 
 ## AAM Components
 
+**Adaptive API Mesh** - Three-plane architecture for intelligent data connectivity.
+
 ```mermaid
 graph TB
-    subgraph "AAM - Adaptive API Mesh"
-        subgraph "Intelligence Plane"
-            ORCH[AAM Orchestrator<br/>FastAPI Service]
-            DRIFT[Drift Repair Agent<br/>Self-Healing]
-            SCHEMA_OBS[Schema Observer<br/>Change Detection]
-            RAG_ENG[RAG Engine<br/>Semantic Search]
-        end
-
-        subgraph "Execution Plane"
-            CONN_SF[Salesforce Connector]
-            CONN_FS[FileSource Connector]
-            CONN_PG[PostgreSQL Connector<br/>Coming Soon]
-        end
-
-        subgraph "Control Plane"
-            MAP_REG[Mapping Registry<br/>YAML Configs]
-            CANON_SCH[Canonical Schemas<br/>Pydantic Models]
-            CONN_REG[Connector Registry<br/>PostgreSQL]
-        end
-
-        subgraph "Canonical Layer"
-            CANON_ACC[CanonicalAccount]
-            CANON_OPP[CanonicalOpportunity]
-            CANON_CON[CanonicalContact]
-            CANON_EVT[CanonicalEvent<br/>Envelope]
-        end
+    subgraph "Intelligence Plane"
+        ORCH[Orchestrator]
+        DRIFT[Drift Repair Agent]
+        SCHEMA[Schema Observer]
+        RAG[RAG Engine]
     end
 
-    CONN_SF --> MAP_REG
-    CONN_FS --> MAP_REG
-    CONN_PG -.-> MAP_REG
+    subgraph "Execution Plane"
+        SF_CONN[Salesforce Connector]
+        SB_CONN[Supabase Connector]
+        MG_CONN[MongoDB Connector]
+        FS_CONN[FileSource Connector]
+    end
 
+    subgraph "Control Plane"
+        MAP_REG[Mapping Registry<br/>YAML]
+        CANON_SCH[Canonical Schemas<br/>Pydantic]
+        CONN_REG[Connector Registry<br/>PostgreSQL]
+    end
+
+    SF_CONN & SB_CONN & MG_CONN & FS_CONN --> MAP_REG
     MAP_REG --> CANON_SCH
-    CANON_SCH --> CANON_ACC
-    CANON_SCH --> CANON_OPP
-    CANON_SCH --> CANON_CON
-
-    CANON_ACC --> CANON_EVT
-    CANON_OPP --> CANON_EVT
-    CANON_CON --> CANON_EVT
-
-    ORCH --> DRIFT
-    ORCH --> SCHEMA_OBS
-    ORCH --> RAG_ENG
-
-    DRIFT --> CONN_REG
-    SCHEMA_OBS --> CONN_REG
-
+    ORCH --> DRIFT & SCHEMA & RAG
+    DRIFT & SCHEMA --> CONN_REG
 ```
+
+**Current Connectors:**
+- ✅ Salesforce (Production)
+- ✅ Supabase (Production)
+- ✅ MongoDB (Production)
+- ✅ FileSource (Production)
 
 ---
 
@@ -197,33 +202,23 @@ graph TB
 
 ```mermaid
 graph TD
-    REQ[Incoming HTTP Request]
+    REQ[HTTP Request]
     
-    REQ --> MW1[1. Tracing Middleware<br/>Generate trace_id]
-    MW1 --> MW2[2. Auth Middleware<br/>JWT validation, tenant extraction]
-    MW2 --> MW3[3. Rate Limit Middleware<br/>Per-tenant rate limiting]
-    MW3 --> MW4[4. Idempotency Middleware<br/>Prevent duplicate requests]
-    MW4 --> MW5[5. Audit Middleware<br/>Log all actions]
+    REQ --> MW1[1. Tracing<br/>trace_id]
+    MW1 --> MW2[2. Auth<br/>JWT, tenant]
+    MW2 --> MW3[3. Rate Limit<br/>Per-tenant]
+    MW3 --> MW4[4. Idempotency]
+    MW4 --> MW5[5. Audit Log]
     
-    MW5 --> ROUTE{Route?}
+    MW5 --> ROUTE{Route}
     
-    ROUTE -->|/api/v1/auth| AUTH[Auth Endpoints]
-    ROUTE -->|/api/v1/aoa| AOA[AOA Orchestration]
-    ROUTE -->|/api/v1/aam| AAM[AAM Monitoring]
-    ROUTE -->|/api/v1/filesource| FS[FileSource API]
-    ROUTE -->|/api/v1/dcl/views| DCL_V[DCL Views API]
-    ROUTE -->|/api/v1/debug| DEBUG[Debug Endpoints<br/>DEV_DEBUG=true]
-    ROUTE -->|/dcl| DCL[DCL Engine]
-    ROUTE -->|/| STATIC[Static Frontend]
-
-    subgraph "Public Endpoints (Bypass Auth)"
-        PUB1[/docs, /health]
-        PUB2[/api/v1/auth/login]
-        PUB3[/dcl/ws, /dcl/state]
-        PUB4[/api/v1/aam/*]
-        PUB5[/api/v1/debug/*]
-    end
-
+    ROUTE -->|/api/v1/auth| AUTH[Auth]
+    ROUTE -->|/api/v1/aoa| AOA[AOA]
+    ROUTE -->|/api/v1/aam| AAM[AAM]
+    ROUTE -->|/api/v1/dcl| DCL[DCL]
+    ROUTE -->|/dcl| DCL_WS[DCL WebSocket]
+    ROUTE -->|/live-flow| LIVE[Live Flow]
+    ROUTE -->|/| STATIC[Frontend]
 ```
 
 ---
@@ -243,7 +238,6 @@ erDiagram
 
     CANONICAL_STREAMS ||--o{ MATERIALIZED_ACCOUNTS : sources
     CANONICAL_STREAMS ||--o{ MATERIALIZED_OPPORTUNITIES : sources
-    CANONICAL_STREAMS ||--o{ MATERIALIZED_CONTACTS : sources
     CANONICAL_STREAMS {
         int id PK
         string tenant_id
@@ -261,11 +255,8 @@ erDiagram
         string name
         string industry
         decimal annual_revenue
-        int employee_count
-        string website
         jsonb extras
         datetime created_at
-        datetime updated_at
     }
 
     MATERIALIZED_OPPORTUNITIES {
@@ -276,46 +267,8 @@ erDiagram
         string name
         string stage
         decimal amount
-        string currency
         date close_date
-        string owner_id
-        int probability
         jsonb extras
-        datetime created_at
-        datetime updated_at
-    }
-
-    MATERIALIZED_CONTACTS {
-        int id PK
-        string tenant_id
-        string contact_id UK
-        string account_id FK
-        string first_name
-        string last_name
-        string email
-        string phone
-        string title
-        jsonb extras
-        datetime created_at
-        datetime updated_at
-    }
-
-    JOB_HISTORY {
-        int id PK
-        string tenant_id
-        string job_id
-        string job_type
-        string status
-        jsonb result
-        datetime created_at
-    }
-
-    DCL_CONNECTIONS {
-        int id PK
-        string connection_id UK
-        string name
-        string type
-        jsonb config
         datetime created_at
     }
 ```
@@ -326,199 +279,94 @@ erDiagram
 
 ```mermaid
 graph TB
-    subgraph "React/TypeScript Frontend"
-        subgraph "Pages"
-            HOME[Home Page<br/>Hero + FAQ]
-            DCL_PAGE[DCL Page<br/>Graph Visualization]
-            AAM_PAGE[AAM Monitor<br/>Dashboard]
-            ONT_PAGE[Ontology Page<br/>Data Mappings]
-        end
-
-        subgraph "Components"
-            SANKEY[Sankey Graph<br/>D3.js]
-            METRICS[Metrics Cards<br/>Real-time Stats]
-            CONN_TABLE[Connection Health<br/>Table]
-            EVENT_LOG[Events Log<br/>Recent Activity]
-        end
-
-        subgraph "WebSocket"
-            WS[DCL WebSocket<br/>Real-time Updates]
-        end
-
-        subgraph "API Clients"
-            API_DCL[DCL API Client]
-            API_AAM[AAM API Client]
-            API_DEBUG[Debug API Client]
-        end
+    subgraph "Pages"
+        HOME[Home<br/>Hero + FAQ]
+        DCL_PAGE[DCL Graph<br/>Sankey Viz]
+        AAM_PAGE[AAM Monitor<br/>Intelligence Metrics]
+        ONT_PAGE[Ontology<br/>Mappings]
+        LIVE_PAGE[Live Flow<br/>Real-time Events]
     end
 
-    HOME --> DCL_PAGE
-    HOME --> AAM_PAGE
-    HOME --> ONT_PAGE
+    subgraph "Components"
+        SANKEY[Sankey Graph<br/>D3.js]
+        METRICS[Metrics Cards]
+        EVENT_PILLS[Event Pills<br/>Animated]
+    end
 
+    subgraph "Real-time"
+        WS[DCL WebSocket]
+        MOCK[Mock Generator]
+    end
+
+    HOME --> DCL_PAGE & AAM_PAGE & ONT_PAGE & LIVE_PAGE
     DCL_PAGE --> SANKEY
     AAM_PAGE --> METRICS
-    AAM_PAGE --> CONN_TABLE
-    AAM_PAGE --> EVENT_LOG
-
+    LIVE_PAGE --> EVENT_PILLS
     DCL_PAGE --> WS
-    AAM_PAGE --> API_AAM
-    DCL_PAGE --> API_DCL
-    AAM_PAGE --> API_DEBUG
-
-    WS -.->|Real-time| SANKEY
-    API_AAM -.->|Polling| METRICS
-    API_AAM -.->|Polling| CONN_TABLE
-    API_DCL -.->|On-Demand| SANKEY
-
+    LIVE_PAGE --> MOCK
 ```
+
+**Frontend Pages:**
+- **Home** - Hero section + FAQ
+- **DCL Graph** - Interactive Sankey visualization
+- **AAM Monitor** - Intelligence metrics, connection health
+- **Ontology** - Data mappings and universe view
+- **Live Flow** - Real-time event visualization with animated pills
 
 ---
 
-## Canonical Schema Type Hierarchy
+## Canonical Schema Types
 
 ```mermaid
 graph TD
-    CANON_EVT[CanonicalEvent<br/>Complete Envelope]
+    EVENT[CanonicalEvent]
     
-    subgraph "Metadata"
-        META[CanonicalMeta<br/>version, tenant, trace_id]
-        SRC[CanonicalSource<br/>system, connection_id]
-    end
-
-    subgraph "Entity Data (Union Type)"
-        ACC[CanonicalAccount<br/>account_id, name, industry]
-        OPP[CanonicalOpportunity<br/>opportunity_id, stage, amount]
-        CON[CanonicalContact<br/>contact_id, email, phone]
-    end
-
-    CANON_EVT --> META
-    CANON_EVT --> SRC
-    CANON_EVT --> ACC
-    CANON_EVT --> OPP
-    CANON_EVT --> CON
-
-    subgraph "Validation"
-        VAL[model_validator<br/>Ensures entity matches data type]
-    end
-
-    CANON_EVT --> VAL
-
+    EVENT --> META[CanonicalMeta<br/>version, tenant, trace_id]
+    EVENT --> SRC[CanonicalSource<br/>system, connection_id]
+    EVENT --> DATA[Data Union Type]
+    
+    DATA --> ACC[CanonicalAccount]
+    DATA --> OPP[CanonicalOpportunity]
+    DATA --> CON[CanonicalContact]
 ```
 
----
+**Canonical Entities:**
+- `CanonicalAccount` - Account records
+- `CanonicalOpportunity` - Sales opportunities
+- `CanonicalContact` - Contact information
 
-## Functional Probe Flow
-
-```mermaid
-sequenceDiagram
-    participant Script as Functional Probe Script
-    participant SF as Salesforce API
-    participant Conn as SalesforceConnector
-    participant Map as Mapping Registry
-    participant Canon as Canonical Schema
-    participant DB as canonical_streams
-    participant Sub as DCL Subscriber
-    participant Mat as materialized_opportunities
-    participant API as DCL Views API
-    
-    Script->>SF: GET latest Opportunity (REST)
-    SF-->>Script: Opportunity data (JSON)
-    
-    Script->>Conn: normalize_opportunity()
-    Conn->>Map: apply_mapping(salesforce, opportunity)
-    Map-->>Conn: canonical_data dict
-    Conn->>Canon: CanonicalOpportunity(**data)
-    Canon-->>Conn: Validated Pydantic model
-    Conn-->>Script: CanonicalEvent
-    
-    Script->>Conn: emit_canonical_event()
-    Conn->>DB: INSERT canonical event
-    DB-->>Conn: Success
-    
-    Script->>Sub: process_canonical_streams()
-    Sub->>DB: SELECT unprocessed events
-    DB-->>Sub: Canonical events
-    Sub->>Mat: UPSERT opportunity
-    Mat-->>Sub: Success
-    
-    loop Exponential Backoff (max 10s)
-        Script->>API: GET /dcl/views/opportunities?opportunity_id=X
-        API->>Mat: SELECT WHERE opportunity_id=X
-        Mat-->>API: Records
-        API-->>Script: JSON response
-        
-        alt Record Found
-            Script->>Script: Print PASS
-        else No Record
-            Script->>Script: Wait & Retry
-        end
-    end
-```
+All wrapped in `CanonicalEvent` envelope with metadata and source tracking.
 
 ---
 
-## Key Design Patterns
-
-### 1. **Multi-Tenancy**
-- Every table has `tenant_id` for data isolation
-- JWT tokens carry `tenant_id` for automatic scoping
-- Middleware enforces tenant-based access control
-
-### 2. **Strict Typing with Pydantic**
-- `CanonicalEvent.data` is a Union of typed models
-- `@model_validator` ensures entity type matches data
-- Required fields enforced at event creation time
-
-### 3. **Event-Driven Architecture**
-- Connectors emit canonical events to streams
-- DCL subscriber processes streams asynchronously
-- WebSocket broadcasts state changes to frontend
-
-### 4. **Idempotency**
-- Trace IDs track request lifecycles
-- Idempotency middleware prevents duplicate operations
-- Upsert logic in DCL prevents duplicate data
-
-### 5. **Feature Flags**
-- `DEV_DEBUG` enables debug endpoints
-- `FEATURE_USE_FILESOURCE` toggles FileSource connector
-- `FEATURE_DRIFT_AUTOFIX` controls auto-repair
-
----
-
-## Technology Stack Summary
+## Technology Stack
 
 | Layer | Technology |
 |-------|-----------|
-| **Frontend** | React, TypeScript, Vite, D3.js |
+| **Frontend** | React, TypeScript, Vite, D3.js, Framer Motion |
 | **Backend** | FastAPI, Python 3.11, Uvicorn |
 | **Database** | PostgreSQL (Replit), DuckDB (DCL) |
 | **Cache/Queue** | Redis, Python RQ |
-| **AI/LLM** | Gemini 2.5, OpenAI, RAG (multilingual-e5) |
-| **Auth** | JWT (HS256), Argon2 password hashing |
-| **Deployment** | Replit, Nix environment |
+| **AI/LLM** | Gemini 2.5 Flash, RAG (multilingual-e5) |
+| **Auth** | JWT (HS256), Argon2 |
+| **Deployment** | Replit, Nix |
 
 ---
 
-## Component Count Summary
+## Current Statistics
 
-- **Backend Microservices:** 5 (API, DCL, AAM Orchestrator, Worker, Auth Broker)
-- **Connectors:** 2 (Salesforce, FileSource) + 1 planned (PostgreSQL)
+- **Connectors:** 4 (Salesforce, Supabase, MongoDB, FileSource)
+- **Frontend Pages:** 5 (Home, DCL, AAM, Ontology, Live Flow)
 - **Middleware Layers:** 5 (Tracing, Auth, Rate Limit, Idempotency, Audit)
-- **API Endpoints:** 20+ (Auth, AOA, AAM, DCL, FileSource, Debug)
-- **Database Tables:** 8+ (Users, CanonicalStreams, 3× Materialized, JobHistory, etc.)
 - **Canonical Entities:** 3 (Account, Opportunity, Contact)
-- **Frontend Pages:** 4 (Home, DCL, AAM Monitor, Ontology)
-- **WebSocket Channels:** 1 (DCL real-time updates)
+- **Database Tables:** 8+ (Users, Streams, Materialized views, etc.)
 
 ---
 
-This architecture supports:
+**Platform Capabilities:**
 - ✅ Multi-tenant data isolation
-- ✅ Strict type safety with Pydantic
-- ✅ Real-time UI updates via WebSocket
+- ✅ Real-time event visualization (Live Flow)
 - ✅ Self-healing connectivity (AAM Drift Repair)
-- ✅ Semantic search with RAG
-- ✅ Comprehensive audit trail
+- ✅ Semantic field matching (RAG)
 - ✅ Production-ready security (JWT, rate limiting)
+- ✅ Comprehensive audit trail

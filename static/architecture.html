@@ -55,6 +55,28 @@
             border: 1px solid #ddd;
             border-radius: 4px;
         }
+        .note {
+            background: #e7f3ff;
+            border-left: 4px solid #007bff;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .connector-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .connector-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+        }
+        .connector-card h4 {
+            margin-top: 0;
+            color: #007bff;
+        }
         @media (max-width: 768px) {
             nav ul {
                 flex-direction: column;
@@ -64,11 +86,12 @@
 </head>
 <body>
     <h1>AutonomOS Platform Architecture</h1>
-    <p>Multi-Tenant AI Orchestration Platform - Visual Documentation</p>
+    <p><strong>Multi-Tenant AI Orchestration Platform</strong> - Production-ready with 4 operational connectors</p>
 
     <nav>
         <h3>Quick Navigation</h3>
         <ul>
+            <li><a href="#aoa">Systems Overview</a></li>
             <li><a href="#overview">High-Level Architecture</a></li>
             <li><a href="#dataflow">Data Flow</a></li>
             <li><a href="#aam">AAM Components</a></li>
@@ -78,34 +101,97 @@
         </ul>
     </nav>
 
+    <div class="note">
+        <strong>Current Production Status (November 2025):</strong> Platform includes 4 operational connectors (Salesforce, FileSource, Supabase, MongoDB), complete drift detection, autonomous auto-repair, canonical event normalization, and Live Flow visualization.
+    </div>
+
+    <section id="aoa">
+        <h2>Systems Overview: Agentic Orchestration Architecture</h2>
+        <p>Complete data flow from external sources through intelligent normalization layers to domain agents.</p>
+        <pre class="mermaid">
+flowchart TB
+  subgraph Sources["Data Sources Layer"]
+    SF["Salesforce<br/>CRM Data"]
+    SB["Supabase<br/>Product Analytics"]
+    MG["MongoDB<br/>Customer Events"]
+    FS["FileSource<br/>CSV/Legacy"]
+  end
+
+  subgraph AAM["Adaptive API Mesh - Intelligence Layer"]
+    CONN["Connectors<br/>Extract & Normalize"]
+    INTEL["AAM Intelligence<br/>Drift Detection, Auto-Repair, RAG"]
+  end
+
+  subgraph DCL["Data Catalog Layer - Unified Ontology"]
+    CANON["Canonical Event Store<br/>PostgreSQL"]
+    MAT["Materialized Views<br/>DuckDB"]
+  end
+
+  subgraph Gateway["API Gateway"]
+    READ["Read API<br/>JWT Auth"]
+    WRITE["Write API<br/>Audit Logs"]
+  end
+
+  subgraph Agents["Domain Agents"]
+    REVOPS["RevOps Pilot"]
+    FINOPS["FinOps Pilot"]
+  end
+
+  SF & SB & MG & FS --> CONN
+  CONN --> INTEL
+  INTEL --> CANON
+  CANON --> MAT
+  MAT --> READ
+  READ --> REVOPS & FINOPS
+  REVOPS & FINOPS --> WRITE
+  WRITE --> INTEL
+        </pre>
+        
+        <div class="connector-list">
+            <div class="connector-card">
+                <h4>✅ Salesforce</h4>
+                <p>CRM data - Accounts, Opportunities, Contacts</p>
+            </div>
+            <div class="connector-card">
+                <h4>✅ Supabase</h4>
+                <p>Product analytics - Usage metrics, health scores</p>
+            </div>
+            <div class="connector-card">
+                <h4>✅ MongoDB</h4>
+                <p>Customer events - NoSQL event logs</p>
+            </div>
+            <div class="connector-card">
+                <h4>✅ FileSource</h4>
+                <p>Legacy systems - CSV files, flat files</p>
+            </div>
+        </div>
+    </section>
+
     <section id="overview">
         <h2>High-Level System Architecture</h2>
-        <p>Complete view of AutonomOS showing external systems, frontend layer, API gateway, backend services, data layer, and AI integration.</p>
+        <p>Complete view of AutonomOS platform components and data flow.</p>
         <pre class="mermaid">
 graph TB
-    subgraph "External Systems"
+    subgraph "Data Sources"
         SF[Salesforce]
-        HS[HubSpot]
-        DY[Dynamics]
-        CSV[CSV Files]
+        SB[Supabase]
+        MG[MongoDB]
+        FS[FileSource/CSV]
     end
 
     subgraph "AutonomOS Platform"
-        subgraph "Frontend Layer"
-            UI[React/TypeScript UI]
-            DCL_UI[DCL Graph Viz]
-            AAM_UI[AAM Monitor Dashboard]
+        subgraph "Frontend"
+            UI[React UI]
+            DCL_VIZ[DCL Graph]
+            AAM_MON[AAM Monitor]
+            LIVE[Live Flow]
         end
 
         subgraph "API Gateway"
-            MW_TRACE[Tracing Middleware]
-            MW_AUTH[Auth Middleware]
-            MW_RATE[Rate Limit Middleware]
-            MW_IDEMPOT[Idempotency Middleware]
-            MW_AUDIT[Audit Middleware]
+            MW[Middleware Stack<br/>Auth, Rate Limit, Audit]
         end
 
-        subgraph "Backend Services"
+        subgraph "Backend"
             API[FastAPI Server]
             DCL[DCL Engine]
             AAM[AAM Orchestrator]
@@ -115,146 +201,94 @@ graph TB
         subgraph "Data Layer"
             PG[(PostgreSQL)]
             REDIS[(Redis)]
-            DUCKDB[(DuckDB)]
+            DUCK[(DuckDB)]
         end
 
-        subgraph "AI Layer"
-            GEMINI[Gemini AI]
-            OPENAI[OpenAI]
+        subgraph "AI"
+            GEMINI[Gemini]
             RAG[RAG Engine]
         end
     end
 
-    SF --> AAM
-    HS --> AAM
-    DY --> AAM
-    CSV --> AAM
-
-    UI --> MW_TRACE
-    DCL_UI --> MW_TRACE
-    AAM_UI --> MW_TRACE
-
-    MW_TRACE --> MW_AUTH
-    MW_AUTH --> MW_RATE
-    MW_RATE --> MW_IDEMPOT
-    MW_IDEMPOT --> MW_AUDIT
-    MW_AUDIT --> API
-
-    API --> DCL
-    API --> AAM
-    API --> WORKER
-
-    AAM --> PG
-    DCL --> DUCKDB
+    SF & SB & MG & FS --> AAM
+    UI & DCL_VIZ & AAM_MON & LIVE --> MW
+    MW --> API
+    API --> DCL & AAM & WORKER
+    AAM --> PG & GEMINI & RAG
+    DCL --> DUCK
     WORKER --> REDIS
-    
-    AAM --> GEMINI
-    AAM --> OPENAI
-    DCL --> RAG
         </pre>
     </section>
 
     <section id="dataflow">
         <h2>Data Flow: Source → AAM → DCL</h2>
-        <p>End-to-end journey of data from external sources through the Adaptive API Mesh (AAM) to materialized DCL views.</p>
+        <p>End-to-end journey of data from external sources through AAM to materialized DCL views.</p>
         <pre class="mermaid">
 graph LR
-    subgraph "Data Sources"
+    subgraph "Sources"
         SF_OPP[Salesforce<br/>Opportunity]
-        CSV_OPP[CSV File<br/>Opportunity]
+        SB_ACC[Supabase<br/>Account]
+        MG_USG[MongoDB<br/>Usage]
+        FS_CSV[FileSource<br/>CSV]
     end
 
-    subgraph "AAM - Adaptive API Mesh"
-        CONN_SF[Salesforce<br/>Connector]
-        CONN_FS[FileSource<br/>Connector]
-        MAP_REG[Mapping<br/>Registry]
-        CANON[Canonical<br/>Schema]
-        STREAM[Canonical<br/>Streams DB]
+    subgraph "AAM"
+        CONN[Connectors]
+        MAP[Mapping Registry]
+        CANON[Canonical Schema]
+        STREAM[Streams DB]
     end
 
-    subgraph "DCL - Data Catalog Layer"
-        SUB[DCL<br/>Subscriber]
-        MAT[Materialized<br/>Tables]
-        VIEWS[DCL Views<br/>API]
+    subgraph "DCL"
+        SUB[Subscriber]
+        MAT[Materialized Tables]
+        API[Views API]
     end
 
     subgraph "Frontend"
         UI[React UI]
-        DEBUG[Debug<br/>Endpoint]
     end
 
-    SF_OPP -->|REST API| CONN_SF
-    CSV_OPP -->|CSV Read| CONN_FS
-
-    CONN_SF -->|Apply Mapping| MAP_REG
-    CONN_FS -->|Apply Mapping| MAP_REG
-
-    MAP_REG -->|Transform| CANON
-    CANON -->|Validate| STREAM
-
-    STREAM -->|Process| SUB
-    SUB -->|Upsert| MAT
-
-    MAT -->|Query| VIEWS
-    STREAM -->|Query| DEBUG
-
-    VIEWS --> UI
-    DEBUG --> UI
+    SF_OPP & SB_ACC & MG_USG & FS_CSV --> CONN
+    CONN --> MAP
+    MAP --> CANON
+    CANON --> STREAM
+    STREAM --> SUB
+    SUB --> MAT
+    MAT --> API
+    API --> UI
         </pre>
     </section>
 
     <section id="aam">
         <h2>AAM (Adaptive API Mesh) Components</h2>
-        <p>Three-plane architecture: Intelligence, Execution, and Control planes working together for self-healing data connectivity.</p>
+        <p>Three-plane architecture: Intelligence, Execution, and Control planes for self-healing data connectivity.</p>
         <pre class="mermaid">
 graph TB
-    subgraph "AAM - Adaptive API Mesh"
-        subgraph "Intelligence Plane"
-            ORCH[AAM Orchestrator<br/>FastAPI Service]
-            DRIFT[Drift Repair Agent<br/>Self-Healing]
-            SCHEMA_OBS[Schema Observer<br/>Change Detection]
-            RAG_ENG[RAG Engine<br/>Semantic Search]
-        end
-
-        subgraph "Execution Plane"
-            CONN_SF[Salesforce Connector]
-            CONN_FS[FileSource Connector]
-            CONN_PG[PostgreSQL Connector<br/>Coming Soon]
-        end
-
-        subgraph "Control Plane"
-            MAP_REG[Mapping Registry<br/>YAML Configs]
-            CANON_SCH[Canonical Schemas<br/>Pydantic Models]
-            CONN_REG[Connector Registry<br/>PostgreSQL]
-        end
-
-        subgraph "Canonical Layer"
-            CANON_ACC[CanonicalAccount]
-            CANON_OPP[CanonicalOpportunity]
-            CANON_CON[CanonicalContact]
-            CANON_EVT[CanonicalEvent<br/>Envelope]
-        end
+    subgraph "Intelligence Plane"
+        ORCH[Orchestrator]
+        DRIFT[Drift Repair Agent]
+        SCHEMA[Schema Observer]
+        RAG[RAG Engine]
     end
 
-    CONN_SF --> MAP_REG
-    CONN_FS --> MAP_REG
-    CONN_PG -.-> MAP_REG
+    subgraph "Execution Plane"
+        SF_CONN[Salesforce Connector]
+        SB_CONN[Supabase Connector]
+        MG_CONN[MongoDB Connector]
+        FS_CONN[FileSource Connector]
+    end
 
+    subgraph "Control Plane"
+        MAP_REG[Mapping Registry<br/>YAML]
+        CANON_SCH[Canonical Schemas<br/>Pydantic]
+        CONN_REG[Connector Registry<br/>PostgreSQL]
+    end
+
+    SF_CONN & SB_CONN & MG_CONN & FS_CONN --> MAP_REG
     MAP_REG --> CANON_SCH
-    CANON_SCH --> CANON_ACC
-    CANON_SCH --> CANON_OPP
-    CANON_SCH --> CANON_CON
-
-    CANON_ACC --> CANON_EVT
-    CANON_OPP --> CANON_EVT
-    CANON_CON --> CANON_EVT
-
-    ORCH --> DRIFT
-    ORCH --> SCHEMA_OBS
-    ORCH --> RAG_ENG
-
-    DRIFT --> CONN_REG
-    SCHEMA_OBS --> CONN_REG
+    ORCH --> DRIFT & SCHEMA & RAG
+    DRIFT & SCHEMA --> CONN_REG
         </pre>
     </section>
 
@@ -263,30 +297,29 @@ graph TB
         <p>Five-layer middleware stack with request flow and routing logic.</p>
         <pre class="mermaid">
 graph TD
-    REQ[Incoming HTTP Request]
+    REQ[HTTP Request]
     
-    REQ --> MW1[1. Tracing Middleware<br/>Generate trace_id]
-    MW1 --> MW2[2. Auth Middleware<br/>JWT validation, tenant extraction]
-    MW2 --> MW3[3. Rate Limit Middleware<br/>Per-tenant rate limiting]
-    MW3 --> MW4[4. Idempotency Middleware<br/>Prevent duplicate requests]
-    MW4 --> MW5[5. Audit Middleware<br/>Log all actions]
+    REQ --> MW1[1. Tracing<br/>trace_id]
+    MW1 --> MW2[2. Auth<br/>JWT, tenant]
+    MW2 --> MW3[3. Rate Limit<br/>Per-tenant]
+    MW3 --> MW4[4. Idempotency]
+    MW4 --> MW5[5. Audit Log]
     
-    MW5 --> ROUTE{Route?}
+    MW5 --> ROUTE{Route}
     
-    ROUTE -->|/api/v1/auth| AUTH[Auth Endpoints]
-    ROUTE -->|/api/v1/aoa| AOA[AOA Orchestration]
-    ROUTE -->|/api/v1/aam| AAM[AAM Monitoring]
-    ROUTE -->|/api/v1/filesource| FS[FileSource API]
-    ROUTE -->|/api/v1/dcl/views| DCL_V[DCL Views API]
-    ROUTE -->|/api/v1/debug| DEBUG[Debug Endpoints]
-    ROUTE -->|/dcl| DCL[DCL Engine]
-    ROUTE -->|/| STATIC[Static Frontend]
+    ROUTE -->|/api/v1/auth| AUTH[Auth]
+    ROUTE -->|/api/v1/aoa| AOA[AOA]
+    ROUTE -->|/api/v1/aam| AAM[AAM]
+    ROUTE -->|/api/v1/dcl| DCL[DCL]
+    ROUTE -->|/dcl| DCL_WS[DCL WebSocket]
+    ROUTE -->|/live-flow| LIVE[Live Flow]
+    ROUTE -->|/| STATIC[Frontend]
         </pre>
     </section>
 
     <section id="database">
         <h2>Database Schema</h2>
-        <p>PostgreSQL database schema showing multi-tenant tables with relationships and key constraints.</p>
+        <p>PostgreSQL database schema with multi-tenant tables and relationships.</p>
         <pre class="mermaid">
 erDiagram
     USERS ||--o{ CANONICAL_STREAMS : creates
@@ -300,7 +333,6 @@ erDiagram
 
     CANONICAL_STREAMS ||--o{ MATERIALIZED_ACCOUNTS : sources
     CANONICAL_STREAMS ||--o{ MATERIALIZED_OPPORTUNITIES : sources
-    CANONICAL_STREAMS ||--o{ MATERIALIZED_CONTACTS : sources
     CANONICAL_STREAMS {
         int id PK
         string tenant_id
@@ -318,11 +350,8 @@ erDiagram
         string name
         string industry
         decimal annual_revenue
-        int employee_count
-        string website
         jsonb extras
         datetime created_at
-        datetime updated_at
     }
 
     MATERIALIZED_OPPORTUNITIES {
@@ -333,37 +362,8 @@ erDiagram
         string name
         string stage
         decimal amount
-        string currency
         date close_date
-        string owner_id
-        int probability
         jsonb extras
-        datetime created_at
-        datetime updated_at
-    }
-
-    MATERIALIZED_CONTACTS {
-        int id PK
-        string tenant_id
-        string contact_id UK
-        string account_id FK
-        string first_name
-        string last_name
-        string email
-        string phone
-        string title
-        jsonb extras
-        datetime created_at
-        datetime updated_at
-    }
-
-    JOB_HISTORY {
-        int id PK
-        string tenant_id
-        string job_id
-        string job_type
-        string status
-        jsonb result
         datetime created_at
     }
         </pre>
@@ -371,58 +371,51 @@ erDiagram
 
     <section id="frontend">
         <h2>Frontend Architecture</h2>
-        <p>React/TypeScript frontend with real-time WebSocket updates and component hierarchy.</p>
+        <p>React/TypeScript frontend with real-time WebSocket updates and 5 pages.</p>
         <pre class="mermaid">
 graph TB
-    subgraph "React/TypeScript Frontend"
-        subgraph "Pages"
-            HOME[Home Page<br/>Hero + FAQ]
-            DCL_PAGE[DCL Page<br/>Graph Visualization]
-            AAM_PAGE[AAM Monitor<br/>Dashboard]
-            ONT_PAGE[Ontology Page<br/>Data Mappings]
-        end
-
-        subgraph "Components"
-            SANKEY[Sankey Graph<br/>D3.js]
-            METRICS[Metrics Cards<br/>Real-time Stats]
-            CONN_TABLE[Connection Health<br/>Table]
-            EVENT_LOG[Events Log<br/>Recent Activity]
-        end
-
-        subgraph "WebSocket"
-            WS[DCL WebSocket<br/>Real-time Updates]
-        end
-
-        subgraph "API Clients"
-            API_DCL[DCL API Client]
-            API_AAM[AAM API Client]
-            API_DEBUG[Debug API Client]
-        end
+    subgraph "Pages"
+        HOME[Home<br/>Hero + FAQ]
+        DCL_PAGE[DCL Graph<br/>Sankey Viz]
+        AAM_PAGE[AAM Monitor<br/>Intelligence Metrics]
+        ONT_PAGE[Ontology<br/>Mappings]
+        LIVE_PAGE[Live Flow<br/>Real-time Events]
     end
 
-    HOME --> DCL_PAGE
-    HOME --> AAM_PAGE
-    HOME --> ONT_PAGE
+    subgraph "Components"
+        SANKEY[Sankey Graph<br/>D3.js]
+        METRICS[Metrics Cards]
+        EVENT_PILLS[Event Pills<br/>Animated]
+    end
 
+    subgraph "Real-time"
+        WS[DCL WebSocket]
+        MOCK[Mock Generator]
+    end
+
+    HOME --> DCL_PAGE & AAM_PAGE & ONT_PAGE & LIVE_PAGE
     DCL_PAGE --> SANKEY
     AAM_PAGE --> METRICS
-    AAM_PAGE --> CONN_TABLE
-    AAM_PAGE --> EVENT_LOG
-
+    LIVE_PAGE --> EVENT_PILLS
     DCL_PAGE --> WS
-    AAM_PAGE --> API_AAM
-    DCL_PAGE --> API_DCL
-    AAM_PAGE --> API_DEBUG
-
-    WS -.->|Real-time| SANKEY
-    API_AAM -.->|Polling| METRICS
-    API_AAM -.->|Polling| CONN_TABLE
-    API_DCL -.->|On-Demand| SANKEY
+    LIVE_PAGE --> MOCK
         </pre>
+        
+        <div class="note">
+            <strong>Frontend Pages:</strong>
+            <ul>
+                <li><strong>Home</strong> - Hero section with value proposition + FAQ</li>
+                <li><strong>DCL Graph</strong> - Interactive Sankey visualization of data flow</li>
+                <li><strong>AAM Monitor</strong> - Intelligence metrics and connection health</li>
+                <li><strong>Ontology</strong> - Data mappings and universe view</li>
+                <li><strong>Live Flow</strong> - Real-time event visualization with animated pills (NEW)</li>
+            </ul>
+        </div>
     </section>
 
     <footer style="margin-top: 60px; padding-top: 20px; border-top: 1px solid #ddd; text-align: center; color: #666;">
-        <p>AutonomOS Platform - Multi-Tenant AI Orchestration Architecture</p>
+        <p><strong>AutonomOS Platform</strong> - Multi-Tenant AI Orchestration Architecture</p>
+        <p>Technology Stack: React, TypeScript, FastAPI, PostgreSQL, DuckDB, Redis, Gemini AI</p>
     </footer>
 </body>
 </html>
