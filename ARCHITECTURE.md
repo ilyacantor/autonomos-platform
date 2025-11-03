@@ -1,15 +1,60 @@
 # AutonomOS Platform Architecture
 
 ## Table of Contents
-1. [Systems Overview (AOA)](#systems-overview-aoa)
-2. [High-Level System Architecture](#high-level-system-architecture)
-3. [Data Flow: Source → AAM → DCL](#data-flow-source--aam--dcl)
-4. [AAM Components](#aam-components)
-5. [Gateway Middleware Stack](#gateway-middleware-stack)
-6. [Database Schema](#database-schema)
-7. [Frontend Architecture](#frontend-architecture)
-8. [Canonical Schema Types](#canonical-schema-types)
-9. [Technology Stack](#technology-stack)
+1. [Functional Overview](#functional-overview)
+2. [Systems Overview (AOA)](#systems-overview-aoa)
+3. [High-Level System Architecture](#high-level-system-architecture)
+4. [Data Flow: Source → AAM → DCL](#data-flow-source--aam--dcl)
+5. [AAM Components](#aam-components)
+6. [Gateway Middleware Stack](#gateway-middleware-stack)
+7. [Database Schema](#database-schema)
+8. [Frontend Architecture](#frontend-architecture)
+9. [Canonical Schema Types](#canonical-schema-types)
+10. [Technology Stack](#technology-stack)
+
+---
+
+## Functional Overview
+
+**What AutonomOS Does:** Connects messy data sources, cleans them up intelligently, and gives AI agents a unified view.
+
+```mermaid
+flowchart LR
+    subgraph DS["📊 DATA SOURCES"]
+        direction TB
+        DS_DESC["<b>Function:</b> Provide raw business data<br/><br/><b>What they do:</b><br/>• Salesforce stores CRM data<br/>• Supabase tracks product usage<br/>• MongoDB logs customer events<br/>• CSV files hold legacy data<br/><br/><b>Problem:</b> Different formats,<br/>field names, structures"]
+    end
+    
+    subgraph AAM["🔧 ADAPTIVE API MESH"]
+        direction TB
+        AAM_DESC["<b>Function:</b> Normalize chaos into order<br/><br/><b>What it does:</b><br/>• Connects to each source<br/>• Transforms to standard format<br/>• Detects schema changes<br/>• Auto-repairs broken mappings<br/>• Uses AI to match similar fields<br/><br/><b>Output:</b> Clean, validated,<br/>canonical events"]
+    end
+    
+    subgraph DCL["📚 DATA CATALOG LAYER"]
+        direction TB
+        DCL_DESC["<b>Function:</b> Create unified queryable views<br/><br/><b>What it does:</b><br/>• Stores canonical events<br/>• Builds materialized tables<br/>• Links related records<br/>• Infers relationships<br/>• Provides SQL-like queries<br/><br/><b>Output:</b> Single source of truth<br/>for all business entities"]
+    end
+    
+    subgraph AGENTS["🤖 AI AGENTS"]
+        direction TB
+        AGENTS_DESC["<b>Function:</b> Take intelligent action<br/><br/><b>What they do:</b><br/>• RevOps: Score deals, predict revenue<br/>• FinOps: Find cost anomalies<br/>• Query unified data (no ETL)<br/>• Execute actions automatically<br/>• Write back to sources<br/><br/><b>Result:</b> Automated insights<br/>and actions"]
+    end
+    
+    DS -->|"Raw events<br/>(messy, inconsistent)"| AAM
+    AAM -->|"Canonical events<br/>(clean, validated)"| DCL
+    DCL -->|"Unified data<br/>(queryable, linked)"| AGENTS
+    AGENTS -->|"Actions<br/>(update, alert, optimize)"| AAM
+```
+
+**Key Functional Benefits:**
+
+1. **Data Sources** → No integration work needed. Connect once, data flows automatically.
+2. **AAM** → Self-healing. When Salesforce adds a field, AAM detects and adapts automatically.
+3. **DCL** → Query all sources as one. No more writing separate queries for each system.
+4. **Agents** → Built on unified data. Write logic once, works across all sources.
+
+**Example Flow:**
+- Salesforce emits "Opportunity closed" → AAM normalizes to CanonicalOpportunity → DCL materializes in unified view → RevOps agent calculates pipeline health → Agent updates forecast in Salesforce
 
 ---
 
