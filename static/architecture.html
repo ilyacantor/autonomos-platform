@@ -112,25 +112,13 @@
         
         <pre class="mermaid">
 flowchart TB
-    subgraph DS["📊 DATA SOURCES"]
-        direction TB
-        DS_DESC["<b>Function:</b> Provide raw business data<br/><br/><b>What they do:</b><br/>• Salesforce stores CRM data<br/>• Supabase tracks product usage<br/>• MongoDB logs customer events<br/>• CSV files hold legacy data<br/><br/><b>Problem:</b> Different formats,<br/>field names, structures"]
-    end
+    DS["📊 DATA SOURCES<br/><br/><b>Function:</b> Provide raw business data<br/><br/><b>What they do:</b><br/>• Salesforce stores CRM data<br/>• Supabase tracks product usage<br/>• MongoDB logs customer events<br/>• CSV files hold legacy data<br/><br/><b>Problem:</b> Different formats,<br/>field names, structures"]
     
-    subgraph AAM["🔧 ADAPTIVE API MESH"]
-        direction TB
-        AAM_DESC["<b>Function:</b> Normalize chaos into order<br/><br/><b>What it does:</b><br/>• Connects to each source<br/>• Transforms to standard format<br/>• Detects schema changes<br/>• Auto-repairs broken mappings<br/>• Uses AI to match similar fields<br/><br/><b>Output:</b> Clean, validated,<br/>canonical events"]
-    end
+    AAM["🔧 ADAPTIVE API MESH<br/><br/><b>Function:</b> Normalize chaos into order<br/><br/><b>What it does:</b><br/>• Connects to each source<br/>• Transforms to standard format<br/>• Detects schema changes<br/>• Auto-repairs broken mappings<br/>• Uses AI to match similar fields<br/><br/><b>Output:</b> Clean, validated,<br/>canonical events"]
     
-    subgraph DCL["📚 DATA CATALOG LAYER"]
-        direction TB
-        DCL_DESC["<b>Function:</b> Create unified queryable views<br/><br/><b>What it does:</b><br/>• Stores canonical events<br/>• Builds materialized tables<br/>• Links related records<br/>• Infers relationships<br/>• Provides SQL-like queries<br/><br/><b>Output:</b> Single source of truth<br/>for all business entities"]
-    end
+    DCL["📚 DATA CATALOG LAYER<br/><br/><b>Function:</b> Create unified queryable views<br/><br/><b>What it does:</b><br/>• Stores canonical events<br/>• Builds materialized tables<br/>• Links related records<br/>• Infers relationships<br/>• Provides SQL-like queries<br/><br/><b>Output:</b> Single source of truth<br/>for all business entities"]
     
-    subgraph AGENTS["🤖 AI AGENTS"]
-        direction TB
-        AGENTS_DESC["<b>Function:</b> Take intelligent action<br/><br/><b>What they do:</b><br/>• RevOps: Score deals, predict revenue<br/>• FinOps: Find cost anomalies<br/>• Query unified data (no ETL)<br/>• Execute actions automatically<br/>• Write back to sources<br/><br/><b>Result:</b> Automated insights<br/>and actions"]
-    end
+    AGENTS["🤖 AI AGENTS<br/><br/><b>Function:</b> Take intelligent action<br/><br/><b>What they do:</b><br/>• RevOps: Score deals, predict revenue<br/>• FinOps: Find cost anomalies<br/>• Query unified data (no ETL)<br/>• Execute actions automatically<br/>• Write back to sources<br/><br/><b>Result:</b> Automated insights<br/>and actions"]
     
     DS -->|"Raw events<br/>(messy, inconsistent)"| AAM
     AAM -->|"Canonical events<br/>(clean, validated)"| DCL
