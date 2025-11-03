@@ -83,13 +83,6 @@ graph TB
     AAM --> OPENAI
     DCL --> RAG
 
-    style SF fill:#90EE90,color:#0D1117
-    style HS fill:#90EE90,color:#0D1117
-    style DY fill:#90EE90,color:#0D1117
-    style CSV fill:#90EE90,color:#0D1117
-    style UI fill:#87CEEB,color:#0D1117
-    style PG fill:#FFD700,color:#0D1117
-    style REDIS fill:#FF6347
 ```
 
 ---
@@ -140,11 +133,6 @@ graph LR
     VIEWS --> UI
     DEBUG --> UI
 
-    style SF_OPP fill:#90EE90,color:#0D1117
-    style CSV_OPP fill:#90EE90,color:#0D1117
-    style CANON fill:#FFD700,color:#0D1117
-    style STREAM fill:#FFD700,color:#0D1117
-    style MAT fill:#87CEEB,color:#0D1117
 ```
 
 ---
@@ -201,9 +189,6 @@ graph TB
     DRIFT --> CONN_REG
     SCHEMA_OBS --> CONN_REG
 
-    style CANON_EVT fill:#FFD700,color:#0D1117
-    style MAP_REG fill:#87CEEB,color:#0D1117
-    style DRIFT fill:#FF6347
 ```
 
 ---
@@ -239,12 +224,6 @@ graph TD
         PUB5[/api/v1/debug/*]
     end
 
-    style MW1 fill:#E6E6FA,color:#0D1117
-    style MW2 fill:#FFB6C1,color:#0D1117
-    style MW3 fill:#FFE4B5,color:#0D1117
-    style MW4 fill:#B0E0E6,color:#0D1117
-    style MW5 fill:#98FB98,color:#0D1117
-    style DEBUG fill:#FF6347
 ```
 
 ---
@@ -392,8 +371,6 @@ graph TB
     API_AAM -.->|Polling| CONN_TABLE
     API_DCL -.->|On-Demand| SANKEY
 
-    style SANKEY fill:#87CEEB,color:#0D1117
-    style WS fill:#90EE90,color:#0D1117
 ```
 
 ---
@@ -427,8 +404,6 @@ graph TD
 
     CANON_EVT --> VAL
 
-    style CANON_EVT fill:#FFD700,color:#0D1117
-    style VAL fill:#FF6347
 ```
 
 ---
