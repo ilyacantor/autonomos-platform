@@ -1,8 +1,10 @@
+modules = ["nodejs-20", "bash", "web", "python-3.11", "postgresql-16"]
 [agent]
 expertMode = true
 
 [nix]
 channel = "stable-25_05"
+packages = ["glibcLocales", "libxcrypt", "libyaml", "openssl", "redis", "imagemagick"]
 
 [workflows]
 runButton = "Project"
@@ -27,14 +29,18 @@ waitForPort = 5000
 
 [workflows.workflow.metadata]
 outputType = "webview"
-agentRequireRestartButton = false
 
 [[ports]]
 localPort = 5000
 externalPort = 80
 
-[workflows.workflow.metadata]
-webview = true
+[[ports]]
+localPort = 38933
+externalPort = 3001
+
+[[ports]]
+localPort = 39675
+externalPort = 3000
 
 [deployment]
 run = ["bash", "start.sh"]

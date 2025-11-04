@@ -1,16 +1,13 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import declarative_base
 from .config import settings
-import os
 import logging
 
 logger = logging.getLogger(__name__)
 
-# Use main platform DATABASE_URL (same as SUPABASE_DB_URL)
-db_url = os.getenv("DATABASE_URL", settings.SUPABASE_DB_URL)
 
 engine = create_async_engine(
-    db_url.replace("postgresql://", "postgresql+asyncpg://"),
+    settings.SUPABASE_DB_URL.replace("postgresql://", "postgresql+asyncpg://"),
     echo=True,
     future=True,
     pool_pre_ping=True,
