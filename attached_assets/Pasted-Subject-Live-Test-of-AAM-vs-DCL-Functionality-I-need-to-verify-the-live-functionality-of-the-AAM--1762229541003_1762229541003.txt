@@ -1,0 +1,43 @@
+Subject: Live Test of AAM vs. DCL Functionality
+
+I need to verify the live functionality of the AAM and DCL as described in replit (1).md. Please help me run a two-part test in the autonomos-platform environment.
+
+Part 1: AAM Schema Drift Test
+
+This test will check the AAM's "drift detection" and "auto-repair" features.
+
+Let's use the FileSource connector. Please locate the source file it's configured to read.
+
+I want to simulate schema drift. Please modify the header of that source file: rename a single column (e.g., if a column is opportunity_value, rename it to opportunity_amount).
+
+After the change, trigger an ingestion from that FileSource.
+
+Verification: Please monitor the AAM's event stream or logs (specifically for "drift" events). What do you observe?
+
+Does the system log a "drift detection" event?
+
+Does the "auto-repair agent" attempt to map the old field to the new one?
+
+Does the data still flow through, or does the connection break?
+
+Part 2: DCL Entity Mapping Test
+
+This test will check the DCL's "AI-powered entity mapping" and "unified view creation".
+
+First, please ensure the AAM connection from Part 1 is working (either repaired or reverted to its original state).
+
+I want to ingest two records that represent the same entity but have slight mismatches. Let's use two different connectors, for example, FileSource and Supabase.
+
+Ingest this record from FileSource: {"contact_name": "William Johnson", "email": "bill.j@example-corp.com"}
+
+Ingest this record from Supabase: {"name": "Bill Johnson", "email": "bill.j@example-corp.com"}
+
+Verification: After both records are ingested and processed by the DCL, please run a SQL query directly against the materialized_contacts table in the PostgreSQL database.
+
+SELECT * FROM materialized_contacts WHERE email = 'bill.j@example-corp.com';
+
+How many records are returned?
+
+If one record is returned, does it correctly unify the data (e.g., using "William Johnson" as the name)?
+
+Please execute these tests and report the live results.
