@@ -41,7 +41,7 @@ class FeatureFlagConfig:
     """
     
     _flags: Dict[str, bool] = {
-        FeatureFlag.USE_AAM_AS_SOURCE: False,
+        FeatureFlag.USE_AAM_AS_SOURCE: True,  # Phase 2.5: Enable AAM → DCL bridge
         FeatureFlag.ENABLE_DRIFT_DETECTION: False,
         FeatureFlag.ENABLE_AUTO_REPAIR: False,
         FeatureFlag.ENABLE_HITL_WORKFLOW: True,
