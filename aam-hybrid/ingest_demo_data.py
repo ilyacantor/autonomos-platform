@@ -204,7 +204,7 @@ async def inspect_redis_streams(tenant_id: str = "demo-tenant"):
 async def main():
     """Main entry point"""
     try:
-        tenant_id = os.getenv('TENANT_ID', 'demo-tenant')
+        tenant_id = os.getenv('TENANT_ID', 'default')
         
         result = await ingest_all_demo_connectors(tenant_id=tenant_id)
         
