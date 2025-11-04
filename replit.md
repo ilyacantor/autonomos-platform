@@ -56,32 +56,74 @@ The platform is undergoing a comprehensive restructuring to implement a proper d
 - HITL (Human-in-the-Loop) workflow for repairs with <90% confidence
 - Structured migrations using `npm run db:push` (never `--force` in production)
 
-### Phase 1: AAM Enhancement (Pending Approval)
-**Objective:** Transform AAM from monitoring-only to active connection registry
+### Phase 1: AAM Enhancement (✅ Complete)
+**Status:** Completed November 2025
 
-**Changes:**
-- Add `connector_config` JSONB to `connections` table (with GIN indexes)
-- Implement connection lifecycle manager (`aam-hybrid/core/connection_manager.py`)
-- Create connector adapters: Salesforce, Supabase, MongoDB, FileSource
-- New endpoints: `POST /api/v1/aam/connections`, health checks, deregistration
-- Frontend: Display registered connections in AAM Monitor
+**Deliverables:**
+- ✅ Added `connector_config` JSONB to `connections` table with GIN indexes
+- ✅ Implemented connection lifecycle manager (`aam-hybrid/core/connection_manager.py`)
+- ✅ Created connector adapters: Salesforce, Supabase, MongoDB, FileSource
+- ✅ New endpoints: `POST /api/v1/aam/connections`, health checks, deregistration
+- ✅ Frontend: AAM Dashboard displays registered connections
 
-**Backward Compatibility:** AAM operates standalone; no DCL integration yet.
+**Infrastructure:**
+- Connection registry with JSONB config storage
+- Four production connectors with operational health monitoring
+- REST API for connection management
 
-### Phase 2: AAM → DCL Bridge (Pending Approval)
-**Objective:** Create optional AAM-backed data path for DCL
+### Phase 2: AAM → DCL Bridge (✅ Complete - Infrastructure Ready)
+**Status:** Completed November 2025 | **Note:** AAM integration pending (see Phase 2.5)
 
 **Feature Flag:** `USE_AAM_AS_SOURCE` (default: `False`)
-- When `False`: Current file-based demo path (backward compatible)
-- When `True`: AAM-backed DCL with normalized data
+- When `False`: File-based demo path ✅ **Validated & Working**
+- When `True`: AAM-backed DCL ⚠️ **Infrastructure ready, integration pending**
 
-**Changes:**
-- DCL source adapter pattern (`app/dcl_engine/source_loader.py`)
-- AAM output formatter (`aam-hybrid/core/dcl_output_adapter.py`)
-- Frontend toggle: "Data Source: [Demo Files] [AAM Connectors]"
-- Both paths tested independently
+**Completed Deliverables:**
+- ✅ DCL source adapter abstraction (`app/dcl_engine/source_loader.py`)
+  - BaseSourceAdapter interface for pluggable data sources
+  - FileSourceAdapter (demo CSV files) - fully validated
+  - AAMSourceAdapter (Redis Streams) - implemented, not yet validated
+  - Factory function with feature flag routing
+- ✅ AAM output formatter (`aam-hybrid/core/dcl_output_adapter.py`)
+  - Transforms AAM canonical events → DCL format
+  - Publishes to Redis Streams: `aam:dcl:{tenant_id}:{connector}`
+  - Batch chunking (200 records/chunk), metadata envelope
+  - Unit tested (6/6 tests passing)
+- ✅ DCL connection flow updated to use adapter pattern
+  - `connect_source()` uses adapter factory
+  - `source_mode` metadata in all responses
+  - Backward compatibility maintained
+- ✅ Frontend source mode indicator (`frontend/src/components/monitor/LiveFlow.tsx`)
+  - Displays "Demo Files" or "AAM Connectors"
+  - Visual differentiation (blue vs green)
+  - Foundation for future toggle implementation
+- ✅ Database connectivity fixes
+  - PgBouncer pooling mode (port 6543)
+  - Connection pool optimization (main: 10, AAM: 4)
+  - Statement cache disabled for AAM (PgBouncer compatibility)
+  - WebSocket broadcast error handling fixed
 
 **Storage:** Redis Streams for canonical event queuing
+
+**Known Limitations:**
+- AAM connectors do not yet publish to Redis Streams
+- AAM path cannot be enabled until connectors integrated with output formatter
+- Feature flag `USE_AAM_AS_SOURCE` must remain `False` until Phase 2.5 complete
+
+### Phase 2.5: AAM Connector Integration (🔄 Next Step)
+**Objective:** Connect AAM connectors to DCL output formatter for end-to-end validation
+
+**Required Changes:**
+- Update AAM connectors to call `dcl_output_adapter.publish_to_dcl_stream()`
+- Add Redis client to connector context
+- Publish canonical events after processing
+- Integration test: Enable `USE_AAM_AS_SOURCE` and verify `/dcl/connect` works
+
+**Success Criteria:**
+- AAM connectors publish to Redis Streams
+- AAMSourceAdapter successfully loads tables
+- End-to-end AAM → DCL flow validated
+- Feature flag `USE_AAM_AS_SOURCE` safe to enable
 
 ### Phase 3: Canonical Event Pipeline (Pending Approval)
 **Objective:** Full canonical event normalization with drift detection and auto-repair

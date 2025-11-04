@@ -10,6 +10,8 @@ import google.generativeai as genai  # type: ignore
 from rag_engine import RAGEngine
 from llm_service import get_llm_service
 import redis
+from app.dcl_engine.source_loader import get_source_adapter
+from app.config.feature_flags import FeatureFlagConfig, FeatureFlag
 
 # Use paths relative to this module's directory
 DCL_BASE_PATH = Path(__file__).parent
@@ -144,13 +146,18 @@ class ConnectionManager:
     
     async def broadcast(self, message: dict):
         """Broadcast message to all connected WebSocket clients"""
+        disconnected = []
         for connection in self.active_connections:
             try:
                 await connection.send_json(message)
-            except Exception as e:
-                log(f"⚠️ Error broadcasting to WebSocket client: {e}")
-                import traceback
-                log(f"   Traceback: {traceback.format_exc()}")
+            except Exception:
+                # Client disconnected - mark for removal
+                disconnected.append(connection)
+        
+        # Remove disconnected clients
+        for connection in disconnected:
+            if connection in self.active_connections:
+                self.active_connections.remove(connection)
 
 ws_manager = ConnectionManager()
 
@@ -1361,7 +1368,11 @@ def preview_table(con, name: str, limit: int = 6) -> List[Dict[str,Any]]:
     except Exception:
         return []
 
-async def connect_source(source_key: str, llm_model: str = "gemini-2.5-flash") -> Dict[str, Any]:
+async def connect_source(
+    source_key: str, 
+    llm_model: str = "gemini-2.5-flash",
+    tenant_id: str = "default"
+) -> Dict[str, Any]:
     global ontology, agents_config, SOURCE_SCHEMAS, STATE_LOCK, TIMING_LOG, ASYNC_STATE_LOCK, ws_manager
     
     connect_start = time.time()
@@ -1381,10 +1392,18 @@ async def connect_source(source_key: str, llm_model: str = "gemini-2.5-flash") -
     
     if ontology is None:
         ontology = load_ontology()
-    schema_dir = os.path.join(SCHEMAS_DIR, source_key)
-    if not os.path.isdir(schema_dir):
-        return {"error": f"Unknown source '{source_key}'"}
-    tables = snapshot_tables_from_dir(source_key, schema_dir)
+    
+    # Get appropriate adapter based on feature flag
+    adapter = get_source_adapter()
+    source_mode = "aam_connectors" if FeatureFlagConfig.is_enabled(FeatureFlag.USE_AAM_AS_SOURCE) else "demo_files"
+    
+    log(f"📂 Using {source_mode} for source: {source_key} (tenant: {tenant_id})")
+    
+    # Load tables using adapter
+    tables = adapter.load_tables(source_key, tenant_id)
+    
+    if not tables:
+        return {"error": f"No tables found for source '{source_key}'"}
     
     # STREAMING EVENT 2: Schema snapshot complete
     await ws_manager.broadcast({
@@ -1499,10 +1518,11 @@ async def connect_source(source_key: str, llm_model: str = "gemini-2.5-flash") -
             "message": f"✅ {source_key} mapping complete ({connect_elapsed:.1f}s)",
             "duration": connect_elapsed,
             "confidence": score.confidence,
+            "source_mode": source_mode,
             "timestamp": time.time()
         })
         
-        return {"ok": True, "score": score.confidence, "previews": previews}
+        return {"ok": True, "score": score.confidence, "previews": previews, "source_mode": source_mode}
     finally:
         release_db_lock(lock_id)
 
@@ -1579,6 +1599,9 @@ async def broadcast_state_change(event_type: str = "state_update"):
         # Calculate blended confidence
         blended_confidence = GRAPH_STATE.get("confidence")
         
+        # Determine source mode from feature flag
+        source_mode = "aam_connectors" if FeatureFlagConfig.is_enabled(FeatureFlag.USE_AAM_AS_SOURCE) else "demo_files"
+        
         # Send complete data (frontend has scrolling for unlimited display)
         state_payload = {
             "type": event_type,
@@ -1587,6 +1610,7 @@ async def broadcast_state_change(event_type: str = "state_update"):
                 "sources": SOURCES_ADDED,
                 "agents": SELECTED_AGENTS,
                 "devMode": get_dev_mode(),
+                "sourceMode": source_mode,
                 "graph": filtered_graph,  # Send filtered graph instead of raw GRAPH_STATE
                 "llmCalls": llm_stats["calls"],
                 "llmTokens": llm_stats["tokens"],
@@ -1743,6 +1767,9 @@ def state():
     # (Graph confidence already incorporates mapping quality and completeness)
     blended_confidence = GRAPH_STATE.get("confidence")
     
+    # Determine source mode from feature flag
+    source_mode = "aam_connectors" if FeatureFlagConfig.is_enabled(FeatureFlag.USE_AAM_AS_SOURCE) else "demo_files"
+    
     return JSONResponse({
         "events": EVENT_LOG,
         "timeline": EVENT_LOG[-5:],
@@ -1763,14 +1790,16 @@ def state():
         "selected_sources": SOURCES_ADDED,
         "selected_agents": SELECTED_AGENTS,
         "dev_mode": get_dev_mode(),  # Read from Redis for cross-process consistency
-        "auth_enabled": AUTH_ENABLED
+        "auth_enabled": AUTH_ENABLED,
+        "source_mode": source_mode
     })
 
 @app.get("/connect")
 async def connect(
     sources: str = Query(...),
     agents: str = Query(...),
-    llm_model: str = Query("gemini-2.5-flash", description="LLM model: gemini-2.5-flash, gpt-4o-mini, gpt-4o")
+    llm_model: str = Query("gemini-2.5-flash", description="LLM model: gemini-2.5-flash, gpt-4o-mini, gpt-4o"),
+    tenant_id: str = Query("default", description="Tenant identifier for multi-tenant isolation")
 ):
     """
     Idempotent connection endpoint - clears prior state and rebuilds from scratch.
@@ -1787,9 +1816,13 @@ async def connect(
     if not agent_list:
         return JSONResponse({"error": "No agents provided"}, status_code=400)
     
+    # Determine source mode from feature flag
+    source_mode = "aam_connectors" if FeatureFlagConfig.is_enabled(FeatureFlag.USE_AAM_AS_SOURCE) else "demo_files"
+    
     # Clear prior state (preserves dev_mode) for idempotent behavior
     reset_state(exclude_dev_mode=True)
     log(f"🔌 Connecting {len(source_list)} source(s) with {len(agent_list)} agent(s)...")
+    log(f"📂 Using {source_mode} for sources: {', '.join(source_list)} (tenant: {tenant_id})")
     
     # Store selected agents globally
     SELECTED_AGENTS = agent_list
@@ -1799,7 +1832,7 @@ async def connect(
     
     try:
         # Connect all sources in parallel using async concurrency
-        tasks = [connect_source(source, llm_model) for source in source_list]
+        tasks = [connect_source(source, llm_model, tenant_id) for source in source_list]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         
         # Check for any errors in the results
@@ -1820,7 +1853,13 @@ async def connect(
     # Broadcast state change to WebSocket clients
     await broadcast_state_change("sources_connected")
     
-    return JSONResponse({"ok": True, "sources": SOURCES_ADDED, "agents": agent_list})
+    return JSONResponse({
+        "ok": True, 
+        "sources": SOURCES_ADDED, 
+        "agents": agent_list,
+        "source_mode": source_mode,
+        "tenant_id": tenant_id
+    })
 
 # DEPRECATED: /reset endpoint - replaced by unified idempotent /connect logic
 # Keeping this commented out for reference. All reset+connect behavior is now handled by /connect.
