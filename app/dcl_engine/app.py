@@ -1524,10 +1524,7 @@ def reset_state(exclude_dev_mode=True):
     ENTITY_SOURCES = {}
     SELECTED_AGENTS = []
     SOURCE_SCHEMAS = {}
-    
-    # Reset LLM stats for each Run (calls, tokens, calls_saved all reset to 0)
-    reset_llm_stats()
-    
+    # LLM stats persist across runs for cumulative tracking (removed reset_llm_stats call)
     # Clear RAG retrievals so they update with fresh data on each connection
     RAG_CONTEXT["retrievals"] = []
     RAG_CONTEXT["last_retrieval_count"] = 0
@@ -1792,10 +1789,6 @@ async def connect(
     
     # Clear prior state (preserves dev_mode) for idempotent behavior
     reset_state(exclude_dev_mode=True)
-    
-    # Broadcast reset state immediately so frontend shows zero metrics
-    await broadcast_state_change("state_reset")
-    
     log(f"🔌 Connecting {len(source_list)} source(s) with {len(agent_list)} agent(s)...")
     
     # Store selected agents globally
