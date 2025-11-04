@@ -411,7 +411,7 @@ def safe_llm_call(prompt: str, source_key: str, tables: Dict[str, Any]) -> Optio
                 f.write(f"Response: {resp.text if hasattr(resp, 'text') else 'N/A'}\n")
                 f.write(f"Error: {parse_err}\n\n")
             log(f"[LLM PARSE ERROR] Falling back to heuristic for {source_key}")
-            return None
+            return (None, False)  # (plan, skip_semantic_validation)
     
     except Exception as e:
         os.makedirs("logs", exist_ok=True)
@@ -420,7 +420,7 @@ def safe_llm_call(prompt: str, source_key: str, tables: Dict[str, Any]) -> Optio
             f.write(f"Source: {source_key}\n")
             f.write(f"{traceback.format_exc()}\n\n")
         log(f"[LLM ERROR] {e} - Falling back to heuristic for {source_key}")
-        return None
+        return (None, False)  # (plan, skip_semantic_validation)
 
 async def llm_propose(
     ontology: Dict[str, Any], 
@@ -539,7 +539,7 @@ async def llm_propose(
     current_dev_mode = get_dev_mode()
     if not current_dev_mode:
         log(f"⚡ Prod Mode: RAG retrieval complete, skipping LLM - falling back to heuristics for {source_key}")
-        return None
+        return (None, False)  # (plan, skip_semantic_validation)
     
     # INTELLIGENT LLM DECISION: Check RAG coverage before calling LLM
     # Calculate how many source fields have high-confidence RAG matches
@@ -581,9 +581,9 @@ async def llm_propose(
                 "timestamp": time.time()
             })
             
-            # Return None to skip LLM and use heuristics with RAG context
+            # Return tuple (None, True) to skip LLM and use heuristics without semantic validation
             log(f"✅ Dev Mode: Skipping LLM call, using RAG inventory (coverage {coverage_pct:.0f}%)")
-            return None
+            return (None, True)  # (plan, skip_semantic_validation)
         elif coverage_pct >= 75:
             # Show coverage check but still call LLM
             log(f"📊 RAG Coverage: {coverage_pct:.0f}% ({len(matched_fields)}/{total_fields} fields) - proceeding with LLM")
@@ -607,11 +607,11 @@ async def llm_propose(
     if llm_model.startswith("gpt"):
         if not os.getenv("OPENAI_API_KEY"):
             log(f"⚠️ OPENAI_API_KEY not set - skipping LLM for {source_key}")
-            return None
+            return (None, False)  # (plan, skip_semantic_validation)
     else:
         if not os.getenv("GEMINI_API_KEY"):
             log(f"⚠️ GEMINI_API_KEY not set - skipping LLM for {source_key}")
-            return None
+            return (None, False)  # (plan, skip_semantic_validation)
     
     log(f"🤖 Dev Mode: Starting LLM mapping for {source_key} with {llm_model}")
     
@@ -656,7 +656,7 @@ async def llm_propose(
         log(f"📊 Using {llm_service.get_provider_name()} - {llm_service.get_model_name()}")
     except (ValueError, ImportError) as e:
         log(f"⚠️ {e} - falling back to heuristic")
-        return None
+        return (None, False)  # (plan, skip_semantic_validation)
     
     llm_call_start = time.time()
     result = await asyncio.to_thread(llm_service.generate, prompt, source_key)
@@ -711,7 +711,7 @@ async def llm_propose(
     TIMING_LOG["llm_propose_total"].append(llm_elapsed)
     log(f"⏱️ llm_propose total: {llm_elapsed:.2f}s")
     
-    return result
+    return (result, False)  # (plan, skip_semantic_validation) - False because LLM succeeded
 
 def validate_mapping_semantics_llm(source_key: str, table_name: str, entity: str, fields: List[Dict]) -> bool:
     """Use LLM + RAG to validate if a source table mapping to an entity makes semantic sense."""
@@ -792,7 +792,7 @@ Answer with ONLY a JSON object:
         log(f"⚠️ LLM semantic validation failed: {e}, defaulting to allow")
         return True
 
-def heuristic_plan(ontology: Dict[str, Any], source_key: str, tables: Dict[str, Any]) -> Dict[str, Any]:
+def heuristic_plan(ontology: Dict[str, Any], source_key: str, tables: Dict[str, Any], skip_llm_validation: bool = False) -> Dict[str, Any]:
     global SELECTED_AGENTS, agents_config, DEV_MODE
     
     # Get available ontology entities based on selected agents
@@ -1052,9 +1052,10 @@ def heuristic_plan(ontology: Dict[str, Any], source_key: str, tables: Dict[str, 
                 mappings.append({"entity":"cost_reports","source_table": f"{source_key}_{tname}", "fields": fields})
     
     # Semantic filtering based on Prod Mode setting (check Redis for cross-process state)
+    # Skip LLM validation if RAG coverage was high enough to skip main LLM call
     current_dev_mode = get_dev_mode()
-    if current_dev_mode:
-        # DEV MODE ON: Use LLM for intelligent semantic validation (AI/RAG)
+    if current_dev_mode and not skip_llm_validation:
+        # DEV MODE ON + Low RAG coverage: Use LLM for intelligent semantic validation (AI/RAG)
         log("🔍 Dev Mode ON: Using LLM for semantic validation")
         semantically_valid_mappings = []
         for mapping in mappings:
@@ -1071,8 +1072,11 @@ def heuristic_plan(ontology: Dict[str, Any], source_key: str, tables: Dict[str, 
         mappings = semantically_valid_mappings
         log(f"✅ LLM validated {len(mappings)} mappings as semantically correct")
     else:
-        # DEV MODE OFF: Use hard-wired heuristic rules (fast, deterministic)
-        log("⚡ Dev Mode OFF: Using heuristic domain filtering")
+        # DEV MODE OFF OR High RAG coverage: Use hard-wired heuristic rules (fast, deterministic)
+        if skip_llm_validation:
+            log("⚡ High RAG coverage: Skipping LLM semantic validation, using heuristic filtering")
+        else:
+            log("⚡ Dev Mode OFF: Using heuristic domain filtering")
         FINOPS_SOURCES = {"snowflake", "sap", "netsuite", "legacy_sql"}
         REVOPS_SOURCES = {"dynamics", "salesforce", "hubspot"}
         FINOPS_ENTITIES = {"aws_resources", "cost_reports"}
@@ -1400,9 +1404,12 @@ async def connect_source(source_key: str, llm_model: str = "gemini-2.5-flash") -
     async with ASYNC_STATE_LOCK:
         add_graph_nodes_for_source(source_key, tables)
     
-    plan = await llm_propose(ontology, source_key, tables, llm_model)
+    llm_result = await llm_propose(ontology, source_key, tables, llm_model)
+    plan, skip_semantic_validation = llm_result if isinstance(llm_result, tuple) else (llm_result, False)
+    
     if not plan:
-        plan = heuristic_plan(ontology, source_key, tables)
+        # Use heuristic plan with explicit skip_semantic_validation flag from llm_propose
+        plan = heuristic_plan(ontology, source_key, tables, skip_llm_validation=skip_semantic_validation)
         log(f"I connected to {source_key.title()} (schema sample) and generated a heuristic plan. I mapped obvious IDs and foreign keys and published a basic unified view.")
         
         # STREAMING EVENT: Heuristic plan used
