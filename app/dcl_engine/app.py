@@ -1566,6 +1566,12 @@ async def broadcast_state_change(event_type: str = "state_update"):
             ]
         }
         
+        # Get LLM stats from Redis (includes calls_saved)
+        llm_stats = get_llm_stats()
+        
+        # Calculate blended confidence
+        blended_confidence = GRAPH_STATE.get("confidence")
+        
         # Send complete data (frontend has scrolling for unlimited display)
         state_payload = {
             "type": event_type,
@@ -1575,13 +1581,16 @@ async def broadcast_state_change(event_type: str = "state_update"):
                 "agents": SELECTED_AGENTS,
                 "devMode": get_dev_mode(),
                 "graph": filtered_graph,  # Send filtered graph instead of raw GRAPH_STATE
-                "llmCalls": LLM_CALLS,
-                "llmTokens": LLM_TOKENS,
+                "llmCalls": llm_stats["calls"],
+                "llmTokens": llm_stats["tokens"],
+                "llmCallsSaved": llm_stats["calls_saved"],
                 "ragContext": {
                     "total_mappings": RAG_CONTEXT.get("total_mappings", 0),
                     "last_retrieval_count": RAG_CONTEXT.get("last_retrieval_count", 0),
+                    "mappings_retrieved": RAG_CONTEXT.get("last_retrieval_count", 0),
                     "retrievals": RAG_CONTEXT.get("retrievals", [])  # All retrievals (no limit)
                 },
+                "blendedConfidence": blended_confidence,
                 "events": EVENT_LOG,  # All events (no limit - frontend has scrolling)
                 "entitySources": ENTITY_SOURCES,
                 "agentConsumption": agent_consumption

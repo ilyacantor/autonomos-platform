@@ -131,6 +131,7 @@ export function useDCLState(): UseDCLStateReturn {
         llm: {
           calls: message.data.llmCalls,
           tokens: message.data.llmTokens,
+          calls_saved: message.data.llmCallsSaved || 0,
         },
         preview: {
           sources: {},
@@ -141,6 +142,7 @@ export function useDCLState(): UseDCLStateReturn {
         selected_sources: message.data.sources || [],
         selected_agents: message.data.agents || [],
         dev_mode: message.data.devMode,
+        blended_confidence: message.data.blendedConfidence,
       };
 
       setState(newState);
