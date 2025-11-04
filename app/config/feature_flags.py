@@ -41,7 +41,7 @@ class FeatureFlagConfig:
     """
     
     _flags: Dict[str, bool] = {
-        FeatureFlag.USE_AAM_AS_SOURCE: False,  # Phase 2.5: Disabled until Redis Streams consumption debugged
+        FeatureFlag.USE_AAM_AS_SOURCE: True,  # Phase 2.5: ENABLED - Testing AAM → DCL bridge with correct tenant
         FeatureFlag.ENABLE_DRIFT_DETECTION: False,
         FeatureFlag.ENABLE_AUTO_REPAIR: False,
         FeatureFlag.ENABLE_HITL_WORKFLOW: True,
