@@ -28,6 +28,9 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
   const [elapsedTime, setElapsedTime] = useState(0);
   const [progress, setProgress] = useState(0);
   const [timerStarted, setTimerStarted] = useState(false);
+  
+  // Persist LLM call count across state polls (like timer)
+  const [persistedLlmCalls, setPersistedLlmCalls] = useState(0);
 
   // Auth helper - follows same pattern as aoaApi.ts
   const getAuthHeader = (): Record<string, string> => {
@@ -166,6 +169,35 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
     };
   }, [timerStarted, isProcessing]);
 
+  // Poll DCL state during processing to capture LLM call count
+  useEffect(() => {
+    let pollInterval: NodeJS.Timeout;
+    
+    if (isProcessing && showProgress) {
+      // Poll every 2 seconds to get updated LLM call count
+      pollInterval = setInterval(async () => {
+        try {
+          const response = await fetch(API_CONFIG.buildDclUrl('/state'), {
+            headers: { ...getAuthHeader() }
+          });
+          if (response.ok) {
+            const state = await response.json();
+            const llmCalls = state.llm?.calls || 0;
+            if (llmCalls > 0) {
+              setPersistedLlmCalls(llmCalls);
+            }
+          }
+        } catch (error) {
+          console.error('[DCL] Error polling state for LLM count:', error);
+        }
+      }, 2000);
+    }
+    
+    return () => {
+      if (pollInterval) clearInterval(pollInterval);
+    };
+  }, [isProcessing, showProgress]);
+
   // Progress simulation effect - incremental progress during processing
   useEffect(() => {
     let progressInterval: NodeJS.Timeout;
@@ -201,9 +233,10 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
   // Run - calls /connect with persisted sources, agents, and selected LLM model
   // Shows progress bar for manual user-triggered runs
   const handleRun = async () => {
-    // Reset timer and progress on NEW run
+    // Reset timer, progress, and LLM count on NEW run
     setElapsedTime(0);
     setProgress(0);
+    setPersistedLlmCalls(0); // Reset LLM count for new run
     setTimerStarted(true);
     setIsProcessing(true);
     setShowProgress(true); // Enable progress bar for manual runs
@@ -413,7 +446,7 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
                 <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-[10px] sm:text-[10px] text-blue-300">
                   <div className="flex items-center gap-1">
                     <div className={`w-1.5 h-1.5 rounded-full ${devMode ? 'bg-purple-400 animate-pulse' : 'bg-gray-500'}`} />
-                    <span>LLM Calls: {dclState?.llm?.calls || 0}</span>
+                    <span>LLM Calls: {persistedLlmCalls}</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <Activity className="w-3 h-3 text-blue-400" />
