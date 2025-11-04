@@ -1792,6 +1792,10 @@ async def connect(
     
     # Clear prior state (preserves dev_mode) for idempotent behavior
     reset_state(exclude_dev_mode=True)
+    
+    # Broadcast reset state immediately so frontend shows zero metrics
+    await broadcast_state_change("state_reset")
+    
     log(f"🔌 Connecting {len(source_list)} source(s) with {len(agent_list)} agent(s)...")
     
     # Store selected agents globally
