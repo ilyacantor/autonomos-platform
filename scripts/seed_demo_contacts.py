@@ -17,14 +17,44 @@ from app.models import CanonicalStream
 DEMO_TENANT_UUID = "9ac5c8c6-1a02-48ff-84a0-122b67f9c3bd"
 
 
-def seed_demo_contacts():
-    """Seed demo contacts for DCL unification testing"""
+def seed_demo_contacts(tenant_id=None):
+    """
+    Seed demo contacts for DCL unification testing
+    
+    Args:
+        tenant_id: Optional tenant UUID string. If not provided, uses DEMO_TENANT_UUID
+                   or first tenant from database
+    """
     db = SessionLocal()
     
     try:
         print("\n" + "=" * 60)
         print("DCL Demo Contact Seeder")
         print("=" * 60)
+        
+        # Determine tenant_id
+        if tenant_id is None:
+            # Try to use demo tenant or first tenant from database
+            result = db.execute(text("""
+                SELECT id FROM tenants 
+                WHERE id = :demo_tenant_id OR name = 'Demo Tenant'
+                LIMIT 1
+            """), {"demo_tenant_id": DEMO_TENANT_UUID})
+            row = result.fetchone()
+            
+            if not row:
+                # Fall back to first tenant
+                result = db.execute(text("SELECT id FROM tenants LIMIT 1"))
+                row = result.fetchone()
+            
+            if row:
+                tenant_id = str(row.id)
+                print(f"   Using tenant: {tenant_id}")
+            else:
+                print("   ⚠️  No tenants found in database, using default: {DEMO_TENANT_UUID}")
+                tenant_id = DEMO_TENANT_UUID
+        
+        print(f"   Tenant ID: {tenant_id}")
         
         # Clear existing demo data
         print("\n🧹 Clearing existing demo contacts...")
@@ -73,7 +103,7 @@ def seed_demo_contacts():
             
             stream_record = CanonicalStream(
                 id=uuid.uuid4(),
-                tenant_id=uuid.UUID(DEMO_TENANT_UUID),
+                tenant_id=uuid.UUID(tenant_id),
                 entity="contact",
                 data=canonical_data,
                 meta={"version": "1.0", "schema": "canonical_v1"},
