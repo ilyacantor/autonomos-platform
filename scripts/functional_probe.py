@@ -18,7 +18,7 @@ import httpx
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from services.aam.connectors.salesforce.connector import SalesforceConnector
-from services.aam.canonical.subscriber import canonical_subscriber
+from services.aam.canonical.subscriber import process_canonical_streams
 
 
 async def verify_dcl_materialization(opportunity_id: str, max_retries: int = 10) -> int:
@@ -126,8 +126,9 @@ async def run_functional_probe():
         # Step 4: Process through DCL subscriber (materialize)
         print("🔨 Step 4: Processing through DCL subscriber (materializing)...")
         try:
-            canonical_subscriber.process_canonical_streams(db)
-            print(f"✅ DCL subscriber processed canonical streams\n")
+            result = process_canonical_streams(db, tenant_id="probe-tenant")
+            print(f"✅ DCL subscriber processed canonical streams")
+            print(f"   Processed: {result.get('accounts', 0)} accounts, {result.get('opportunities', 0)} opportunities\n")
         except Exception as e:
             print(f"⚠️ DCL subscriber processing error: {e}\n")
         
