@@ -1,0 +1,44 @@
+so correct me if I'm wrong, but does the AAM do the exact same thing as the DCL?
+
+54 minutes ago
+
+Decided on AAM/DCL distinction (18 seconds)
+Great question! While they look similar (both show field mappings and transformations), they serve different purposes:
+
+DCL (Data Connection Layer):
+Purpose: Creates a unified ontology - one master view across all your data sources
+
+What it does:
+
+Takes schemas from multiple sources (Salesforce, HubSpot, Dynamics, etc.)
+Maps similar fields to unified fields: OpportunityName + deal_name → opportunity_name
+Creates materialized views you can query across all sources at once
+Proposes entity relationships: "Accounts connect to Opportunities via account_id"
+Output: A single, queryable unified database
+Example: "Show me ALL opportunities from Salesforce, HubSpot, and Dynamics in one table, normalized and ready to query"
+
+AAM (Adaptive API Mesh):
+Purpose: Maintains live API connections and auto-repairs them when they break
+
+What it does:
+
+Monitors real-time API connections (not just schemas)
+Detects schema drift: "Wait, Salesforce renamed account_owner to owner_id!"
+Auto-repairs mappings with AI confidence scoring
+Normalizes live API events into canonical format
+Output: Healthy, self-healing API connectors that keep working even when vendors change their APIs
+Example: "My Salesforce connector detected they changed a field name at 3am, auto-fixed the mapping, and my pipeline never broke"
+
+Key Difference:
+Feature	DCL	AAM
+Focus	Unified data views	Live API health
+When	One-time schema analysis	Continuous monitoring
+Output	Materialized views	Normalized events + drift alerts
+Use Case	"Query across sources"	"Keep connections alive"
+Why they look similar: Both show field-level mappings with transformations (trim, parse_date, etc.), but DCL uses those mappings to create unified views, while AAM uses them to normalize live API data and detect/repair drift.
+
+Think of it this way:
+
+DCL = "Create one master database from many sources"
+AAM = "Keep my API connectors healthy and auto-fix them when vendors break things"
+Does that clarify the distinction?
