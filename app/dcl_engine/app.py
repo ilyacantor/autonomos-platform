@@ -52,7 +52,7 @@ TIMING_LOG: Dict[str, List[float]] = {
 }
 
 # Redis-based distributed lock for cross-process DuckDB access
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
+# NOTE: Redis client is shared from main app to avoid connection limit issues
 redis_client = None
 redis_available = False
 DB_LOCK_KEY = "dcl:duckdb:lock"
@@ -62,44 +62,69 @@ LLM_CALLS_KEY = "dcl:llm:calls"  # Redis key for LLM call counter
 LLM_TOKENS_KEY = "dcl:llm:tokens"  # Redis key for LLM token counter
 DCL_STATE_CHANNEL = "dcl:state:updates"  # Redis pub/sub channel for state broadcasts
 in_memory_dev_mode = False  # Fallback when Redis unavailable
+_dev_mode_initialized = False  # Track if dev_mode has been initialized
 
-# Try to connect to Redis with connection pool (use longer timeouts for Upstash Redis)
-# Note: Don't ping() on startup to avoid connection limit issues with Upstash free tier
-try:
-    redis_client = redis.from_url(
-        REDIS_URL, 
-        decode_responses=True,
-        socket_connect_timeout=10,  # Increased for Upstash
-        socket_timeout=10,  # Increased for Upstash
-        retry_on_timeout=True,
-        max_connections=2  # Limit connections to avoid Upstash limits
-    )
-    # Lazy connection - don't test with ping() to avoid connection limit issues
-    redis_available = True
-    print(f"✅ Redis configured (lazy connect) at {REDIS_URL}", flush=True)
-except Exception as e:
-    print(f"⚠️ Redis unavailable ({e}), using in-memory state", flush=True)
-    redis_client = None
-    redis_available = False
-
-# Initialize dev_mode based on environment
-# Default to Prod Mode (false) for speed - user can toggle to Dev Mode for AI/RAG
-try:
-    # Always default to Prod Mode (heuristics only)
-    default_mode = "false"
+class RedisDecodeWrapper:
+    """
+    Wrapper to provide decode_responses=True behavior on top of a decode_responses=False client.
+    This allows sharing the same connection pool while having different decode behaviors.
+    """
+    def __init__(self, base_client):
+        self._client = base_client
     
-    if redis_available and redis_client:
-        # Force default mode on startup
-        redis_client.set(DEV_MODE_KEY, default_mode)
-        mode_name = "Prod Mode (heuristic-only, 2.35s)"
-        print(f"🚀 Initialized dev_mode = {default_mode} ({mode_name}) in Redis on startup", flush=True)
+    def get(self, key):
+        value = self._client.get(key)
+        return value.decode('utf-8') if value else None
+    
+    def set(self, key, value, **kwargs):
+        if isinstance(value, str):
+            value = value.encode('utf-8')
+        return self._client.set(key, value, **kwargs)
+    
+    def incr(self, key):
+        return self._client.incr(key)
+    
+    def incrby(self, key, amount):
+        return self._client.incrby(key, amount)
+    
+    def delete(self, key):
+        return self._client.delete(key)
+    
+    def ping(self):
+        return self._client.ping()
+
+def set_redis_client(client):
+    """
+    Set the shared Redis client from main app.
+    This avoids creating multiple Redis connections and hitting Upstash connection limits.
+    
+    Args:
+        client: Redis client instance from main app (typically with decode_responses=False)
+    """
+    global redis_client, redis_available, _dev_mode_initialized
+    
+    # Wrap the client to provide decode_responses=True behavior
+    redis_client = RedisDecodeWrapper(client)
+    redis_available = client is not None
+    
+    if redis_available:
+        print(f"✅ DCL Engine: Using shared Redis client from main app", flush=True)
+        
+        # Initialize dev_mode now that we have a Redis client
+        try:
+            default_mode = "false"  # Default to Prod Mode
+            redis_client.set(DEV_MODE_KEY, default_mode)
+            _dev_mode_initialized = True
+            print(f"🚀 DCL Engine: Initialized dev_mode = {default_mode} (Prod Mode) in Redis", flush=True)
+        except Exception as e:
+            print(f"⚠️ DCL Engine: Failed to initialize dev_mode: {e}, using in-memory fallback", flush=True)
+            global in_memory_dev_mode
+            in_memory_dev_mode = False
+            _dev_mode_initialized = True
     else:
+        print(f"⚠️ DCL Engine: No Redis client provided, using in-memory state", flush=True)
         in_memory_dev_mode = False
-        mode_name = "Prod Mode (heuristic-only)"
-        print(f"🚀 Initialized dev_mode = {default_mode} ({mode_name}) in-memory on startup", flush=True)
-except Exception as e:
-    print(f"⚠️ Failed to initialize dev_mode: {e}, using default", flush=True)
-    in_memory_dev_mode = False
+        _dev_mode_initialized = True
 
 # WebSocket connection manager
 class ConnectionManager:

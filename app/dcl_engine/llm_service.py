@@ -7,6 +7,15 @@ from abc import ABC, abstractmethod
 from typing import Optional, Dict, Any
 import google.generativeai as genai  # type: ignore
 
+# Import LLM counter functions from dcl_engine app module
+try:
+    # Import from the same package (dcl_engine)
+    from .app import increment_llm_calls
+except ImportError:
+    # Fallback if import fails (circular import or standalone mode)
+    def increment_llm_calls(tokens: int = 0):
+        pass
+
 
 class LLMService(ABC):
     """Abstract LLM service interface for different providers"""
@@ -66,9 +75,10 @@ class GeminiService(LLMService):
                     raise ValueError("No JSON object found in response")
                 result = json.loads(m.group(0))
                 
-                # Log timing
+                # Log timing and increment counter
                 gemini_elapsed = time.time() - gemini_start
                 print(f"⏱️ {self.get_model_name()} call: {gemini_elapsed:.2f}s | {tokens} tokens", flush=True)
+                increment_llm_calls(tokens)  # Persist LLM call counter in Redis
                 
                 return result
             except Exception as parse_err:
@@ -153,9 +163,10 @@ class OpenAIService(LLMService):
                     raise ValueError("No JSON object found in response")
                 result = json.loads(m.group(0))
                 
-                # Log timing
+                # Log timing and increment counter
                 openai_elapsed = time.time() - openai_start
                 print(f"⏱️ {self.get_model_name()} call: {openai_elapsed:.2f}s | {tokens} tokens", flush=True)
+                increment_llm_calls(tokens)  # Persist LLM call counter in Redis
                 
                 return result
             except Exception as parse_err:
