@@ -417,7 +417,9 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
                   </div>
                   <div className="flex items-center gap-1">
                     <Activity className="w-3 h-3 text-blue-400" />
-                    <span className="whitespace-nowrap">9 sources → 2 agents</span>
+                    <span className="whitespace-nowrap">
+                      {getDefaultSources().length} sources → {getDefaultAgents().length} agent{getDefaultAgents().length !== 1 ? 's' : ''}
+                    </span>
                   </div>
                   {(timerStarted || elapsedTime > 0) && (
                     <div className="flex items-center gap-1 bg-blue-900/30 px-2 py-0.5 rounded">
