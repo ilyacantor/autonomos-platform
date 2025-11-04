@@ -141,9 +141,9 @@ async def startup_event():
         from app.dcl_engine.rag_engine import RAGEngine
         try:
             dcl_app.rag_engine = RAGEngine()
-            dcl_app.log("✅ DCL RAG Engine initialized successfully")
+            logger.info("✅ DCL RAG Engine initialized successfully")
         except Exception as e:
-            dcl_app.log(f"⚠️ DCL RAG Engine initialization failed: {e}. Continuing without RAG.")
+            logger.warning(f"⚠️ DCL RAG Engine initialization failed: {e}. Continuing without RAG.")
 
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
