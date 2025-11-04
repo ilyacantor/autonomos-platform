@@ -66,12 +66,16 @@ def get_redis_client() -> redis.Redis:
         raise
 
 
-async def ingest_all_demo_connectors(tenant_id: str = "demo-tenant"):
+async def ingest_all_demo_connectors(tenant_id: str = "default"):
     """
     Ingest data from all demo connectors.
     
     Args:
-        tenant_id: Tenant ID for multi-tenancy (default: 'demo-tenant')
+        tenant_id: Tenant ID for multi-tenancy (default: 'default')
+    
+    Note:
+        The default tenant_id is "default" to match DCL expectations.
+        Set TENANT_ID environment variable to override for multi-tenant testing.
     """
     logger.info("=" * 70)
     logger.info("AAM Demo Data Ingestion")

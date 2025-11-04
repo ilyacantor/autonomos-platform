@@ -26,6 +26,9 @@ logger = logging.getLogger(__name__)
 DCL_BASE_PATH = Path(__file__).parent
 SCHEMAS_DIR = str(DCL_BASE_PATH / "schemas")
 
+# Configuration: Externalized for replay workflows and reprocessing scenarios
+AAM_IDEMPOTENCY_TTL = int(os.getenv("AAM_IDEMPOTENCY_TTL", "86400"))  # 24 hours default, configurable for longer retention
+
 
 def infer_types(df: pd.DataFrame) -> Dict[str, str]:
     """
@@ -504,8 +507,8 @@ class AAMSourceAdapter(BaseSourceAdapter):
         try:
             set_key = f"dcl:processed_batches:{tenant_id}"
             self.redis._client.sadd(set_key, batch_id)
-            # Set expiry of 24 hours on the set to prevent unbounded growth
-            self.redis._client.expire(set_key, 86400)
+            # Set configurable expiry to prevent unbounded growth (default 24h)
+            self.redis._client.expire(set_key, AAM_IDEMPOTENCY_TTL)
         except Exception as e:
             self.logger.error(f"Error marking batch as processed: {e}")
 

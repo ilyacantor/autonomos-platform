@@ -18,14 +18,17 @@ import time
 import uuid
 import hashlib
 import logging
+import os
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 
-BATCH_CHUNK_SIZE = 200
-MAX_SAMPLES_PER_TABLE = 8
+# Configuration: Externalized for tuning high-volume connectors
+BATCH_CHUNK_SIZE = int(os.getenv("AAM_BATCH_CHUNK_SIZE", "200"))
+MAX_SAMPLES_PER_TABLE = int(os.getenv("AAM_MAX_SAMPLES_PER_TABLE", "8"))
+REDIS_STREAM_MAXLEN = int(os.getenv("AAM_REDIS_STREAM_MAXLEN", "1000"))  # Trim streams to prevent unbounded growth
 
 
 def publish_to_dcl_stream(
@@ -116,7 +119,7 @@ def publish_to_dcl_stream(
                 message_id = redis_client.xadd(
                     stream_key,
                     {"payload": payload_json},
-                    maxlen=1000,
+                    maxlen=REDIS_STREAM_MAXLEN,
                     approximate=True
                 )
                 
