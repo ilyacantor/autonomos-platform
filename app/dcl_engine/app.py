@@ -574,9 +574,9 @@ async def llm_propose(
         "timestamp": time.time()
     })
     
-    # Get LLM service and run call in thread (blocking API)
+    # Get LLM service with counter callback (dependency injection pattern)
     try:
-        llm_service = get_llm_service(llm_model)
+        llm_service = get_llm_service(llm_model, increment_llm_calls)
         log(f"📊 Using {llm_service.get_provider_name()} - {llm_service.get_model_name()}")
     except (ValueError, ImportError) as e:
         log(f"⚠️ {e} - falling back to heuristic")
@@ -1426,10 +1426,13 @@ async def connect_source(source_key: str, llm_model: str = "gemini-2.5-flash") -
 def reset_state(exclude_dev_mode=True):
     """
     Reset DCL state for idempotent /connect operations.
-    By default, preserves dev_mode setting across resets.
+    By default, preserves dev_mode setting and LLM counters across resets.
     
     Args:
         exclude_dev_mode: If True, dev_mode persists across resets
+    
+    Note: LLM counters (calls/tokens) persist across all runs for telemetry tracking,
+          similar to "elapsed time until next run". Use reset_llm_stats() endpoint to manually reset.
     """
     global EVENT_LOG, GRAPH_STATE, SOURCES_ADDED, ENTITY_SOURCES, ontology, SELECTED_AGENTS, SOURCE_SCHEMAS, RAG_CONTEXT
     EVENT_LOG = []
@@ -1438,7 +1441,7 @@ def reset_state(exclude_dev_mode=True):
     ENTITY_SOURCES = {}
     SELECTED_AGENTS = []
     SOURCE_SCHEMAS = {}
-    reset_llm_stats()  # Reset LLM counters in Redis (persists across restarts)
+    # LLM stats persist across runs for cumulative tracking (removed reset_llm_stats call)
     # Clear RAG retrievals so they update with fresh data on each connection
     RAG_CONTEXT["retrievals"] = []
     RAG_CONTEXT["last_retrieval_count"] = 0
@@ -1746,6 +1749,23 @@ async def toggle_dev_mode(enabled: Optional[bool] = None):
     # Broadcast state change to WebSocket clients
     await broadcast_state_change("dev_mode_toggled")
     return JSONResponse({"dev_mode": DEV_MODE, "status": status})
+
+@app.post("/reset_llm_stats")
+async def reset_llm_stats_endpoint():
+    """
+    Manual endpoint to reset LLM call counters.
+    Note: LLM stats persist across all runs by default for cumulative tracking.
+    Use this endpoint only when you want to reset the counters manually.
+    """
+    reset_llm_stats()
+    stats = get_llm_stats()
+    log("🔄 LLM stats manually reset to 0")
+    return JSONResponse({
+        "ok": True,
+        "message": "LLM stats reset successfully",
+        "calls": stats["calls"],
+        "tokens": stats["tokens"]
+    })
 
 @app.get("/preview")
 def preview(node: Optional[str] = None):
