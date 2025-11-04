@@ -90,27 +90,33 @@ def test_aam_schema_drift_automated():
         original_mock_path = Path("mock_sources")
         backup_path = Path("mock_sources_backup")
         
-        # Backup original
+        # Backup original CSV
         if backup_path.exists():
             shutil.rmtree(backup_path)
-        shutil.copytree(original_mock_path, backup_path)
+        backup_path.mkdir(parents=True)
+        shutil.copy(original_mock_path / "opportunities_salesforce.csv", 
+                   backup_path / "opportunities_salesforce.csv")
         
-        # Replace with test CSV
-        shutil.copy(temp_csv, original_mock_path / "opportunities_salesforce.csv")
+        try:
+            # Replace with test CSV
+            shutil.copy(temp_csv, original_mock_path / "opportunities_salesforce.csv")
+            
+            print("\n🔄 Triggering FileSource ingestion with drifted schema...")
+            connector = FileSourceConnector(db=db, tenant_id=test_tenant_id)
+            stats = connector.replay_entity(entity='opportunity', system='salesforce')
+            
+            print(f"\n✅ Ingestion Complete!")
+            print(f"   Files processed: {stats.get('files_processed', 0)}")
+            print(f"   Total records: {stats.get('records_ingested', 0)}")
+            print(f"   Unknown fields: {stats.get('unknown_fields_count', 0)}")
         
-        print("\n🔄 Triggering FileSource ingestion with drifted schema...")
-        connector = FileSourceConnector(db=db, tenant_id=test_tenant_id)
-        stats = connector.replay_entity(entity='opportunity', system='salesforce')
-        
-        print(f"\n✅ Ingestion Complete!")
-        print(f"   Files processed: {stats.get('files_processed', 0)}")
-        print(f"   Total records: {stats.get('records_ingested', 0)}")
-        print(f"   Unknown fields: {stats.get('unknown_fields_count', 0)}")
-        
-        # Restore original CSV
-        shutil.copy(backup_path / "opportunities_salesforce.csv", 
-                   original_mock_path / "opportunities_salesforce.csv")
-        shutil.rmtree(backup_path)
+        finally:
+            # Always restore original CSV, even if ingestion fails
+            if backup_path.exists():
+                shutil.copy(backup_path / "opportunities_salesforce.csv", 
+                           original_mock_path / "opportunities_salesforce.csv")
+                shutil.rmtree(backup_path)
+                print("   🔄 Restored original opportunities_salesforce.csv")
         
         # Query and validate results
         print("\n📋 Querying canonical_streams...")

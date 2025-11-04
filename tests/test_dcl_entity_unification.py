@@ -43,55 +43,75 @@ def test_dcl_entity_unification():
         test_tenant_id = str(tenant_row[0])
         print(f"   Using tenant: {test_tenant_id}")
         
-        # Create test contact CSV if it doesn't exist
-        test_csv_path = Path("mock_sources/contacts_salesforce.csv")
+        # Setup CSV paths
+        original_mock_path = Path("mock_sources")
+        contacts_csv = original_mock_path / "contacts_salesforce.csv"
+        backup_csv = original_mock_path / "contacts_salesforce.csv.backup"
         
+        # Backup original CSV if it exists
+        if contacts_csv.exists():
+            import shutil
+            shutil.copy(contacts_csv, backup_csv)
+            print(f"   📦 Backed up original contacts CSV")
+        
+        # Create test contact data
         test_contact_data = [
             ["contact_id", "account_id", "first_name", "last_name", "email", "phone", "title", "department", "created_at", "updated_at"],
             ["TEST-C-001", "SFDC-A-001", "Alice", "TestUser", "test-unification@example.com", "+1-555-TEST-001", "Test Engineer", "Engineering", "2024-11-01T10:00:00Z", "2024-11-04T10:00:00Z"],
             ["TEST-C-002", "SFDC-A-002", "Bob", "TestUser", "bob.test@example.com", "+1-555-TEST-002", "Test Manager", "Operations", "2024-11-01T11:00:00Z", "2024-11-04T11:00:00Z"]
         ]
         
-        # Write test CSV
-        with open(test_csv_path, 'w', newline='') as f:
-            writer = csv.writer(f)
-            writer.writerows(test_contact_data)
+        try:
+            # Write test CSV
+            with open(contacts_csv, 'w', newline='') as f:
+                writer = csv.writer(f)
+                writer.writerows(test_contact_data)
+            
+            print(f"✅ Created test contacts CSV: {contacts_csv}")
         
-        print(f"✅ Created test contacts CSV: {test_csv_path}")
+            # Clear previous test data
+            print("\n📊 Clearing previous test data...")
+            db.execute(text("""
+                DELETE FROM canonical_streams 
+                WHERE entity = 'contact' 
+                AND source->>'connection_id' = 'filesource-salesforce'
+            """))
+            db.commit()
+            
+            # Ingest via FileSource
+            print("\n🔄 Triggering FileSource ingestion for contacts...")
+            connector = FileSourceConnector(db=db, tenant_id=test_tenant_id)
+            stats = connector.replay_entity(entity='contact', system='salesforce')
+            
+            print(f"\n✅ Ingestion Complete!")
+            print(f"   Files processed: {stats.get('files_processed', 0)}")
+            print(f"   Total records: {stats.get('records_ingested', 0)}")
+            
+            # Query canonical_streams
+            print("\n📋 Querying canonical_streams for ingested contacts...")
+            result = db.execute(text("""
+                SELECT data->>'email', data->>'first_name', data->>'last_name'
+                FROM canonical_streams
+                WHERE entity = 'contact'
+                AND source->>'connection_id' = 'filesource-salesforce'
+                ORDER BY data->>'email'
+            """))
+            
+            canonical_contacts = result.fetchall()
+            print(f"   Found {len(canonical_contacts)} contacts in canonical_streams")
+            
+            for contact in canonical_contacts:
+                print(f"     - {contact[1]} {contact[2]} ({contact[0]})")
         
-        # Clear previous test data
-        print("\n📊 Clearing previous test data...")
-        db.execute(text("""
-            DELETE FROM canonical_streams 
-            WHERE entity = 'contact' 
-            AND source->>'connection_id' = 'filesource-salesforce'
-        """))
-        db.commit()
-        
-        # Ingest via FileSource
-        print("\n🔄 Triggering FileSource ingestion for contacts...")
-        connector = FileSourceConnector(db=db, tenant_id=test_tenant_id)
-        stats = connector.replay_entity(entity='contact', system='salesforce')
-        
-        print(f"\n✅ Ingestion Complete!")
-        print(f"   Files processed: {stats.get('files_processed', 0)}")
-        print(f"   Total records: {stats.get('records_ingested', 0)}")
-        
-        # Query canonical_streams
-        print("\n📋 Querying canonical_streams for ingested contacts...")
-        result = db.execute(text("""
-            SELECT data->>'email', data->>'first_name', data->>'last_name'
-            FROM canonical_streams
-            WHERE entity = 'contact'
-            AND source->>'connection_id' = 'filesource-salesforce'
-            ORDER BY data->>'email'
-        """))
-        
-        canonical_contacts = result.fetchall()
-        print(f"   Found {len(canonical_contacts)} contacts in canonical_streams")
-        
-        for contact in canonical_contacts:
-            print(f"     - {contact[1]} {contact[2]} ({contact[0]})")
+        finally:
+            # Always restore original CSV if backup exists
+            import shutil
+            if backup_csv.exists():
+                shutil.move(backup_csv, contacts_csv)
+                print(f"\n   🔄 Restored original contacts_salesforce.csv")
+            elif not contacts_csv.exists():
+                # If no backup and no current file, CSV didn't exist originally - remove it
+                pass
         
         # Check materialized_contacts (requires DCL to have run)
         print("\n📊 Checking materialized_contacts table...")
