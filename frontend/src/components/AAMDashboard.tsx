@@ -11,7 +11,12 @@ import {
   Brain,
   Eye,
   Wrench,
-  TrendingUp
+  TrendingUp,
+  RefreshCw,
+  Map,
+  GitMerge,
+  Target,
+  BarChart3
 } from 'lucide-react';
 import { API_CONFIG } from '../config/api';
 
@@ -55,25 +60,41 @@ interface AAMEvent {
   message?: string;
 }
 
+interface IntelligenceMappingsData {
+  total: number;
+  autofix_pct: number;
+  hitl_pct: number;
+}
+
+interface IntelligenceDriftData {
+  total: number;
+  by_source: Record<string, number>;
+}
+
+interface IntelligenceRAGData {
+  pending: number;
+  accepted: number;
+  rejected: number;
+}
+
+interface IntelligenceRepairData {
+  avg_confidence: number;
+  test_pass_rate: number;
+}
+
 export default function AAMDashboard() {
-  const [services, setServices] = useState<ServiceStatus[]>([]);
   const [metrics, setMetrics] = useState<AAMMetrics | null>(null);
   const [connections, setConnections] = useState<AAMConnection[]>([]);
-  const [events, setEvents] = useState<AAMEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const eventsRef = useRef<HTMLDivElement>(null);
 
-  const fetchAAMStatus = async () => {
-    try {
-      const response = await fetch(API_CONFIG.buildApiUrl('/aam/status'));
-      if (!response.ok) throw new Error('Failed to fetch AAM status');
-      const data = await response.json();
-      setServices(data.services || []);
-    } catch (err) {
-      console.error('Error fetching AAM status:', err);
-    }
-  };
+  // Intelligence data state
+  const [mappingsData, setMappingsData] = useState<IntelligenceMappingsData | null>(null);
+  const [driftData, setDriftData] = useState<IntelligenceDriftData | null>(null);
+  const [ragData, setRAGData] = useState<IntelligenceRAGData | null>(null);
+  const [repairData, setRepairData] = useState<IntelligenceRepairData | null>(null);
+  const [intelligenceLoading, setIntelligenceLoading] = useState(true);
+  const [intelligenceError, setIntelligenceError] = useState<string | null>(null);
 
   const fetchAAMMetrics = async () => {
     try {
@@ -98,37 +119,42 @@ export default function AAMDashboard() {
     }
   };
 
-  const fetchAAMEvents = async () => {
+  const fetchIntelligenceData = async () => {
+    setIntelligenceLoading(true);
+    setIntelligenceError(null);
+    
     try {
-      const response = await fetch(API_CONFIG.buildApiUrl('/aam/events?limit=50'));
-      if (!response.ok) throw new Error('Failed to fetch AAM events');
-      const data = await response.json();
-      setEvents(data.events || []);
+      const [mappings, drift, rag, repair] = await Promise.all([
+        fetch(API_CONFIG.buildApiUrl('/aam/intelligence/mappings')).then(r => r.json()),
+        fetch(API_CONFIG.buildApiUrl('/aam/intelligence/drift_events_24h')).then(r => r.json()),
+        fetch(API_CONFIG.buildApiUrl('/aam/intelligence/rag_queue')).then(r => r.json()),
+        fetch(API_CONFIG.buildApiUrl('/aam/intelligence/repair_metrics')).then(r => r.json())
+      ]);
+
+      setMappingsData(mappings);
+      setDriftData(drift);
+      setRAGData(rag);
+      setRepairData(repair);
     } catch (err) {
-      console.error('Error fetching AAM events:', err);
+      console.error('Error fetching intelligence data:', err);
+      setIntelligenceError('Failed to load intelligence data');
+    } finally {
+      setIntelligenceLoading(false);
     }
   };
 
   const fetchAllData = async () => {
     setLoading(true);
     await Promise.all([
-      fetchAAMStatus(),
       fetchAAMMetrics(),
       fetchAAMConnections(),
-      fetchAAMEvents()
+      fetchIntelligenceData()
     ]);
     setLoading(false);
   };
 
   useEffect(() => {
     fetchAllData();
-
-    // Poll every 10 seconds
-    const interval = setInterval(() => {
-      fetchAllData();
-    }, 10000);
-
-    return () => clearInterval(interval);
   }, []);
 
   const getStatusColor = (status: string) => {
@@ -212,48 +238,116 @@ export default function AAMDashboard() {
     <div className="space-y-6 pb-8">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-white mb-2">AAM Monitoring Dashboard</h1>
+        <div className="flex-1">
+          <h1 className="text-3xl font-bold text-white mb-2">AAM Monitor</h1>
           <p className="text-gray-400">
-            Real-time monitoring of Adaptive API Mesh services and connections
+            Adaptive API Mesh intelligence metrics and connection health
           </p>
         </div>
-        <div className="flex items-center gap-2 text-sm text-gray-500">
-          <Activity className="w-4 h-4 animate-pulse" />
-          <span>Auto-refresh: 10s</span>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={fetchAllData}
+            disabled={loading}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 text-white rounded-lg transition-colors"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            Manual Refresh
+          </button>
+          <div className="text-sm text-gray-500">
+            Manual refresh required
+          </div>
         </div>
       </div>
 
-      {/* Service Status Panel */}
-      <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Server className="w-5 h-5 text-blue-400" />
-          <h2 className="text-lg font-medium text-white">Service Status</h2>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {services.map((service) => (
-            <div
-              key={service.name}
-              className="bg-gray-800/50 rounded-lg p-4 border border-gray-700"
-            >
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  {service.name.includes('Schema') && <Eye className="w-4 h-4 text-purple-400" />}
-                  {service.name.includes('RAG') && <Brain className="w-4 h-4 text-cyan-400" />}
-                  {service.name.includes('Drift') && <Wrench className="w-4 h-4 text-orange-400" />}
-                  {service.name.includes('Orchestrator') && <Database className="w-4 h-4 text-green-400" />}
-                  <span className="text-sm font-medium text-white">{service.name}</span>
-                </div>
-                <div
-                  className={`w-2 h-2 rounded-full ${
-                    service.status === 'running' ? 'bg-green-500 animate-pulse' : 'bg-red-500'
-                  }`}
-                />
-              </div>
-              <div className="text-xs text-gray-400">Port: {service.port}</div>
-              {getStatusBadge(service.status)}
+      {/* Intelligence Readout Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <Map className="w-5 h-5 text-purple-400" />
+              <h3 className="text-sm font-medium text-gray-400">Mappings</h3>
             </div>
-          ))}
+            {intelligenceLoading && <Activity className="w-4 h-4 text-gray-400 animate-spin" />}
+          </div>
+          <div className="text-3xl font-bold text-white">
+            {intelligenceLoading ? '...' : mappingsData?.total || 0}
+          </div>
+          <div className="text-sm text-gray-500 mt-2 space-y-1">
+            <div>Autofix: {intelligenceLoading ? '...' : `${mappingsData?.autofix_pct || 0}%`}</div>
+            <div>HITL: {intelligenceLoading ? '...' : `${mappingsData?.hitl_pct || 0}%`}</div>
+          </div>
+          {intelligenceError && (
+            <div className="text-xs text-red-400 mt-2">{intelligenceError}</div>
+          )}
+        </div>
+
+        <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-orange-400" />
+              <h3 className="text-sm font-medium text-gray-400">Drift Events (24h)</h3>
+            </div>
+            {intelligenceLoading && <Activity className="w-4 h-4 text-gray-400 animate-spin" />}
+          </div>
+          <div className="text-3xl font-bold text-white">
+            {intelligenceLoading ? '...' : driftData?.total || 0}
+          </div>
+          <div className="text-sm text-gray-500 mt-2">
+            {intelligenceLoading ? 'Loading...' : (
+              driftData && Object.keys(driftData.by_source).length > 0 ? (
+                <div className="space-y-1">
+                  {Object.entries(driftData.by_source).map(([source, count]) => (
+                    <div key={source}>{source}: {count}</div>
+                  ))}
+                </div>
+              ) : 'No sources detected'
+            )}
+          </div>
+          {intelligenceError && (
+            <div className="text-xs text-red-400 mt-2">{intelligenceError}</div>
+          )}
+        </div>
+
+        <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <Brain className="w-5 h-5 text-cyan-400" />
+              <h3 className="text-sm font-medium text-gray-400">RAG Suggestions</h3>
+            </div>
+            {intelligenceLoading && <Activity className="w-4 h-4 text-gray-400 animate-spin" />}
+          </div>
+          <div className="text-3xl font-bold text-white">
+            {intelligenceLoading ? '...' : ragData?.pending || 0}
+          </div>
+          <div className="text-sm text-gray-500 mt-2 space-y-1">
+            <div>Pending: {intelligenceLoading ? '...' : ragData?.pending || 0}</div>
+            <div>
+              Accepted: {intelligenceLoading ? '...' : ragData?.accepted || 0} | 
+              Rejected: {intelligenceLoading ? '...' : ragData?.rejected || 0}
+            </div>
+          </div>
+          {intelligenceError && (
+            <div className="text-xs text-red-400 mt-2">{intelligenceError}</div>
+          )}
+        </div>
+
+        <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <Target className="w-5 h-5 text-green-400" />
+              <h3 className="text-sm font-medium text-gray-400">Repair Confidence</h3>
+            </div>
+            {intelligenceLoading && <Activity className="w-4 h-4 text-gray-400 animate-spin" />}
+          </div>
+          <div className="text-3xl font-bold text-white">
+            {intelligenceLoading ? '...' : `${((repairData?.avg_confidence || 0) * 100).toFixed(0)}%`}
+          </div>
+          <div className="text-sm text-gray-500 mt-2">
+            Test Pass Rate: {intelligenceLoading ? '...' : `${((repairData?.test_pass_rate || 0) * 100).toFixed(0)}%`}
+          </div>
+          {intelligenceError && (
+            <div className="text-xs text-red-400 mt-2">{intelligenceError}</div>
+          )}
         </div>
       </div>
 
@@ -335,111 +429,55 @@ export default function AAMDashboard() {
         </div>
       </div>
 
-      {/* Connection Health Table and Recent Events */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Connection Health Table */}
-        <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Database className="w-5 h-5 text-green-400" />
-            <h2 className="text-lg font-medium text-white">Connection Health</h2>
-          </div>
-          <div className="overflow-auto max-h-[400px]">
-            {connections.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                No connections found
-              </div>
-            ) : (
-              <table className="w-full">
-                <thead className="sticky top-0 bg-gray-900">
-                  <tr className="border-b border-gray-800">
-                    <th className="text-left text-xs font-medium text-gray-500 tracking-wider pb-3">
-                      Connection
-                    </th>
-                    <th className="text-left text-xs font-medium text-gray-500 tracking-wider pb-3">
-                      Source
-                    </th>
-                    <th className="text-center text-xs font-medium text-gray-500 tracking-wider pb-3">
-                      Status
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {connections.map((conn) => (
-                    <tr
-                      key={conn.id}
-                      className="border-b border-gray-800 hover:bg-gray-800/50 transition-colors"
-                    >
-                      <td className="py-3">
-                        <div className="text-sm font-medium text-white">{conn.name}</div>
-                        <div className="text-xs text-gray-500">
-                          {new Date(conn.updated_at).toLocaleDateString()}
-                        </div>
-                      </td>
-                      <td className="py-3">
-                        <div className="text-sm text-gray-300">{conn.source_type}</div>
-                      </td>
-                      <td className="py-3 text-center">
-                        {getStatusBadge(conn.status)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
+      {/* Connection Health Table - Full Width */}
+      <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Database className="w-5 h-5 text-green-400" />
+          <h2 className="text-lg font-medium text-white">Connection Health</h2>
         </div>
-
-        {/* Recent Events Log */}
-        <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Activity className="w-5 h-5 text-blue-400" />
-            <h2 className="text-lg font-medium text-white">Recent Events</h2>
-          </div>
-          <div
-            ref={eventsRef}
-            className="overflow-auto max-h-[400px] space-y-2"
-          >
-            {events.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                No recent events
-              </div>
-            ) : (
-              events.map((event) => (
-                <div
-                  key={event.id}
-                  className="bg-gray-800/50 rounded-lg p-3 border border-gray-700 hover:border-gray-600 transition-colors"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="mt-0.5">{getEventIcon(event.event_type)}</div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2 mb-1">
-                        <span className="text-sm font-medium text-white truncate">
-                          {event.connection_name}
-                        </span>
-                        <span className="text-xs text-gray-500 whitespace-nowrap">
-                          {formatTimestamp(event.started_at || event.timestamp)}
-                        </span>
+        <div className="overflow-auto max-h-[400px]">
+          {connections.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              No connections found
+            </div>
+          ) : (
+            <table className="w-full">
+              <thead className="sticky top-0 bg-gray-900">
+                <tr className="border-b border-gray-800">
+                  <th className="text-left text-xs font-medium text-gray-500 tracking-wider pb-3">
+                    Connection
+                  </th>
+                  <th className="text-left text-xs font-medium text-gray-500 tracking-wider pb-3">
+                    Source
+                  </th>
+                  <th className="text-center text-xs font-medium text-gray-500 tracking-wider pb-3">
+                    Status
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {connections.map((conn) => (
+                  <tr
+                    key={conn.id}
+                    className="border-b border-gray-800 hover:bg-gray-800/50 transition-colors"
+                  >
+                    <td className="py-3">
+                      <div className="text-sm font-medium text-white">{conn.name}</div>
+                      <div className="text-xs text-gray-500">
+                        {new Date(conn.updated_at).toLocaleDateString()}
                       </div>
-                      <div className="text-xs text-gray-400 mb-1">
-                        {event.event_type.replace(/_/g, ' ').toUpperCase()}
-                        {event.source_type && ` • ${event.source_type}`}
-                      </div>
-                      {event.error_message && (
-                        <div className="text-xs text-red-400 mt-1">
-                          {event.error_message}
-                        </div>
-                      )}
-                      {event.message && (
-                        <div className="text-xs text-gray-500 mt-1">
-                          {event.message}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
+                    </td>
+                    <td className="py-3">
+                      <div className="text-sm text-gray-300">{conn.source_type}</div>
+                    </td>
+                    <td className="py-3 text-center">
+                      {getStatusBadge(conn.status)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 

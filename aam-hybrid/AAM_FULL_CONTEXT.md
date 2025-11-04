@@ -1,8 +1,8 @@
 # AAM Hybrid - Full System Context
 
-**Document Version:** 1.0  
-**Last Updated:** January 2025  
-**Status:** Production-Ready (Phase 1 & 2 Complete)
+**Document Version:** 2.0  
+**Last Updated:** November 2025  
+**Status:** Production-Ready (All 4 Connectors Complete with Drift Detection)
 
 ---
 
@@ -37,13 +37,16 @@ AAM solves the problem of **fragile data pipelines** by:
 3. **Abstracting credential management** - Secure, centralized OAuth token handling
 4. **Enabling programmatic connection management** - API-first infrastructure
 
-### Current Capabilities (Phase 1 & 2)
+### Current Capabilities (Production Ready)
 
-✅ **Connection Onboarding**: Programmatically create Airbyte connections via API  
-✅ **Credential Management**: Secure OAuth token retrieval for Salesforce and other sources  
-✅ **Schema Drift Repair**: Update connection catalogs when source schemas change  
-✅ **Version Tracking**: Full audit trail of all schema modifications  
-✅ **Sync Triggering**: Manual job execution with status tracking  
+✅ **4 Production Connectors**: Salesforce, FileSource (CSV), Supabase (PostgreSQL), MongoDB (NoSQL)  
+✅ **Drift Detection**: SHA-256 schema fingerprinting with automatic ticket creation  
+✅ **Self-Healing Repair**: Autonomous schema updates with confidence scoring (≥85% threshold)  
+✅ **Canonical Event Normalization**: Unified data model for Accounts, Opportunities, Contacts  
+✅ **YAML-Based Mappings**: Field mapping configurations in `services/aam/canonical/mappings/`  
+✅ **Functional Testing**: End-to-end test scripts for drift detection and repair workflows  
+✅ **Mutation Testing**: API endpoints for triggering schema changes (`/api/v1/mesh/test/supabase/mutate`, `/api/v1/mesh/test/mongo/mutate`)  
+✅ **Human-in-the-Loop**: Manual repair approval endpoint (`/api/v1/mesh/repair/approve`)  
 
 ---
 
@@ -73,8 +76,8 @@ AAM solves the problem of **fragile data pipelines** by:
 │  ┌─────────────────────────▼──────────────────────────────────┐ │
 │  │            Airbyte OSS (via abctl) :8000                    │ │
 │  │                                                              │ │
-│  │  • Source Connectors (Salesforce, PostgreSQL, MySQL, etc.)  │ │
-│  │  • Destination Connectors (Data Warehouses, Databases)      │ │
+│  │  • 4 Production Connectors: Salesforce (OAuth2), FileSource │ │
+│  │  •   (CSV), Supabase (PostgreSQL), MongoDB (NoSQL)          │ │
 │  │  • Sync Orchestration & Scheduling                          │ │
 │  │  • Change Data Capture (CDC)                                │ │
 │  └──────────────────────────────────────────────────────────────┘ │
@@ -213,31 +216,108 @@ streams: [Account, Contact, Opportunity]  ← New object added
 
 ---
 
-### 4. Schema Observer Service (:8004) - SKELETON
+### 4. Production Connector Suite
 
-**Purpose** (Future): Automated drift detection
+**Status**: Production-Ready (4 Connectors Complete)
 
-**Planned Responsibilities**:
-- Poll Airbyte sources for schema changes
-- Compare discovered schemas to current catalog versions
-- Trigger Drift Repair Agent when changes detected
-- Emit drift alerts to monitoring systems
+**Connectors**:
 
-**Status**: Health endpoint only, core logic pending Phase 3
+#### **Salesforce Connector**
+- OAuth2 authentication with CRM integration
+- Entities: Account, Opportunity, Contact
+- Full CRUD operations
+- Canonical event emission to `canonical_streams` table
+- YAML mapping: `services/aam/canonical/mappings/salesforce.yaml`
+
+#### **FileSource Connector (CSV/Excel)**
+- Local file ingestion with schema detection
+- Entities: accounts, opportunities from CSV files
+- Idempotent uploads and data validation
+- YAML mapping: `services/aam/canonical/mappings/filesource.yaml`
+
+#### **Supabase Connector (PostgreSQL)**
+- Cloud PostgreSQL database connector
+- Schema mutation testing endpoint: `/api/v1/mesh/test/supabase/mutate`
+- Drift detection with SHA-256 fingerprinting
+- Auto-repair with confidence scoring
+- Idempotent seed data methods for testing
+- YAML mapping: `services/aam/canonical/mappings/supabase.yaml`
+
+#### **MongoDB Connector (NoSQL)**
+- Document database connector with BSON handling
+- Collections: accounts, opportunities
+- Schema mutation testing endpoint: `/api/v1/mesh/test/mongo/mutate`
+- Drift detection and repair workflow
+- Canonical event normalization
+- YAML mapping: `services/aam/canonical/mappings/mongodb.yaml`
+
+**Drift Detection Workflow**:
+1. Schema fingerprinting via SHA-256 hashing
+2. Drift tickets created in `drift_events` table with confidence scores
+3. Auto-repair executes if confidence ≥85%, manual approval otherwise
+4. Repair approval endpoint: `/api/v1/mesh/repair/approve`
+
+**Testing Infrastructure**:
+- `scripts/aam/ingest_seed.py` - Seed Supabase and MongoDB with demo data
+- `scripts/aam/drift_supabase.py` - Test Supabase drift detection
+- `scripts/aam/drift_mongo.py` - Test MongoDB drift detection
+- `scripts/aam/e2e_revops_probe.py` - Full RevOps pipeline validation
 
 ---
 
-### 5. RAG Engine Service (:8005) - SKELETON
+### 5. Schema Observer & Drift Detection
 
-**Purpose** (Future): AI-powered data mapping recommendations
+**Status**: Production-Ready
 
-**Planned Responsibilities**:
-- Ingest source schemas and destination models
-- Use RAG to suggest field mappings
-- Learn from user corrections
-- Generate transformation logic
+**Capabilities**:
+- SHA-256 schema fingerprinting for all 4 connectors
+- Automatic drift ticket creation in `drift_events` table
+- Confidence scoring for repair proposals
+- Integration with Drift Repair Agent for autonomous updates
 
-**Status**: Health endpoint only, core logic pending Phase 3
+**Database Tables**:
+- `drift_events` - Schema drift detection and repair tickets
+- `schema_changes` - Historical schema version tracking
+- `canonical_streams` - Normalized event log (append-only)
+
+**Drift Event Schema**:
+```python
+class DriftEvent:
+    id: UUID
+    tenant_id: UUID
+    connection_id: UUID
+    event_type: str  # 'field_added', 'field_renamed', 'field_removed'
+    old_schema: JSON
+    new_schema: JSON
+    confidence: float  # 0.0 - 1.0
+    status: str  # 'pending', 'approved', 'repaired', 'failed'
+    created_at: datetime
+```
+
+### 6. Canonical Schema & Event Normalization
+
+**Purpose**: Unified data model across all connectors
+
+**Canonical Entities**:
+- **CanonicalAccount** - Unified account schema
+- **CanonicalOpportunity** - Unified opportunity schema
+- **CanonicalContact** - Unified contact schema (future)
+
+**Canonical Event Structure**:
+```python
+class CanonicalEvent:
+    meta: CanonicalMeta  # version, tenant, trace_id, emitted_at
+    source: CanonicalSource  # system, connection_id, schema_version
+    entity: str  # 'account', 'opportunity', 'contact'
+    op: str  # 'upsert', 'delete'
+    data: Union[CanonicalAccount, CanonicalOpportunity]  # Pydantic validated
+    unknown_fields: Dict[str, Any]  # Fields not in canonical schema
+```
+
+**Mapping Registry**:
+- YAML-based field mappings in `services/aam/canonical/mappings/`
+- Supports nested field mapping (e.g., `annual_revenue` → `extras.annual_revenue`)
+- Unknown fields automatically captured for manual review
 
 ---
 
@@ -832,31 +912,59 @@ Salesforce → OAuth 2.0 Web Server Flow → Refresh Token → .env
 
 ---
 
+## Implementation Status
+
+### ✅ Phase 3: Advanced Intelligence - **COMPLETE**
+
+**Schema Observer** - Automated Drift Detection ✅
+- ✅ Schema fingerprinting for Supabase (PostgreSQL) via information_schema
+- ✅ Schema fingerprinting for MongoDB via document sampling
+- ✅ Drift detection with confidence scoring (0.75-1.0 range)
+- ✅ Drift ticket generation to `drift_events` table
+- ✅ Production code: `services/aam/schema_observer.py` (269 lines)
+
+**Drift Repair System** - Auto-Healing ✅
+- ✅ Manual approval endpoint: `/api/v1/mesh/repair/approve`
+- ✅ Auto-repair for high-confidence changes (≥85%)
+- ✅ Human-in-the-loop for low-confidence changes (<85%)
+- ✅ Schema mutation testing endpoints for Supabase and MongoDB
+- ✅ Comprehensive test scripts in `scripts/aam/`
+
+**Production Connector Suite** ✅
+- ✅ Salesforce (OAuth2 CRM connector)
+- ✅ FileSource (CSV/Excel file ingestion)
+- ✅ Supabase (PostgreSQL cloud connector)
+- ✅ MongoDB (NoSQL document connector)
+
+**Canonical Event Normalization** ✅
+- ✅ YAML-based field mappings in `services/aam/canonical/mappings/`
+- ✅ Pydantic validation with `CanonicalAccount`, `CanonicalOpportunity`
+- ✅ Append-only event log in `canonical_streams` table
+- ✅ Unknown field capture for manual review
+
+---
+
 ## Future Roadmap
 
-### Phase 3: Advanced Intelligence (Next Quarter)
+### Phase 4: Production Hardening - **IN PROGRESS**
 
-**Schema Observer** - Automated Drift Detection
-- Poll Airbyte sources every 6 hours
-- Compare discovered schemas to latest catalog versions
-- Auto-trigger Drift Repair Agent on changes
-- Slack/Email notifications for drift events
+**Observability** (Partially Complete):
+- ✅ AAM monitoring dashboard with real-time metrics
+- ✅ Drift event tracking (24h windows)
+- ✅ Repair performance metrics endpoints
+- ✅ Connection health monitoring
+- ⏳ Prometheus metrics for all services (planned)
+- ⏳ Distributed tracing with Jaeger (planned)
+- ⏳ Centralized logging with ELK stack (planned)
 
-**RAG Engine** - AI-Powered Mapping
-- Ingest source schemas and destination models
-- Use RAG to suggest field mappings based on:
+**RAG Engine** - AI-Powered Mapping (Planned):
+- ⏳ Ingest source schemas and destination models
+- ⏳ Use RAG to suggest field mappings based on:
   - Field names and data types
   - Historical user mappings
   - Industry-standard ontologies
-- Learn from user corrections
-- Generate dbt transformation logic
-
-**Event-Driven Architecture**:
-```
-Schema Observer → Redis Pub/Sub → Drift Repair Agent
-                      ↓
-                 Notification Service
-```
+- ⏳ Learn from user corrections
+- ⏳ Generate dbt transformation logic
 
 ---
 

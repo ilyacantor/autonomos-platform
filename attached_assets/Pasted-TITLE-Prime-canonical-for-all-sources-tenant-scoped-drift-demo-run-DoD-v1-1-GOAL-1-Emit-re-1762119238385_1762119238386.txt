@@ -1,0 +1,94 @@
+TITLE: Prime canonical for all sources + tenant-scoped drift demo + run DoD v1.1
+
+GOAL
+1) Emit real canonical events for ALL configured sources (salesforce, supabase, mongodb, filesource) for tenant "demo-tenant".
+2) Make drift tests mutate REAL data and be TENANT-SCOPED.
+3) Re-run DoD v1.1 and print PASS/FAIL lines.
+
+HARD GUARDRAILS
+- No UI/CSS/graph changes.
+- Do NOT alter existing DCL transforms; only add scripts/endpoints.
+- JSON only responses; dev-only debug routes guarded by DEV_DEBUG=true.
+
+ENV (set if missing)
+TENANT_ID_DEMO=demo-tenant
+DEV_DEBUG=true
+FEATURE_USE_FILESOURCE=true
+MONITOR_POLLING=false
+
+PART A — PRIMER: create/seed + emit canonical per source
+1) FILESOURCE
+   - Ensure folder: services/aam/connectors/filesource/mock_sources/
+   - Add script: yarn seed:filesource → replays ≤25 rows per entity to canonical topics with meta.tenant=TENANT_ID_DEMO.
+   - After replay, wait up to 10s for DCL materialization.
+
+2) SUPABASE (POSTGRES)
+   - Ensure tables "accounts" & "opportunities" exist; create if absent.
+   - Add script: yarn seed:supabase → if empty, insert 3 accounts + 5 opportunities; else upsert 3/5 sample rows.
+   - Normalize vendor→canonical v1; set meta.tenant=TENANT_ID_DEMO; emit canonical.
+   - Wait up to 10s for DCL materialization.
+
+3) MONGODB
+   - Ensure collections "accounts" & "opportunities" exist; create if absent.
+   - Add script: yarn seed:mongo → if empty, insert 3 accounts + 5 opportunities; else upsert 3/5 docs.
+   - Normalize doc→canonical v1; set meta.tenant=TENANT_ID_DEMO; emit canonical.
+   - Wait up to 10s for DCL materialization.
+
+4) SALESFORCE
+   - Using configured SALESFORCE_* creds, fetch the 5 most recently modified Opportunities with their Accounts:
+     fields: Id, AccountId, Name, StageName, Amount, CurrencyIsoCode, CloseDate, OwnerId, Probability, LastModifiedDate.
+   - Add script: yarn seed:salesforce → normalize to canonical v1, set meta.tenant=TENANT_ID_DEMO, emit canonical.
+   - Wait up to 10s for DCL materialization.
+
+PART B — DRIFT: make mutations REAL and TENANT-SCOPED
+1) SUPABASE drift endpoint (dev-only):
+   - POST /api/v1/mesh/test/supabase/mutate
+     Body: { "tenant_id":"demo-tenant", "op":"rename_column", "table":"opportunities", "from":"amount", "to":"amount_usd" }
+   - Actually run ALTER TABLE … RENAME COLUMN … ; record schema change; emit aam.events.schema.change.
+   - Observer raises repair ticket; approve via POST /api/v1/mesh/repair/approve { "ticket_id":"..." } and re-emit one row for TENANT_ID_DEMO.
+
+2) MONGODB drift endpoint (dev-only):
+   - POST /api/v1/mesh/test/mongo/mutate
+     Body: { "tenant_id":"demo-tenant", "op":"rename_field", "collection":"opportunities", "from":"amount", "to":"amount_usd" }
+   - Actually run db.opportunities.updateMany({}, { $rename: { "amount":"amount_usd" }});
+   - Record schema change; observer raises ticket; approve and re-emit one doc for TENANT_ID_DEMO.
+
+3) Tenant enforcement:
+   - For both drift endpoints, if body.tenant_id is missing, default to TENANT_ID_DEMO.
+   - All emitted canonical events MUST include meta.tenant=TENANT_ID_DEMO.
+
+PART C — DoD v1.1 runner updates (deterministic)
+- Ensure REQUIRED_SOURCES includes: salesforce,supabase,mongodb,filesource
+- Add script: yarn dod:prime → runs seed:salesforce, seed:supabase, seed:mongo, seed:filesource and waits for DCL views to be non-empty per source.
+- Keep dod:source, dod:agents, dod:drift, dod:all exactly as previously defined, but now they must FAIL if a required source has 0 canonical events.
+
+PART D — RUN (print EXACT lines only)
+1) Run primer:
+   - yarn dod:prime
+
+2) Validate each required source:
+   - yarn dod:source salesforce
+   - yarn dod:source supabase
+   - yarn dod:source mongodb
+   - yarn dod:source filesource
+
+3) Drift demos (supabase, mongodb):
+   - yarn dod:drift supabase
+   - yarn dod:drift mongodb
+
+4) Agent proofs:
+   - yarn dod:agents
+
+5) Final:
+   - yarn dod:all
+
+OUTPUT — print ONLY these lines:
+- DOD_SOURCE:salesforce:STATUS: <PASS|FAIL>
+- DOD_SOURCE:supabase:STATUS: <PASS|FAIL>
+- DOD_SOURCE:mongodb:STATUS: <PASS|FAIL>
+- DOD_SOURCE:filesource:STATUS: <PASS|FAIL>
+- DOD_DRIFT:supabase:STATUS: <PASS|SKIPPED|FAIL>
+- DOD_DRIFT:mongodb:STATUS: <PASS|SKIPPED|FAIL>
+- DOD_AGENT:revops:READ: <OK|FAIL> INTENT: <OK|FAIL> TRACE=<id>
+- DOD_AGENT:finops:READ: <OK|FAIL> INTENT: <OK|FAIL> TRACE=<id>
+- DOD_STATUS: <PASS|FAIL>

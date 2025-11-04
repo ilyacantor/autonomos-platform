@@ -1,9 +1,16 @@
 # AutonomOS - Multi-Tenant AI Orchestration Platform
 
 ## Overview
-AutonomOS is a production-ready, multi-tenant SaaS backend system in Python for AI-driven task orchestration. It ensures complete data isolation, providing secure, scalable, and enterprise-grade task processing with JWT authentication and user management. The platform's core purpose is to enable advanced AI-powered data orchestration, including a Data Catalog Layer (DCL) engine for AI-driven data source connection, entity mapping, and unified view creation. 
+AutonomOS is a production-ready, multi-tenant SaaS backend system in Python for AI-driven task orchestration. It ensures complete data isolation, providing secure, scalable, and enterprise-grade task processing with JWT authentication and user management. The platform's core purpose is to enable advanced AI-powered data orchestration, including a Data Connection Layer (DCL) engine for AI-driven data source connection, entity mapping, and unified view creation. 
 
-**AAM Hybrid MVP (January 2025):** The platform now includes a production-ready implementation of the Adaptive API Mesh (Phases 1 & 2), combining Airbyte OSS for data movement with FastAPI microservices for intelligent orchestration and drift repair. **For complete technical documentation, see `aam-hybrid/AAM_FULL_CONTEXT.md`**.
+**AAM Production Status (November 2025):** The platform includes a production-ready implementation of the Adaptive API Mesh through Phase 3, featuring 4 operational connectors (Salesforce, FileSource, Supabase, MongoDB), complete drift detection with schema fingerprinting, autonomous auto-repair with confidence scoring, canonical event normalization, and comprehensive testing infrastructure.
+
+## Key Documentation
+- **📊 [Architecture Visualizations](./ARCHITECTURE.md)** - Complete Mermaid diagrams of all platform components
+- **🌐 [Interactive Architecture Viewer](/architecture.html)** - Web-based architecture documentation with 9 comprehensive diagrams. The primary diagram (#1) is the Systems Overview (AOA) with plain-English annotations explaining data sources, event types, AAM intelligence functions, and key junctions (accessible at `/architecture.html` on any deployment URL)
+- **📘 [AAM Full Technical Docs](./aam-hybrid/AAM_FULL_CONTEXT.md)** - Adaptive API Mesh implementation details
+- **🔬 [Functional Probe Guide](./scripts/QUICKSTART.md)** - End-to-end testing for Salesforce → AAM → DCL
+- **📖 [AAM Dashboard Guide](./AAM_DASHBOARD_GUIDE.md)** - Monitor dashboard user guide
 
 ## User Preferences
 I prefer clear, concise explanations and direct answers. I value iterative development with frequent, small updates. Please ask for my approval before implementing major architectural changes or significant feature additions. I prefer detailed explanations for complex concepts but require brevity for straightforward ones. Do not make changes to folder `Z` and file `Y`.
@@ -14,7 +21,8 @@ AutonomOS is built with FastAPI, PostgreSQL, Redis, and Python RQ, implementing 
 **UI/UX Decisions:**
 The frontend is a React/TypeScript application with a focus on a clean, minimalist design. Key UI/UX features include:
 - Interactive DCL graph visualization for data mapping and orchestration, with color-coded, collision-detected labels and dynamic sizing for optimal visibility across devices.
-- **AAM Monitoring Dashboard (October 2025):** Real-time dashboard for monitoring Adaptive API Mesh operations, including service health status, drift detection metrics, auto-repair success rates, connection health table, and recent events log. Features auto-refresh polling (10s intervals) with graceful mock data fallback. See `AAM_DASHBOARD_GUIDE.md` for complete users guide.
+- **AAM Monitor (November 2025):** Streamlined dashboard for Adaptive API Mesh intelligence metrics and connection health. Displays intelligence readout cards (mappings, drift events, RAG suggestions, repair confidence), performance metrics, and connection health table. Optimized for fast loading by removing service status boxes and event logs.
+- **Live Flow (November 2025):** Fully functional dedicated page for real-time event visualization showing canonical events flowing through the 5-stage pipeline (Sources → AAM → DCL → Gateway → Agents). Features animated event pills with framer-motion, speed controls (0.5x, 1x, 2x), pause/play functionality, source filtering (salesforce, supabase, mongodb, filesource, system), and click-to-view event details modal. Falls back gracefully from SSE → Redis → Polling → Mock event generation when no auth token is available. Accessible at `/live-flow` route with full browser history support.
 - A hero section showcasing the product value proposition and an agent layer container for AI agents.
 - Comprehensive FAQ section explaining AutonomOS capabilities and technology.
 - Mobile-first design with responsive typography, touch-optimized elements, and dynamic adjustments for various screen sizes, including a horizontal Sankey layout for the DCL graph and layout-aware directional arrows for architecture flow.
@@ -22,7 +30,7 @@ The frontend is a React/TypeScript application with a focus on a clean, minimali
 
 **System Design Choices:**
 - **Multi-Tenancy:** Achieved through `tenant_id` scoping for data isolation.
-- **Microservices:** The Adaptive API Mesh (AAM) includes dedicated FastAPI microservices: Orchestrator, Auth Broker, Drift Repair Agent, and skeleton services for Schema Observer and RAG Engine.
+- **Microservices:** The Adaptive API Mesh (AAM) includes production-ready FastAPI microservices: Orchestrator, Auth Broker, Drift Repair Agent, and Schema Observer with full drift detection capabilities.
 - **Data Orchestration:** An embedded DCL engine handles AI-driven data source connection and mapping, with AOA endpoints orchestrating DCL operations via async worker tasks.
 - **Authentication:** JWT-based with Argon2 hashing.
 - **Task Management:** Python RQ handles asynchronous task processing, lifecycle management, error handling, and retries, supported by Redis for high-performance queuing.
@@ -58,3 +66,10 @@ The frontend is a React/TypeScript application with a focus on a clean, minimali
 - **Replit's PostgreSQL:** Built-in database service.
 - **Upstash Redis:** External Redis for production.
 - **Slack Incoming Webhooks:** For notifications.
+
+## Recent Updates
+- **November 2025:** 
+  - **Live Flow Implementation (Complete):** Built standalone real-time event visualization page at `/live-flow` with animated pill UI showing events flowing across 5 horizontal lanes. Implemented mock event generator fallback (generates events every 1-4 seconds), framer-motion animations, URL routing with browser history support, and event detail modal. Fixed CSS layout issues by using explicit lane heights (100px each) instead of complex flexbox nesting.
+  - **AAM Monitor Optimization:** Simplified AAM Monitor by removing service status boxes and recent events log, significantly improving load times. Now focuses on intelligence metrics and connection health.
+  - Added interactive architecture documentation viewer at `/architecture.html` with 9 comprehensive Mermaid diagrams. Primary diagram is Systems Overview (AOA) with plain-English annotations explaining what data sources ingest (Accounts, Opportunities, Contacts, Transactions), raw event types (account.created, opportunity.updated, contact.merged), AAM intelligence functions (drift detection, auto-repair, RAG matching), and key architectural junctions (normalization, event store, gateway). All diagrams use accessible high-contrast colors for optimal readability.
+  - Implemented Supabase (Postgres) and MongoDB connectors with drift detection, canonical event emission, and self-healing repair capabilities. Added drift mutation endpoints, schema fingerprinting, and 4 functional test scripts for end-to-end validation.

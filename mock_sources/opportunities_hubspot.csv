@@ -1,0 +1,6 @@
+hs_object_id,hs_associated_company_id,dealname,dealstage,amount,deal_currency_code,closedate,hubspot_owner_id,hs_probability,createdate,hs_lastmodifieddate,dealtype
+HS-D-8001,HS-12345,Cloud Platform Expansion,closedwon,380000,USD,2024-10-20,john@example.com,100,2024-08-15,2024-10-20,existingbusiness
+HS-D-8002,HS-12346,Analytics Implementation,decisionmakerbuyinphase,220000,USD,2024-11-25,jane@example.com,70,2024-09-20,2024-10-31,newbusiness
+HS-D-8003,HS-12347,AI Integration Package,presentationscheduled,450000,USD,2024-12-10,bob@example.com,50,2024-10-05,2024-10-30,newbusiness
+HS-D-8004,HS-12348,Mobile App Redesign,contractsent,175000,USD,2024-11-15,alice@example.com,85,2024-09-25,2024-10-31,upsell
+HS-D-8005,HS-12349,Security Audit & Setup,appointmentscheduled,95000,USD,2024-12-30,charlie@example.com,30,2024-10-15,2024-10-29,newbusiness

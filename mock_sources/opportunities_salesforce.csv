@@ -1,0 +1,6 @@
+opportunity_id,account_id,name,stage,amount,currency,close_date,owner_id,probability,created_at,updated_at,type
+SFDC-O-001,SFDC-A-001,Q4 Enterprise License,Proposal,250000,USD,2024-12-31,USR-101,75,2024-10-01T09:00:00Z,2024-10-30T14:00:00Z,New Business
+SFDC-O-002,SFDC-A-002,Manufacturing Suite Upgrade,Negotiation,180000,USD,2024-11-30,USR-102,90,2024-09-15T10:30:00Z,2024-10-31T11:30:00Z,Upsell
+SFDC-O-003,SFDC-A-003,Starter Package,Closed Won,45000,USD,2024-10-15,USR-103,100,2024-09-01T14:00:00Z,2024-10-15T16:00:00Z,New Business
+SFDC-O-004,SFDC-A-004,Financial Platform Deal,Qualification,500000,USD,2025-01-31,USR-101,25,2024-10-20T08:00:00Z,2024-10-31T10:00:00Z,New Business
+SFDC-O-005,SFDC-A-005,Cloud Migration Project,Proposal,320000,USD,2024-12-15,USR-104,60,2024-10-10T11:00:00Z,2024-10-30T15:30:00Z,New Business

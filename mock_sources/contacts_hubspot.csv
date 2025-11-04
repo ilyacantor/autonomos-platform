@@ -1,0 +1,6 @@
+hs_object_id,associatedcompanyid,firstname,lastname,email,phone,jobtitle,hs_department,createdate,lastmodifieddate
+HS-C-2001,HS-12345,David,Martinez,d.martinez@cloudtech.com,+1-555-1001,Head of Cloud,Engineering,2024-06-01,2024-10-31
+HS-C-2002,HS-12346,Lisa,Anderson,lisa.a@dataflow.com,+1-555-1101,Data Architect,Data,2024-07-15,2024-10-30
+HS-C-2003,HS-12347,James,Taylor,j.taylor@aiinnovations.ai,+1-555-1201,Chief AI Officer,Research,2024-08-20,2024-10-29
+HS-C-2004,HS-12348,Jennifer,Moore,jennifer.m@mobilefirst.app,+1-555-1301,Product Manager,Product,2024-09-10,2024-10-28
+HS-C-2005,HS-12349,William,Thomas,w.thomas@securenet.com,+1-555-1401,Security Director,Security,2024-10-05,2024-10-31

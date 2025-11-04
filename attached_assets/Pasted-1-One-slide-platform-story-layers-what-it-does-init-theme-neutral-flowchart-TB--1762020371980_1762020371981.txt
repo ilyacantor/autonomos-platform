@@ -1,0 +1,74 @@
+1) One-slide platform story (layers + what it does)
+%%{init: {'theme': 'neutral'}}%%
+flowchart TB
+  subgraph ExecView["AutonomOS — Executive View"]
+    direction TB
+    A[Business Apps & Domain Agents<br/>(RevOps, FinOps, etc.)]
+    B[Light API Gateway<br/>(Auth, Limits, Audit)]
+    C[Adaptive API Mesh (AAM)<br/>(Normalize, Drift-Repair)]
+    D[Data Connectivity Layer (DCL)<br/>(Unified Ontology, Views)]
+    E[Enterprise Systems<br/>(Salesforce • Supabase • Mongo • CSV)]
+  end
+
+  A -->|Read Views / Post Intents| B --> C --> D
+  E -->|Events & Data| C
+  D -->|Stable Views (/dcl/views/*)| A
+
+
+Why this works: 5 boxes, verbs on edges. No tech jargon beyond what matters. Shows “front door → normalize → unify → consume.”
+
+2) Functional swimlanes (who does what)
+%%{init: {'theme': 'neutral'}}%%
+flowchart LR
+  subgraph Lane1["Business"]
+    U1[Leaders & Users]
+    U2[Agents (RevOps/FinOps)]
+  end
+  subgraph Lane2["Control"]
+    G[API Gateway<br/>Policy • Audit • SLAs]
+    CP[Control Plane<br/>Agent Registry • Intents Router]
+  end
+  subgraph Lane3["Data & Intelligence"]
+    AAM[AAM<br/>Connectors • Normalization • Drift-Repair]
+    DCL[DCL<br/>Unified Ontology • Read Models]
+  end
+  subgraph Lane4["Sources"]
+    S1[Salesforce]
+    S2[Supabase (Postgres)]
+    S3[MongoDB]
+    S4[CSV/Legacy]
+  end
+
+  U1 --> U2
+  U2 -->|Views & Intents| G --> CP
+  CP --> AAM --> DCL --> U2
+  S1 & S2 & S3 & S4 --> AAM
+
+
+Use when: You want to highlight ownership and responsibilities by function.
+
+3) Outcome/KPI flow (exec “why it matters”)
+%%{init: {'theme': 'neutral'}}%%
+flowchart TB
+  O1[Integrate Any System<br/>Days → Minutes]
+  O2[Trustworthy Data<br/>Unified Ontology]
+  O3[Faster Decisions<br/>Agent Actions w/ Audit]
+  O4[Governance & Risk<br/>Drift Detection • HITL]
+  O5[Lower Cost to Change<br/>No Rebuilds on Breakage]
+
+  O1 --> O2 --> O3
+  O2 --> O4
+  O3 --> O5
+
+
+Use when: You’re pitching benefits, not architecture.
+
+Tips to keep it executive:
+
+5–7 nodes max per chart. Use verbs on the arrows.
+
+No acronyms unless essential (AAM/DCL only if you must).
+
+Outcomes over components: add what it enables on each box (e.g., “Normalize, Drift-Repair”).
+
+Keep a single slide per message: Layers, Swimlanes, or Outcomes—don’t mix.

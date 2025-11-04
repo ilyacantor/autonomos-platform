@@ -1,0 +1,6 @@
+contact_id,account_id,first_name,last_name,email,phone,title,department,created_at,updated_at
+SFDC-C-001,SFDC-A-001,John,Smith,john.smith@acme.com,+1-555-0101,VP of Engineering,Engineering,2024-01-15T10:00:00Z,2024-10-30T14:00:00Z
+SFDC-C-002,SFDC-A-001,Sarah,Johnson,sarah.j@acme.com,+1-555-0102,CTO,Technology,2024-01-15T10:15:00Z,2024-10-29T16:30:00Z
+SFDC-C-003,SFDC-A-002,Michael,Brown,m.brown@globaldynamics.com,+1-555-0201,Director of Operations,Operations,2024-02-10T09:15:00Z,2024-10-31T11:00:00Z
+SFDC-C-004,SFDC-A-003,Emily,Davis,emily.d@techstart.io,+1-555-0301,CEO,Executive,2024-03-05T14:00:00Z,2024-10-28T13:45:00Z
+SFDC-C-005,SFDC-A-004,Robert,Wilson,r.wilson@enterprise-sys.com,+1-555-0401,CFO,Finance,2024-04-12T08:30:00Z,2024-10-30T10:15:00Z

@@ -1,0 +1,14 @@
+account:
+  fields:
+    accountid: account_id
+    accountname: name
+    accounttype:
+      target: type
+      transform: lowercase
+    industrycode: industry
+    ownerid: owner_id
+    statecode:
+      target: status
+      transform: boolean
+    createdon: created_at
+    modifiedon: updated_at

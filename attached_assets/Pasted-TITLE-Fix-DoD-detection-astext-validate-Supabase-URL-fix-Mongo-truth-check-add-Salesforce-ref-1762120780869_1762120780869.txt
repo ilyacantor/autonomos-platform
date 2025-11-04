@@ -1,0 +1,132 @@
+TITLE: Fix DoD detection (.astext), validate Supabase URL, fix Mongo truth check, add Salesforce refresh OAuth; then re-run DoD v1.1
+
+GOAL
+1) Replace any JSON ".astext" usage in detection queries with Postgres JSONB operators so canonical detection works (Filesource already emitted 13 events).
+2) Validate the Supabase URL and run a live connectivity check.
+3) Fix MongoDB "truth value" checks so cursors/docs don’t raise errors.
+4) Implement Salesforce access_token refresh using REFRESH_TOKEN and wire it into the SF connector & seed.
+5) Re-run DoD v1.1 and print PASS/FAIL lines.
+
+HARD GUARDRAILS
+- Do NOT modify any UI/CSS/graph.
+- Do NOT change DCL transforms/ontology; additive changes only.
+- Debug/test endpoints remain dev-only (DEV_DEBUG=true).
+- JSON responses only (no HTML errors).
+
+ENV (ensure present)
+TENANT_ID_DEMO=demo-tenant
+REQUIRED_SOURCES=salesforce,supabase,mongodb,filesource
+DEV_DEBUG=true
+MONITOR_POLLING=false
+
+===============================================================================
+PART A — FIX CANONICAL DETECTION (replace ".astext" with JSONB ->> operators)
+===============================================================================
+1) Locate any DoD / detection queries that use SQLAlchemy JSON ".astext" on JSONB columns
+   (common patterns: column['key'].astext, column["key"].astext).
+2) Replace with raw SQL using JSONB text-extract operator "->>":
+   Example for counting canonical events per source/tenant/entity:
+
+   -- Use the actual table name used for canonical envelope storage:
+   -- prefer `canonical_events` if present, otherwise search for the table the seeders write into.
+   SELECT COUNT(*) AS cnt
+   FROM canonical_events
+   WHERE (meta->>'tenant') = :tenant
+     AND (source->>'system') = :source
+     AND (entity = :entity OR (data->>'entity') = :entity);
+
+   Notes:
+   - If "entity" is a top-level column, filter on it; otherwise filter on data->>'entity'.
+   - Update all DoD detection queries to use this pattern.
+3) Update DoD harness functions accordingly (dod:source, dod:all) so they report FOUND vs NONE correctly.
+
+===============================================================================
+PART B — SUPABASE URL VALIDATION + CONNECTIVITY TEST
+===============================================================================
+1) Validate env SUPABASE_DB_URL:
+   - If it matches placeholder patterns like "db.xxx.supabase.co" or contains "<" ">", STOP and print:
+     "SUPABASE_URL_INVALID: Please provide a real JDBC/PG URL in SUPABASE_DB_URL"
+     and EXIT 1 for `yarn dod:prime` and `yarn dod:source supabase`.
+   - Else, run a connectivity probe:
+     - Open a pooled connection and execute: SELECT 1;
+     - Ensure schema exists; create tables accounts/opportunities if missing (idempotent).
+2) Ensure seeder `yarn seed:supabase` writes/updates 3 accounts + 5 opportunities and emits canonical with meta.tenant=TENANT_ID_DEMO.
+
+===============================================================================
+PART C — MONGODB "TRUTH VALUE" FIXES
+===============================================================================
+1) Search the mongo connector & seed code for truthy checks on cursors/docs:
+   - Anti-patterns to replace:
+     if cursor:  → use: if await cursor.to_list(length=1): ...
+     if docs:    → use: if len(docs) > 0
+     if doc:     → use: if doc is not None
+   - For sync PyMongo: use find_one(...) for existence checks; or count_documents({...}) > 0.
+2) Re-run `yarn seed:mongo` to ensure canonical events emit with meta.tenant=TENANT_ID_DEMO.
+
+===============================================================================
+PART D — SALESFORCE ACCESS TOKEN (REFRESH FLOW) + CONNECTOR WIRING
+===============================================================================
+1) Implement refresh helper (Python/Node depending on codebase; place in services/aam/connectors/salesforce/oauth_refresh.{py|ts}):
+
+   Inputs (from env): SALESFORCE_CLIENT_ID, SALESFORCE_CLIENT_SECRET, SALESFORCE_REFRESH_TOKEN
+   POST https://login.salesforce.com/services/oauth2/token
+     grant_type=refresh_token
+     client_id
+     client_secret
+     refresh_token
+   Return: { access_token, issued_at, instance_url, signature, token_type }
+
+   - Persist access_token in memory with an expiry timestamp (now + 3300s).
+   - Retry policy: on 401 from SF API, refresh and retry once.
+
+2) Wire the SF connector + seed to always obtain a fresh access_token before calls.
+   - Update `yarn seed:salesforce` to:
+     a) refresh token
+     b) fetch 5 most recently modified Opportunities (and Accounts) via REST
+     c) normalize to canonical v1
+     d) emit canonical (meta.tenant=TENANT_ID_DEMO).
+
+3) Update DoD salesforce path so that dod:source salesforce checks for:
+   - config present
+   - at least 1 canonical from source_system="salesforce"
+   - /dcl/views/opportunities?opportunity_id=<id> returns 1 row
+
+===============================================================================
+PART E — RE-RUN DoD v1.1 (deterministic)
+===============================================================================
+1) Run primer:
+   yarn dod:prime
+   Expect non-zero canonical counts for each configured source (print counts).
+
+2) Validate each source:
+   yarn dod:source salesforce
+   yarn dod:source supabase
+   yarn dod:source mongodb
+   yarn dod:source filesource
+
+3) Drift demos (tenant-scoped):
+   yarn dod:drift supabase
+   yarn dod:drift mongodb
+
+4) Agent proofs:
+   yarn dod:agents   # revops + finops read + safe intent
+
+5) Final rollup:
+   yarn dod:all
+
+===============================================================================
+OUTPUT — PRINT ONLY THESE LINES
+===============================================================================
+- FIX_DETECTION_QUERY: APPLIED
+- SUPABASE_URL_VALID: <YES|NO>
+- MONGO_TRUTH_CHECKS: FIXED
+- SF_OAUTH_REFRESH: ENABLED
+- DOD_SOURCE:salesforce:STATUS: <PASS|FAIL>
+- DOD_SOURCE:supabase:STATUS: <PASS|FAIL>
+- DOD_SOURCE:mongodb:STATUS: <PASS|FAIL>
+- DOD_SOURCE:filesource:STATUS: <PASS|FAIL>
+- DOD_DRIFT:supabase:STATUS: <PASS|SKIPPED|FAIL>
+- DOD_DRIFT:mongodb:STATUS: <PASS|SKIPPED|FAIL>
+- DOD_AGENT:revops:READ: <OK|FAIL> INTENT: <OK|FAIL> TRACE=<id>
+- DOD_AGENT:finops:READ: <OK|FAIL> INTENT: <OK|FAIL> TRACE=<id>
+- DOD_STATUS: <PASS|FAIL>

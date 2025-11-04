@@ -21,9 +21,14 @@ from app.security import (
     get_current_user,
     ACCESS_TOKEN_EXPIRE_MINUTES
 )
-from app.api.v1 import auth, aoa, aam_monitoring
+from app.api.v1 import auth, aoa, aam_monitoring, aam_mesh, platform_stubs, filesource, dcl_views, debug, mesh_test, events
 
-models.Base.metadata.create_all(bind=engine)
+# Initialize database tables - with error handling for resilience
+try:
+    models.Base.metadata.create_all(bind=engine)
+    print("✅ Database tables initialized successfully")
+except Exception as e:
+    print(f"⚠️ Database initialization failed: {e}. Continuing without database...")
 
 app = FastAPI(title="AutonomOS", description="AI Orchestration Platform - Multi-Tenant Edition", version="2.0.0")
 
@@ -55,6 +60,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Add Gateway Middleware (Platform Infrastructure)
+try:
+    from app.gateway.middleware.auth import tenant_auth_middleware
+    from app.gateway.middleware.tracing import tracing_middleware
+    from app.gateway.middleware.rate_limit import rate_limit_middleware
+    from app.gateway.middleware.idempotency import idempotency_middleware
+    from app.gateway.middleware.audit import audit_middleware
+    
+    # Register middleware in correct order (FIRST = outermost, LAST = innermost)
+    # Order: Tracing → Auth → RateLimit → Idempotency → Audit
+    app.middleware("http")(tracing_middleware)
+    app.middleware("http")(tenant_auth_middleware)
+    app.middleware("http")(rate_limit_middleware)
+    app.middleware("http")(idempotency_middleware)
+    app.middleware("http")(audit_middleware)
+    
+    print("✅ Gateway middleware registered successfully")
+except Exception as e:
+    print(f"⚠️ Gateway middleware not available: {e}")
+
 # Use REDIS_URL if available (production), otherwise use host/port (development)
 # Redis is optional - if not available, task queue features will be disabled
 redis_conn = None
@@ -76,6 +101,13 @@ except Exception as e:
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(aoa.router, prefix="/api/v1/aoa", tags=["AOA Orchestration"])
 app.include_router(aam_monitoring.router, prefix="/api/v1/aam", tags=["AAM Monitoring"])
+app.include_router(aam_mesh.router, prefix="/api/v1/mesh", tags=["AAM Mesh"])
+app.include_router(mesh_test.router, prefix="/api/v1", tags=["Mesh Test (Dev-Only)"])
+app.include_router(filesource.router, prefix="/api/v1/filesource", tags=["FileSource Connector"])
+app.include_router(dcl_views.router, prefix="/api/v1/dcl/views", tags=["DCL Views"])
+app.include_router(debug.router, prefix="/api/v1", tags=["Debug (Dev-Only)"])
+app.include_router(events.router, prefix="/api/v1/events", tags=["Event Stream"])
+app.include_router(platform_stubs.router, prefix="/api/v1", tags=["Platform Stubs"])
 
 STATIC_DIR = "static"
 if os.path.exists(STATIC_DIR) and os.path.isdir(STATIC_DIR):
@@ -126,6 +158,14 @@ if os.path.exists(STATIC_DIR) and os.path.isdir(STATIC_DIR):
             return FileResponse(script_path, media_type="application/javascript")
         raise HTTPException(status_code=404, detail="DCL bridge script not found")
     
+    @app.get("/architecture.html")
+    def serve_architecture():
+        """Serve the architecture visualization page"""
+        arch_path = os.path.join(STATIC_DIR, "architecture.html")
+        if os.path.exists(arch_path):
+            return FileResponse(arch_path, media_type="text/html")
+        raise HTTPException(status_code=404, detail="Architecture page not found")
+    
     @app.get("/__version")
     def version_info():
         """Debug endpoint for build verification"""
@@ -165,6 +205,83 @@ if os.path.exists(STATIC_DIR) and os.path.isdir(STATIC_DIR):
             "commit": git_sha,
             "currentJS": os.path.basename(js_files[0]) if js_files else None
         }
+    
+    @app.get("/aam-monitor")
+    def serve_aam_monitor(request: Request):
+        """Serve AAM Monitor frontend page"""
+        index_path = os.path.join(STATIC_DIR, "index.html")
+        host = request.headers.get("host", "unknown")
+        print(f"[AAM MONITOR] host={host} -> serving index.html")
+        if os.path.exists(index_path):
+            return FileResponse(
+                index_path,
+                headers={
+                    "Cache-Control": "no-cache, no-store, must-revalidate",
+                    "Pragma": "no-cache",
+                    "Expires": "0"
+                }
+            )
+        raise HTTPException(status_code=404, detail="Frontend not found")
+    
+    @app.get("/dashboard")
+    def serve_dashboard(request: Request):
+        """Serve Dashboard frontend page"""
+        index_path = os.path.join(STATIC_DIR, "index.html")
+        if os.path.exists(index_path):
+            return FileResponse(
+                index_path,
+                headers={
+                    "Cache-Control": "no-cache, no-store, must-revalidate",
+                    "Pragma": "no-cache",
+                    "Expires": "0"
+                }
+            )
+        raise HTTPException(status_code=404, detail="Frontend not found")
+    
+    @app.get("/connections")
+    def serve_connections(request: Request):
+        """Serve Connections frontend page"""
+        index_path = os.path.join(STATIC_DIR, "index.html")
+        if os.path.exists(index_path):
+            return FileResponse(
+                index_path,
+                headers={
+                    "Cache-Control": "no-cache, no-store, must-revalidate",
+                    "Pragma": "no-cache",
+                    "Expires": "0"
+                }
+            )
+        raise HTTPException(status_code=404, detail="Frontend not found")
+    
+    @app.get("/ontology")
+    def serve_ontology(request: Request):
+        """Serve Ontology frontend page"""
+        index_path = os.path.join(STATIC_DIR, "index.html")
+        if os.path.exists(index_path):
+            return FileResponse(
+                index_path,
+                headers={
+                    "Cache-Control": "no-cache, no-store, must-revalidate",
+                    "Pragma": "no-cache",
+                    "Expires": "0"
+                }
+            )
+        raise HTTPException(status_code=404, detail="Frontend not found")
+    
+    @app.get("/live-flow")
+    def serve_live_flow(request: Request):
+        """Serve Live Flow frontend page"""
+        index_path = os.path.join(STATIC_DIR, "index.html")
+        if os.path.exists(index_path):
+            return FileResponse(
+                index_path,
+                headers={
+                    "Cache-Control": "no-cache, no-store, must-revalidate",
+                    "Pragma": "no-cache",
+                    "Expires": "0"
+                }
+            )
+        raise HTTPException(status_code=404, detail="Frontend not found")
 else:
     @app.get("/")
     def read_root():
