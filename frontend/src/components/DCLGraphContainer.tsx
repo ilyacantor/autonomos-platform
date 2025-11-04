@@ -119,11 +119,30 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
         try {
           const sources = getPersistedSources();
           const agents = getPersistedAgents();
-          await fetch(API_CONFIG.buildDclUrl(`/connect?sources=${sources}&agents=${agents}&llm_model=${selectedModel}`));
+          const response = await fetch(API_CONFIG.buildDclUrl(`/connect?sources=${sources}&agents=${agents}&llm_model=${selectedModel}`), {
+            headers: {
+              ...getAuthHeader(),
+            },
+          });
+
+          // Handle 401 unauthorized
+          if (response.status === 401) {
+            handleUnauthorized();
+            console.error('[DCL] Session expired during auto-run. Please login again.');
+            setIsProcessing(false);
+            return;
+          }
+
+          if (!response.ok) {
+            const error = await response.json().catch(() => ({ detail: 'Auto-run failed' }));
+            throw new Error(error.detail || `HTTP error! status: ${response.status}`);
+          }
+
+          console.log('[DCL] Auto-run successful');
           // Notify graph to update (event-driven)
           window.dispatchEvent(new Event('dcl-state-changed'));
         } catch (error) {
-          console.error('Error auto-running graph:', error);
+          console.error('[DCL] Error auto-running graph:', error);
         } finally {
           setTimeout(() => setIsProcessing(false), 1500);
         }
