@@ -21,6 +21,62 @@ AutonomOS is a full-stack SaaS platform built around a multi-tenant architecture
 *   **API Endpoints:** Organized by domain (Auth, AOA, DCL Views, Events, AAM, Debug) with OpenAPI/Swagger documentation.
 *   **System Design:** The platform is undergoing a comprehensive restructuring to implement a proper data flow architecture (Data Sources → AAM → DCL → Agents) using a "Strangler Fig" pattern with feature flags for zero downtime and backward compatibility. This includes a unified PostgreSQL database for DCL and AAM, Redis-based LLM counter persistence, and intelligent RAG coverage checks to optimize LLM calls.
 
+## Recent Changes
+
+### Phase 2.5: AAM Connector Integration (COMPLETED - 2025-11-04)
+
+**Objective:** Establish production-ready AAM → DCL data bridge with end-to-end validation.
+
+**Deliverables:**
+1. **Data Ingestion Pipeline** (`aam-hybrid/core/data_ingestion.py`):
+   - CSV → Canonical events transformation using Pydantic models
+   - Support for 5 connectors: Salesforce, HubSpot, Dynamics, Supabase, MongoDB
+   - Field mapping with proper data type inference
+
+2. **DCL Output Adapter** (`aam-hybrid/core/dcl_output_adapter.py`):
+   - Batching: Groups events by entity type, chunks up to 200 records (configurable)
+   - Redis Streams publishing: `aam:dcl:{tenant_id}:{connector}`
+   - Atomic batch IDs for idempotent processing
+   - MAXLEN trimming (1000 entries default, configurable)
+
+3. **AAMSourceAdapter** (`app/dcl_engine/source_loader.py`):
+   - Redis consumer groups: `dcl_engine:{tenant_id}`
+   - Message acknowledgment (XACK) after successful processing
+   - Idempotent batch tracking in Redis SET with 24h TTL (configurable)
+   - Non-blocking reads with proper error handling
+
+4. **Configuration Management:**
+   - `AAM_BATCH_CHUNK_SIZE`: Batch chunking size (default: 200)
+   - `AAM_MAX_SAMPLES_PER_TABLE`: Schema sampling limit (default: 8)
+   - `AAM_REDIS_STREAM_MAXLEN`: Stream trimming threshold (default: 1000)
+   - `AAM_IDEMPOTENCY_TTL`: Duplicate prevention window (default: 86400s / 24h)
+   - All externalized via environment variables for production tuning
+
+5. **Documentation** (`aam-hybrid/README-CONFIGURATION.md`):
+   - Complete parameter reference with defaults and examples
+   - MAXLEN policy explanation and monitoring guide
+   - Production tuning scenarios (high-volume, low-latency, audit/replay)
+   - Troubleshooting section with common issues
+   - Security considerations
+
+**Validation Results:**
+- ✅ 41 canonical events published across 5 connectors
+- ✅ Consumer groups operational with proper XACK handling
+- ✅ Idempotent processing confirmed (no duplicates)
+- ✅ WebSocket events: `mapping_progress`, `sources_connected`
+- ✅ End-to-end flow: CSV → AAM → Redis Streams → DCL → WebSocket
+- ✅ Tenant alignment: Default tenant "default" matches DCL expectations
+- ✅ Feature flag `USE_AAM_AS_SOURCE=true` enables AAM path
+
+**Architecture Pattern:**
+```
+CSV Files (schemas/) → Data Ingestion → Canonical Events → 
+DCL Output Adapter → Redis Streams (aam:dcl:{tenant}:{connector}) → 
+AAMSourceAdapter (Consumer Groups) → DCL Engine → Materialized Views
+```
+
+**Next Phase:** Phase 3 - DCL → Agents integration with proper agent invocation from unified views.
+
 ## External Dependencies
 *   **FastAPI:** Web framework.
 *   **uvicorn:** ASGI server.
