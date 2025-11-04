@@ -245,10 +245,6 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
   // Run - calls /connect with persisted sources, agents, and selected LLM model
   // Shows progress bar for manual user-triggered runs
   const handleRun = async () => {
-    // Capture current LLM count as baseline before starting new run
-    const currentCount = dclState?.llm?.calls || 0;
-    setStartingLlmCalls(currentCount);
-    
     // Reset timer, progress, and LLM count on NEW run
     setElapsedTime(0);
     setProgress(0);
@@ -256,6 +252,22 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
     setTimerStarted(true);
     setIsProcessing(true);
     setShowProgress(true); // Enable progress bar for manual runs
+    
+    // Fetch current LLM count from backend as baseline (not from stale dclState)
+    try {
+      const stateResponse = await fetch(API_CONFIG.buildDclUrl('/state'), {
+        headers: { ...getAuthHeader() }
+      });
+      if (stateResponse.ok) {
+        const state = await stateResponse.json();
+        const currentCount = state.llm?.calls || 0;
+        setStartingLlmCalls(currentCount);
+        console.log('[DCL] Starting LLM baseline:', currentCount);
+      }
+    } catch (error) {
+      console.error('[DCL] Failed to fetch starting LLM count:', error);
+      setStartingLlmCalls(0);
+    }
     
     try {
       const sources = getPersistedSources();
