@@ -29,6 +29,20 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
   const [progress, setProgress] = useState(0);
   const [timerStarted, setTimerStarted] = useState(false);
 
+  // Auth helper - follows same pattern as aoaApi.ts
+  const getAuthHeader = (): Record<string, string> => {
+    const token = localStorage.getItem(AUTH_TOKEN_KEY);
+    return token ? { 'Authorization': `Bearer ${token}` } : {};
+  };
+
+  // Handle 401 unauthorized responses
+  const handleUnauthorized = () => {
+    console.log('[DCL] 401 Unauthorized - clearing auth state');
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+    localStorage.removeItem('auth_token_expiry');
+    window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+  };
+
   // Get persisted selections from localStorage, fallback to all sources/agents
   // Ensures we never send empty query params to backend
   const getPersistedSources = () => {
@@ -178,12 +192,31 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
     try {
       const sources = getPersistedSources();
       const agents = getPersistedAgents();
-      const response = await fetch(API_CONFIG.buildDclUrl(`/connect?sources=${sources}&agents=${agents}&llm_model=${selectedModel}`));
+      const response = await fetch(API_CONFIG.buildDclUrl(`/connect?sources=${sources}&agents=${agents}&llm_model=${selectedModel}`), {
+        headers: {
+          ...getAuthHeader(),
+        },
+      });
+
+      // Handle 401 unauthorized
+      if (response.status === 401) {
+        handleUnauthorized();
+        console.error('[DCL] Session expired. Please login again.');
+        setIsProcessing(false);
+        return;
+      }
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Request failed' }));
+        throw new Error(error.detail || `HTTP error! status: ${response.status}`);
+      }
+
       await response.json();
+      console.log('[DCL] Connection successful');
       // Notify graph to update (event-driven)
       window.dispatchEvent(new Event('dcl-state-changed'));
     } catch (error) {
-      console.error('Error running:', error);
+      console.error('[DCL] Error running:', error);
     } finally {
       setTimeout(() => {
         setIsProcessing(false);
@@ -192,17 +225,35 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
     }
   };
 
-  // Toggle dev mode handler
+  // Toggle dev mode handler with JWT authentication
   const handleToggleDevMode = async () => {
     try {
       const newMode = !devMode;
-      const response = await fetch(API_CONFIG.buildDclUrl(`/toggle_dev_mode?enabled=${newMode}`));
+      const response = await fetch(API_CONFIG.buildDclUrl(`/toggle_dev_mode?enabled=${newMode}`), {
+        headers: {
+          ...getAuthHeader(),
+        },
+      });
+
+      // Handle 401 unauthorized
+      if (response.status === 401) {
+        handleUnauthorized();
+        console.error('[DCL] Session expired. Please login again.');
+        return;
+      }
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Request failed' }));
+        throw new Error(error.detail || `HTTP error! status: ${response.status}`);
+      }
+
       const data = await response.json();
       setDevMode(data.dev_mode);
+      console.log(`[DCL] Dev mode toggled: ${data.dev_mode ? 'ON' : 'OFF'}`);
       // Notify graph to update
       window.dispatchEvent(new Event('dcl-state-changed'));
     } catch (error) {
-      console.error('Error toggling dev mode:', error);
+      console.error('[DCL] Error toggling dev mode:', error);
     }
   };
 
