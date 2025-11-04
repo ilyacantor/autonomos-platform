@@ -163,12 +163,17 @@ class FileSourceConnector:
     
     def emit_canonical_event(self, event: CanonicalEvent):
         """Emit CanonicalEvent to database canonical_streams table"""
+        # Use model_dump with mode='json' to properly serialize datetime objects
+        data_dict = event.data.model_dump(mode='json') if hasattr(event.data, 'model_dump') else (event.data.dict() if hasattr(event.data, 'dict') else event.data)
+        meta_dict = event.meta.model_dump(mode='json') if hasattr(event.meta, 'model_dump') else event.meta.dict()
+        source_dict = event.source.model_dump(mode='json') if hasattr(event.source, 'model_dump') else event.source.dict()
+        
         canonical_entry = CanonicalStream(
             tenant_id=self.tenant_id,
             entity=event.entity,
-            data=event.data.dict() if hasattr(event.data, 'dict') else event.data,  # Convert Pydantic model to dict
-            meta=event.meta.dict(),
-            source=event.source.dict(),
+            data=data_dict,
+            meta=meta_dict,
+            source=source_dict,
             emitted_at=event.meta.emitted_at
         )
         self.db.add(canonical_entry)

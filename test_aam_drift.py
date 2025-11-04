@@ -4,6 +4,7 @@ Part 1: Tests FileSource with schema drift (amount -> opportunity_amount)
 """
 import os
 import sys
+import uuid
 sys.path.insert(0, os.getcwd())
 
 from sqlalchemy import text
@@ -21,13 +22,25 @@ def test_schema_drift():
     db = SessionLocal()
     
     try:
+        # Get an existing tenant or use demo-tenant
+        print("📊 Looking for existing tenant...")
+        result = db.execute(text("SELECT id FROM tenants LIMIT 1"))
+        tenant_row = result.fetchone()
+        
+        if tenant_row:
+            test_tenant_id = str(tenant_row[0])
+            print(f"   Using existing tenant: {test_tenant_id}")
+        else:
+            print("   No tenants found, using demo tenant")
+            test_tenant_id = "demo-tenant"  # Fallback to demo-tenant
+        
         # Clear previous data for clean test
-        print("📊 Clearing previous canonical_streams data for opportunity/salesforce...")
+        print("\n📊 Clearing previous canonical_streams data for opportunity/salesforce...")
         db.execute(text("DELETE FROM canonical_streams WHERE entity = 'opportunity' AND source->>'connection_id' = 'filesource-salesforce'"))
         db.commit()
         
         # Initialize FileSource connector
-        connector = FileSourceConnector(db=db, tenant_id="test-tenant")
+        connector = FileSourceConnector(db=db, tenant_id=test_tenant_id)
         
         # Run ingestion for salesforce opportunities only
         print("\n🔄 Triggering FileSource ingestion for Salesforce opportunities...")
