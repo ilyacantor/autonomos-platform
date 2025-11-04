@@ -29,18 +29,14 @@ waitForPort = 5000
 
 [workflows.workflow.metadata]
 outputType = "webview"
+agentRequireRestartButton = false
 
 [[ports]]
 localPort = 5000
 externalPort = 80
 
-[[ports]]
-localPort = 38933
-externalPort = 3001
-
-[[ports]]
-localPort = 39675
-externalPort = 3000
+[workflows.workflow.metadata]
+webview = true
 
 [deployment]
 run = ["bash", "start.sh"]
