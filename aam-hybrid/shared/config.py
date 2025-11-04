@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings
 from typing import Optional
+import os
 
 
 class Settings(BaseSettings):
@@ -14,7 +15,8 @@ class Settings(BaseSettings):
     AIRBYTE_WORKSPACE_ID: Optional[str] = None
     AIRBYTE_DESTINATION_ID: Optional[str] = None
     
-    SUPABASE_DB_URL: str = "postgresql://user:pass@localhost:5432/aam_registry"
+    # Use DATABASE_URL as default (same database for platform and AAM)
+    SUPABASE_DB_URL: str = os.getenv("DATABASE_URL", "postgresql://user:pass@localhost:5432/aam_registry")
     
     REDIS_URL: str = "redis://localhost:6379"
     
