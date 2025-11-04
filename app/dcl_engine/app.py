@@ -527,6 +527,49 @@ async def llm_propose(
         log(f"⚡ Prod Mode: RAG retrieval complete, skipping LLM - falling back to heuristics for {source_key}")
         return None
     
+    # INTELLIGENT LLM DECISION: Check RAG coverage before calling LLM
+    # Calculate how many source fields have high-confidence RAG matches
+    if rag_engine and all_similar:
+        total_fields = sum(len(table_info.get('schema', {})) for table_info in tables.values())
+        
+        # Count unique fields with high-confidence RAG matches (>0.8 similarity)
+        matched_fields = set()
+        missing_fields = []
+        for field_name, field_type, _ in field_queries:
+            field_matches = [m for m in all_similar if m['source_field'].lower() == field_name.lower() and m.get('similarity', 0) > 0.8]
+            if field_matches:
+                matched_fields.add(field_name)
+            else:
+                missing_fields.append(field_name)
+        
+        coverage_pct = (len(matched_fields) / total_fields * 100) if total_fields > 0 else 0
+        
+        # If coverage is high (>75%), ask user if they want to skip LLM
+        if coverage_pct >= 75:
+            estimated_cost = 0.003  # Rough estimate per LLM call
+            
+            log(f"📊 RAG Coverage: {coverage_pct:.0f}% ({len(matched_fields)}/{total_fields} fields) - recommending skip LLM")
+            
+            # Broadcast intelligent decision event
+            await ws_manager.broadcast({
+                "type": "rag_coverage_check",
+                "source": source_key,
+                "coverage_pct": round(coverage_pct, 1),
+                "matched_count": len(matched_fields),
+                "total_count": total_fields,
+                "missing_fields": missing_fields[:5],  # Show first 5 missing
+                "estimated_cost_savings": round(estimated_cost, 4),
+                "recommendation": "skip" if coverage_pct >= 80 else "proceed",
+                "message": f"🎯 RAG has {coverage_pct:.0f}% coverage ({len(matched_fields)}/{total_fields} fields). Skip LLM call?",
+                "timestamp": time.time()
+            })
+            
+            # For now, auto-proceed with LLM (we'll add user prompt in frontend next)
+            # TODO: Wait for user decision via WebSocket in future iteration
+            log(f"ℹ️ Proceeding with LLM call (user prompt to be implemented)")
+    
+    # Continue with existing LLM flow...
+    
     # Check for appropriate API key based on model
     if llm_model.startswith("gpt"):
         if not os.getenv("OPENAI_API_KEY"):
