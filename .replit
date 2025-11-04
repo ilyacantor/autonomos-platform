@@ -1,10 +1,8 @@
-modules = ["nodejs-20", "bash", "web", "python-3.11", "postgresql-16"]
 [agent]
 expertMode = true
 
 [nix]
 channel = "stable-25_05"
-packages = ["glibcLocales", "libxcrypt", "libyaml", "openssl", "redis", "imagemagick"]
 
 [workflows]
 runButton = "Project"
