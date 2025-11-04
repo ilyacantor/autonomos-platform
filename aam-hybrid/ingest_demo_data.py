@@ -46,10 +46,20 @@ def get_redis_client() -> redis.Redis:
         logger.error("REDIS_URL environment variable not set")
         raise ValueError("REDIS_URL not configured")
     
+    # Convert redis:// to rediss:// for TLS (Upstash Redis)
+    if redis_url.startswith('redis://') and 'upstash' in redis_url:
+        redis_url = redis_url.replace('redis://', 'rediss://')
+        logger.info("Converted to TLS connection for Upstash Redis")
+    
     try:
-        client = redis.Redis.from_url(redis_url, decode_responses=False)
+        client = redis.Redis.from_url(
+            redis_url,
+            decode_responses=False,
+            socket_connect_timeout=5,
+            socket_keepalive=True
+        )
         client.ping()
-        logger.info(f"✓ Connected to Redis: {redis_url}")
+        logger.info(f"✓ Connected to Redis")
         return client
     except Exception as e:
         logger.error(f"✗ Failed to connect to Redis: {e}")

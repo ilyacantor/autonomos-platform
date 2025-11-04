@@ -18,9 +18,15 @@ import sys
 
 import redis
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+# Add paths for imports
+current_dir = Path(__file__).parent
+aam_root = current_dir.parent
+project_root = aam_root.parent
 
-from aam_hybrid.core.dcl_output_adapter import publish_to_dcl_stream
+sys.path.insert(0, str(project_root))
+sys.path.insert(0, str(current_dir))
+
+from dcl_output_adapter import publish_to_dcl_stream
 from app.contracts.canonical_event import (
     EntityEvent,
     EventType,
