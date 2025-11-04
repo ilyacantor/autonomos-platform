@@ -87,7 +87,7 @@ class SalesforceConnector:
         
         # SOQL query to fetch the most recent opportunity
         soql = (
-            "SELECT Id, AccountId, Name, StageName, Amount, CurrencyIsoCode, "
+            "SELECT Id, AccountId, Name, StageName, Amount, "
             "CloseDate, OwnerId, Probability, LastModifiedDate "
             "FROM Opportunity "
             "ORDER BY LastModifiedDate DESC "
@@ -193,12 +193,32 @@ class SalesforceConnector:
     
     def emit_canonical_event(self, event: CanonicalEvent):
         """Emit CanonicalEvent to database canonical_streams table"""
+        import json
+        from decimal import Decimal
+        
+        # Convert Pydantic models to dicts with Decimal/datetime conversion
+        def convert_types(obj):
+            if isinstance(obj, Decimal):
+                return float(obj)
+            elif isinstance(obj, datetime):
+                return obj.isoformat()
+            elif isinstance(obj, dict):
+                return {k: convert_types(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [convert_types(item) for item in obj]
+            return obj
+        
+        data_dict = event.data.dict() if hasattr(event.data, 'dict') else event.data
+        data_dict = convert_types(data_dict)
+        meta_dict = convert_types(event.meta.dict())
+        source_dict = convert_types(event.source.dict())
+        
         canonical_entry = CanonicalStream(
             tenant_id=self.tenant_id,
             entity=event.entity,
-            data=event.data.dict() if hasattr(event.data, 'dict') else event.data,
-            meta=event.meta.dict(),
-            source=event.source.dict(),
+            data=data_dict,
+            meta=meta_dict,
+            source=source_dict,
             emitted_at=event.meta.emitted_at
         )
         self.db.add(canonical_entry)

@@ -91,8 +91,11 @@ async def run_functional_probe():
     db: Session = SessionLocal()
     
     try:
+        # Use the demo tenant UUID (matches provision_demo_tenant.py)
+        probe_tenant_id = "9ac5c8c6-1a02-48ff-84a0-122b67f9c3bd"  # Demo tenant
+        
         # Initialize Salesforce connector
-        sf_connector = SalesforceConnector(db=db, tenant_id="probe-tenant")
+        sf_connector = SalesforceConnector(db=db, tenant_id=probe_tenant_id)
         
         # Step 1: Fetch latest Salesforce Opportunity
         print("📡 Step 1: Fetching latest Salesforce Opportunity...")
@@ -126,7 +129,7 @@ async def run_functional_probe():
         # Step 4: Process through DCL subscriber (materialize)
         print("🔨 Step 4: Processing through DCL subscriber (materializing)...")
         try:
-            result = process_canonical_streams(db, tenant_id="probe-tenant")
+            result = process_canonical_streams(db, tenant_id=probe_tenant_id)
             print(f"✅ DCL subscriber processed canonical streams")
             print(f"   Processed: {result.get('accounts', 0)} accounts, {result.get('opportunities', 0)} opportunities\n")
         except Exception as e:

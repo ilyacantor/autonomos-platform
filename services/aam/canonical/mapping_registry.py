@@ -58,25 +58,32 @@ class MappingRegistry:
         unknown_fields = []
         field_mappings = mapping.get('fields', {})
         
+        # field_mappings format: {canonical_field: source_field}
+        # e.g., {"opportunity_id": "Id", "name": "Name"}
+        # Need to invert to find canonical field for each source field
+        
         for source_field, source_value in source_row.items():
-            if source_field in field_mappings:
-                mapping_config = field_mappings[source_field]
-                
+            # Find which canonical field this source field maps to
+            canonical_field = None
+            mapping_config = None
+            
+            for canon_name, source_name in field_mappings.items():
                 # Handle simple string mapping
-                if isinstance(mapping_config, str):
-                    canonical_field = mapping_config
+                if isinstance(source_name, str) and source_name == source_field:
+                    canonical_field = canon_name
                     canonical_data[canonical_field] = self._coerce_value(source_value, canonical_field)
-                
+                    break
                 # Handle complex mapping with transforms
-                elif isinstance(mapping_config, dict):
-                    canonical_field = mapping_config.get('target')
-                    transform = mapping_config.get('transform')
-                    
-                    if canonical_field:
+                elif isinstance(source_name, dict):
+                    if source_name.get('source') == source_field:
+                        canonical_field = canon_name
+                        transform = source_name.get('transform')
                         value = self._apply_transform(source_value, transform) if transform else source_value
                         canonical_data[canonical_field] = self._coerce_value(value, canonical_field)
-            else:
-                # Unknown field - add to extras
+                        break
+            
+            # If no mapping found, add to extras
+            if canonical_field is None:
                 unknown_fields.append(source_field)
                 if 'extras' not in canonical_data:
                     canonical_data['extras'] = {}
