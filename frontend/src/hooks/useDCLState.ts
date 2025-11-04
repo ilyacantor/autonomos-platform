@@ -13,6 +13,7 @@ interface RAGContext {
   retrievals: RAGRetrieval[];
   total_mappings: number;
   last_retrieval_count: number;
+  mappings_retrieved?: number;
 }
 
 interface GraphNode {
@@ -41,6 +42,7 @@ interface Graph {
 interface LLMStats {
   calls: number;
   tokens: number;
+  calls_saved?: number;
 }
 
 interface PreviewData {
@@ -58,6 +60,7 @@ export interface DCLState {
   selected_sources: string[];
   selected_agents: string[];
   dev_mode: boolean;
+  blended_confidence?: number | null;
 }
 
 interface UseDCLStateReturn {

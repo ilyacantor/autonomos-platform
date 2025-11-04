@@ -60,6 +60,7 @@ DB_LOCK_TIMEOUT = 30  # seconds
 DEV_MODE_KEY = "dcl:dev_mode"  # Redis key for cross-process dev mode state
 LLM_CALLS_KEY = "dcl:llm:calls"  # Redis key for LLM call counter
 LLM_TOKENS_KEY = "dcl:llm:tokens"  # Redis key for LLM token counter
+LLM_CALLS_SAVED_KEY = "dcl:llm:calls_saved"  # Redis key for LLM calls saved via RAG
 DCL_STATE_CHANNEL = "dcl:state:updates"  # Redis pub/sub channel for state broadcasts
 in_memory_dev_mode = False  # Fallback when Redis unavailable
 _dev_mode_initialized = False  # Track if dev_mode has been initialized
@@ -224,18 +225,20 @@ def get_llm_stats() -> dict:
     global LLM_CALLS, LLM_TOKENS
     
     if not redis_available or not redis_client:
-        return {"calls": LLM_CALLS, "tokens": LLM_TOKENS}
+        return {"calls": LLM_CALLS, "tokens": LLM_TOKENS, "calls_saved": 0}
     
     try:
         calls = redis_client.get(LLM_CALLS_KEY)
         tokens = redis_client.get(LLM_TOKENS_KEY)
+        calls_saved = redis_client.get(LLM_CALLS_SAVED_KEY)
         return {
             "calls": int(calls) if calls else 0,
-            "tokens": int(tokens) if tokens else 0
+            "tokens": int(tokens) if tokens else 0,
+            "calls_saved": int(calls_saved) if calls_saved else 0
         }
     except Exception as e:
         log(f"⚠️ Error reading LLM stats from Redis: {e}")
-        return {"calls": LLM_CALLS, "tokens": LLM_TOKENS}
+        return {"calls": LLM_CALLS, "tokens": LLM_TOKENS, "calls_saved": 0}
 
 def increment_llm_calls(tokens: int = 0):
     """Increment LLM call counter in Redis (cross-process safe, persists across restarts)"""
@@ -255,6 +258,16 @@ def increment_llm_calls(tokens: int = 0):
         LLM_CALLS += 1
         LLM_TOKENS += tokens
 
+def increment_llm_calls_saved():
+    """Increment LLM calls saved counter in Redis (cross-process safe, persists across restarts)"""
+    if not redis_available or not redis_client:
+        return
+    
+    try:
+        redis_client.incr(LLM_CALLS_SAVED_KEY)
+    except Exception as e:
+        log(f"⚠️ Error incrementing LLM calls saved in Redis: {e}")
+
 def reset_llm_stats():
     """Reset LLM stats in Redis (cross-process safe)"""
     global LLM_CALLS, LLM_TOKENS
@@ -267,6 +280,7 @@ def reset_llm_stats():
     try:
         redis_client.set(LLM_CALLS_KEY, "0")
         redis_client.set(LLM_TOKENS_KEY, "0")
+        redis_client.set(LLM_CALLS_SAVED_KEY, "0")
     except Exception as e:
         log(f"⚠️ Error resetting LLM stats in Redis: {e}")
         LLM_CALLS = 0
@@ -544,11 +558,14 @@ async def llm_propose(
         
         coverage_pct = (len(matched_fields) / total_fields * 100) if total_fields > 0 else 0
         
-        # If coverage is high (>75%), ask user if they want to skip LLM
-        if coverage_pct >= 75:
+        # If coverage is high (>=80%), skip LLM and use RAG mappings directly
+        if coverage_pct >= 80:
             estimated_cost = 0.003  # Rough estimate per LLM call
             
-            log(f"📊 RAG Coverage: {coverage_pct:.0f}% ({len(matched_fields)}/{total_fields} fields) - recommending skip LLM")
+            log(f"📊 RAG Coverage: {coverage_pct:.0f}% ({len(matched_fields)}/{total_fields} fields) - skipping LLM, using RAG inventory")
+            
+            # Increment saved calls counter
+            increment_llm_calls_saved()
             
             # Broadcast intelligent decision event
             await ws_manager.broadcast({
@@ -559,14 +576,30 @@ async def llm_propose(
                 "total_count": total_fields,
                 "missing_fields": missing_fields[:5],  # Show first 5 missing
                 "estimated_cost_savings": round(estimated_cost, 4),
-                "recommendation": "skip" if coverage_pct >= 80 else "proceed",
-                "message": f"🎯 RAG has {coverage_pct:.0f}% coverage ({len(matched_fields)}/{total_fields} fields). Skip LLM call?",
+                "recommendation": "skip",
+                "message": f"🎯 RAG has {coverage_pct:.0f}% coverage. Using RAG inventory, LLM call saved!",
                 "timestamp": time.time()
             })
             
-            # For now, auto-proceed with LLM (we'll add user prompt in frontend next)
-            # TODO: Wait for user decision via WebSocket in future iteration
-            log(f"ℹ️ Proceeding with LLM call (user prompt to be implemented)")
+            # Return None to skip LLM and use heuristics with RAG context
+            log(f"✅ Dev Mode: Skipping LLM call, using RAG inventory (coverage {coverage_pct:.0f}%)")
+            return None
+        elif coverage_pct >= 75:
+            # Show coverage check but still call LLM
+            log(f"📊 RAG Coverage: {coverage_pct:.0f}% ({len(matched_fields)}/{total_fields} fields) - proceeding with LLM")
+            
+            await ws_manager.broadcast({
+                "type": "rag_coverage_check",
+                "source": source_key,
+                "coverage_pct": round(coverage_pct, 1),
+                "matched_count": len(matched_fields),
+                "total_count": total_fields,
+                "missing_fields": missing_fields[:5],
+                "estimated_cost_savings": round(estimated_cost, 4),
+                "recommendation": "proceed",
+                "message": f"📊 RAG has {coverage_pct:.0f}% coverage. Proceeding with LLM for better accuracy.",
+                "timestamp": time.time()
+            })
     
     # Continue with existing LLM flow...
     
@@ -1690,14 +1723,27 @@ def state():
     # Get LLM stats from Redis (persists across restarts)
     llm_stats = get_llm_stats()
     
+    # Calculate blended confidence score (average of graph confidence and RAG coverage)
+    graph_confidence = GRAPH_STATE.get("confidence", 0) or 0
+    rag_coverage = min(RAG_CONTEXT.get("last_retrieval_count", 0) / 100, 1.0) if RAG_CONTEXT.get("last_retrieval_count") else 0
+    blended_confidence = (graph_confidence + rag_coverage) / 2 if (graph_confidence or rag_coverage) else None
+    
     return JSONResponse({
         "events": EVENT_LOG,
         "timeline": EVENT_LOG[-5:],
         "graph": filtered_graph,  # Send filtered graph instead of raw GRAPH_STATE
         "preview": {"sources": {}, "ontology": {}},
-        "llm": {"calls": llm_stats["calls"], "tokens": llm_stats["tokens"]},
+        "llm": {
+            "calls": llm_stats["calls"], 
+            "tokens": llm_stats["tokens"],
+            "calls_saved": llm_stats["calls_saved"]
+        },
         "auto_ingest_unmapped": AUTO_INGEST_UNMAPPED,
-        "rag": RAG_CONTEXT,
+        "rag": {
+            **RAG_CONTEXT,
+            "mappings_retrieved": RAG_CONTEXT.get("last_retrieval_count", 0)
+        },
+        "blended_confidence": blended_confidence,
         "agent_consumption": agent_consumption,
         "selected_sources": SOURCES_ADDED,
         "selected_agents": SELECTED_AGENTS,
