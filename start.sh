@@ -12,7 +12,7 @@ else
 fi
 
 echo "Starting RQ worker..."
-python -m app.worker &
+python3 -m app.worker &
 WORKER_PID=$!
 
 sleep 1
@@ -32,4 +32,4 @@ echo "Starting FastAPI server..."
 export DEV_DEBUG=true
 export FEATURE_USE_FILESOURCE=true
 export REQUIRED_SOURCES=salesforce,supabase,mongodb,filesource
-exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-5000} --proxy-headers
+exec python3 -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-5000} --proxy-headers
