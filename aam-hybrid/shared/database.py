@@ -6,13 +6,34 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def get_database_url():
+    """
+    Get database URL with PgBouncer pooling (port 6543) for Supabase.
+    
+    Supabase provides two modes:
+    - Port 5432: Session Mode (direct connection, strict limits)
+    - Port 6543: Transaction/Pooling Mode (via PgBouncer, higher limits)
+    
+    We use port 6543 to avoid "MaxClientsInSessionMode" errors.
+    """
+    db_url = settings.SUPABASE_DB_URL
+    
+    # If using Supabase pooler with port 5432, switch to port 6543
+    if "pooler.supabase.com:5432" in db_url:
+        db_url = db_url.replace(":5432", ":6543")
+        logger.info("🔄 Switched to PgBouncer pooling mode (port 6543)")
+    
+    return db_url.replace("postgresql://", "postgresql+asyncpg://")
+
+
 engine = create_async_engine(
-    settings.SUPABASE_DB_URL.replace("postgresql://", "postgresql+asyncpg://"),
-    echo=True,
+    get_database_url(),
+    echo=False,
     future=True,
     pool_pre_ping=True,
-    pool_size=5,
-    max_overflow=10
+    pool_size=2,
+    max_overflow=2,
+    pool_recycle=300
 )
 
 
