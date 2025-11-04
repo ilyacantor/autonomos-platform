@@ -146,6 +146,17 @@ export default function AAMDashboard() {
     } catch (err) {
       console.error('Error fetching AAM metrics:', err);
       setError('Failed to load metrics');
+      // Set fallback metrics so page can still render
+      setMetrics({
+        total_connections: 0,
+        active_drift_detections_24h: 0,
+        successful_repairs_24h: 0,
+        manual_reviews_required_24h: 0,
+        average_confidence_score: 0,
+        average_repair_time_seconds: 0,
+        timestamp: new Date().toISOString(),
+        data_source: 'error_fallback'
+      });
     }
   };
 
