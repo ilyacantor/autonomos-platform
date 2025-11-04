@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Database, Server, Warehouse, Users, Settings2, Play, Activity, CheckCircle, Loader2, AlertCircle, Search } from 'lucide-react';
+import { Database, Server, Warehouse, Users, Settings2, Activity, CheckCircle, Loader2, Search } from 'lucide-react';
 import { useDCLState } from '../hooks/useDCLState';
 import { API_CONFIG } from '../config/api';
 import { DEFAULT_SOURCES, DEFAULT_AGENTS, getDefaultSources, getDefaultAgents, type DCLSource as Connection, type DCLAgent as Agent } from '../config/dclDefaults';
@@ -40,7 +40,6 @@ function getTypeColor(type: string) {
 export default function ConnectionsPage() {
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
-  const [isProcessing, setIsProcessing] = useState(false);
   const [progressStatus, setProgressStatus] = useState<'idle' | 'connecting' | 'completed'>('idle');
   const [lineageSearchQuery, setLineageSearchQuery] = useState('');
   const { state: dclState } = useDCLState();
@@ -66,14 +65,12 @@ export default function ConnectionsPage() {
 
   // Update progress status based on DCL state
   useEffect(() => {
-    if (isProcessing) {
-      setProgressStatus('connecting');
-    } else if (dclState?.selected_sources && dclState.selected_sources.length > 0) {
+    if (dclState?.selected_sources && dclState.selected_sources.length > 0) {
       setProgressStatus('completed');
     } else {
       setProgressStatus('idle');
     }
-  }, [isProcessing, dclState?.selected_sources]);
+  }, [dclState?.selected_sources]);
 
   const toggleSource = (value: string) => {
     setSelectedSources(prev =>
@@ -91,43 +88,6 @@ export default function ConnectionsPage() {
     );
   };
 
-  const handleConnect = async () => {
-    if (selectedSources.length === 0) {
-      alert('Please select at least one data source');
-      return;
-    }
-    if (selectedAgents.length === 0) {
-      alert('Please select at least one agent');
-      return;
-    }
-
-    setIsProcessing(true);
-    try {
-      const sourcesParam = selectedSources.join(',');
-      const agentsParam = selectedAgents.join(',');
-      
-      const response = await fetch(
-        API_CONFIG.buildDclUrl(`/connect?sources=${sourcesParam}&agents=${agentsParam}`)
-      );
-      
-      if (!response.ok) {
-        throw new Error(`Connection failed: ${response.statusText}`);
-      }
-      
-      // Notify state change
-      window.dispatchEvent(new Event('dcl-state-changed'));
-      
-      // Trigger Dashboard auto-run with progress bar
-      window.dispatchEvent(new CustomEvent('dcl:trigger-run', { 
-        detail: { source: 'connections' } 
-      }));
-    } catch (error) {
-      console.error('Error connecting:', error);
-      alert('Connection failed. Please try again.');
-    } finally {
-      setTimeout(() => setIsProcessing(false), 1500);
-    }
-  };
 
   const handleSelectAll = () => {
     setSelectedSources(connections.map(c => c.value));
@@ -257,29 +217,6 @@ export default function ConnectionsPage() {
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="space-y-3">
-            <button
-              onClick={handleConnect}
-              disabled={isProcessing || selectedSources.length === 0 || selectedAgents.length === 0}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold rounded-lg shadow-lg shadow-emerald-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isProcessing ? (
-                <>
-                  <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Processing...
-                </>
-              ) : (
-                <>
-                  <Play className="w-5 h-5" />
-                  Connect Sources
-                </>
-              )}
-            </button>
-          </div>
 
           {/* Progress Container */}
           <div className="bg-gradient-to-br from-gray-800/50 to-gray-900/50 border border-gray-700 rounded-lg p-4">
