@@ -1723,10 +1723,9 @@ def state():
     # Get LLM stats from Redis (persists across restarts)
     llm_stats = get_llm_stats()
     
-    # Calculate blended confidence score (average of graph confidence and RAG coverage)
-    graph_confidence = GRAPH_STATE.get("confidence", 0) or 0
-    rag_coverage = min(RAG_CONTEXT.get("last_retrieval_count", 0) / 100, 1.0) if RAG_CONTEXT.get("last_retrieval_count") else 0
-    blended_confidence = (graph_confidence + rag_coverage) / 2 if (graph_confidence or rag_coverage) else None
+    # Use graph confidence directly as blended confidence
+    # (Graph confidence already incorporates mapping quality and completeness)
+    blended_confidence = GRAPH_STATE.get("confidence")
     
     return JSONResponse({
         "events": EVENT_LOG,
