@@ -1524,7 +1524,10 @@ def reset_state(exclude_dev_mode=True):
     ENTITY_SOURCES = {}
     SELECTED_AGENTS = []
     SOURCE_SCHEMAS = {}
-    # LLM stats persist across runs for cumulative tracking (removed reset_llm_stats call)
+    
+    # Reset LLM stats for each Run (calls, tokens, calls_saved all reset to 0)
+    reset_llm_stats()
+    
     # Clear RAG retrievals so they update with fresh data on each connection
     RAG_CONTEXT["retrievals"] = []
     RAG_CONTEXT["last_retrieval_count"] = 0
