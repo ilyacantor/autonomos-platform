@@ -557,10 +557,10 @@ async def llm_propose(
                 missing_fields.append(field_name)
         
         coverage_pct = (len(matched_fields) / total_fields * 100) if total_fields > 0 else 0
+        estimated_cost = 0.003  # Rough estimate per LLM call (used in cost savings calculations)
         
         # If coverage is high (>=80%), skip LLM and use RAG mappings directly
         if coverage_pct >= 80:
-            estimated_cost = 0.003  # Rough estimate per LLM call
             
             log(f"📊 RAG Coverage: {coverage_pct:.0f}% ({len(matched_fields)}/{total_fields} fields) - skipping LLM, using RAG inventory")
             
