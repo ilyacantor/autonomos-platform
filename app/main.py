@@ -30,7 +30,7 @@ from app.security import (
     get_current_user,
     ACCESS_TOKEN_EXPIRE_MINUTES
 )
-from app.api.v1 import auth, aoa, aam_monitoring, aam_mesh, platform_stubs, filesource, dcl_views, debug, mesh_test, events, dcl_unify
+from app.api.v1 import auth, aoa, aam_monitoring, aam_mesh, aam_connections, platform_stubs, filesource, dcl_views, debug, mesh_test, events, dcl_unify
 
 # Initialize database tables - with error handling for resilience
 try:
@@ -149,6 +149,7 @@ async def startup_event():
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(aoa.router, prefix="/api/v1/aoa", tags=["AOA Orchestration"])
 app.include_router(aam_monitoring.router, prefix="/api/v1/aam", tags=["AAM Monitoring"])
+app.include_router(aam_connections.router, prefix="/api/v1/aam", tags=["AAM Connections"])
 app.include_router(aam_mesh.router, prefix="/api/v1/mesh", tags=["AAM Mesh"])
 app.include_router(mesh_test.router, prefix="/api/v1", tags=["Mesh Test (Dev-Only)"])
 app.include_router(filesource.router, prefix="/api/v1/filesource", tags=["FileSource Connector"])

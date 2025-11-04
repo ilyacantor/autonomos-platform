@@ -33,6 +33,12 @@ class Connection(Base):
     """
     AAM Connection Registry
     Tracks all connections managed by the Adaptive API Mesh
+    
+    Phase 1 Enhancements:
+    - connector_config: JSONB storage for connector-specific configuration
+    - last_health_check: Timestamp of most recent health check
+    - schema_fingerprint: Hash for drift detection
+    - normalized_output_path: Redis Stream or file path for DCL consumption
     """
     __tablename__ = "connections"
     
@@ -44,6 +50,11 @@ class Connection(Base):
     status = Column(SQLEnum(ConnectionStatus), default=ConnectionStatus.PENDING, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    
+    connector_config = Column(JSON, nullable=True)
+    last_health_check = Column(DateTime, nullable=True)
+    schema_fingerprint = Column(String, nullable=True)
+    normalized_output_path = Column(String, nullable=True)
     
     catalog_versions = relationship("SyncCatalogVersion", back_populates="connection", cascade="all, delete-orphan")
     job_history = relationship("JobHistory", back_populates="connection", cascade="all, delete-orphan")
