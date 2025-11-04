@@ -31,6 +31,7 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
   
   // Persist LLM call count across state polls (like timer)
   const [persistedLlmCalls, setPersistedLlmCalls] = useState(0);
+  const [startingLlmCalls, setStartingLlmCalls] = useState(0);
 
   // Auth helper - follows same pattern as aoaApi.ts
   const getAuthHeader = (): Record<string, string> => {
@@ -50,14 +51,26 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
   // Ensures we never send empty query params to backend
   const getPersistedSources = () => {
     const defaultSources = getDefaultSources();
+    console.log('[DCL] Current sources from localStorage:', defaultSources);
     // getDefaultSources always returns non-empty array (fallback to all sources)
     return defaultSources.join(',');
   };
   
   const getPersistedAgents = () => {
     const defaultAgents = getDefaultAgents();
+    console.log('[DCL] Current agents from localStorage:', defaultAgents);
     // getDefaultAgents always returns non-empty array (fallback to all agents)
     return defaultAgents.join(',');
+  };
+  
+  // Reset to all sources/agents
+  const resetToAllSources = () => {
+    const allSources = ['dynamics', 'salesforce', 'hubspot', 'sap', 'netsuite', 'legacy_sql', 'snowflake', 'supabase', 'mongodb'];
+    const allAgents = ['revops_pilot', 'finops_pilot'];
+    localStorage.setItem('aos.selectedSources', JSON.stringify(allSources));
+    localStorage.setItem('aos.selectedAgents', JSON.stringify(allAgents));
+    console.log('[DCL] ✅ Reset to ALL sources and agents:', allSources, allAgents);
+    handleRun();
   };
 
   // Sync dev mode from backend state
@@ -182,10 +195,10 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
           });
           if (response.ok) {
             const state = await response.json();
-            const llmCalls = state.llm?.calls || 0;
-            if (llmCalls > 0) {
-              setPersistedLlmCalls(llmCalls);
-            }
+            const currentLlmCalls = state.llm?.calls || 0;
+            // Calculate delta: show only THIS run's LLM calls, not accumulated total
+            const deltaLlmCalls = Math.max(0, currentLlmCalls - startingLlmCalls);
+            setPersistedLlmCalls(deltaLlmCalls);
           }
         } catch (error) {
           console.error('[DCL] Error polling state for LLM count:', error);
@@ -196,7 +209,7 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
     return () => {
       if (pollInterval) clearInterval(pollInterval);
     };
-  }, [isProcessing, showProgress]);
+  }, [isProcessing, showProgress, startingLlmCalls]);
 
   // Progress simulation effect - incremental progress during processing
   useEffect(() => {
@@ -233,10 +246,14 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
   // Run - calls /connect with persisted sources, agents, and selected LLM model
   // Shows progress bar for manual user-triggered runs
   const handleRun = async () => {
+    // Capture current LLM count as baseline before starting new run
+    const currentCount = dclState?.llm?.calls || 0;
+    setStartingLlmCalls(currentCount);
+    
     // Reset timer, progress, and LLM count on NEW run
     setElapsedTime(0);
     setProgress(0);
-    setPersistedLlmCalls(0); // Reset LLM count for new run
+    setPersistedLlmCalls(0); // Reset displayed LLM count for new run
     setTimerStarted(true);
     setIsProcessing(true);
     setShowProgress(true); // Enable progress bar for manual runs
@@ -381,29 +398,15 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
                       </div>
                     </button>
 
-                    {/* Data Source Selector */}
-                    <select
-                      onChange={(e) => {
-                        if (e.target.value === 'select') {
-                          window.dispatchEvent(new CustomEvent('navigate', { detail: { page: 'connections' } }));
-                        } else if (e.target.value === 'all') {
-                          // Select all sources AND all agents before running
-                          const allSources = ['dynamics', 'salesforce', 'hubspot', 'sap', 'netsuite', 'legacy_sql', 'snowflake', 'supabase', 'mongodb'];
-                          const allAgents = ['revops_pilot', 'finops_pilot'];
-                          localStorage.setItem('aos.selectedSources', JSON.stringify(allSources));
-                          localStorage.setItem('aos.selectedAgents', JSON.stringify(allAgents));
-                          console.log('[DCL] All Sources selected - using all sources and all agents');
-                          handleRun();
-                        }
-                        e.target.value = 'all';
-                      }}
+                    {/* All Sources Button */}
+                    <button
+                      onClick={resetToAllSources}
                       disabled={isProcessing}
-                      className="touch-target-h mobile-tap-highlight px-3 py-2 sm:px-2 sm:py-1 bg-gray-800 border border-gray-700 rounded text-xs sm:text-[10px] text-white focus:outline-none focus:border-blue-500 hover:border-gray-600 transition-colors disabled:opacity-50 cursor-pointer"
-                      title="Select all data sources and agents"
+                      className="touch-target-h mobile-tap-highlight px-3 py-2 sm:px-2 sm:py-1 bg-blue-600/20 border border-blue-500/40 text-blue-300 hover:bg-blue-600/30 rounded text-xs sm:text-[10px] transition-all disabled:opacity-50"
+                      title="Reset and run with ALL sources and agents"
                     >
-                      <option value="all">All Sources</option>
-                      <option value="select">Select Sources...</option>
-                    </select>
+                      <span className="whitespace-nowrap">✨ All Sources</span>
+                    </button>
 
                     {/* LLM Model Selector */}
                     <select
