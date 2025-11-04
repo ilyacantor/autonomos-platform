@@ -52,51 +52,80 @@ TIMING_LOG: Dict[str, List[float]] = {
 }
 
 # Redis-based distributed lock for cross-process DuckDB access
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
+# NOTE: Redis client is shared from main app to avoid connection limit issues
 redis_client = None
 redis_available = False
 DB_LOCK_KEY = "dcl:duckdb:lock"
 DB_LOCK_TIMEOUT = 30  # seconds
 DEV_MODE_KEY = "dcl:dev_mode"  # Redis key for cross-process dev mode state
+LLM_CALLS_KEY = "dcl:llm:calls"  # Redis key for LLM call counter
+LLM_TOKENS_KEY = "dcl:llm:tokens"  # Redis key for LLM token counter
+LLM_CALLS_SAVED_KEY = "dcl:llm:calls_saved"  # Redis key for LLM calls saved via RAG
 DCL_STATE_CHANNEL = "dcl:state:updates"  # Redis pub/sub channel for state broadcasts
 in_memory_dev_mode = False  # Fallback when Redis unavailable
+_dev_mode_initialized = False  # Track if dev_mode has been initialized
 
-# Try to connect to Redis with connection pool and timeout
-try:
-    redis_client = redis.from_url(
-        REDIS_URL, 
-        decode_responses=True,
-        socket_connect_timeout=2,
-        socket_timeout=2,
-        retry_on_timeout=False
-    )
-    # Test connection
-    redis_client.ping()
-    redis_available = True
-    print(f"✅ Redis connected at {REDIS_URL}", flush=True)
-except Exception as e:
-    print(f"⚠️ Redis unavailable ({e}), using in-memory state", flush=True)
-    redis_client = None
-    redis_available = False
-
-# Initialize dev_mode based on environment
-# Default to Prod Mode (false) for speed - user can toggle to Dev Mode for AI/RAG
-try:
-    # Always default to Prod Mode (heuristics only)
-    default_mode = "false"
+class RedisDecodeWrapper:
+    """
+    Wrapper to provide decode_responses=True behavior on top of a decode_responses=False client.
+    This allows sharing the same connection pool while having different decode behaviors.
+    """
+    def __init__(self, base_client):
+        self._client = base_client
     
-    if redis_available and redis_client:
-        # Force default mode on startup
-        redis_client.set(DEV_MODE_KEY, default_mode)
-        mode_name = "Prod Mode (heuristic-only, 2.35s)"
-        print(f"🚀 Initialized dev_mode = {default_mode} ({mode_name}) in Redis on startup", flush=True)
+    def get(self, key):
+        value = self._client.get(key)
+        return value.decode('utf-8') if value else None
+    
+    def set(self, key, value, **kwargs):
+        if isinstance(value, str):
+            value = value.encode('utf-8')
+        return self._client.set(key, value, **kwargs)
+    
+    def incr(self, key):
+        return self._client.incr(key)
+    
+    def incrby(self, key, amount):
+        return self._client.incrby(key, amount)
+    
+    def delete(self, key):
+        return self._client.delete(key)
+    
+    def ping(self):
+        return self._client.ping()
+
+def set_redis_client(client):
+    """
+    Set the shared Redis client from main app.
+    This avoids creating multiple Redis connections and hitting Upstash connection limits.
+    
+    Args:
+        client: Redis client instance from main app (typically with decode_responses=False)
+    """
+    global redis_client, redis_available, _dev_mode_initialized
+    
+    # Wrap the client to provide decode_responses=True behavior
+    redis_client = RedisDecodeWrapper(client)
+    redis_available = client is not None
+    
+    if redis_available:
+        print(f"✅ DCL Engine: Using shared Redis client from main app", flush=True)
+        
+        # Initialize dev_mode now that we have a Redis client
+        try:
+            default_mode = "false"  # Default to Prod Mode
+            redis_client.set(DEV_MODE_KEY, default_mode)
+            _dev_mode_initialized = True
+            print(f"🚀 DCL Engine: Initialized dev_mode = {default_mode} (Prod Mode) in Redis", flush=True)
+        except Exception as e:
+            print(f"⚠️ DCL Engine: Failed to initialize dev_mode: {e}, using in-memory fallback", flush=True)
+            global in_memory_dev_mode
+            in_memory_dev_mode = False
+            _dev_mode_initialized = True
     else:
+        print(f"⚠️ DCL Engine: No Redis client provided, using in-memory state", flush=True)
         in_memory_dev_mode = False
-        mode_name = "Prod Mode (heuristic-only)"
-        print(f"🚀 Initialized dev_mode = {default_mode} ({mode_name}) in-memory on startup", flush=True)
-except Exception as e:
-    print(f"⚠️ Failed to initialize dev_mode: {e}, using default", flush=True)
-    in_memory_dev_mode = False
+        _dev_mode_initialized = True
 
 # WebSocket connection manager
 class ConnectionManager:
@@ -191,6 +220,72 @@ def set_dev_mode(enabled: bool):
         # Fallback to in-memory
         in_memory_dev_mode = enabled
 
+def get_llm_stats() -> dict:
+    """Get LLM stats from Redis (cross-process safe, persists across restarts)"""
+    global LLM_CALLS, LLM_TOKENS
+    
+    if not redis_available or not redis_client:
+        return {"calls": LLM_CALLS, "tokens": LLM_TOKENS, "calls_saved": 0}
+    
+    try:
+        calls = redis_client.get(LLM_CALLS_KEY)
+        tokens = redis_client.get(LLM_TOKENS_KEY)
+        calls_saved = redis_client.get(LLM_CALLS_SAVED_KEY)
+        return {
+            "calls": int(calls) if calls else 0,
+            "tokens": int(tokens) if tokens else 0,
+            "calls_saved": int(calls_saved) if calls_saved else 0
+        }
+    except Exception as e:
+        log(f"⚠️ Error reading LLM stats from Redis: {e}")
+        return {"calls": LLM_CALLS, "tokens": LLM_TOKENS, "calls_saved": 0}
+
+def increment_llm_calls(tokens: int = 0):
+    """Increment LLM call counter in Redis (cross-process safe, persists across restarts)"""
+    global LLM_CALLS, LLM_TOKENS
+    
+    if not redis_available or not redis_client:
+        LLM_CALLS += 1
+        LLM_TOKENS += tokens
+        return
+    
+    try:
+        redis_client.incr(LLM_CALLS_KEY)
+        if tokens > 0:
+            redis_client.incrby(LLM_TOKENS_KEY, tokens)
+    except Exception as e:
+        log(f"⚠️ Error incrementing LLM stats in Redis: {e}")
+        LLM_CALLS += 1
+        LLM_TOKENS += tokens
+
+def increment_llm_calls_saved():
+    """Increment LLM calls saved counter in Redis (cross-process safe, persists across restarts)"""
+    if not redis_available or not redis_client:
+        return
+    
+    try:
+        redis_client.incr(LLM_CALLS_SAVED_KEY)
+    except Exception as e:
+        log(f"⚠️ Error incrementing LLM calls saved in Redis: {e}")
+
+def reset_llm_stats():
+    """Reset LLM stats in Redis (cross-process safe)"""
+    global LLM_CALLS, LLM_TOKENS
+    
+    if not redis_available or not redis_client:
+        LLM_CALLS = 0
+        LLM_TOKENS = 0
+        return
+    
+    try:
+        redis_client.set(LLM_CALLS_KEY, "0")
+        redis_client.set(LLM_TOKENS_KEY, "0")
+        redis_client.set(LLM_CALLS_SAVED_KEY, "0")
+    except Exception as e:
+        log(f"⚠️ Error resetting LLM stats in Redis: {e}")
+        LLM_CALLS = 0
+        LLM_TOKENS = 0
+
 def log(msg: str):
     print(msg, flush=True)
     if not EVENT_LOG or EVENT_LOG[-1] != msg:
@@ -275,18 +370,21 @@ class Scorecard:
 
 def safe_llm_call(prompt: str, source_key: str, tables: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Wrapper around Gemini calls that guarantees a result with proper logging."""
-    global LLM_CALLS, LLM_TOKENS, TIMING_LOG
+    global TIMING_LOG
     
     gemini_start = time.time()
     try:
         # Use gemini-2.5-flash for 10x faster inference
         resp = genai.GenerativeModel("gemini-2.5-flash").generate_content(prompt)
-        LLM_CALLS += 1
+        
+        # Increment LLM call counter in Redis (persists across restarts)
+        tokens_used = 0
         try:
             usage = resp.usage_metadata
-            LLM_TOKENS += usage.get("total_token_count", 0)
+            tokens_used = usage.get("total_token_count", 0)
         except Exception:
             pass
+        increment_llm_calls(tokens_used)
         
         try:
             text = resp.text.strip()
@@ -313,7 +411,7 @@ def safe_llm_call(prompt: str, source_key: str, tables: Dict[str, Any]) -> Optio
                 f.write(f"Response: {resp.text if hasattr(resp, 'text') else 'N/A'}\n")
                 f.write(f"Error: {parse_err}\n\n")
             log(f"[LLM PARSE ERROR] Falling back to heuristic for {source_key}")
-            return None
+            return (None, False)  # (plan, skip_semantic_validation)
     
     except Exception as e:
         os.makedirs("logs", exist_ok=True)
@@ -322,7 +420,7 @@ def safe_llm_call(prompt: str, source_key: str, tables: Dict[str, Any]) -> Optio
             f.write(f"Source: {source_key}\n")
             f.write(f"{traceback.format_exc()}\n\n")
         log(f"[LLM ERROR] {e} - Falling back to heuristic for {source_key}")
-        return None
+        return (None, False)  # (plan, skip_semantic_validation)
 
 async def llm_propose(
     ontology: Dict[str, Any], 
@@ -441,17 +539,79 @@ async def llm_propose(
     current_dev_mode = get_dev_mode()
     if not current_dev_mode:
         log(f"⚡ Prod Mode: RAG retrieval complete, skipping LLM - falling back to heuristics for {source_key}")
-        return None
+        return (None, False)  # (plan, skip_semantic_validation)
+    
+    # INTELLIGENT LLM DECISION: Check RAG coverage before calling LLM
+    # Calculate how many source fields have high-confidence RAG matches
+    if rag_engine and all_similar:
+        total_fields = sum(len(table_info.get('schema', {})) for table_info in tables.values())
+        
+        # Count unique fields with high-confidence RAG matches (>0.8 similarity)
+        matched_fields = set()
+        missing_fields = []
+        for field_name, field_type, _ in field_queries:
+            field_matches = [m for m in all_similar if m['source_field'].lower() == field_name.lower() and m.get('similarity', 0) > 0.8]
+            if field_matches:
+                matched_fields.add(field_name)
+            else:
+                missing_fields.append(field_name)
+        
+        coverage_pct = (len(matched_fields) / total_fields * 100) if total_fields > 0 else 0
+        estimated_cost = 0.003  # Rough estimate per LLM call (used in cost savings calculations)
+        
+        # If coverage is high (>=80%), skip LLM and use RAG mappings directly
+        if coverage_pct >= 80:
+            
+            log(f"📊 RAG Coverage: {coverage_pct:.0f}% ({len(matched_fields)}/{total_fields} fields) - skipping LLM, using RAG inventory")
+            
+            # Increment saved calls counter
+            increment_llm_calls_saved()
+            
+            # Broadcast intelligent decision event
+            await ws_manager.broadcast({
+                "type": "rag_coverage_check",
+                "source": source_key,
+                "coverage_pct": round(coverage_pct, 1),
+                "matched_count": len(matched_fields),
+                "total_count": total_fields,
+                "missing_fields": missing_fields[:5],  # Show first 5 missing
+                "estimated_cost_savings": round(estimated_cost, 4),
+                "recommendation": "skip",
+                "message": f"🎯 RAG has {coverage_pct:.0f}% coverage. Using RAG inventory, LLM call saved!",
+                "timestamp": time.time()
+            })
+            
+            # Return tuple (None, True) to skip LLM and use heuristics without semantic validation
+            log(f"✅ Dev Mode: Skipping LLM call, using RAG inventory (coverage {coverage_pct:.0f}%)")
+            return (None, True)  # (plan, skip_semantic_validation)
+        elif coverage_pct >= 75:
+            # Show coverage check but still call LLM
+            log(f"📊 RAG Coverage: {coverage_pct:.0f}% ({len(matched_fields)}/{total_fields} fields) - proceeding with LLM")
+            
+            await ws_manager.broadcast({
+                "type": "rag_coverage_check",
+                "source": source_key,
+                "coverage_pct": round(coverage_pct, 1),
+                "matched_count": len(matched_fields),
+                "total_count": total_fields,
+                "missing_fields": missing_fields[:5],
+                "estimated_cost_savings": round(estimated_cost, 4),
+                "recommendation": "proceed",
+                "message": f"📊 RAG has {coverage_pct:.0f}% coverage. Proceeding with LLM for better accuracy.",
+                "timestamp": time.time()
+            })
+    
+    # Continue with existing LLM flow...
     
     # Check for appropriate API key based on model
     if llm_model.startswith("gpt"):
         if not os.getenv("OPENAI_API_KEY"):
             log(f"⚠️ OPENAI_API_KEY not set - skipping LLM for {source_key}")
-            return None
+            return (None, False)  # (plan, skip_semantic_validation)
     else:
         if not os.getenv("GEMINI_API_KEY"):
             log(f"⚠️ GEMINI_API_KEY not set - skipping LLM for {source_key}")
-            return None
+            return (None, False)  # (plan, skip_semantic_validation)
     
     log(f"🤖 Dev Mode: Starting LLM mapping for {source_key} with {llm_model}")
     
@@ -490,13 +650,13 @@ async def llm_propose(
         "timestamp": time.time()
     })
     
-    # Get LLM service and run call in thread (blocking API)
+    # Get LLM service with counter callback (dependency injection pattern)
     try:
-        llm_service = get_llm_service(llm_model)
+        llm_service = get_llm_service(llm_model, increment_llm_calls)
         log(f"📊 Using {llm_service.get_provider_name()} - {llm_service.get_model_name()}")
     except (ValueError, ImportError) as e:
         log(f"⚠️ {e} - falling back to heuristic")
-        return None
+        return (None, False)  # (plan, skip_semantic_validation)
     
     llm_call_start = time.time()
     result = await asyncio.to_thread(llm_service.generate, prompt, source_key)
@@ -551,11 +711,11 @@ async def llm_propose(
     TIMING_LOG["llm_propose_total"].append(llm_elapsed)
     log(f"⏱️ llm_propose total: {llm_elapsed:.2f}s")
     
-    return result
+    return (result, False)  # (plan, skip_semantic_validation) - False because LLM succeeded
 
 def validate_mapping_semantics_llm(source_key: str, table_name: str, entity: str, fields: List[Dict]) -> bool:
     """Use LLM + RAG to validate if a source table mapping to an entity makes semantic sense."""
-    global LLM_CALLS, LLM_TOKENS, rag_engine
+    global rag_engine
     
     if not os.getenv("GEMINI_API_KEY"):
         return True  # Default to allowing if no API key
@@ -603,16 +763,18 @@ Answer with ONLY a JSON object:
 {{"valid": true/false, "reason": "brief explanation", "confidence": 0.0-1.0}}"""
 
     try:
-        LLM_CALLS += 1
         model = genai.GenerativeModel("gemini-2.5-flash")
         response = model.generate_content(prompt)
         text = response.text.strip()
+        
+        # Increment LLM counter in Redis (persists across restarts)
+        tokens_estimate = len(prompt.split()) + len(text.split())
+        increment_llm_calls(tokens_estimate)
         
         # Extract JSON from response
         json_match = re.search(r'\{.*\}', text, re.DOTALL)
         if json_match:
             result = json.loads(json_match.group())
-            LLM_TOKENS += len(prompt.split()) + len(text.split())
             
             valid = result.get("valid", True)
             reason = result.get("reason", "")
@@ -630,7 +792,7 @@ Answer with ONLY a JSON object:
         log(f"⚠️ LLM semantic validation failed: {e}, defaulting to allow")
         return True
 
-def heuristic_plan(ontology: Dict[str, Any], source_key: str, tables: Dict[str, Any]) -> Dict[str, Any]:
+def heuristic_plan(ontology: Dict[str, Any], source_key: str, tables: Dict[str, Any], skip_llm_validation: bool = False) -> Dict[str, Any]:
     global SELECTED_AGENTS, agents_config, DEV_MODE
     
     # Get available ontology entities based on selected agents
@@ -890,9 +1052,10 @@ def heuristic_plan(ontology: Dict[str, Any], source_key: str, tables: Dict[str, 
                 mappings.append({"entity":"cost_reports","source_table": f"{source_key}_{tname}", "fields": fields})
     
     # Semantic filtering based on Prod Mode setting (check Redis for cross-process state)
+    # Skip LLM validation if RAG coverage was high enough to skip main LLM call
     current_dev_mode = get_dev_mode()
-    if current_dev_mode:
-        # DEV MODE ON: Use LLM for intelligent semantic validation (AI/RAG)
+    if current_dev_mode and not skip_llm_validation:
+        # DEV MODE ON + Low RAG coverage: Use LLM for intelligent semantic validation (AI/RAG)
         log("🔍 Dev Mode ON: Using LLM for semantic validation")
         semantically_valid_mappings = []
         for mapping in mappings:
@@ -909,8 +1072,11 @@ def heuristic_plan(ontology: Dict[str, Any], source_key: str, tables: Dict[str, 
         mappings = semantically_valid_mappings
         log(f"✅ LLM validated {len(mappings)} mappings as semantically correct")
     else:
-        # DEV MODE OFF: Use hard-wired heuristic rules (fast, deterministic)
-        log("⚡ Dev Mode OFF: Using heuristic domain filtering")
+        # DEV MODE OFF OR High RAG coverage: Use hard-wired heuristic rules (fast, deterministic)
+        if skip_llm_validation:
+            log("⚡ High RAG coverage: Skipping LLM semantic validation, using heuristic filtering")
+        else:
+            log("⚡ Dev Mode OFF: Using heuristic domain filtering")
         FINOPS_SOURCES = {"snowflake", "sap", "netsuite", "legacy_sql"}
         REVOPS_SOURCES = {"dynamics", "salesforce", "hubspot"}
         FINOPS_ENTITIES = {"aws_resources", "cost_reports"}
@@ -1238,9 +1404,12 @@ async def connect_source(source_key: str, llm_model: str = "gemini-2.5-flash") -
     async with ASYNC_STATE_LOCK:
         add_graph_nodes_for_source(source_key, tables)
     
-    plan = await llm_propose(ontology, source_key, tables, llm_model)
+    llm_result = await llm_propose(ontology, source_key, tables, llm_model)
+    plan, skip_semantic_validation = llm_result if isinstance(llm_result, tuple) else (llm_result, False)
+    
     if not plan:
-        plan = heuristic_plan(ontology, source_key, tables)
+        # Use heuristic plan with explicit skip_semantic_validation flag from llm_propose
+        plan = heuristic_plan(ontology, source_key, tables, skip_llm_validation=skip_semantic_validation)
         log(f"I connected to {source_key.title()} (schema sample) and generated a heuristic plan. I mapped obvious IDs and foreign keys and published a basic unified view.")
         
         # STREAMING EVENT: Heuristic plan used
@@ -1340,20 +1509,22 @@ async def connect_source(source_key: str, llm_model: str = "gemini-2.5-flash") -
 def reset_state(exclude_dev_mode=True):
     """
     Reset DCL state for idempotent /connect operations.
-    By default, preserves dev_mode setting across resets.
+    By default, preserves dev_mode setting and LLM counters across resets.
     
     Args:
         exclude_dev_mode: If True, dev_mode persists across resets
+    
+    Note: LLM counters (calls/tokens) persist across all runs for telemetry tracking,
+          similar to "elapsed time until next run". Use reset_llm_stats() endpoint to manually reset.
     """
-    global EVENT_LOG, GRAPH_STATE, SOURCES_ADDED, ENTITY_SOURCES, ontology, LLM_CALLS, LLM_TOKENS, SELECTED_AGENTS, SOURCE_SCHEMAS, RAG_CONTEXT
+    global EVENT_LOG, GRAPH_STATE, SOURCES_ADDED, ENTITY_SOURCES, ontology, SELECTED_AGENTS, SOURCE_SCHEMAS, RAG_CONTEXT
     EVENT_LOG = []
     GRAPH_STATE = {"nodes": [], "edges": [], "confidence": None, "last_updated": None}
     SOURCES_ADDED = []
     ENTITY_SOURCES = {}
     SELECTED_AGENTS = []
     SOURCE_SCHEMAS = {}
-    LLM_CALLS = 0
-    LLM_TOKENS = 0
+    # LLM stats persist across runs for cumulative tracking (removed reset_llm_stats call)
     # Clear RAG retrievals so they update with fresh data on each connection
     RAG_CONTEXT["retrievals"] = []
     RAG_CONTEXT["last_retrieval_count"] = 0
@@ -1402,6 +1573,12 @@ async def broadcast_state_change(event_type: str = "state_update"):
             ]
         }
         
+        # Get LLM stats from Redis (includes calls_saved)
+        llm_stats = get_llm_stats()
+        
+        # Calculate blended confidence
+        blended_confidence = GRAPH_STATE.get("confidence")
+        
         # Send complete data (frontend has scrolling for unlimited display)
         state_payload = {
             "type": event_type,
@@ -1411,13 +1588,16 @@ async def broadcast_state_change(event_type: str = "state_update"):
                 "agents": SELECTED_AGENTS,
                 "devMode": get_dev_mode(),
                 "graph": filtered_graph,  # Send filtered graph instead of raw GRAPH_STATE
-                "llmCalls": LLM_CALLS,
-                "llmTokens": LLM_TOKENS,
+                "llmCalls": llm_stats["calls"],
+                "llmTokens": llm_stats["tokens"],
+                "llmCallsSaved": llm_stats["calls_saved"],
                 "ragContext": {
                     "total_mappings": RAG_CONTEXT.get("total_mappings", 0),
                     "last_retrieval_count": RAG_CONTEXT.get("last_retrieval_count", 0),
+                    "mappings_retrieved": RAG_CONTEXT.get("last_retrieval_count", 0),
                     "retrievals": RAG_CONTEXT.get("retrievals", [])  # All retrievals (no limit)
                 },
+                "blendedConfidence": blended_confidence,
                 "events": EVENT_LOG,  # All events (no limit - frontend has scrolling)
                 "entitySources": ENTITY_SOURCES,
                 "agentConsumption": agent_consumption
@@ -1556,14 +1736,29 @@ def state():
         ]
     }
     
+    # Get LLM stats from Redis (persists across restarts)
+    llm_stats = get_llm_stats()
+    
+    # Use graph confidence directly as blended confidence
+    # (Graph confidence already incorporates mapping quality and completeness)
+    blended_confidence = GRAPH_STATE.get("confidence")
+    
     return JSONResponse({
         "events": EVENT_LOG,
         "timeline": EVENT_LOG[-5:],
         "graph": filtered_graph,  # Send filtered graph instead of raw GRAPH_STATE
         "preview": {"sources": {}, "ontology": {}},
-        "llm": {"calls": LLM_CALLS, "tokens": LLM_TOKENS},
+        "llm": {
+            "calls": llm_stats["calls"], 
+            "tokens": llm_stats["tokens"],
+            "calls_saved": llm_stats["calls_saved"]
+        },
         "auto_ingest_unmapped": AUTO_INGEST_UNMAPPED,
-        "rag": RAG_CONTEXT,
+        "rag": {
+            **RAG_CONTEXT,
+            "mappings_retrieved": RAG_CONTEXT.get("last_retrieval_count", 0)
+        },
+        "blended_confidence": blended_confidence,
         "agent_consumption": agent_consumption,
         "selected_sources": SOURCES_ADDED,
         "selected_agents": SELECTED_AGENTS,
@@ -1659,6 +1854,23 @@ async def toggle_dev_mode(enabled: Optional[bool] = None):
     await broadcast_state_change("dev_mode_toggled")
     return JSONResponse({"dev_mode": DEV_MODE, "status": status})
 
+@app.post("/reset_llm_stats")
+async def reset_llm_stats_endpoint():
+    """
+    Manual endpoint to reset LLM call counters.
+    Note: LLM stats persist across all runs by default for cumulative tracking.
+    Use this endpoint only when you want to reset the counters manually.
+    """
+    reset_llm_stats()
+    stats = get_llm_stats()
+    log("🔄 LLM stats manually reset to 0")
+    return JSONResponse({
+        "ok": True,
+        "message": "LLM stats reset successfully",
+        "calls": stats["calls"],
+        "tokens": stats["tokens"]
+    })
+
 @app.get("/preview")
 def preview(node: Optional[str] = None):
     global ontology, agents_config, SELECTED_AGENTS
@@ -1746,18 +1958,30 @@ def ontology_schema():
                         source_table = source_node.get("label", "").replace(f"{source_system}_", "")
                         field_mappings = edge.get("field_mappings", [])
                         
-                        # Extract source fields from field_mappings
+                        # Extract source fields from field_mappings (for backward compatibility)
                         source_fields = []
                         for fm in field_mappings:
                             source_field = fm.get("source") or fm.get("source_field", "")
                             if source_field:
                                 source_fields.append(source_field)
                         
+                        # Include detailed field mappings with confidence, transformations, etc.
+                        detailed_mappings = []
+                        for fm in field_mappings:
+                            detailed_mappings.append({
+                                "source_field": fm.get("source") or fm.get("source_field", ""),
+                                "ontology_field": fm.get("onto_field", ""),
+                                "confidence": fm.get("confidence", 0.0),
+                                "transform": fm.get("transform", "direct"),
+                                "sql_expression": fm.get("sql", "")
+                            })
+                        
                         source_mappings.append({
                             "source_system": source_system,
                             "source_table": source_table,
-                            "source_fields": source_fields,
-                            "field_count": len(field_mappings)
+                            "source_fields": source_fields,  # List of source field names (backward compat)
+                            "field_count": len(field_mappings),
+                            "field_mappings": detailed_mappings  # NEW: Detailed field-level mappings
                         })
         
         schema[entity_name] = {

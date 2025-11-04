@@ -4,12 +4,27 @@ import json
 import re
 import traceback
 from abc import ABC, abstractmethod
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Callable
 import google.generativeai as genai  # type: ignore
 
 
 class LLMService(ABC):
     """Abstract LLM service interface for different providers"""
+    
+    def __init__(self, counter_callback: Optional[Callable[[int], None]] = None):
+        """
+        Initialize LLM service with optional counter callback.
+        
+        Args:
+            counter_callback: Optional function to call after each LLM call with token count.
+                            Used for persistence and telemetry (dependency injection pattern).
+        """
+        self._counter_callback = counter_callback
+    
+    def _record_llm_call(self, tokens: int):
+        """Record LLM call via callback if provided (dependency injection)"""
+        if self._counter_callback:
+            self._counter_callback(tokens)
     
     @abstractmethod
     def generate(self, prompt: str, source_key: str) -> Optional[Dict[str, Any]]:
@@ -30,7 +45,8 @@ class LLMService(ABC):
 class GeminiService(LLMService):
     """Gemini LLM implementation using gemini-2.5-flash"""
     
-    def __init__(self, model: str = "gemini-2.5-flash"):
+    def __init__(self, model: str = "gemini-2.5-flash", counter_callback: Optional[Callable[[int], None]] = None):
+        super().__init__(counter_callback)
         self.model = model
         if not os.getenv("GEMINI_API_KEY"):
             raise ValueError("GEMINI_API_KEY not set")
@@ -66,9 +82,10 @@ class GeminiService(LLMService):
                     raise ValueError("No JSON object found in response")
                 result = json.loads(m.group(0))
                 
-                # Log timing
+                # Log timing and record call via dependency injection
                 gemini_elapsed = time.time() - gemini_start
                 print(f"⏱️ {self.get_model_name()} call: {gemini_elapsed:.2f}s | {tokens} tokens", flush=True)
+                self._record_llm_call(tokens)  # Persist LLM call counter in Redis
                 
                 return result
             except Exception as parse_err:
@@ -102,7 +119,8 @@ class GeminiService(LLMService):
 class OpenAIService(LLMService):
     """OpenAI LLM implementation for gpt-5-mini and gpt-5-nano"""
     
-    def __init__(self, model: str):
+    def __init__(self, model: str, counter_callback: Optional[Callable[[int], None]] = None):
+        super().__init__(counter_callback)
         self.model = model
         if not os.getenv("OPENAI_API_KEY"):
             raise ValueError("OPENAI_API_KEY not set")
@@ -153,9 +171,10 @@ class OpenAIService(LLMService):
                     raise ValueError("No JSON object found in response")
                 result = json.loads(m.group(0))
                 
-                # Log timing
+                # Log timing and record call via dependency injection
                 openai_elapsed = time.time() - openai_start
                 print(f"⏱️ {self.get_model_name()} call: {openai_elapsed:.2f}s | {tokens} tokens", flush=True)
+                self._record_llm_call(tokens)  # Persist LLM call counter in Redis
                 
                 return result
             except Exception as parse_err:
@@ -186,12 +205,17 @@ class OpenAIService(LLMService):
         return "OpenAI"
 
 
-def get_llm_service(model: str = "gemini-2.5-flash") -> LLMService:
+def get_llm_service(
+    model: str = "gemini-2.5-flash",
+    counter_callback: Optional[Callable[[int], None]] = None
+) -> LLMService:
     """
     Factory function to get appropriate LLM service based on model name.
     
     Args:
         model: Model identifier (e.g., "gemini-2.5-flash", "gpt-4o-mini", "gpt-4o")
+        counter_callback: Optional function to call after each LLM call with token count.
+                        Used for persistence and telemetry (dependency injection pattern).
     
     Returns:
         LLMService instance (GeminiService or OpenAIService)
@@ -200,5 +224,5 @@ def get_llm_service(model: str = "gemini-2.5-flash") -> LLMService:
         ValueError: If required API key is not set
     """
     if model.startswith("gpt"):
-        return OpenAIService(model)
-    return GeminiService(model)
+        return OpenAIService(model, counter_callback)
+    return GeminiService(model, counter_callback)

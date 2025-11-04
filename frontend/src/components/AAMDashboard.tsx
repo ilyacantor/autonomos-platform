@@ -16,7 +16,9 @@ import {
   Map,
   GitMerge,
   Target,
-  BarChart3
+  BarChart3,
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react';
 import { API_CONFIG } from '../config/api';
 
@@ -82,6 +84,39 @@ interface IntelligenceRepairData {
   test_pass_rate: number;
 }
 
+interface ConnectorDetails {
+  vendor: string;
+  status: string;
+  total_mappings: number;
+  high_confidence_mappings: number;
+  field_mappings: FieldMapping[];
+  recent_drift_events: DriftEvent[];
+  repair_history: RepairAction[];
+}
+
+interface FieldMapping {
+  source_field: string;
+  canonical_field: string;
+  confidence: number;
+  transform: string;
+  version?: number;
+}
+
+interface DriftEvent {
+  event_type: string;
+  detected_at: string;
+  status: string;
+  confidence: number;
+  old_schema?: any;
+  new_schema?: any;
+}
+
+interface RepairAction {
+  change_type: string;
+  applied_at: string;
+  details: any;
+}
+
 export default function AAMDashboard() {
   const [metrics, setMetrics] = useState<AAMMetrics | null>(null);
   const [connections, setConnections] = useState<AAMConnection[]>([]);
@@ -96,6 +131,12 @@ export default function AAMDashboard() {
   const [intelligenceLoading, setIntelligenceLoading] = useState(true);
   const [intelligenceError, setIntelligenceError] = useState<string | null>(null);
 
+  // Connector details state
+  const [connectorDetails, setConnectorDetails] = useState<ConnectorDetails[]>([]);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<'overview' | 'details'>('overview');
+  const [expandedConnector, setExpandedConnector] = useState<string | null>(null);
+
   const fetchAAMMetrics = async () => {
     try {
       const response = await fetch(API_CONFIG.buildApiUrl('/aam/metrics'));
@@ -105,6 +146,17 @@ export default function AAMDashboard() {
     } catch (err) {
       console.error('Error fetching AAM metrics:', err);
       setError('Failed to load metrics');
+      // Set fallback metrics so page can still render
+      setMetrics({
+        total_connections: 0,
+        active_drift_detections_24h: 0,
+        successful_repairs_24h: 0,
+        manual_reviews_required_24h: 0,
+        average_confidence_score: 0,
+        average_repair_time_seconds: 0,
+        timestamp: new Date().toISOString(),
+        data_source: 'error_fallback'
+      });
     }
   };
 
@@ -143,6 +195,20 @@ export default function AAMDashboard() {
     }
   };
 
+  const fetchConnectorDetails = async () => {
+    setDetailsLoading(true);
+    try {
+      const response = await fetch(API_CONFIG.buildApiUrl('/aam/connector_details'));
+      if (!response.ok) throw new Error('Failed to fetch connector details');
+      const data = await response.json();
+      setConnectorDetails(data.connectors || []);
+    } catch (err) {
+      console.error('Error fetching connector details:', err);
+    } finally {
+      setDetailsLoading(false);
+    }
+  };
+
   const fetchAllData = async () => {
     setLoading(true);
     await Promise.all([
@@ -156,6 +222,12 @@ export default function AAMDashboard() {
   useEffect(() => {
     fetchAllData();
   }, []);
+
+  useEffect(() => {
+    if (activeTab === 'details' && connectorDetails.length === 0 && !detailsLoading) {
+      fetchConnectorDetails();
+    }
+  }, [activeTab, connectorDetails.length, detailsLoading]);
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -223,6 +295,29 @@ export default function AAMDashboard() {
     return `${minutes}m ${remainingSeconds.toFixed(0)}s`;
   };
 
+  const getConfidenceBadge = (confidence: number) => {
+    const percentage = Math.round(confidence * 100);
+    let colorClass = '';
+    
+    if (confidence >= 0.9) {
+      colorClass = 'bg-green-900/30 border-green-500/30 text-green-400';
+    } else if (confidence >= 0.7) {
+      colorClass = 'bg-yellow-900/30 border-yellow-500/30 text-yellow-400';
+    } else {
+      colorClass = 'bg-orange-900/30 border-orange-500/30 text-orange-400';
+    }
+    
+    return (
+      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs border ${colorClass}`}>
+        {percentage}%
+      </span>
+    );
+  };
+
+  const toggleConnectorExpansion = (vendor: string) => {
+    setExpandedConnector(prev => prev === vendor ? null : vendor);
+  };
+
   if (loading && !metrics) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -259,7 +354,34 @@ export default function AAMDashboard() {
         </div>
       </div>
 
-      {/* Intelligence Readout Cards */}
+      {/* Tab Navigation */}
+      <div className="flex gap-2 border-b border-gray-800">
+        <button
+          onClick={() => setActiveTab('overview')}
+          className={`px-4 py-2 text-sm font-medium transition-colors ${
+            activeTab === 'overview'
+              ? 'text-white border-b-2 border-blue-500'
+              : 'text-gray-500 hover:text-gray-300'
+          }`}
+        >
+          Overview
+        </button>
+        <button
+          onClick={() => setActiveTab('details')}
+          className={`px-4 py-2 text-sm font-medium transition-colors ${
+            activeTab === 'details'
+              ? 'text-white border-b-2 border-blue-500'
+              : 'text-gray-500 hover:text-gray-300'
+          }`}
+        >
+          Connector Details
+        </button>
+      </div>
+
+      {/* Overview Tab Content */}
+      {activeTab === 'overview' && (
+        <>
+          {/* Intelligence Readout Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
           <div className="flex items-center justify-between mb-2">
@@ -485,6 +607,216 @@ export default function AAMDashboard() {
       {metrics?.data_source && (
         <div className="text-center text-xs text-gray-600">
           Data source: {metrics.data_source} • Last updated: {formatTimestamp(metrics.timestamp)}
+        </div>
+      )}
+        </>
+      )}
+
+      {/* Connector Details Tab Content */}
+      {activeTab === 'details' && (
+        <div className="bg-gray-800/50 border border-gray-700 rounded-lg overflow-hidden">
+          {detailsLoading ? (
+            <div className="p-12 text-center">
+              <Activity className="w-12 h-12 text-blue-400 animate-spin mx-auto mb-4" />
+              <p className="text-gray-400">Loading connector details...</p>
+            </div>
+          ) : connectorDetails.length === 0 ? (
+            <div className="p-12 text-center">
+              <Database className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+              <p className="text-gray-400">No connector details available</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-gray-900/50 border-b border-gray-700">
+                    <th className="px-6 py-3 text-left text-xs text-gray-400 tracking-wider">
+                      Vendor
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs text-gray-400 tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs text-gray-400 tracking-wider">
+                      Total Mappings
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs text-gray-400 tracking-wider">
+                      High Confidence
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs text-gray-400 tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-700">
+                  {connectorDetails.map((connector) => {
+                    const isExpanded = expandedConnector === connector.vendor;
+                    
+                    return (
+                      <>
+                        <tr key={connector.vendor} className="hover:bg-gray-700/30 transition-colors">
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-2">
+                              <Database className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                              <span className="text-white font-medium">{connector.vendor}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            {getStatusBadge(connector.status)}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs bg-purple-900/30 border border-purple-500/30 text-purple-400">
+                              {connector.total_mappings} mappings
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs bg-green-900/30 border border-green-500/30 text-green-400">
+                              {connector.high_confidence_mappings} high confidence
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <button
+                              onClick={() => toggleConnectorExpansion(connector.vendor)}
+                              className="flex items-center gap-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg text-sm text-gray-300 transition-colors"
+                            >
+                              {isExpanded ? (
+                                <>
+                                  <ChevronDown className="w-4 h-4" />
+                                  Collapse
+                                </>
+                              ) : (
+                                <>
+                                  <ChevronRight className="w-4 h-4" />
+                                  Expand
+                                </>
+                              )}
+                            </button>
+                          </td>
+                        </tr>
+                        
+                        {/* Expanded Details Row */}
+                        {isExpanded && (
+                          <tr key={`${connector.vendor}-details`}>
+                            <td colSpan={5} className="px-6 py-4 bg-gray-900/30">
+                              <div className="space-y-6">
+                                {/* Field Mappings Section */}
+                                {connector.field_mappings && connector.field_mappings.length > 0 && (
+                                  <div>
+                                    <h4 className="text-sm font-medium text-gray-400 mb-3 flex items-center gap-2">
+                                      <Map className="w-4 h-4" />
+                                      Field Mappings ({connector.field_mappings.length})
+                                    </h4>
+                                    <div className="space-y-2">
+                                      {connector.field_mappings.map((mapping, idx) => (
+                                        <div
+                                          key={idx}
+                                          className="flex items-center gap-3 p-3 bg-gray-800/50 border border-gray-700 rounded-lg hover:bg-gray-700/30 transition-colors"
+                                        >
+                                          <code className="px-3 py-1.5 bg-gray-800 border border-gray-600 rounded text-sm text-gray-300 font-mono">
+                                            {mapping.source_field}
+                                          </code>
+                                          <span className="text-gray-500 font-bold">→</span>
+                                          <code className="px-3 py-1.5 bg-blue-900/30 border border-blue-500/30 rounded text-sm text-blue-400 font-mono">
+                                            {mapping.canonical_field}
+                                          </code>
+                                          <div className="ml-auto flex items-center gap-2">
+                                            {getConfidenceBadge(mapping.confidence)}
+                                            {mapping.version && (
+                                              <span className="text-xs text-gray-500">v{mapping.version}</span>
+                                            )}
+                                          </div>
+                                          {mapping.transform && mapping.transform !== 'direct' && (
+                                            <span className="px-2 py-1 bg-yellow-900/20 border border-yellow-500/20 rounded text-xs text-yellow-400">
+                                              {mapping.transform}
+                                            </span>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Recent Drift Events Section */}
+                                {connector.recent_drift_events && connector.recent_drift_events.length > 0 && (
+                                  <div>
+                                    <h4 className="text-sm font-medium text-gray-400 mb-3 flex items-center gap-2">
+                                      <AlertTriangle className="w-4 h-4" />
+                                      Recent Drift Events ({connector.recent_drift_events.length})
+                                    </h4>
+                                    <div className="space-y-2">
+                                      {connector.recent_drift_events.map((event, idx) => (
+                                        <div
+                                          key={idx}
+                                          className="flex items-center gap-3 p-3 bg-gray-800/50 border border-gray-700 rounded-lg"
+                                        >
+                                          <div className="flex-1">
+                                            <div className="flex items-center gap-2 mb-1">
+                                              <span className="text-sm text-white font-medium">{event.event_type}</span>
+                                              {getStatusBadge(event.status)}
+                                            </div>
+                                            <div className="text-xs text-gray-500">
+                                              Detected: {formatTimestamp(event.detected_at)}
+                                            </div>
+                                          </div>
+                                          {getConfidenceBadge(event.confidence)}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Repair History Section */}
+                                {connector.repair_history && connector.repair_history.length > 0 && (
+                                  <div>
+                                    <h4 className="text-sm font-medium text-gray-400 mb-3 flex items-center gap-2">
+                                      <Wrench className="w-4 h-4" />
+                                      Repair History ({connector.repair_history.length})
+                                    </h4>
+                                    <div className="space-y-2">
+                                      {connector.repair_history.map((repair, idx) => (
+                                        <div
+                                          key={idx}
+                                          className="flex items-center gap-3 p-3 bg-gray-800/50 border border-gray-700 rounded-lg"
+                                        >
+                                          <div className="flex-1">
+                                            <div className="flex items-center gap-2 mb-1">
+                                              <span className="text-sm text-white font-medium">{repair.change_type}</span>
+                                              <CheckCircle className="w-4 h-4 text-green-400" />
+                                            </div>
+                                            <div className="text-xs text-gray-500">
+                                              Applied: {formatTimestamp(repair.applied_at)}
+                                            </div>
+                                          </div>
+                                          {repair.details && (
+                                            <code className="px-2 py-1 bg-gray-900/50 border border-gray-600 rounded text-xs text-gray-400">
+                                              {JSON.stringify(repair.details).substring(0, 50)}...
+                                            </code>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Empty State for Expanded Connector */}
+                                {(!connector.field_mappings || connector.field_mappings.length === 0) &&
+                                 (!connector.recent_drift_events || connector.recent_drift_events.length === 0) &&
+                                 (!connector.repair_history || connector.repair_history.length === 0) && (
+                                  <div className="text-center py-8 text-gray-500">
+                                    <Database className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+                                    <p className="text-sm">No detailed information available for this connector</p>
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
     </div>

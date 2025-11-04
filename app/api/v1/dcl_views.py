@@ -8,7 +8,8 @@ from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from app.database import get_db
-from app.models import MaterializedAccount, MaterializedOpportunity, MaterializedContact
+from app.models import MaterializedAccount, MaterializedOpportunity, MaterializedContact, User
+from app.security import get_current_user
 from services.aam.canonical.subscriber import process_canonical_streams
 
 logger = logging.getLogger(__name__)
@@ -18,20 +19,19 @@ router = APIRouter()
 
 @router.get("/accounts")
 async def get_accounts(
-    request: Request,
     limit: int = Query(100, ge=1, le=1000, description="Max records to return"),
     offset: int = Query(0, ge=0, description="Number of records to skip"),
-    tenant_id: Optional[str] = Query(None, description="Tenant identifier (overrides auth)"),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Get materialized accounts
+    Get materialized accounts with JWT authentication
     
     Returns paginated list of canonical accounts from materialized table
     """
     try:
-        # Get tenant_id from auth middleware or fallback to query param
-        actual_tenant_id = getattr(request.state, 'tenant_id', None) or tenant_id or "demo-tenant"
+        # Get tenant_id from authenticated user
+        actual_tenant_id = str(current_user.tenant_id)
         
         # Process any pending canonical streams first
         try:
@@ -89,20 +89,19 @@ async def get_accounts(
 
 @router.get("/opportunities")
 async def get_opportunities(
-    request: Request,
     limit: int = Query(100, ge=1, le=1000, description="Max records to return"),
     offset: int = Query(0, ge=0, description="Number of records to skip"),
-    tenant_id: Optional[str] = Query(None, description="Tenant identifier (overrides auth)"),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Get materialized opportunities
+    Get materialized opportunities with JWT authentication
     
     Returns paginated list of canonical opportunities from materialized table
     """
     try:
-        # Get tenant_id from auth middleware or fallback to query param
-        actual_tenant_id = getattr(request.state, 'tenant_id', None) or tenant_id or "demo-tenant"
+        # Get tenant_id from authenticated user
+        actual_tenant_id = str(current_user.tenant_id)
         
         # Process any pending canonical streams first
         try:
@@ -162,17 +161,20 @@ async def get_opportunities(
 
 @router.get("/contacts")
 async def get_contacts(
-    tenant_id: str = Query("demo-tenant", description="Tenant identifier"),
     limit: int = Query(100, ge=1, le=1000, description="Max records to return"),
     offset: int = Query(0, ge=0, description="Number of records to skip"),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Get materialized contacts
+    Get materialized contacts with JWT authentication
     
     Returns paginated list of canonical contacts from materialized table
     """
     try:
+        # Get tenant_id from authenticated user
+        tenant_id = str(current_user.tenant_id)
+        
         # Process any pending canonical streams first
         try:
             process_canonical_streams(db, tenant_id, limit=1000)

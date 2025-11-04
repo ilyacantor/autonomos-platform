@@ -2,11 +2,20 @@ import { useState, useEffect } from 'react';
 import { Database, Search, ChevronDown, ChevronRight, Loader2, AlertCircle, FileText, Table, Layers, FolderTree } from 'lucide-react';
 import { API_CONFIG } from '../config/api';
 
+interface FieldMapping {
+  source_field: string;
+  ontology_field: string;
+  confidence: number;
+  transform: string;
+  sql_expression: string;
+}
+
 interface SourceMapping {
   source_system: string;
   source_table: string;
   source_fields: string[];
   field_count: number;
+  field_mappings?: FieldMapping[];  // Detailed field-level mappings
 }
 
 interface EntitySchema {
@@ -351,15 +360,16 @@ export default function OntologyPage() {
                   {schema.source_mappings.length > 0 && (
                     <div>
                       <h4 className="text-sm font-medium text-gray-400 mb-3">
-                        Source Mappings (Raw Data Tables & Fields):
+                        Source Mappings (Field-Level Details):
                       </h4>
                       <div className="space-y-3">
                         {schema.source_mappings.map((mapping, idx) => (
                           <div
                             key={idx}
-                            className="bg-gray-800/50 border border-gray-600 rounded-lg p-4"
+                            className="bg-gray-800/50 border border-gray-600 rounded-lg overflow-hidden"
                           >
-                            <div className="flex items-center gap-2 mb-2">
+                            {/* Mapping Header */}
+                            <div className="flex items-center gap-2 p-4 bg-gray-900/30">
                               <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-900/30 border border-green-500/30 text-green-400">
                                 {mapping.source_system}
                               </span>
@@ -371,17 +381,62 @@ export default function OntologyPage() {
                                 {mapping.field_count} {mapping.field_count === 1 ? 'field mapping' : 'field mappings'}
                               </span>
                             </div>
-                            {mapping.source_fields.length > 0 && (
-                              <div className="mt-2 flex flex-wrap gap-1">
-                                {mapping.source_fields.map((field, fieldIdx) => (
-                                  <code
-                                    key={fieldIdx}
-                                    className="px-2 py-1 bg-gray-900 border border-gray-700 rounded text-xs text-gray-400"
+
+                            {/* Detailed Field Mappings */}
+                            {mapping.field_mappings && mapping.field_mappings.length > 0 ? (
+                              <div className="p-4 space-y-2">
+                                {mapping.field_mappings.map((fm, fmIdx) => (
+                                  <div
+                                    key={fmIdx}
+                                    className="flex items-center gap-3 p-3 bg-gray-900/50 border border-gray-700 rounded-lg hover:bg-gray-700/30 transition-colors"
                                   >
-                                    {field}
-                                  </code>
+                                    {/* Source Field */}
+                                    <code className="px-3 py-1.5 bg-gray-800 border border-gray-600 rounded text-sm text-gray-300 font-mono">
+                                      {fm.source_field}
+                                    </code>
+                                    
+                                    {/* Arrow */}
+                                    <span className="text-gray-500 font-bold">→</span>
+                                    
+                                    {/* Ontology Field */}
+                                    <code className="px-3 py-1.5 bg-blue-900/30 border border-blue-500/30 rounded text-sm text-blue-400 font-mono">
+                                      {fm.ontology_field}
+                                    </code>
+                                    
+                                    {/* Confidence Badge */}
+                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                                      fm.confidence >= 0.9 
+                                        ? 'bg-green-900/30 border border-green-500/30 text-green-400' 
+                                        : fm.confidence >= 0.7 
+                                        ? 'bg-yellow-900/30 border border-yellow-500/30 text-yellow-400'
+                                        : 'bg-orange-900/30 border border-orange-500/30 text-orange-400'
+                                    }`}>
+                                      {(fm.confidence * 100).toFixed(0)}% confident
+                                    </span>
+                                    
+                                    {/* Transform Badge */}
+                                    {fm.transform && fm.transform !== 'direct' && (
+                                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-purple-900/30 border border-purple-500/30 text-purple-400">
+                                        {fm.transform}
+                                      </span>
+                                    )}
+                                  </div>
                                 ))}
                               </div>
+                            ) : (
+                              /* Fallback to old display if detailed mappings not available */
+                              mapping.source_fields.length > 0 && (
+                                <div className="p-4 flex flex-wrap gap-1">
+                                  {mapping.source_fields.map((field, fieldIdx) => (
+                                    <code
+                                      key={fieldIdx}
+                                      className="px-2 py-1 bg-gray-900 border border-gray-700 rounded text-xs text-gray-400"
+                                    >
+                                      {field}
+                                    </code>
+                                  ))}
+                                </div>
+                              )
                             )}
                           </div>
                         ))}

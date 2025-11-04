@@ -34,6 +34,7 @@ async def tenant_auth_middleware(request: Request, call_next: Callable):
         "/dcl/state",                # DCL state endpoint (for frontend graph)
         "/dcl/connect",              # DCL connect endpoint (for frontend graph)
         "/dcl/ws",                   # DCL WebSocket (for real-time updates)
+        "/dcl/toggle_dev_mode",      # DCL dev mode toggle (for frontend demo controls)
         "/dcl/ontology_schema",      # DCL ontology schema (for Ontology tab)
         "/api/v1/aam/",              # All AAM endpoints (for Monitor dashboard)
         "/api/v1/debug/",            # Debug endpoints (dev-only, feature-flagged)

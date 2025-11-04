@@ -13,6 +13,7 @@ interface RAGContext {
   retrievals: RAGRetrieval[];
   total_mappings: number;
   last_retrieval_count: number;
+  mappings_retrieved?: number;
 }
 
 interface GraphNode {
@@ -41,6 +42,7 @@ interface Graph {
 interface LLMStats {
   calls: number;
   tokens: number;
+  calls_saved?: number;
 }
 
 interface PreviewData {
@@ -58,6 +60,7 @@ export interface DCLState {
   selected_sources: string[];
   selected_agents: string[];
   dev_mode: boolean;
+  blended_confidence?: number | null;
 }
 
 interface UseDCLStateReturn {
@@ -97,6 +100,25 @@ export function useDCLState(): UseDCLStateReturn {
 
   const processWebSocketMessage = useCallback((message: any) => {
     try {
+      // Handle RAG coverage check events (intelligent LLM decision prompts)
+      if (message.type === 'rag_coverage_check') {
+        console.log('[DCL] 🎯 RAG Coverage Check:', {
+          source: message.source,
+          coverage: `${message.coverage_pct}%`,
+          matched: `${message.matched_count}/${message.total_count} fields`,
+          recommendation: message.recommendation,
+          savings: `$${message.estimated_cost_savings}`,
+          missing_fields: message.missing_fields,
+        });
+        
+        // Show coverage info in console (UI modal to be added in future iteration)
+        console.log(`💡 ${message.message}`);
+        console.log(`   Recommendation: ${message.recommendation === 'skip' ? 'Skip LLM (use RAG + heuristics)' : 'Proceed with LLM'}`);
+        console.log(`   Cost savings if skipped: ~$${message.estimated_cost_savings}`);
+        
+        return; // Don't update state for this event type
+      }
+      
       // Only process state update messages (with data field)
       // Ignore progress messages (mapping_progress, etc.)
       if (!message.data) {
@@ -109,6 +131,7 @@ export function useDCLState(): UseDCLStateReturn {
         llm: {
           calls: message.data.llmCalls,
           tokens: message.data.llmTokens,
+          calls_saved: message.data.llmCallsSaved || 0,
         },
         preview: {
           sources: {},
@@ -119,6 +142,7 @@ export function useDCLState(): UseDCLStateReturn {
         selected_sources: message.data.sources || [],
         selected_agents: message.data.agents || [],
         dev_mode: message.data.devMode,
+        blended_confidence: message.data.blendedConfidence,
       };
 
       setState(newState);

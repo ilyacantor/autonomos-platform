@@ -45,9 +45,28 @@ async def init_db():
     """
     Initialize database tables
     """
-    from .models import Base
+    from .models import Base, ConnectionStatus, JobStatus
+    from sqlalchemy import text
     
     async with engine.begin() as conn:
         logger.info("Creating database tables...")
+        
+        # Create enum types if they don't exist
+        await conn.execute(text("""
+            DO $$ BEGIN
+                CREATE TYPE connectionstatus AS ENUM ('PENDING', 'ACTIVE', 'FAILED', 'HEALING', 'INACTIVE');
+            EXCEPTION
+                WHEN duplicate_object THEN null;
+            END $$;
+        """))
+        
+        await conn.execute(text("""
+            DO $$ BEGIN
+                CREATE TYPE jobstatus AS ENUM ('pending', 'running', 'succeeded', 'failed', 'cancelled');
+            EXCEPTION
+                WHEN duplicate_object THEN null;
+            END $$;
+        """))
+        
         await conn.run_sync(Base.metadata.create_all)
         logger.info("Database tables created successfully")

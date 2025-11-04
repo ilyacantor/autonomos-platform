@@ -271,7 +271,13 @@ if __name__ == "__main__":
     # Use REDIS_URL if available (production), otherwise use host/port (development)
     REDIS_URL = os.getenv("REDIS_URL")
     if REDIS_URL:
-        print(f"✅ Worker using external Redis from REDIS_URL")
+        # Fix for Upstash Redis: Change redis:// to rediss:// to enable TLS/SSL
+        if REDIS_URL.startswith("redis://"):
+            REDIS_URL = "rediss://" + REDIS_URL[8:]
+            print(f"✅ Worker using external Redis with TLS/SSL (rediss:// protocol)")
+        else:
+            print(f"✅ Worker using external Redis from REDIS_URL")
+        
         redis_conn = Redis.from_url(REDIS_URL, decode_responses=False)
     else:
         print(f"✅ Worker using local Redis at {settings.REDIS_HOST}:{settings.REDIS_PORT}")

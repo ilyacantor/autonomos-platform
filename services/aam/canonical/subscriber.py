@@ -242,6 +242,46 @@ def get_canonical_opportunities(tenant_id: str, limit: int = 100) -> List[Dict[s
         db.close()
 
 
+def get_materialized_opportunities(tenant_id: str, limit: int = 100, offset: int = 0) -> List[Dict[str, Any]]:
+    """Get opportunities from materialized_opportunities table"""
+    db = next(get_db())
+    try:
+        result = db.execute(
+            select(MaterializedOpportunity)
+            .where(MaterializedOpportunity.tenant_id == tenant_id)
+            .order_by(MaterializedOpportunity.synced_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        opportunities = result.scalars().all()
+        
+        return [
+            {
+                'opportunity_id': opp.opportunity_id,
+                'account_id': opp.account_id,
+                'name': opp.name,
+                'stage': opp.stage,
+                'amount': float(opp.amount) if opp.amount else None,
+                'currency': opp.currency,
+                'close_date': opp.close_date.isoformat() if opp.close_date else None,
+                'owner_id': opp.owner_id,
+                'probability': float(opp.probability) if opp.probability is not None else None,
+                'extras': opp.extras,
+                'source_system': opp.source_system,
+                'source_connection_id': opp.source_connection_id,
+                'created_at': opp.created_at.isoformat() if opp.created_at else None,
+                'updated_at': opp.updated_at.isoformat() if opp.updated_at else None,
+                'synced_at': opp.synced_at.isoformat() if opp.synced_at else None,
+            }
+            for opp in opportunities
+        ]
+    except Exception as e:
+        logger.error(f"Error fetching materialized opportunities: {e}", exc_info=True)
+        return []
+    finally:
+        db.close()
+
+
 def get_canonical_accounts(tenant_id: str, limit: int = 100) -> List[Dict[str, Any]]:
     """Get accounts from canonical_streams table"""
     db = next(get_db())
@@ -265,6 +305,44 @@ def get_canonical_accounts(tenant_id: str, limit: int = 100) -> List[Dict[str, A
         return accounts
     except Exception as e:
         logger.error(f"Error fetching canonical accounts: {e}")
+        return []
+    finally:
+        db.close()
+
+
+def get_materialized_accounts(tenant_id: str, limit: int = 100, offset: int = 0) -> List[Dict[str, Any]]:
+    """Get accounts from materialized_accounts table"""
+    db = next(get_db())
+    try:
+        result = db.execute(
+            select(MaterializedAccount)
+            .where(MaterializedAccount.tenant_id == tenant_id)
+            .order_by(MaterializedAccount.synced_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        accounts = result.scalars().all()
+        
+        return [
+            {
+                'account_id': acc.account_id,
+                'name': acc.name,
+                'type': acc.type,
+                'industry': acc.industry,
+                'owner_id': acc.owner_id,
+                'status': acc.status,
+                'external_ids': acc.external_ids,
+                'extras': acc.extras,
+                'source_system': acc.source_system,
+                'source_connection_id': acc.source_connection_id,
+                'created_at': acc.created_at.isoformat() if acc.created_at else None,
+                'updated_at': acc.updated_at.isoformat() if acc.updated_at else None,
+                'synced_at': acc.synced_at.isoformat() if acc.synced_at else None,
+            }
+            for acc in accounts
+        ]
+    except Exception as e:
+        logger.error(f"Error fetching materialized accounts: {e}", exc_info=True)
         return []
     finally:
         db.close()

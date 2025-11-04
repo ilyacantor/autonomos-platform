@@ -642,6 +642,162 @@ async def get_repair_metrics(request: Request, db: Session = Depends(lambda: nex
         return {"avg_confidence": 0.0, "test_pass_rate": 0.0}
 
 
+@router.get("/connector_details")
+async def get_connector_details(request: Request, db: Session = Depends(lambda: next(__import__('app.database').database.get_db()))):
+    """
+    Get detailed field-level mappings, drift events, and repair history for each connector
+    Returns comprehensive connector intelligence similar to Ontology view
+    """
+    from app.models import MappingRegistry, DriftEvent, SchemaChange
+    
+    try:
+        tenant_id = getattr(request.state, "tenant_id", None)
+        if not tenant_id:
+            # No tenant context - return mock data
+            return {
+                "connectors": [
+                    {
+                        "vendor": "salesforce",
+                        "status": "ACTIVE",
+                        "total_mappings": 47,
+                        "high_confidence_mappings": 44,
+                        "field_mappings": [
+                            {"source_field": "AccountId", "canonical_field": "account_id", "confidence": 0.98, "transform": "direct"},
+                            {"source_field": "OpportunityName", "canonical_field": "opportunity_name", "confidence": 0.95, "transform": "trim_lower"},
+                            {"source_field": "CloseDate", "canonical_field": "close_date", "confidence": 0.92, "transform": "parse_date"}
+                        ],
+                        "recent_drift_events": [],
+                        "repair_history": []
+                    },
+                    {
+                        "vendor": "supabase",
+                        "status": "ACTIVE",
+                        "total_mappings": 32,
+                        "high_confidence_mappings": 30,
+                        "field_mappings": [
+                            {"source_field": "account_id", "canonical_field": "account_id", "confidence": 1.0, "transform": "direct"},
+                            {"source_field": "company_name", "canonical_field": "account_name", "confidence": 0.88, "transform": "trim"}
+                        ],
+                        "recent_drift_events": [
+                            {"event_type": "field_renamed", "field": "account_owner", "new_name": "owner_id", "detected_at": "2025-11-03T10:30:00Z", "status": "auto_repaired"}
+                        ],
+                        "repair_history": [
+                            {"action": "field_rename_mapping", "confidence": 0.94, "applied_at": "2025-11-03T10:31:00Z"}
+                        ]
+                    }
+                ],
+                "data_source": "mock"
+            }
+        
+        # Query MappingRegistry grouped by vendor
+        mappings = db.query(MappingRegistry).filter(MappingRegistry.tenant_id == tenant_id).all()
+        
+        # Group mappings by vendor
+        vendor_mappings = {}
+        for mapping in mappings:
+            vendor = mapping.vendor or "unknown"
+            if vendor not in vendor_mappings:
+                vendor_mappings[vendor] = []
+            vendor_mappings[vendor].append({
+                "source_field": mapping.vendor_field,
+                "canonical_field": mapping.canonical_field,
+                "confidence": round(mapping.confidence, 2) if mapping.confidence else 0.0,
+                "transform": mapping.coercion or "direct",
+                "version": mapping.version
+            })
+        
+        # Query recent drift events (last 7 days)
+        seven_days_ago = datetime.utcnow() - timedelta(days=7)
+        drift_events = db.query(DriftEvent).filter(
+            DriftEvent.tenant_id == tenant_id,
+            DriftEvent.created_at >= seven_days_ago
+        ).order_by(DriftEvent.created_at.desc()).all()
+        
+        # Group drift events by vendor
+        vendor_drift = {}
+        for event in drift_events:
+            vendor = "unknown"
+            if event.old_schema and isinstance(event.old_schema, dict):
+                vendor = event.old_schema.get("source_type", "unknown")
+            
+            if vendor not in vendor_drift:
+                vendor_drift[vendor] = []
+            
+            vendor_drift[vendor].append({
+                "event_type": event.event_type or "unknown",
+                "detected_at": event.created_at.isoformat() if event.created_at else None,
+                "status": event.status or "unknown",
+                "confidence": round(event.confidence, 2) if event.confidence else 0.0,
+                "old_schema": event.old_schema,
+                "new_schema": event.new_schema
+            })
+        
+        # Query schema changes (repair history)
+        schema_changes = db.query(SchemaChange).filter(
+            SchemaChange.tenant_id == tenant_id
+        ).order_by(SchemaChange.applied_at.desc()).limit(50).all()
+        
+        # Group repairs by vendor
+        vendor_repairs = {}
+        for change in schema_changes:
+            vendor = "unknown"
+            if change.details and isinstance(change.details, dict):
+                vendor = change.details.get("vendor", "unknown")
+            
+            if vendor not in vendor_repairs:
+                vendor_repairs[vendor] = []
+            
+            vendor_repairs[vendor].append({
+                "change_type": change.change_type,
+                "applied_at": change.applied_at.isoformat() if change.applied_at else None,
+                "details": change.details
+            })
+        
+        # Build connector list
+        connectors = []
+        all_vendors = set(list(vendor_mappings.keys()) + list(vendor_drift.keys()) + list(vendor_repairs.keys()))
+        
+        for vendor in all_vendors:
+            vendor_mapping_list = vendor_mappings.get(vendor, [])
+            high_confidence_count = sum(1 for m in vendor_mapping_list if m["confidence"] >= 0.9)
+            
+            connectors.append({
+                "vendor": vendor,
+                "status": "ACTIVE",
+                "total_mappings": len(vendor_mapping_list),
+                "high_confidence_mappings": high_confidence_count,
+                "field_mappings": vendor_mapping_list[:20],  # Limit to 20 for display
+                "recent_drift_events": vendor_drift.get(vendor, [])[:10],
+                "repair_history": vendor_repairs.get(vendor, [])[:10]
+            })
+        
+        return {
+            "connectors": connectors,
+            "data_source": "database"
+        }
+    
+    except Exception as e:
+        logger.error(f"Error in connector_details endpoint: {e}")
+        # Return mock data on error
+        return {
+            "connectors": [
+                {
+                    "vendor": "salesforce",
+                    "status": "ACTIVE",
+                    "total_mappings": 47,
+                    "high_confidence_mappings": 44,
+                    "field_mappings": [
+                        {"source_field": "AccountId", "canonical_field": "account_id", "confidence": 0.98, "transform": "direct"},
+                        {"source_field": "OpportunityName", "canonical_field": "opportunity_name", "confidence": 0.95, "transform": "trim_lower"}
+                    ],
+                    "recent_drift_events": [],
+                    "repair_history": []
+                }
+            ],
+            "data_source": "mock_fallback"
+        }
+
+
 @router.get("/health")
 async def health_check():
     """Health check for AAM monitoring API"""

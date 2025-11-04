@@ -28,19 +28,48 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
   const [elapsedTime, setElapsedTime] = useState(0);
   const [progress, setProgress] = useState(0);
   const [timerStarted, setTimerStarted] = useState(false);
+  
+  // Persist LLM call count across state polls (like timer)
+  const [persistedLlmCalls, setPersistedLlmCalls] = useState(0);
+  const [startingLlmCalls, setStartingLlmCalls] = useState(0);
+
+  // Auth helper - follows same pattern as aoaApi.ts
+  const getAuthHeader = (): Record<string, string> => {
+    const token = localStorage.getItem(AUTH_TOKEN_KEY);
+    return token ? { 'Authorization': `Bearer ${token}` } : {};
+  };
+
+  // Handle 401 unauthorized responses
+  const handleUnauthorized = () => {
+    console.log('[DCL] 401 Unauthorized - clearing auth state');
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+    localStorage.removeItem('auth_token_expiry');
+    window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+  };
 
   // Get persisted selections from localStorage, fallback to all sources/agents
   // Ensures we never send empty query params to backend
   const getPersistedSources = () => {
     const defaultSources = getDefaultSources();
+    console.log('[DCL] Current sources from localStorage:', defaultSources);
     // getDefaultSources always returns non-empty array (fallback to all sources)
     return defaultSources.join(',');
   };
   
   const getPersistedAgents = () => {
     const defaultAgents = getDefaultAgents();
+    console.log('[DCL] Current agents from localStorage:', defaultAgents);
     // getDefaultAgents always returns non-empty array (fallback to all agents)
     return defaultAgents.join(',');
+  };
+  
+  // Select all sources/agents (selection only, doesn't run)
+  const selectAllSources = () => {
+    const allSources = ['dynamics', 'salesforce', 'hubspot', 'sap', 'netsuite', 'legacy_sql', 'snowflake', 'supabase', 'mongodb'];
+    const allAgents = ['revops_pilot', 'finops_pilot'];
+    localStorage.setItem('aos.selectedSources', JSON.stringify(allSources));
+    localStorage.setItem('aos.selectedAgents', JSON.stringify(allAgents));
+    console.log('[DCL] ✅ Selected ALL sources and agents:', allSources, allAgents);
   };
 
   // Sync dev mode from backend state
@@ -105,11 +134,30 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
         try {
           const sources = getPersistedSources();
           const agents = getPersistedAgents();
-          await fetch(API_CONFIG.buildDclUrl(`/connect?sources=${sources}&agents=${agents}&llm_model=${selectedModel}`));
+          const response = await fetch(API_CONFIG.buildDclUrl(`/connect?sources=${sources}&agents=${agents}&llm_model=${selectedModel}`), {
+            headers: {
+              ...getAuthHeader(),
+            },
+          });
+
+          // Handle 401 unauthorized
+          if (response.status === 401) {
+            handleUnauthorized();
+            console.error('[DCL] Session expired during auto-run. Please login again.');
+            setIsProcessing(false);
+            return;
+          }
+
+          if (!response.ok) {
+            const error = await response.json().catch(() => ({ detail: 'Auto-run failed' }));
+            throw new Error(error.detail || `HTTP error! status: ${response.status}`);
+          }
+
+          console.log('[DCL] Auto-run successful');
           // Notify graph to update (event-driven)
           window.dispatchEvent(new Event('dcl-state-changed'));
         } catch (error) {
-          console.error('Error auto-running graph:', error);
+          console.error('[DCL] Error auto-running graph:', error);
         } finally {
           setTimeout(() => setIsProcessing(false), 1500);
         }
@@ -132,6 +180,35 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
       if (interval) clearInterval(interval);
     };
   }, [timerStarted, isProcessing]);
+
+  // Poll DCL state during processing to capture LLM call count
+  useEffect(() => {
+    let pollInterval: NodeJS.Timeout;
+    
+    if (isProcessing && showProgress) {
+      // Poll every 2 seconds to get updated LLM call count
+      pollInterval = setInterval(async () => {
+        try {
+          const response = await fetch(API_CONFIG.buildDclUrl('/state'), {
+            headers: { ...getAuthHeader() }
+          });
+          if (response.ok) {
+            const state = await response.json();
+            const currentLlmCalls = state.llm?.calls || 0;
+            // Calculate delta: show only THIS run's LLM calls, not accumulated total
+            const deltaLlmCalls = Math.max(0, currentLlmCalls - startingLlmCalls);
+            setPersistedLlmCalls(deltaLlmCalls);
+          }
+        } catch (error) {
+          console.error('[DCL] Error polling state for LLM count:', error);
+        }
+      }, 2000);
+    }
+    
+    return () => {
+      if (pollInterval) clearInterval(pollInterval);
+    };
+  }, [isProcessing, showProgress, startingLlmCalls]);
 
   // Progress simulation effect - incremental progress during processing
   useEffect(() => {
@@ -168,22 +245,58 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
   // Run - calls /connect with persisted sources, agents, and selected LLM model
   // Shows progress bar for manual user-triggered runs
   const handleRun = async () => {
-    // Reset timer and progress on NEW run
+    // Reset timer, progress, and LLM count on NEW run
     setElapsedTime(0);
     setProgress(0);
+    setPersistedLlmCalls(0); // Reset displayed LLM count for new run
     setTimerStarted(true);
     setIsProcessing(true);
     setShowProgress(true); // Enable progress bar for manual runs
     
+    // Fetch current LLM count from backend as baseline (not from stale dclState)
+    try {
+      const stateResponse = await fetch(API_CONFIG.buildDclUrl('/state'), {
+        headers: { ...getAuthHeader() }
+      });
+      if (stateResponse.ok) {
+        const state = await stateResponse.json();
+        const currentCount = state.llm?.calls || 0;
+        setStartingLlmCalls(currentCount);
+        console.log('[DCL] Starting LLM baseline:', currentCount);
+      }
+    } catch (error) {
+      console.error('[DCL] Failed to fetch starting LLM count:', error);
+      setStartingLlmCalls(0);
+    }
+    
     try {
       const sources = getPersistedSources();
       const agents = getPersistedAgents();
-      const response = await fetch(API_CONFIG.buildDclUrl(`/connect?sources=${sources}&agents=${agents}&llm_model=${selectedModel}`));
+      const response = await fetch(API_CONFIG.buildDclUrl(`/connect?sources=${sources}&agents=${agents}&llm_model=${selectedModel}`), {
+        headers: {
+          ...getAuthHeader(),
+        },
+      });
+
+      // Handle 401 unauthorized
+      if (response.status === 401) {
+        handleUnauthorized();
+        console.error('[DCL] Session expired. Please login again.');
+        setIsProcessing(false);
+        return;
+      }
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Request failed' }));
+        throw new Error(error.detail || `HTTP error! status: ${response.status}`);
+      }
+
       await response.json();
+      console.log('[DCL] Connection successful');
       // Notify graph to update (event-driven)
       window.dispatchEvent(new Event('dcl-state-changed'));
     } catch (error) {
-      console.error('Error running:', error);
+      console.error('[DCL] Error running:', error);
     } finally {
       setTimeout(() => {
         setIsProcessing(false);
@@ -192,17 +305,35 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
     }
   };
 
-  // Toggle dev mode handler
+  // Toggle dev mode handler with JWT authentication
   const handleToggleDevMode = async () => {
     try {
       const newMode = !devMode;
-      const response = await fetch(API_CONFIG.buildDclUrl(`/toggle_dev_mode?enabled=${newMode}`));
+      const response = await fetch(API_CONFIG.buildDclUrl(`/toggle_dev_mode?enabled=${newMode}`), {
+        headers: {
+          ...getAuthHeader(),
+        },
+      });
+
+      // Handle 401 unauthorized
+      if (response.status === 401) {
+        handleUnauthorized();
+        console.error('[DCL] Session expired. Please login again.');
+        return;
+      }
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Request failed' }));
+        throw new Error(error.detail || `HTTP error! status: ${response.status}`);
+      }
+
       const data = await response.json();
       setDevMode(data.dev_mode);
+      console.log(`[DCL] Dev mode toggled: ${data.dev_mode ? 'ON' : 'OFF'}`);
       // Notify graph to update
       window.dispatchEvent(new Event('dcl-state-changed'));
     } catch (error) {
-      console.error('Error toggling dev mode:', error);
+      console.error('[DCL] Error toggling dev mode:', error);
     }
   };
 
@@ -284,19 +415,13 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
                         if (e.target.value === 'select') {
                           window.dispatchEvent(new CustomEvent('navigate', { detail: { page: 'connections' } }));
                         } else if (e.target.value === 'all') {
-                          // Select all sources AND all agents before running
-                          const allSources = ['dynamics', 'salesforce', 'hubspot', 'sap', 'netsuite', 'legacy_sql', 'snowflake', 'supabase', 'mongodb'];
-                          const allAgents = ['revops_pilot', 'finops_pilot'];
-                          localStorage.setItem('aos.selectedSources', JSON.stringify(allSources));
-                          localStorage.setItem('aos.selectedAgents', JSON.stringify(allAgents));
-                          console.log('[DCL] All Sources selected - using all sources and all agents');
-                          handleRun();
+                          selectAllSources();
                         }
                         e.target.value = 'all';
                       }}
                       disabled={isProcessing}
                       className="touch-target-h mobile-tap-highlight px-3 py-2 sm:px-2 sm:py-1 bg-gray-800 border border-gray-700 rounded text-xs sm:text-[10px] text-white focus:outline-none focus:border-blue-500 hover:border-gray-600 transition-colors disabled:opacity-50 cursor-pointer"
-                      title="Select all data sources and agents"
+                      title="Select data sources"
                     >
                       <option value="all">All Sources</option>
                       <option value="select">Select Sources...</option>
@@ -343,11 +468,31 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
                 <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-[10px] sm:text-[10px] text-blue-300">
                   <div className="flex items-center gap-1">
                     <div className={`w-1.5 h-1.5 rounded-full ${devMode ? 'bg-purple-400 animate-pulse' : 'bg-gray-500'}`} />
-                    <span>LLM Calls: {dclState?.llm?.calls || 0}</span>
+                    <span>LLM Calls: {persistedLlmCalls}</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <Activity className="w-3 h-3 text-blue-400" />
-                    <span className="whitespace-nowrap">9 sources → 2 agents</span>
+                    <span className="whitespace-nowrap">
+                      {getDefaultSources().length} sources → {getDefaultAgents().length} agent{getDefaultAgents().length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1" title="RAG mappings retrieved from inventory">
+                    <svg className="w-3 h-3 text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span>RAG: {dclState?.rag?.mappings_retrieved || 0}</span>
+                  </div>
+                  <div className="flex items-center gap-1" title="LLM calls saved via RAG inventory">
+                    <svg className="w-3 h-3 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>Saved: {dclState?.llm?.calls_saved || 0}</span>
+                  </div>
+                  <div className="flex items-center gap-1" title="Blended confidence from graph and RAG">
+                    <svg className="w-3 h-3 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    <span>Confidence: {dclState?.blended_confidence ? Math.round(dclState.blended_confidence * 100) : '--'}%</span>
                   </div>
                   {(timerStarted || elapsedTime > 0) && (
                     <div className="flex items-center gap-1 bg-blue-900/30 px-2 py-0.5 rounded">

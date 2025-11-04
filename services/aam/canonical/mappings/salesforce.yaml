@@ -16,7 +16,6 @@ opportunity:
     name: name
     stage: stage
     amount: amount
-    currency: currency
     close_date: close_date
     owner_id: owner_id
     probability: probability

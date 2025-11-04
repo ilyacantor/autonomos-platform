@@ -21,7 +21,7 @@ from app.security import (
     get_current_user,
     ACCESS_TOKEN_EXPIRE_MINUTES
 )
-from app.api.v1 import auth, aoa, aam_monitoring, aam_mesh, platform_stubs, filesource, dcl_views, debug, mesh_test, events
+from app.api.v1 import auth, aoa, aam_monitoring, aam_mesh, platform_stubs, filesource, dcl_views, debug, mesh_test, events, dcl_unify
 
 # Initialize database tables - with error handling for resilience
 try:
@@ -31,14 +31,6 @@ except Exception as e:
     print(f"⚠️ Database initialization failed: {e}. Continuing without database...")
 
 app = FastAPI(title="AutonomOS", description="AI Orchestration Platform - Multi-Tenant Edition", version="2.0.0")
-
-# Import and mount the DCL engine
-try:
-    from app.dcl_engine import dcl_app
-    app.mount("/dcl", dcl_app)
-    print("✅ DCL Engine mounted successfully at /dcl")
-except Exception as e:
-    print(f"⚠️ Failed to mount DCL Engine: {e}")
 
 # Configure CORS to allow both dev and production origins
 allowed_origins = [
@@ -87,6 +79,12 @@ task_queue = None
 try:
     REDIS_URL = os.getenv("REDIS_URL")
     if REDIS_URL:
+        # Fix for Upstash Redis: Change redis:// to rediss:// to enable TLS/SSL
+        # Upstash requires TLS connections, and rediss:// protocol enables this
+        if REDIS_URL.startswith("redis://"):
+            REDIS_URL = "rediss://" + REDIS_URL[8:]
+            print("🔒 Using TLS/SSL for Redis connection (rediss:// protocol)")
+        
         redis_conn = Redis.from_url(REDIS_URL, decode_responses=False)
     else:
         redis_conn = Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB)
@@ -98,6 +96,22 @@ except Exception as e:
     redis_conn = None
     task_queue = None
 
+# Import and mount the DCL engine AFTER Redis initialization
+# This allows us to share the Redis client with DCL engine to avoid connection limit issues
+try:
+    from app.dcl_engine import dcl_app, set_redis_client
+    
+    # Share Redis client with DCL engine (avoids hitting Upstash 20 connection limit)
+    if redis_conn:
+        set_redis_client(redis_conn)
+    
+    app.mount("/dcl", dcl_app)
+    print("✅ DCL Engine mounted successfully at /dcl")
+except Exception as e:
+    print(f"⚠️ Failed to mount DCL Engine: {e}")
+    import traceback
+    traceback.print_exc()
+
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(aoa.router, prefix="/api/v1/aoa", tags=["AOA Orchestration"])
 app.include_router(aam_monitoring.router, prefix="/api/v1/aam", tags=["AAM Monitoring"])
@@ -105,6 +119,7 @@ app.include_router(aam_mesh.router, prefix="/api/v1/mesh", tags=["AAM Mesh"])
 app.include_router(mesh_test.router, prefix="/api/v1", tags=["Mesh Test (Dev-Only)"])
 app.include_router(filesource.router, prefix="/api/v1/filesource", tags=["FileSource Connector"])
 app.include_router(dcl_views.router, prefix="/api/v1/dcl/views", tags=["DCL Views"])
+app.include_router(dcl_unify.router, prefix="/api/v1/dcl", tags=["DCL Unification"])
 app.include_router(debug.router, prefix="/api/v1", tags=["Debug (Dev-Only)"])
 app.include_router(events.router, prefix="/api/v1/events", tags=["Event Stream"])
 app.include_router(platform_stubs.router, prefix="/api/v1", tags=["Platform Stubs"])
