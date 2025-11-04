@@ -97,6 +97,25 @@ export function useDCLState(): UseDCLStateReturn {
 
   const processWebSocketMessage = useCallback((message: any) => {
     try {
+      // Handle RAG coverage check events (intelligent LLM decision prompts)
+      if (message.type === 'rag_coverage_check') {
+        console.log('[DCL] 🎯 RAG Coverage Check:', {
+          source: message.source,
+          coverage: `${message.coverage_pct}%`,
+          matched: `${message.matched_count}/${message.total_count} fields`,
+          recommendation: message.recommendation,
+          savings: `$${message.estimated_cost_savings}`,
+          missing_fields: message.missing_fields,
+        });
+        
+        // Show coverage info in console (UI modal to be added in future iteration)
+        console.log(`💡 ${message.message}`);
+        console.log(`   Recommendation: ${message.recommendation === 'skip' ? 'Skip LLM (use RAG + heuristics)' : 'Proceed with LLM'}`);
+        console.log(`   Cost savings if skipped: ~$${message.estimated_cost_savings}`);
+        
+        return; // Don't update state for this event type
+      }
+      
       // Only process state update messages (with data field)
       // Ignore progress messages (mapping_progress, etc.)
       if (!message.data) {
