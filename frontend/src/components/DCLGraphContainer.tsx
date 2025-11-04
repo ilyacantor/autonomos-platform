@@ -466,6 +466,16 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-[10px] sm:text-[10px] text-blue-300">
+                  <div className="flex items-center gap-1">
+                    <div className={`w-1.5 h-1.5 rounded-full ${devMode ? 'bg-purple-400 animate-pulse' : 'bg-gray-500'}`} />
+                    <span>LLM Calls: {persistedLlmCalls}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Activity className="w-3 h-3 text-blue-400" />
+                    <span className="whitespace-nowrap">
+                      {getDefaultSources().length} sources → {getDefaultAgents().length} agent{getDefaultAgents().length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
                   <div className="flex items-center gap-1" title="RAG mappings retrieved from inventory">
                     <svg className="w-3 h-3 text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
