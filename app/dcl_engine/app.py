@@ -1958,18 +1958,30 @@ def ontology_schema():
                         source_table = source_node.get("label", "").replace(f"{source_system}_", "")
                         field_mappings = edge.get("field_mappings", [])
                         
-                        # Extract source fields from field_mappings
+                        # Extract source fields from field_mappings (for backward compatibility)
                         source_fields = []
                         for fm in field_mappings:
                             source_field = fm.get("source") or fm.get("source_field", "")
                             if source_field:
                                 source_fields.append(source_field)
                         
+                        # Include detailed field mappings with confidence, transformations, etc.
+                        detailed_mappings = []
+                        for fm in field_mappings:
+                            detailed_mappings.append({
+                                "source_field": fm.get("source") or fm.get("source_field", ""),
+                                "ontology_field": fm.get("onto_field", ""),
+                                "confidence": fm.get("confidence", 0.0),
+                                "transform": fm.get("transform", "direct"),
+                                "sql_expression": fm.get("sql", "")
+                            })
+                        
                         source_mappings.append({
                             "source_system": source_system,
                             "source_table": source_table,
-                            "source_fields": source_fields,
-                            "field_count": len(field_mappings)
+                            "source_fields": source_fields,  # List of source field names (backward compat)
+                            "field_count": len(field_mappings),
+                            "field_mappings": detailed_mappings  # NEW: Detailed field-level mappings
                         })
         
         schema[entity_name] = {
