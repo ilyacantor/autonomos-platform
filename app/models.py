@@ -244,3 +244,33 @@ class MaterializedContact(Base):
         Index('idx_mat_contact_account', 'account_id'),
         Index('idx_mat_contact_source', 'source_system', 'source_connection_id'),
     )
+
+
+class DCLUnifiedContact(Base):
+    """DCL unified contact table - one record per unique email"""
+    __tablename__ = "dcl_unified_contact"
+    
+    unified_contact_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    email = Column(String, nullable=False, unique=True, index=True)
+    first_name = Column(String)
+    last_name = Column(String)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    
+    links = relationship("DCLUnifiedContactLink", back_populates="unified_contact")
+
+
+class DCLUnifiedContactLink(Base):
+    """DCL unified contact link - maps source contacts to unified contact"""
+    __tablename__ = "dcl_unified_contact_link"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    unified_contact_id = Column(UUID(as_uuid=True), ForeignKey("dcl_unified_contact.unified_contact_id"), nullable=False, index=True)
+    source_system = Column(String, nullable=False)
+    source_contact_id = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    
+    unified_contact = relationship("DCLUnifiedContact", back_populates="links")
+    
+    __table_args__ = (
+        Index('idx_dcl_link_source', 'source_system', 'source_contact_id', unique=True),
+    )

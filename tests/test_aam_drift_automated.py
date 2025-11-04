@@ -173,6 +173,7 @@ def test_aam_schema_drift_automated():
         print("\n" + "="*80)
         if all_passed:
             print("✅ ALL ASSERTIONS PASSED - AAM DRIFT DETECTION WORKING")
+            print("[POW] AAM_DRIFT_PASS")
         else:
             print("❌ SOME ASSERTIONS FAILED - REVIEW RESULTS ABOVE")
         print("="*80 + "\n")
