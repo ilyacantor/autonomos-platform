@@ -58,22 +58,25 @@ redis_available = False
 DB_LOCK_KEY = "dcl:duckdb:lock"
 DB_LOCK_TIMEOUT = 30  # seconds
 DEV_MODE_KEY = "dcl:dev_mode"  # Redis key for cross-process dev mode state
+LLM_CALLS_KEY = "dcl:llm:calls"  # Redis key for LLM call counter
+LLM_TOKENS_KEY = "dcl:llm:tokens"  # Redis key for LLM token counter
 DCL_STATE_CHANNEL = "dcl:state:updates"  # Redis pub/sub channel for state broadcasts
 in_memory_dev_mode = False  # Fallback when Redis unavailable
 
-# Try to connect to Redis with connection pool and timeout
+# Try to connect to Redis with connection pool (use longer timeouts for Upstash Redis)
+# Note: Don't ping() on startup to avoid connection limit issues with Upstash free tier
 try:
     redis_client = redis.from_url(
         REDIS_URL, 
         decode_responses=True,
-        socket_connect_timeout=2,
-        socket_timeout=2,
-        retry_on_timeout=False
+        socket_connect_timeout=10,  # Increased for Upstash
+        socket_timeout=10,  # Increased for Upstash
+        retry_on_timeout=True,
+        max_connections=2  # Limit connections to avoid Upstash limits
     )
-    # Test connection
-    redis_client.ping()
+    # Lazy connection - don't test with ping() to avoid connection limit issues
     redis_available = True
-    print(f"✅ Redis connected at {REDIS_URL}", flush=True)
+    print(f"✅ Redis configured (lazy connect) at {REDIS_URL}", flush=True)
 except Exception as e:
     print(f"⚠️ Redis unavailable ({e}), using in-memory state", flush=True)
     redis_client = None
@@ -191,6 +194,59 @@ def set_dev_mode(enabled: bool):
         # Fallback to in-memory
         in_memory_dev_mode = enabled
 
+def get_llm_stats() -> dict:
+    """Get LLM stats from Redis (cross-process safe, persists across restarts)"""
+    global LLM_CALLS, LLM_TOKENS
+    
+    if not redis_available or not redis_client:
+        return {"calls": LLM_CALLS, "tokens": LLM_TOKENS}
+    
+    try:
+        calls = redis_client.get(LLM_CALLS_KEY)
+        tokens = redis_client.get(LLM_TOKENS_KEY)
+        return {
+            "calls": int(calls) if calls else 0,
+            "tokens": int(tokens) if tokens else 0
+        }
+    except Exception as e:
+        log(f"⚠️ Error reading LLM stats from Redis: {e}")
+        return {"calls": LLM_CALLS, "tokens": LLM_TOKENS}
+
+def increment_llm_calls(tokens: int = 0):
+    """Increment LLM call counter in Redis (cross-process safe, persists across restarts)"""
+    global LLM_CALLS, LLM_TOKENS
+    
+    if not redis_available or not redis_client:
+        LLM_CALLS += 1
+        LLM_TOKENS += tokens
+        return
+    
+    try:
+        redis_client.incr(LLM_CALLS_KEY)
+        if tokens > 0:
+            redis_client.incrby(LLM_TOKENS_KEY, tokens)
+    except Exception as e:
+        log(f"⚠️ Error incrementing LLM stats in Redis: {e}")
+        LLM_CALLS += 1
+        LLM_TOKENS += tokens
+
+def reset_llm_stats():
+    """Reset LLM stats in Redis (cross-process safe)"""
+    global LLM_CALLS, LLM_TOKENS
+    
+    if not redis_available or not redis_client:
+        LLM_CALLS = 0
+        LLM_TOKENS = 0
+        return
+    
+    try:
+        redis_client.set(LLM_CALLS_KEY, "0")
+        redis_client.set(LLM_TOKENS_KEY, "0")
+    except Exception as e:
+        log(f"⚠️ Error resetting LLM stats in Redis: {e}")
+        LLM_CALLS = 0
+        LLM_TOKENS = 0
+
 def log(msg: str):
     print(msg, flush=True)
     if not EVENT_LOG or EVENT_LOG[-1] != msg:
@@ -275,18 +331,21 @@ class Scorecard:
 
 def safe_llm_call(prompt: str, source_key: str, tables: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Wrapper around Gemini calls that guarantees a result with proper logging."""
-    global LLM_CALLS, LLM_TOKENS, TIMING_LOG
+    global TIMING_LOG
     
     gemini_start = time.time()
     try:
         # Use gemini-2.5-flash for 10x faster inference
         resp = genai.GenerativeModel("gemini-2.5-flash").generate_content(prompt)
-        LLM_CALLS += 1
+        
+        # Increment LLM call counter in Redis (persists across restarts)
+        tokens_used = 0
         try:
             usage = resp.usage_metadata
-            LLM_TOKENS += usage.get("total_token_count", 0)
+            tokens_used = usage.get("total_token_count", 0)
         except Exception:
             pass
+        increment_llm_calls(tokens_used)
         
         try:
             text = resp.text.strip()
@@ -555,7 +614,7 @@ async def llm_propose(
 
 def validate_mapping_semantics_llm(source_key: str, table_name: str, entity: str, fields: List[Dict]) -> bool:
     """Use LLM + RAG to validate if a source table mapping to an entity makes semantic sense."""
-    global LLM_CALLS, LLM_TOKENS, rag_engine
+    global rag_engine
     
     if not os.getenv("GEMINI_API_KEY"):
         return True  # Default to allowing if no API key
@@ -603,16 +662,18 @@ Answer with ONLY a JSON object:
 {{"valid": true/false, "reason": "brief explanation", "confidence": 0.0-1.0}}"""
 
     try:
-        LLM_CALLS += 1
         model = genai.GenerativeModel("gemini-2.5-flash")
         response = model.generate_content(prompt)
         text = response.text.strip()
+        
+        # Increment LLM counter in Redis (persists across restarts)
+        tokens_estimate = len(prompt.split()) + len(text.split())
+        increment_llm_calls(tokens_estimate)
         
         # Extract JSON from response
         json_match = re.search(r'\{.*\}', text, re.DOTALL)
         if json_match:
             result = json.loads(json_match.group())
-            LLM_TOKENS += len(prompt.split()) + len(text.split())
             
             valid = result.get("valid", True)
             reason = result.get("reason", "")
@@ -1345,15 +1406,14 @@ def reset_state(exclude_dev_mode=True):
     Args:
         exclude_dev_mode: If True, dev_mode persists across resets
     """
-    global EVENT_LOG, GRAPH_STATE, SOURCES_ADDED, ENTITY_SOURCES, ontology, LLM_CALLS, LLM_TOKENS, SELECTED_AGENTS, SOURCE_SCHEMAS, RAG_CONTEXT
+    global EVENT_LOG, GRAPH_STATE, SOURCES_ADDED, ENTITY_SOURCES, ontology, SELECTED_AGENTS, SOURCE_SCHEMAS, RAG_CONTEXT
     EVENT_LOG = []
     GRAPH_STATE = {"nodes": [], "edges": [], "confidence": None, "last_updated": None}
     SOURCES_ADDED = []
     ENTITY_SOURCES = {}
     SELECTED_AGENTS = []
     SOURCE_SCHEMAS = {}
-    LLM_CALLS = 0
-    LLM_TOKENS = 0
+    reset_llm_stats()  # Reset LLM counters in Redis (persists across restarts)
     # Clear RAG retrievals so they update with fresh data on each connection
     RAG_CONTEXT["retrievals"] = []
     RAG_CONTEXT["last_retrieval_count"] = 0
@@ -1556,12 +1616,15 @@ def state():
         ]
     }
     
+    # Get LLM stats from Redis (persists across restarts)
+    llm_stats = get_llm_stats()
+    
     return JSONResponse({
         "events": EVENT_LOG,
         "timeline": EVENT_LOG[-5:],
         "graph": filtered_graph,  # Send filtered graph instead of raw GRAPH_STATE
         "preview": {"sources": {}, "ontology": {}},
-        "llm": {"calls": LLM_CALLS, "tokens": LLM_TOKENS},
+        "llm": {"calls": llm_stats["calls"], "tokens": llm_stats["tokens"]},
         "auto_ingest_unmapped": AUTO_INGEST_UNMAPPED,
         "rag": RAG_CONTEXT,
         "agent_consumption": agent_consumption,
