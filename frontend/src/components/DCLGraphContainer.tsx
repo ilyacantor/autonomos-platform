@@ -63,14 +63,13 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
     return defaultAgents.join(',');
   };
   
-  // Reset to all sources/agents
-  const resetToAllSources = () => {
+  // Select all sources/agents (selection only, doesn't run)
+  const selectAllSources = () => {
     const allSources = ['dynamics', 'salesforce', 'hubspot', 'sap', 'netsuite', 'legacy_sql', 'snowflake', 'supabase', 'mongodb'];
     const allAgents = ['revops_pilot', 'finops_pilot'];
     localStorage.setItem('aos.selectedSources', JSON.stringify(allSources));
     localStorage.setItem('aos.selectedAgents', JSON.stringify(allAgents));
-    console.log('[DCL] ✅ Reset to ALL sources and agents:', allSources, allAgents);
-    handleRun();
+    console.log('[DCL] ✅ Selected ALL sources and agents:', allSources, allAgents);
   };
 
   // Sync dev mode from backend state
@@ -398,15 +397,23 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
                       </div>
                     </button>
 
-                    {/* All Sources Button */}
-                    <button
-                      onClick={resetToAllSources}
+                    {/* Data Source Selector */}
+                    <select
+                      onChange={(e) => {
+                        if (e.target.value === 'select') {
+                          window.dispatchEvent(new CustomEvent('navigate', { detail: { page: 'connections' } }));
+                        } else if (e.target.value === 'all') {
+                          selectAllSources();
+                        }
+                        e.target.value = 'all';
+                      }}
                       disabled={isProcessing}
-                      className="touch-target-h mobile-tap-highlight px-3 py-2 sm:px-2 sm:py-1 bg-blue-600/20 border border-blue-500/40 text-blue-300 hover:bg-blue-600/30 rounded text-xs sm:text-[10px] transition-all disabled:opacity-50"
-                      title="Reset and run with ALL sources and agents"
+                      className="touch-target-h mobile-tap-highlight px-3 py-2 sm:px-2 sm:py-1 bg-gray-800 border border-gray-700 rounded text-xs sm:text-[10px] text-white focus:outline-none focus:border-blue-500 hover:border-gray-600 transition-colors disabled:opacity-50 cursor-pointer"
+                      title="Select data sources"
                     >
-                      <span className="whitespace-nowrap">✨ All Sources</span>
-                    </button>
+                      <option value="all">All Sources</option>
+                      <option value="select">Select Sources...</option>
+                    </select>
 
                     {/* LLM Model Selector */}
                     <select
