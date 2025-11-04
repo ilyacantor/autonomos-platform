@@ -131,7 +131,7 @@ async def run_functional_probe():
         try:
             result = process_canonical_streams(db, tenant_id=probe_tenant_id)
             print(f"✅ DCL subscriber processed canonical streams")
-            print(f"   Processed: {result.get('accounts', 0)} accounts, {result.get('opportunities', 0)} opportunities\n")
+            print(f"   Processed: {result.get('accounts_processed', 0)} accounts, {result.get('opportunities_processed', 0)} opportunities\n")
         except Exception as e:
             print(f"⚠️ DCL subscriber processing error: {e}\n")
         
