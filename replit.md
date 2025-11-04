@@ -1,77 +1,48 @@
 # AutonomOS - Multi-Tenant AI Orchestration Platform
 
 ## Overview
-AutonomOS is a production-ready, multi-tenant SaaS backend system in Python for AI-driven task orchestration. It ensures complete data isolation, providing secure, scalable, and enterprise-grade task processing with JWT authentication and user management. The platform's core purpose is to enable advanced AI-powered data orchestration, including a Data Connection Layer (DCL) engine for AI-driven data source connection, entity mapping, and unified view creation. 
-
-**AAM Production Status (November 2025):** The platform includes a production-ready implementation of the Adaptive API Mesh through Phase 3, featuring 4 operational connectors (Salesforce, FileSource, Supabase, MongoDB), complete drift detection with schema fingerprinting, autonomous auto-repair with confidence scoring, canonical event normalization, and comprehensive testing infrastructure.
-
-## Key Documentation
-- **📊 [Architecture Visualizations](./ARCHITECTURE.md)** - Complete Mermaid diagrams of all platform components, including new Functional Overview diagram showing agentic orchestration flow
-- **🌐 [Interactive Architecture Viewer](/architecture.html)** - Web-based architecture documentation with comprehensive diagrams. Features Functional Overview (vertical flow: Data Sources → AAM → DCL → Agents → HITL Alerts) with detailed functional annotations, Insight-to-Action Loop architecture, and Systems Overview (AOA) with plain-English explanations (accessible at `/architecture.html` on any deployment URL)
-- **📘 [AAM Full Technical Docs](./aam-hybrid/AAM_FULL_CONTEXT.md)** - Adaptive API Mesh implementation details
-- **🔬 [Functional Probe Guide](./scripts/QUICKSTART.md)** - End-to-end testing for Salesforce → AAM → DCL
-- **📖 [AAM Dashboard Guide](./AAM_DASHBOARD_GUIDE.md)** - Monitor dashboard user guide
+AutonomOS is a production-ready, multi-tenant SaaS backend system in Python for AI-driven task orchestration. It ensures complete data isolation, providing secure, scalable, and enterprise-grade task processing with JWT authentication and user management. The platform's core purpose is to enable advanced AI-powered data orchestration, including a Data Connection Layer (DCL) engine for AI-driven data source connection, entity mapping, and unified view creation. The platform includes a production-ready implementation of the Adaptive API Mesh, featuring operational connectors, complete drift detection with schema fingerprinting, autonomous auto-repair with confidence scoring, and canonical event normalization.
 
 ## User Preferences
 I prefer clear, concise explanations and direct answers. I value iterative development with frequent, small updates. Please ask for my approval before implementing major architectural changes or significant feature additions. I prefer detailed explanations for complex concepts but require brevity for straightforward ones. Do not make changes to folder `Z` and file `Y`.
 
 ## System Architecture
-AutonomOS is built with FastAPI, PostgreSQL, Redis, and Python RQ, implementing a multi-tenant task orchestration platform.
+AutonomOS is a full-stack SaaS platform built around a multi-tenant architecture ensuring complete data isolation via UUID-based `tenant_id` scoping and JWT authentication.
 
-**UI/UX Decisions:**
-The frontend is a React/TypeScript application with a focus on a clean, minimalist design. Key UI/UX features include:
-- Interactive DCL graph visualization for data mapping and orchestration, with color-coded, collision-detected labels and dynamic sizing for optimal visibility across devices.
-- **AAM Monitor (November 2025):** Streamlined dashboard for Adaptive API Mesh intelligence metrics and connection health. Displays intelligence readout cards (mappings, drift events, RAG suggestions, repair confidence), performance metrics, and connection health table. Optimized for fast loading by removing service status boxes and event logs.
-- **Live Flow (November 2025):** Fully functional dedicated page for real-time event visualization showing canonical events flowing through the 5-stage pipeline (Sources → AAM → DCL → Gateway → Agents). Features animated event pills with framer-motion, speed controls (0.5x, 1x, 2x), pause/play functionality, source filtering (salesforce, supabase, mongodb, filesource, system), and click-to-view event details modal. Falls back gracefully from SSE → Redis → Polling → Mock event generation when no auth token is available. Accessible at `/live-flow` route with full browser history support.
-- A hero section showcasing the product value proposition and an agent layer container for AI agents.
-- Comprehensive FAQ section explaining AutonomOS capabilities and technology.
-- Mobile-first design with responsive typography, touch-optimized elements, and dynamic adjustments for various screen sizes, including a horizontal Sankey layout for the DCL graph and layout-aware directional arrows for architecture flow.
-- Consistent typography using Quicksand font and specific color schemes for different UI elements (e.g., green for data sources, blue for ontology, purple for agents).
+**Key Architectural Components & Features:**
 
-**System Design Choices:**
-- **Multi-Tenancy:** Achieved through `tenant_id` scoping for data isolation.
-- **Microservices:** The Adaptive API Mesh (AAM) includes production-ready FastAPI microservices: Orchestrator, Auth Broker, Drift Repair Agent, and Schema Observer with full drift detection capabilities.
-- **Data Orchestration:** An embedded DCL engine handles AI-driven data source connection and mapping, with AOA endpoints orchestrating DCL operations via async worker tasks.
-- **Authentication:** JWT-based with Argon2 hashing.
-- **Task Management:** Python RQ handles asynchronous task processing, lifecycle management, error handling, and retries, supported by Redis for high-performance queuing.
-- **Database:** PostgreSQL with SQLAlchemy for persistence, tracking connections, sync catalog versions, and job history.
-- **LLM Abstraction:** A factory pattern (`llm_service.py`) supports multiple LLM providers (Gemini, OpenAI) via a user-selectable model.
-- **Concurrency Control:** Redis-based distributed locking for safe concurrent DuckDB access within the DCL engine.
-- **Frontend Framework:** React/TypeScript with Vite, served from `static/`.
-- **API Documentation:** Swagger UI and ReDoc.
-- **CORS:** Enhanced configuration for Replit domains.
+*   **Task Orchestration System:** Utilizes Python RQ and Redis Queue for asynchronous background job processing with full lifecycle management, automatic retries, error handling, and per-tenant job concurrency.
+*   **Authentication & Security:** Implements JWT-based authentication with Argon2 password hashing and 7-day token expiration. All API endpoints require JWT authentication.
+*   **AOA (Agentic Orchestration Architecture):** High-level orchestration layer managing DCL engine operations, enforcing single active job per tenant for DCL state management (`run`, `reset`, `state`).
+*   **DCL Engine (Data Connection Layer):** An AI-driven, in-process engine for data orchestration, leveraging DuckDB for materialized views and concurrent access control via Redis. It supports multiple connectors, AI-powered entity mapping, graph generation, and idempotent operations. Materialized views are exposed via PostgreSQL tables (`materialized_opportunities`, `materialized_accounts`, `materialized_contacts`) with dedicated API endpoints, automatic syncing, and tenant-specific querying.
+*   **Adaptive API Mesh (AAM):** Provides self-healing data connectivity with four production connectors (Salesforce, FileSource, Supabase, MongoDB). Features include canonical event normalization using Pydantic, schema fingerprinting for drift detection, an auto-repair agent with LLM-powered field mapping, and RAG intelligence for semantic matching.
+*   **Event Streaming System:** Real-time event delivery via Server-Sent Events (SSE) and WebSockets, supporting various event types (ingested, canonicalized, materialized, viewed, intent, journaled, drift) with Redis Pub/Sub for inter-service broadcasting.
+*   **Frontend:** Built with React 18 and TypeScript, featuring pages like Dashboard, AAM Monitor, Live Flow, Ontology, Connections, Data Lineage, and an interactive architecture viewer. UI/UX design includes Quicksand typography, a distinct color scheme (Green, Blue, Purple), mobile-first responsiveness, and dark mode support.
+*   **API Endpoints:** Organized by domain (Auth, AOA, DCL Views, Events, AAM, Debug) with OpenAPI/Swagger documentation.
 
-**Technical Implementations:**
-- **Adaptive API Mesh (AAM):** Utilizes Airbyte OSS for data movement (Execution Plane), FastAPI microservices for intelligence (Intelligence Plane), and PostgreSQL for connector registry (Control Plane), with Redis for inter-service communication.
-- **DCL Graph:** Backend owns the data structure, emitting `source_parent` nodes with metadata and typed edges. Nodes have manually assigned depths for stable Sankey layer positioning. Optimized for fast rendering and scaling using `useLayoutEffect`, `requestAnimationFrame`, and `ResizeObserver`.
-- **Ontology Table Enhancements:** Displays comprehensive mapping info including data sources, tables, fields, and a "Data Source Universe View" for raw materials hierarchy.
-- **Idempotent DCL Connections:** The `/dcl/connect` endpoint clears and rebuilds DCL state.
-- **Task Lifecycle:** Tasks transition through `queued`, `in_progress`, `success`, and `failed` states.
+**Technology Stack:**
+*   **Backend:** FastAPI, Python RQ, PostgreSQL, Redis, DuckDB
+*   **Frontend:** React 18, TypeScript, Vite, D3.js
+*   **AI/ML:** Gemini/OpenAI LLMs, RAG (Pinecone, sentence-transformers)
+*   **Data Connectors:** Salesforce, FileSource, Supabase, MongoDB
+*   **Security:** JWT, Argon2
+*   **Real-time:** WebSocket, SSE, Redis Pub/Sub
 
 ## External Dependencies
-- **FastAPI:** Web framework.
-- **uvicorn:** ASGI server.
-- **SQLAlchemy:** ORM.
-- **psycopg2-binary:** PostgreSQL adapter.
-- **redis:** Python client for Redis.
-- **rq (Redis Queue):** Background job processing.
-- **pydantic:** Data validation.
-- **python-dotenv:** Environment variable management.
-- **httpx:** HTTP client.
-- **duckdb:** Embedded SQL database for DCL engine.
-- **pandas:** Data manipulation.
-- **pyyaml:** YAML parsing.
-- **google-generativeai:** Gemini AI integration.
-- **openai:** OpenAI API integration.
-- **Replit's PostgreSQL:** Built-in database service.
-- **Upstash Redis:** External Redis for production.
-- **Slack Incoming Webhooks:** For notifications.
-
-## Recent Updates
-- **November 2025:** 
-  - **Functional Overview Architecture (Complete):** Added comprehensive Functional Overview diagram to architecture docs showing complete agentic orchestration flow. Features vertical top-to-bottom layout (Data Sources → AAM → DCL → Agents → HITL Alerts) with detailed functional annotations explaining what each layer does. Includes Insight-to-Action Loop architecture showing bidirectional flow from agents back through AAM to data sources for autonomous execution. Added HITL (Human-in-the-Loop) Alerts box with communication channels (Slack, Email, SMS, Webhooks) for critical notifications requiring human oversight. Enhanced platform description to emphasize "enterprise-grade agentic orchestration at scale with human oversight."
-  - **Terminology Correction:** Corrected DCL from "Data Catalog Layer" to "Data Connection Layer" throughout all documentation (ARCHITECTURE.md, static/architecture.html, README.md, replit.md), accurately reflecting its role as the data connection and orchestration engine powering the DCL graph visualization.
-  - **Live Flow Implementation (Complete):** Built standalone real-time event visualization page at `/live-flow` with animated pill UI showing events flowing across 5 horizontal lanes. Implemented mock event generator fallback (generates events every 1-4 seconds), framer-motion animations, URL routing with browser history support, and event detail modal. Fixed CSS layout issues by using explicit lane heights (100px each) instead of complex flexbox nesting.
-  - **AAM Monitor Optimization:** Simplified AAM Monitor by removing service status boxes and recent events log, significantly improving load times. Now focuses on intelligence metrics and connection health.
-  - Added interactive architecture documentation viewer at `/architecture.html` with comprehensive Mermaid diagrams. Includes Systems Overview (AOA) with plain-English annotations explaining what data sources ingest (Accounts, Opportunities, Contacts, Transactions), raw event types (account.created, opportunity.updated, contact.merged), AAM intelligence functions (drift detection, auto-repair, RAG matching), and key architectural junctions (normalization, event store, gateway). All diagrams use accessible high-contrast colors for optimal readability.
-  - Implemented Supabase (Postgres) and MongoDB connectors with drift detection, canonical event emission, and self-healing repair capabilities. Added drift mutation endpoints, schema fingerprinting, and 4 functional test scripts for end-to-end validation.
+*   **FastAPI:** Web framework.
+*   **uvicorn:** ASGI server.
+*   **SQLAlchemy:** ORM.
+*   **psycopg2-binary:** PostgreSQL adapter.
+*   **redis:** Python client for Redis.
+*   **rq (Redis Queue):** Background job processing.
+*   **pydantic:** Data validation.
+*   **python-dotenv:** Environment variable management.
+*   **httpx:** HTTP client.
+*   **duckdb:** Embedded SQL database for DCL engine.
+*   **pandas:** Data manipulation.
+*   **pyyaml:** YAML parsing.
+*   **google-generativeai:** Gemini AI integration.
+*   **openai:** OpenAI API integration.
+*   **Replit's PostgreSQL:** Built-in database service.
+*   **Upstash Redis:** External Redis for production.
+*   **Slack Incoming Webhooks:** For notifications.
