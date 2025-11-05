@@ -76,7 +76,8 @@ class RepairAgent:
         redis_client: redis.Redis,
         llm_service: Optional[Any] = None,
         rag_engine: Optional[Any] = None,
-        confidence_threshold: float = DEFAULT_CONFIDENCE_THRESHOLD
+        confidence_threshold: float = DEFAULT_CONFIDENCE_THRESHOLD,
+        db_session: Optional[Any] = None
     ):
         """
         Initialize the Auto-Repair Agent.
@@ -86,9 +87,11 @@ class RepairAgent:
             llm_service: LLM service for generating repair suggestions (optional)
             rag_engine: RAG engine for retrieving similar mappings (optional)
             confidence_threshold: Minimum confidence for auto-apply (default: 0.85)
+            db_session: SQLAlchemy database session for PostgreSQL audit persistence (optional)
         """
         self.redis_client = redis_client
         self.confidence_threshold = confidence_threshold
+        self.db_session = db_session
         
         self.llm_service = llm_service
         if llm_service is None and get_llm_service is not None:
@@ -111,7 +114,8 @@ class RepairAgent:
         logger.info(
             f"RepairAgent initialized: confidence_threshold={confidence_threshold}, "
             f"LLM={'enabled' if self.llm_service else 'disabled'}, "
-            f"RAG={'enabled' if self.rag_engine else 'disabled'}"
+            f"RAG={'enabled' if self.rag_engine else 'disabled'}, "
+            f"DB={'enabled' if self.db_session else 'disabled (Redis-only)'}"
         )
     
     def suggest_repairs(
@@ -493,7 +497,11 @@ IMPORTANT: Always return a valid JSON object with all required fields.
         rag_context: str
     ) -> None:
         """
-        Queue repair suggestion for human-in-the-loop review in Redis.
+        Queue repair suggestion for human-in-the-loop review.
+        
+        Persists to:
+        1. Redis (operational queue, 7-day TTL)
+        2. PostgreSQL (permanent audit trail, if db_session provided)
         
         Redis Key Pattern:
             hitl:repair:{tenant_id}:{connector}:{entity_type}:{field_name}
@@ -532,12 +540,41 @@ IMPORTANT: Always return a valid JSON object with all required fields.
             )
             
             logger.info(
-                f"📋 Queued for HITL review: {suggestion.field_name} → {suggestion.suggested_mapping} "
+                f"📋 Queued for HITL review (Redis): {suggestion.field_name} → {suggestion.suggested_mapping} "
                 f"(confidence: {suggestion.confidence:.2f}, TTL: 7 days)"
             )
             
         except Exception as e:
             logger.error(f"Failed to queue HITL item in Redis: {e}", exc_info=True)
+        
+        if self.db_session:
+            try:
+                import uuid as uuid_lib
+                
+                audit_data = {
+                    'tenant_id': uuid_lib.UUID(drift_event.tenant_id) if isinstance(drift_event.tenant_id, str) else drift_event.tenant_id,
+                    'drift_event_id': drift_event.event_id,
+                    'field_name': suggestion.field_name,
+                    'connector_name': drift_event.connector_name,
+                    'entity_type': drift_event.entity_type,
+                    'suggested_mapping': suggestion.suggested_mapping,
+                    'confidence': suggestion.confidence,
+                    'confidence_reason': suggestion.confidence_reason,
+                    'transformation': suggestion.transformation,
+                    'rag_similarity_count': suggestion.rag_similarity_count,
+                    'review_status': 'pending',
+                    'audit_metadata': suggestion.metadata
+                }
+                
+                try:
+                    from app.crud import create_hitl_audit_record
+                    create_hitl_audit_record(self.db_session, audit_data)
+                    logger.info(f"✅ Persisted HITL audit record to PostgreSQL: {suggestion.field_name}")
+                except ImportError:
+                    logger.warning("app.crud not available - skipping PostgreSQL persistence")
+                
+            except Exception as e:
+                logger.error(f"Failed to persist HITL audit record to PostgreSQL: {e}", exc_info=True)
     
     def _create_rejected_suggestion(
         self,

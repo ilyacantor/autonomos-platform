@@ -280,3 +280,43 @@ class DCLUnifiedContactLink(Base):
     __table_args__ = (
         Index('idx_dcl_link_tenant_source', 'tenant_id', 'source_system', 'source_contact_id', unique=True),
     )
+
+
+class HITLRepairAudit(Base):
+    """
+    HITL Repair Audit - persistent tracking of Human-In-The-Loop repair decisions.
+    
+    Complements Redis queue (7-day TTL) with permanent audit logging for:
+    - Repair suggestions requiring human review (confidence 0.6-0.85)
+    - Review decisions (approved/rejected)
+    - Full audit trail for compliance and learning
+    """
+    __tablename__ = "hitl_repair_audit"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True)
+    
+    drift_event_id = Column(String, nullable=False, index=True)
+    field_name = Column(String, nullable=False)
+    connector_name = Column(String, nullable=False)
+    entity_type = Column(String, nullable=False)
+    
+    suggested_mapping = Column(String, nullable=False)
+    confidence = Column(Float, nullable=False)
+    confidence_reason = Column(String)
+    transformation = Column(String)
+    rag_similarity_count = Column(Integer, default=0)
+    
+    review_status = Column(String, default="pending", nullable=False)
+    reviewed_by = Column(String, nullable=True)
+    reviewed_at = Column(DateTime(timezone=True), nullable=True)
+    review_notes = Column(String, nullable=True)
+    
+    audit_metadata = Column(JSON, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    __table_args__ = (
+        Index('idx_hitl_tenant_status', 'tenant_id', 'review_status'),
+        Index('idx_hitl_drift_event', 'drift_event_id'),
+    )

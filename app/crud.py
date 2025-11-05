@@ -95,3 +95,78 @@ def has_active_aoa_job(db: Session, tenant_id: UUID) -> bool:
     ).first()
     
     return active_task is not None
+
+
+def create_hitl_audit_record(db: Session, audit_data: dict) -> models.HITLRepairAudit:
+    """
+    Create a new HITL audit record for persistent tracking.
+    
+    Args:
+        db: Database session
+        audit_data: Dictionary with HITL audit data (tenant_id, drift_event_id, 
+                   field_name, connector_name, entity_type, suggested_mapping, 
+                   confidence, etc.)
+    
+    Returns:
+        HITLRepairAudit: Created audit record
+    """
+    record = models.HITLRepairAudit(**audit_data)
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return record
+
+
+def get_pending_hitl_reviews(db: Session, tenant_id: UUID, limit: int = 100):
+    """
+    Get pending HITL reviews for a tenant.
+    
+    Args:
+        db: Database session
+        tenant_id: UUID of the tenant
+        limit: Maximum number of records to return (default: 100)
+    
+    Returns:
+        List[HITLRepairAudit]: List of pending HITL review records
+    """
+    return db.query(models.HITLRepairAudit).filter(
+        models.HITLRepairAudit.tenant_id == tenant_id,
+        models.HITLRepairAudit.review_status == "pending"
+    ).order_by(models.HITLRepairAudit.created_at.desc()).limit(limit).all()
+
+
+def update_hitl_review_decision(
+    db: Session,
+    audit_id: UUID,
+    decision: str,
+    reviewed_by: str,
+    notes: str = None
+) -> models.HITLRepairAudit | None:
+    """
+    Update HITL review with human decision.
+    
+    Args:
+        db: Database session
+        audit_id: UUID of the audit record
+        decision: Review decision ("approved" or "rejected")
+        reviewed_by: User email or ID who made the decision
+        notes: Optional review notes
+    
+    Returns:
+        HITLRepairAudit: Updated audit record, or None if not found
+    """
+    from datetime import datetime
+    
+    record = db.query(models.HITLRepairAudit).filter(
+        models.HITLRepairAudit.id == audit_id
+    ).first()
+    
+    if record:
+        record.review_status = decision
+        record.reviewed_by = reviewed_by
+        record.reviewed_at = datetime.utcnow()
+        record.review_notes = notes
+        db.commit()
+        db.refresh(record)
+    
+    return record
