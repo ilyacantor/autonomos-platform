@@ -10,7 +10,8 @@ from app.models import CanonicalStream
 from services.aam.canonical.mapping_registry import mapping_registry
 from services.aam.canonical.schemas import (
     CanonicalEvent, CanonicalMeta, CanonicalSource,
-    CanonicalAccount, CanonicalOpportunity, CanonicalContact
+    CanonicalAccount, CanonicalOpportunity, CanonicalContact,
+    CanonicalAWSResource, CanonicalCostReport
 )
 
 logger = logging.getLogger(__name__)
@@ -56,8 +57,8 @@ class FileSourceConnector:
             filename = csv_file.name
             stem = csv_file.stem  # filename without extension
             
-            # Parse filename: entity_system
-            parts = stem.split('_', 1)
+            # Parse filename: entity_system (split from right to handle entity names with underscores)
+            parts = stem.rsplit('_', 1)
             if len(parts) != 2:
                 logger.warning(f"Skipping {filename}: unexpected format (expected entity_system.csv)")
                 continue
@@ -68,7 +69,9 @@ class FileSourceConnector:
             entity_map = {
                 'accounts': 'account',
                 'opportunities': 'opportunity',
-                'contacts': 'contact'
+                'contacts': 'contact',
+                'aws_resources': 'aws_resources',
+                'cost_reports': 'cost_reports'
             }
             
             entity = entity_map.get(entity_prefix)
@@ -126,6 +129,10 @@ class FileSourceConnector:
                 typed_data = CanonicalOpportunity(**canonical_data)
             elif entity == 'contact':
                 typed_data = CanonicalContact(**canonical_data)
+            elif entity == 'aws_resources':
+                typed_data = CanonicalAWSResource(**canonical_data)
+            elif entity == 'cost_reports':
+                typed_data = CanonicalCostReport(**canonical_data)
             else:
                 raise ValueError(f"Unknown entity type: {entity}")
         except Exception as e:

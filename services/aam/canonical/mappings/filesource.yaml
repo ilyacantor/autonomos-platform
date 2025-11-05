@@ -1,0 +1,83 @@
+account:
+  description: Account entity mapping for FileSource
+  fields:
+    account_id: account_id
+    name: name
+    type: type
+    industry: industry
+    owner_id: owner_id
+    status: status
+    created_at: created_at
+    updated_at: updated_at
+
+opportunity:
+  description: Opportunity entity mapping for FileSource
+  fields:
+    opportunity_id: opportunity_id
+    account_id: account_id
+    name: name
+    stage: stage
+    amount: amount
+    currency: currency
+    close_date: close_date
+    owner_id: owner_id
+    probability: probability
+    created_at: created_at
+    updated_at: updated_at
+
+contact:
+  description: Contact entity mapping for FileSource
+  fields:
+    contact_id: contact_id
+    account_id: account_id
+    first_name: first_name
+    last_name: last_name
+    name: name
+    email: email
+    phone: phone
+    title: title
+    department: department
+    role: role
+    created_at: created_at
+    updated_at: updated_at
+
+aws_resources:
+  description: AWS resources entity mapping for FileSource
+  fields:
+    resource_id: resource_id
+    resource_type: resource_type
+    region: region
+    instance_type: instance_type
+    vcpus: vcpus
+    memory: memory
+    storage: storage
+    db_engine: db_engine
+    instance_class: instance_class
+    allocated_storage: allocated_storage
+    storage_type: storage_type
+    storage_class: storage_class
+    size_gb: size_gb
+    object_count: object_count
+    versioning: versioning
+    cpu_utilization: cpu_utilization
+    memory_utilization: memory_utilization
+    network_in: network_in
+    network_out: network_out
+    db_connections: db_connections
+    read_latency: read_latency
+    write_latency: write_latency
+    get_requests: get_requests
+    put_requests: put_requests
+    data_transfer_out: data_transfer_out
+    monthly_cost: monthly_cost
+
+cost_reports:
+  description: AWS cost reports entity mapping for FileSource
+  fields:
+    service_category: service_category
+    resource_id: resource_id
+    region: region
+    cost: cost
+    usage: usage
+    usage_type: usage_type
+    monthly_cost: monthly_cost
