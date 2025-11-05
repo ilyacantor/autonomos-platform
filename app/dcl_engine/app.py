@@ -1525,21 +1525,6 @@ async def connect_source(
             "timestamp": time.time()
         })
         
-        # Execute agents asynchronously with AAM-backed data
-        print(f"🔍 DEBUG: SELECTED_AGENTS={SELECTED_AGENTS}, agent_executor={agent_executor is not None}", flush=True)
-        if SELECTED_AGENTS and agent_executor:
-            try:
-                print(f"🚀 Agent execution started for {len(SELECTED_AGENTS)} agent(s)", flush=True)
-                await agent_executor.execute_agents_async(SELECTED_AGENTS, tenant_id, ws_manager)
-                print(f"✅ Agent results stored in cache", flush=True)
-            except Exception as e:
-                print(f"❌ Agent execution failed: {e}", flush=True)
-        else:
-            if not SELECTED_AGENTS:
-                print(f"⚠️ No agents selected for execution", flush=True)
-            if not agent_executor:
-                print(f"⚠️ Agent executor not initialized", flush=True)
-        
         return {"ok": True, "score": score.confidence, "previews": previews, "source_mode": source_mode}
     finally:
         release_db_lock(lock_id)
@@ -1906,7 +1891,21 @@ async def connect(
             return JSONResponse({"error": f"Partial failure: {'; '.join(errors)}"}, status_code=207)
     except Exception as e:
         log(f"❌ Connection error: {str(e)}")
-        return JSONResponse({"error": str(e)}, status_code=500)
+        return JSONResponse({"error": str(e)}", status_code=500)
+    
+    # Execute agents after all sources have completed and materialized views are ready
+    if agent_list and agent_executor:
+        try:
+            log(f"🚀 Executing {len(agent_list)} agent(s) on unified DCL views (tenant: {tenant_id})")
+            await agent_executor.execute_agents_async(agent_list, tenant_id, ws_manager)
+            log(f"✅ Agent results stored in cache - accessible via /dcl/agents/{{agent_id}}/results")
+        except Exception as e:
+            log(f"❌ Agent execution failed: {e}")
+            # Don't fail the entire connection if agents fail - log and continue
+    elif not agent_list:
+        log(f"ℹ️ No agents selected for execution")
+    elif not agent_executor:
+        log(f"⚠️ Agent executor not initialized - skipping agent execution")
     
     # Broadcast state change to WebSocket clients
     await broadcast_state_change("sources_connected")
