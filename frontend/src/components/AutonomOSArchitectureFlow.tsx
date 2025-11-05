@@ -1,13 +1,9 @@
 import { ArrowRight, ArrowDown, Search, Network, Layers, Command, TrendingUp, MousePointerClick } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import autonomosArrow from '../assets/autonomos-arrow.png';
 
 const AutonomOSArchitectureFlow = () => {
-  const scrollToSection = (sectionId: string) => {
-    const element = document.getElementById(sectionId);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  };
+  const navigate = useNavigate();
 
   const modules = [
     {
@@ -18,7 +14,7 @@ const AutonomOSArchitectureFlow = () => {
       tagLinks: {} as Record<string, string>,
       bgColor: 'bg-[#0A2540]',
       borderColor: 'border-[#1E4A6F]',
-      linkTo: null
+      linkTo: '/discover'
     },
     {
       icon: Network,
@@ -28,7 +24,7 @@ const AutonomOSArchitectureFlow = () => {
       tagLinks: {} as Record<string, string>,
       bgColor: 'bg-[#0D2F3F]',
       borderColor: 'border-[#1A4D5E]',
-      linkTo: 'adaptive-api-mesh'
+      linkTo: '/connect'
     },
     {
       icon: Layers,
@@ -38,7 +34,7 @@ const AutonomOSArchitectureFlow = () => {
       tagLinks: {} as Record<string, string>,
       bgColor: 'bg-[#1A2F4A]',
       borderColor: 'border-[#2A4A6F]',
-      linkTo: 'dcl-graph-container'
+      linkTo: '/ontology'
     },
     {
       icon: Command,
@@ -48,7 +44,7 @@ const AutonomOSArchitectureFlow = () => {
       tagLinks: {} as Record<string, string>,
       bgColor: 'bg-[#2A1F4A]',
       borderColor: 'border-[#3F2F6F]',
-      linkTo: 'agent-performance-monitor'
+      linkTo: '/orchestration'
     }
   ];
 
@@ -73,7 +69,7 @@ const AutonomOSArchitectureFlow = () => {
               {modules.map((module, index) => (
                 <div key={index} className="relative flex flex-col items-center">
                   <div
-                    onClick={() => module.linkTo && scrollToSection(module.linkTo)}
+                    onClick={() => module.linkTo && navigate(module.linkTo)}
                     className={`${module.bgColor} ${module.borderColor} border-2 rounded-xl p-5 w-full hover:border-[#0BCAD9] transition-all duration-300 ${module.linkTo ? 'cursor-pointer' : ''}`}
                   >
                     <div className="flex items-center gap-2 mb-3">
