@@ -3,22 +3,20 @@ import { AutonomyProvider, useAutonomy } from './contexts/AutonomyContext';
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './hooks/useAuth';
 import AppLayout from './components/AppLayout';
-import DashboardPage from './components/DashboardPage';
-import DataLineagePage from './components/DataLineagePage';
-import ConnectionsPage from './components/ConnectionsPage';
-import OntologyPage from './components/OntologyPage';
+import ControlCenterPage from './components/ControlCenterPage';
+import DiscoverPage from './components/DiscoverPage';
+import ConnectPage from './components/ConnectPage';
+import NewOntologyPage from './components/NewOntologyPage';
+import OrchestrationPage from './components/OrchestrationPage';
 import FAQPage from './components/FAQPage';
-import LegacyDCLUI from './components/LegacyDCLUI';
 import AuthModal from './components/AuthModal';
-import AAMDashboard from './components/AAMDashboard';
-import LiveFlow from './components/monitor/LiveFlow';
 
 function AppContent() {
   // Initialize page from URL path
   const getInitialPage = () => {
     const path = window.location.pathname.slice(1); // Remove leading slash
-    const validPages = ['dashboard', 'lineage', 'connections', 'ontology', 'aam-monitor', 'live-flow', 'faq'];
-    return validPages.includes(path) ? path : 'dashboard';
+    const validPages = ['control-center', 'discover', 'connect', 'ontology', 'orchestration', 'faq'];
+    return validPages.includes(path) ? path : 'control-center';
   };
   
   const [currentPage, setCurrentPage] = useState(getInitialPage());
@@ -48,7 +46,7 @@ function AppContent() {
   useEffect(() => {
     const handlePopState = () => {
       const path = window.location.pathname.slice(1);
-      const validPages = ['dashboard', 'lineage', 'connections', 'ontology', 'aam-monitor', 'live-flow', 'faq'];
+      const validPages = ['control-center', 'discover', 'connect', 'ontology', 'orchestration', 'faq'];
       if (validPages.includes(path)) {
         setCurrentPage(path);
       }
@@ -71,22 +69,20 @@ function AppContent() {
 
   const renderPage = () => {
     switch (currentPage) {
-      case 'dashboard':
-        return <DashboardPage />;
-      case 'lineage':
-        return <DataLineagePage />;
-      case 'connections':
-        return <ConnectionsPage />;
+      case 'control-center':
+        return <ControlCenterPage />;
+      case 'discover':
+        return <DiscoverPage />;
+      case 'connect':
+        return <ConnectPage />;
       case 'ontology':
-        return <OntologyPage />;
-      case 'aam-monitor':
-        return <AAMDashboard />;
-      case 'live-flow':
-        return <LiveFlow />;
+        return <NewOntologyPage />;
+      case 'orchestration':
+        return <OrchestrationPage />;
       case 'faq':
         return <FAQPage />;
       default:
-        return <DashboardPage />;
+        return <ControlCenterPage />;
     }
   };
 

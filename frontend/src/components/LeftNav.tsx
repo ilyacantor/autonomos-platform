@@ -1,4 +1,4 @@
-import { LayoutDashboard, GitBranch, Cable, Network, X, Activity } from 'lucide-react';
+import { LayoutDashboard, GitBranch, Cable, Network, X, Activity, Search } from 'lucide-react';
 import autonomosLogo from '../assets/autonomos-logo.png';
 
 interface LeftNavProps {
@@ -19,11 +19,11 @@ interface NavItem {
 
 export default function LeftNav({ isCollapsed, currentPage, onNavigate, isMobileMenuOpen, onCloseMobile }: LeftNavProps) {
   const navItems: NavItem[] = [
-    { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
-    { id: 'lineage', label: 'Data Lineage', icon: <GitBranch className="w-5 h-5" /> },
-    { id: 'connections', label: 'Connections', icon: <Cable className="w-5 h-5" /> },
+    { id: 'control-center', label: 'Control Center', icon: <LayoutDashboard className="w-5 h-5" /> },
+    { id: 'discover', label: 'Discover', icon: <Search className="w-5 h-5" /> },
+    { id: 'connect', label: 'Connect', icon: <Cable className="w-5 h-5" />, highlight: true, tooltip: 'AAM Connect - Self-healing data connectivity' },
     { id: 'ontology', label: 'Ontology', icon: <Network className="w-5 h-5" /> },
-    { id: 'aam-monitor', label: 'AAM Monitor', icon: <Activity className="w-5 h-5" />, highlight: true, tooltip: 'Adaptive API Mesh Monitoring' },
+    { id: 'orchestration', label: 'Orchestration', icon: <Activity className="w-5 h-5" /> },
   ];
 
   return (
