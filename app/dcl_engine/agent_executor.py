@@ -16,6 +16,7 @@ Phase: 3 (DCL → Agents Integration)
 
 import time
 import logging
+import json
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 import duckdb
@@ -33,7 +34,7 @@ class AgentExecutor:
     3. store_results(): Cache results in tenant-scoped storage
     """
     
-    def __init__(self, db_path: str, agents_config: Dict[str, Any], results_cache: Dict[str, Dict]):
+    def __init__(self, db_path: str, agents_config: Dict[str, Any], results_cache: Dict[str, Dict], redis_client=None):
         """
         Initialize AgentExecutor.
         
@@ -41,11 +42,235 @@ class AgentExecutor:
             db_path: Path to DuckDB database
             agents_config: Loaded agents configuration from config.yml
             results_cache: In-memory dict for storing results (tenant_id -> {agent_id -> results})
+            redis_client: Redis client for accessing Phase 4 metadata (optional)
         """
         self.db_path = db_path
         self.agents_config = agents_config
         self.results_cache = results_cache
+        self.redis_client = redis_client
         self.logger = logging.getLogger(__name__)
+        
+        # Initialize DuckDB metadata table
+        self._initialize_metadata_table()
+    
+    def _initialize_metadata_table(self):
+        """
+        Initialize DuckDB metadata table for historical Phase 4 metadata tracking.
+        
+        Creates dcl_metadata table if it doesn't exist with schema:
+        - tenant_id: Tenant identifier
+        - source_id: Source connector identifier
+        - metadata_json: JSON column containing Phase 4 metadata
+        - created_at: Timestamp of metadata storage
+        """
+        try:
+            con = duckdb.connect(self.db_path)
+            
+            con.execute("""
+                CREATE TABLE IF NOT EXISTS dcl_metadata (
+                    tenant_id VARCHAR NOT NULL,
+                    source_id VARCHAR NOT NULL,
+                    metadata_json JSON NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (tenant_id, source_id, created_at)
+                )
+            """)
+            
+            con.close()
+            self.logger.info("✅ Initialized dcl_metadata table in DuckDB")
+            
+        except Exception as e:
+            self.logger.warning(f"Failed to initialize metadata table: {e}")
+    
+    def store_metadata_in_duckdb(self, tenant_id: str, source_id: str, metadata: dict):
+        """
+        Store Phase 4 metadata in DuckDB for historical analysis.
+        
+        Args:
+            tenant_id: Tenant identifier
+            source_id: Source connector identifier
+            metadata: Aggregated metadata dictionary
+        """
+        try:
+            con = duckdb.connect(self.db_path)
+            
+            # Convert metadata to JSON string
+            metadata_json = json.dumps(metadata)
+            
+            # Insert metadata record
+            con.execute("""
+                INSERT INTO dcl_metadata (tenant_id, source_id, metadata_json)
+                VALUES (?, ?, ?)
+            """, [tenant_id, source_id, metadata_json])
+            
+            con.close()
+            self.logger.debug(f"📊 Stored metadata in DuckDB for {source_id} (tenant: {tenant_id})")
+            
+        except Exception as e:
+            self.logger.error(f"Failed to store metadata in DuckDB: {e}")
+    
+    def get_data_quality_metadata(self, tenant_id: str, source_ids: Optional[List[str]] = None) -> Dict[str, Any]:
+        """
+        Fetch Phase 4 data quality metadata from Redis (fast) or DuckDB (historical).
+        
+        Hybrid approach:
+        1. Try Redis first for fast access to latest metadata
+        2. Fallback to DuckDB for historical data if Redis unavailable
+        3. Aggregate metadata across all sources for tenant-wide view
+        
+        Args:
+            tenant_id: Tenant identifier
+            source_ids: Optional list of source IDs to filter (None = all sources)
+            
+        Returns:
+            Aggregated metadata dictionary with tenant-wide data quality insights
+        """
+        aggregated = {
+            "overall_confidence": None,
+            "drift_detected": False,
+            "repair_processed": False,
+            "auto_applied_repairs": 0,
+            "hitl_pending_repairs": 0,
+            "processing_stages": set(),
+            "sources_with_drift": [],
+            "low_confidence_sources": [],
+            "sources": {}
+        }
+        
+        try:
+            # Try Redis first (fast access)
+            if self.redis_client:
+                # If no source_ids specified, try to discover them
+                if not source_ids:
+                    # Scan for metadata keys for this tenant
+                    pattern = f"dcl:metadata:{tenant_id}:*"
+                    cursor = 0
+                    source_ids = []
+                    
+                    while True:
+                        cursor, keys = self.redis_client._client.scan(cursor, match=pattern, count=100)
+                        for key in keys:
+                            key_str = key.decode('utf-8') if isinstance(key, bytes) else key
+                            parts = key_str.split(':')
+                            if len(parts) >= 4:
+                                source_id = parts[3]
+                                if source_id not in source_ids:
+                                    source_ids.append(source_id)
+                        if cursor == 0:
+                            break
+                
+                # Fetch metadata for each source
+                for source_id in source_ids or []:
+                    redis_key = f"dcl:metadata:{tenant_id}:{source_id}"
+                    
+                    try:
+                        metadata_json = self.redis_client._client.get(redis_key)
+                        if metadata_json:
+                            metadata = json.loads(metadata_json)
+                            
+                            # Store per-source metadata
+                            aggregated["sources"][source_id] = metadata
+                            
+                            # Aggregate tenant-wide metrics
+                            if metadata.get("drift_detected"):
+                                aggregated["drift_detected"] = True
+                                if source_id not in aggregated["sources_with_drift"]:
+                                    aggregated["sources_with_drift"].append(source_id)
+                            
+                            if metadata.get("repair_processed"):
+                                aggregated["repair_processed"] = True
+                            
+                            aggregated["auto_applied_repairs"] += metadata.get("auto_applied_count", 0)
+                            aggregated["hitl_pending_repairs"] += metadata.get("hitl_queued_count", 0)
+                            
+                            for stage in metadata.get("processing_stages", []):
+                                aggregated["processing_stages"].add(stage)
+                            
+                            # Track low confidence sources
+                            if metadata.get("overall_data_quality_score") is not None and metadata["overall_data_quality_score"] < 0.7:
+                                if source_id not in aggregated["low_confidence_sources"]:
+                                    aggregated["low_confidence_sources"].append(source_id)
+                    
+                    except Exception as e:
+                        self.logger.warning(f"Failed to fetch metadata from Redis for {source_id}: {e}")
+                        continue
+                
+                # Convert sets to lists
+                aggregated["processing_stages"] = list(aggregated["processing_stages"])
+                
+                self.logger.info(f"📊 Fetched metadata from Redis for {len(aggregated['sources'])} sources")
+                return aggregated
+            
+            else:
+                # Fallback to DuckDB if Redis unavailable
+                self.logger.info("Redis unavailable, fetching metadata from DuckDB")
+                
+                con = duckdb.connect(self.db_path, read_only=True)
+                
+                # Query latest metadata for each source
+                if source_ids:
+                    placeholders = ','.join(['?' for _ in source_ids])
+                    query = f"""
+                        SELECT source_id, metadata_json, created_at
+                        FROM dcl_metadata
+                        WHERE tenant_id = ? AND source_id IN ({placeholders})
+                        ORDER BY created_at DESC
+                    """
+                    params = [tenant_id] + source_ids
+                else:
+                    query = """
+                        SELECT source_id, metadata_json, created_at
+                        FROM dcl_metadata
+                        WHERE tenant_id = ?
+                        ORDER BY created_at DESC
+                    """
+                    params = [tenant_id]
+                
+                results = con.execute(query, params).fetchall()
+                
+                # Process results (take latest per source)
+                seen_sources = set()
+                for row in results:
+                    source_id, metadata_json, created_at = row
+                    
+                    if source_id in seen_sources:
+                        continue
+                    
+                    seen_sources.add(source_id)
+                    
+                    try:
+                        metadata = json.loads(metadata_json)
+                        aggregated["sources"][source_id] = metadata
+                        
+                        # Aggregate metrics (same logic as Redis)
+                        if metadata.get("drift_detected"):
+                            aggregated["drift_detected"] = True
+                            if source_id not in aggregated["sources_with_drift"]:
+                                aggregated["sources_with_drift"].append(source_id)
+                        
+                        if metadata.get("repair_processed"):
+                            aggregated["repair_processed"] = True
+                        
+                        aggregated["auto_applied_repairs"] += metadata.get("auto_applied_count", 0)
+                        aggregated["hitl_pending_repairs"] += metadata.get("hitl_queued_count", 0)
+                        
+                        for stage in metadata.get("processing_stages", []):
+                            aggregated["processing_stages"].add(stage)
+                    
+                    except Exception as e:
+                        self.logger.warning(f"Failed to parse metadata for {source_id}: {e}")
+                        continue
+                
+                con.close()
+                
+                aggregated["processing_stages"] = list(aggregated["processing_stages"])
+                
+                self.logger.info(f"📊 Fetched metadata from DuckDB for {len(aggregated['sources'])} sources")
+                return aggregated
+        
+        except Exception as e:
+            self.logger.error(f"Failed to fetch data quality metadata: {e}")
+            return aggregated
     
     def prepare_agent_input(self, agent_id: str, agent_config: Dict[str, Any], tenant_id: str) -> Dict[str, Any]:
         """
@@ -78,6 +303,12 @@ class AgentExecutor:
         self.logger.info(f"📊 Preparing input for agent '{agent_id}': consuming {len(consumes)} entities")
         
         agent_input = {"metadata": {"prepared_at": datetime.utcnow().isoformat(), "row_counts": {}}}
+        
+        # Fetch Phase 4 data quality metadata
+        data_quality_metadata = self.get_data_quality_metadata(tenant_id)
+        agent_input["data_quality_metadata"] = data_quality_metadata
+        
+        self.logger.info(f"📊 Data quality metadata: drift={data_quality_metadata.get('drift_detected')}, repairs={data_quality_metadata.get('auto_applied_repairs')}, sources={len(data_quality_metadata.get('sources', {}))}")
         
         try:
             con = duckdb.connect(self.db_path, read_only=True)
@@ -166,8 +397,70 @@ class AgentExecutor:
         insights = []
         statistics = {}
         
+        # Extract data quality metadata for intelligent insights
+        data_quality = agent_input.get("data_quality_metadata", {})
+        
+        # Generate data quality insights
+        if data_quality.get("drift_detected"):
+            drift_sources = data_quality.get("sources_with_drift", [])
+            insights.append({
+                "type": "data_quality_alert",
+                "severity": "warning",
+                "message": f"Schema drift detected in {len(drift_sources)} source(s): {', '.join(drift_sources)}",
+                "recommendation": "Review drift details and approve/reject automated repairs",
+                "sources_affected": drift_sources
+            })
+        
+        if data_quality.get("repair_processed"):
+            auto_repairs = data_quality.get("auto_applied_repairs", 0)
+            hitl_repairs = data_quality.get("hitl_pending_repairs", 0)
+            
+            if auto_repairs > 0:
+                insights.append({
+                    "type": "data_quality_info",
+                    "severity": "info",
+                    "message": f"Auto-applied {auto_repairs} field mapping repair(s)",
+                    "recommendation": "Data quality automatically maintained"
+                })
+            
+            if hitl_repairs > 0:
+                insights.append({
+                    "type": "data_quality_action_required",
+                    "severity": "warning",
+                    "message": f"{hitl_repairs} repair(s) require human review",
+                    "recommendation": "Review and approve pending field mappings in AAM dashboard"
+                })
+        
+        if data_quality.get("low_confidence_sources"):
+            low_conf_sources = data_quality.get("low_confidence_sources", [])
+            insights.append({
+                "type": "data_quality_alert",
+                "severity": "warning",
+                "message": f"Low confidence data from {len(low_conf_sources)} source(s): {', '.join(low_conf_sources)}",
+                "recommendation": "Consider manual review of data mappings for these sources",
+                "sources_affected": low_conf_sources
+            })
+        
+        # Calculate overall data quality confidence
+        if data_quality.get("overall_data_quality_score") is not None:
+            statistics["data_quality_score"] = data_quality["overall_data_quality_score"]
+            
+            if data_quality["overall_data_quality_score"] >= 0.9:
+                confidence_level = "high"
+            elif data_quality["overall_data_quality_score"] >= 0.7:
+                confidence_level = "medium"
+            else:
+                confidence_level = "low"
+            
+            insights.append({
+                "type": "data_quality_score",
+                "severity": "info",
+                "message": f"Overall data quality: {confidence_level} ({data_quality['overall_data_quality_score']:.2%})",
+                "confidence_level": confidence_level
+            })
+        
         for entity_name, records in agent_input.items():
-            if entity_name == "metadata":
+            if entity_name in ["metadata", "data_quality_metadata"]:
                 continue
             
             if not records:
@@ -226,6 +519,7 @@ class AgentExecutor:
             "insights": insights,
             "statistics": statistics,
             "metadata": agent_input.get("metadata", {}),
+            "data_quality_metadata": data_quality,
             "execution_mode": "mock_analysis"  # Future: "llm_analysis"
         }
         

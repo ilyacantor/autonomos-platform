@@ -232,6 +232,7 @@ class AAMSourceAdapter(BaseSourceAdapter):
     - Consumer group: dcl_engine:{tenant_id}
     - Idempotent batch processing with batch_id tracking
     - Real-time data from live AAM connectors
+    - Phase 4: Extracts data quality metadata (drift_status, repair_summary, data_lineage)
     """
     
     def __init__(self):
@@ -326,6 +327,21 @@ class AAMSourceAdapter(BaseSourceAdapter):
             all_tables = {}
             processed_batch_ids = []
             
+            # Aggregate metadata across all events for this source
+            aggregated_metadata = {
+                "drift_detected": False,
+                "repair_processed": False,
+                "auto_applied_count": 0,
+                "hitl_queued_count": 0,
+                "rejected_count": 0,
+                "processing_stages": set(),
+                "transformations_applied": set(),
+                "sources_with_drift": [],
+                "low_confidence_sources": [],
+                "events_processed": 0,
+                "data_quality_scores": []
+            }
+            
             for stream, message_list in messages:
                 for message_id, data in message_list:
                     try:
@@ -352,6 +368,41 @@ class AAMSourceAdapter(BaseSourceAdapter):
                         for table_name, table_data in tables.items():
                             all_tables[table_name] = table_data
                         
+                        # Extract Phase 4 metadata from canonical event
+                        event_metadata = self.extract_metadata(payload)
+                        
+                        # Aggregate metadata across events
+                        if event_metadata.get("drift_detected"):
+                            aggregated_metadata["drift_detected"] = True
+                            if source_id not in aggregated_metadata["sources_with_drift"]:
+                                aggregated_metadata["sources_with_drift"].append(source_id)
+                        
+                        if event_metadata.get("repair_processed"):
+                            aggregated_metadata["repair_processed"] = True
+                        
+                        aggregated_metadata["auto_applied_count"] += event_metadata.get("auto_applied_count", 0)
+                        aggregated_metadata["hitl_queued_count"] += event_metadata.get("hitl_queued_count", 0)
+                        aggregated_metadata["rejected_count"] += event_metadata.get("rejected_count", 0)
+                        
+                        # Collect processing stages
+                        for stage in event_metadata.get("processing_stages", []):
+                            aggregated_metadata["processing_stages"].add(stage)
+                        
+                        # Collect transformations
+                        for transform in event_metadata.get("transformations_applied", []):
+                            aggregated_metadata["transformations_applied"].add(transform)
+                        
+                        # Track data quality scores for averaging
+                        if event_metadata.get("data_quality_score") is not None:
+                            aggregated_metadata["data_quality_scores"].append(event_metadata["data_quality_score"])
+                        
+                        # Track low confidence sources
+                        if event_metadata.get("overall_confidence") is not None and event_metadata["overall_confidence"] < 0.7:
+                            if source_id not in aggregated_metadata["low_confidence_sources"]:
+                                aggregated_metadata["low_confidence_sources"].append(source_id)
+                        
+                        aggregated_metadata["events_processed"] += 1
+                        
                         # Mark batch as processed
                         if batch_id:
                             self._mark_batch_processed(tenant_id, batch_id)
@@ -368,6 +419,24 @@ class AAMSourceAdapter(BaseSourceAdapter):
                     except Exception as e:
                         self.logger.error(f"Error processing message {message_id}: {e}", exc_info=True)
                         continue
+            
+            # Finalize aggregated metadata
+            aggregated_metadata["processing_stages"] = list(aggregated_metadata["processing_stages"])
+            aggregated_metadata["transformations_applied"] = list(aggregated_metadata["transformations_applied"])
+            
+            # Calculate overall data quality score
+            if aggregated_metadata["data_quality_scores"]:
+                aggregated_metadata["overall_data_quality_score"] = sum(aggregated_metadata["data_quality_scores"]) / len(aggregated_metadata["data_quality_scores"])
+            else:
+                aggregated_metadata["overall_data_quality_score"] = None
+            
+            # Remove temporary list
+            del aggregated_metadata["data_quality_scores"]
+            
+            # Store aggregated metadata in Redis for AgentExecutor access
+            if aggregated_metadata["events_processed"] > 0:
+                self.store_metadata_in_redis(tenant_id, source_id, aggregated_metadata)
+                self.logger.info(f"📊 Aggregated metadata: {aggregated_metadata['events_processed']} events, drift={aggregated_metadata['drift_detected']}, repairs={aggregated_metadata['auto_applied_count']}")
             
             self.logger.info(f"📡 Loaded {len(all_tables)} tables from AAM source '{source_id}' (processed {len(processed_batch_ids)} batches)")
             return all_tables
@@ -511,6 +580,120 @@ class AAMSourceAdapter(BaseSourceAdapter):
             self.redis._client.expire(set_key, AAM_IDEMPOTENCY_TTL)
         except Exception as e:
             self.logger.error(f"Error marking batch as processed: {e}")
+    
+    def extract_metadata(self, canonical_event: dict) -> dict:
+        """
+        Extract Phase 4 metadata (drift_status, repair_summary, data_lineage) from canonical event.
+        
+        Handles backward compatibility - gracefully handles events without Phase 4 fields.
+        
+        Args:
+            canonical_event: Canonical event payload from Redis stream
+            
+        Returns:
+            Dictionary with extracted metadata:
+            {
+                "drift_detected": bool,
+                "drift_severity": str,
+                "repair_processed": bool,
+                "auto_applied_count": int,
+                "hitl_queued_count": int,
+                "processing_stages": list,
+                "data_quality_score": float,
+                ...
+            }
+        """
+        metadata = {
+            "drift_detected": False,
+            "repair_processed": False,
+            "auto_applied_count": 0,
+            "hitl_queued_count": 0,
+            "rejected_count": 0,
+            "processing_stages": [],
+            "data_quality_score": None
+        }
+        
+        try:
+            # Extract drift_status if present
+            drift_status = canonical_event.get("drift_status")
+            if drift_status and isinstance(drift_status, dict):
+                metadata["drift_detected"] = drift_status.get("drift_detected", False)
+                metadata["drift_severity"] = drift_status.get("drift_severity")
+                metadata["drift_type"] = drift_status.get("drift_type")
+                metadata["drift_event_id"] = drift_status.get("drift_event_id")
+                metadata["repair_attempted"] = drift_status.get("repair_attempted", False)
+                metadata["repair_successful"] = drift_status.get("repair_successful", False)
+                metadata["requires_human_review"] = drift_status.get("requires_human_review", False)
+                
+                if drift_status.get("detected_at"):
+                    metadata["drift_detected_at"] = drift_status["detected_at"]
+                if drift_status.get("resolved_at"):
+                    metadata["drift_resolved_at"] = drift_status["resolved_at"]
+            
+            # Extract repair_summary if present
+            repair_summary = canonical_event.get("repair_summary")
+            if repair_summary and isinstance(repair_summary, dict):
+                metadata["repair_processed"] = repair_summary.get("repair_processed", False)
+                metadata["auto_applied_count"] = repair_summary.get("auto_applied_count", 0)
+                metadata["hitl_queued_count"] = repair_summary.get("hitl_queued_count", 0)
+                metadata["rejected_count"] = repair_summary.get("rejected_count", 0)
+                metadata["overall_confidence"] = repair_summary.get("overall_confidence")
+                
+                # Extract repair history for detailed tracking
+                repair_history = repair_summary.get("repair_history", [])
+                if repair_history:
+                    metadata["repair_history_count"] = len(repair_history)
+                    metadata["repair_methods"] = list(set([r.get("applied_by") for r in repair_history if r.get("applied_by")]))
+            
+            # Extract data_lineage if present
+            data_lineage = canonical_event.get("data_lineage")
+            if data_lineage and isinstance(data_lineage, dict):
+                metadata["processing_stages"] = data_lineage.get("processing_stages", [])
+                metadata["data_quality_score"] = data_lineage.get("data_quality_score")
+                metadata["source_system"] = data_lineage.get("source_system")
+                metadata["source_connector_id"] = data_lineage.get("source_connector_id")
+                metadata["transformations_applied"] = data_lineage.get("transformations_applied", [])
+                metadata["processor_version"] = data_lineage.get("processor_version", "1.0")
+                
+                if data_lineage.get("processing_timestamp"):
+                    metadata["processing_timestamp"] = data_lineage["processing_timestamp"]
+            
+            # Add metadata extraction timestamp
+            from datetime import datetime
+            metadata["metadata_extracted_at"] = datetime.utcnow().isoformat()
+            
+        except Exception as e:
+            self.logger.warning(f"Error extracting metadata from canonical event: {e}")
+        
+        return metadata
+    
+    def store_metadata_in_redis(self, tenant_id: str, source_id: str, metadata: dict):
+        """
+        Store aggregated metadata in Redis for fast access by AgentExecutor.
+        
+        Uses hybrid storage approach:
+        - Redis: Fast access for real-time agent execution
+        - Key format: dcl:metadata:{tenant_id}:{source_id}
+        - TTL: 24 hours (configurable)
+        
+        Args:
+            tenant_id: Tenant identifier
+            source_id: Source connector identifier
+            metadata: Extracted metadata dictionary
+        """
+        try:
+            redis_key = f"dcl:metadata:{tenant_id}:{source_id}"
+            
+            # Store as JSON string
+            metadata_json = json.dumps(metadata)
+            
+            # Store with 24-hour expiry
+            self.redis._client.setex(redis_key, AAM_IDEMPOTENCY_TTL, metadata_json)
+            
+            self.logger.debug(f"📊 Stored metadata in Redis: {redis_key}")
+            
+        except Exception as e:
+            self.logger.error(f"Failed to store metadata in Redis for {source_id}: {e}")
 
 
 def get_source_adapter() -> BaseSourceAdapter:

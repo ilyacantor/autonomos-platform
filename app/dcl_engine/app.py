@@ -1711,8 +1711,8 @@ async def startup_event():
     # Initialize AgentExecutor
     try:
         agents_config = load_agents_config()
-        agent_executor = AgentExecutor(DB_PATH, agents_config, AGENT_RESULTS_CACHE)
-        log("✅ AgentExecutor initialized successfully")
+        agent_executor = AgentExecutor(DB_PATH, agents_config, AGENT_RESULTS_CACHE, redis_client)
+        log("✅ AgentExecutor initialized successfully with Phase 4 metadata support")
     except Exception as e:
         log(f"⚠️ AgentExecutor initialization failed: {e}. Continuing without agent execution.")
 
