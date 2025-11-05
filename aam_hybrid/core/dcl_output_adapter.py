@@ -21,9 +21,18 @@ import logging
 import os
 from typing import List, Dict, Any, Optional
 from datetime import datetime
+from decimal import Decimal
 from collections import defaultdict
 
 logger = logging.getLogger(__name__)
+
+
+class DecimalEncoder(json.JSONEncoder):
+    """Custom JSON encoder that handles Decimal types"""
+    def default(self, obj):
+        if isinstance(obj, Decimal):
+            return float(obj)
+        return super().default(obj)
 
 # Configuration: Externalized for tuning high-volume connectors
 BATCH_CHUNK_SIZE = int(os.getenv("AAM_BATCH_CHUNK_SIZE", "200"))
@@ -114,7 +123,7 @@ def publish_to_dcl_stream(
                     connector_config_id=connector_config_id or f"{connector_type}-default"
                 )
                 
-                payload_json = json.dumps(dcl_payload)
+                payload_json = json.dumps(dcl_payload, cls=DecimalEncoder)
                 
                 message_id = redis_client.xadd(
                     stream_key,

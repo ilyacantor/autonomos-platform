@@ -1,6 +1,4 @@
-from .connection_manager import ConnectionManager, connection_manager
+# Lazy imports to avoid circular dependencies and missing module errors
+# Import connection_manager only when needed to avoid 'shared' module import issues
 
-__all__ = [
-    "ConnectionManager",
-    "connection_manager"
-]
+__all__ = []

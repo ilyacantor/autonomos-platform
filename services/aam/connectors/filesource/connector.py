@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Any, Tuple, Optional
 from sqlalchemy.orm import Session
+from redis import Redis
 from app.models import CanonicalStream
 from services.aam.canonical.mapping_registry import mapping_registry
 from services.aam.canonical.schemas import (
@@ -13,6 +14,7 @@ from services.aam.canonical.schemas import (
     CanonicalAccount, CanonicalOpportunity, CanonicalContact,
     CanonicalAWSResource, CanonicalCostReport
 )
+from aam_hybrid.core.dcl_output_adapter import publish_to_dcl_stream
 
 logger = logging.getLogger(__name__)
 
@@ -26,16 +28,19 @@ class FileSourceConnector:
     - Infers entity type from filename prefix (accounts_, opportunities_, contacts_)
     - Extracts system name from filename suffix (_salesforce, _hubspot, etc.)
     - Applies Mapping Registry to transform source data to canonical format
-    - Emits CanonicalEvent envelopes to database streams
+    - Emits CanonicalEvent envelopes to database streams AND Redis streams (AAM)
     - Handles unknown fields in extras
     """
     
-    def __init__(self, db: Session, tenant_id: str = "demo-tenant"):
+    def __init__(self, db: Session, tenant_id: str = "demo-tenant", redis_client: Optional[Redis] = None):
         self.db = db
         self.tenant_id = tenant_id
+        self.redis_client = redis_client
         # Use root mock_sources/ directory
         self.sources_dir = Path("mock_sources")
-        logger.info(f"FileSourceConnector initialized for tenant {tenant_id}, sources_dir: {self.sources_dir}")
+        
+        redis_status = "with Redis batch publishing (dcl_output_adapter)" if redis_client else "database only (no Redis)"
+        logger.info(f"FileSourceConnector initialized for tenant {tenant_id}, sources_dir: {self.sources_dir} ({redis_status})")
     
     def discover_csv_files(self) -> List[Dict[str, str]]:
         """
@@ -168,13 +173,18 @@ class FileSourceConnector:
         
         return event, unknown_fields
     
-    def emit_canonical_event(self, event: CanonicalEvent):
-        """Emit CanonicalEvent to database canonical_streams table"""
+    def persist_canonical_event(self, event: CanonicalEvent):
+        """
+        Persist CanonicalEvent to database canonical_streams table for audit trail
+        
+        Note: Redis stream publishing is now handled in batch via dcl_output_adapter
+        """
         # Use model_dump with mode='json' to properly serialize datetime objects
         data_dict = event.data.model_dump(mode='json') if hasattr(event.data, 'model_dump') else (event.data.dict() if hasattr(event.data, 'dict') else event.data)
         meta_dict = event.meta.model_dump(mode='json') if hasattr(event.meta, 'model_dump') else event.meta.dict()
         source_dict = event.source.model_dump(mode='json') if hasattr(event.source, 'model_dump') else event.source.dict()
         
+        # Persist to database (for audit/replay)
         canonical_entry = CanonicalStream(
             tenant_id=self.tenant_id,
             entity=event.entity,
@@ -189,12 +199,15 @@ class FileSourceConnector:
         """
         Replay CSV files for specified entity/system or all discovered files
         
+        Collects all canonical events in memory and publishes them in batch via
+        dcl_output_adapter for table-based payload format.
+        
         Args:
             entity: Filter by entity type (account, opportunity, contact) or None for all
             system: Filter by system name (salesforce, hubspot, etc.) or None for all
         
         Returns:
-            Dict with ingestion statistics
+            Dict with ingestion statistics including Redis publish results
         """
         discovered_files = self.discover_csv_files()
         
@@ -217,8 +230,9 @@ class FileSourceConnector:
                 'unknown_fields_count': 0
             }
         
-        # Process each file
+        # Process each file and collect events for batch publishing
         trace_id = str(uuid.uuid4())
+        all_events = []  # Collect all events for batch publishing
         stats = {
             'files_processed': 0,
             'total_records': 0,
@@ -234,7 +248,7 @@ class FileSourceConnector:
             # Read CSV data
             rows = self.read_csv(file_info['filepath'])
             
-            # Transform and emit each row
+            # Transform each row and collect events
             file_unknown_count = 0
             for row in rows:
                 event, unknown_fields = self.build_canonical_event(
@@ -244,7 +258,12 @@ class FileSourceConnector:
                     trace_id=trace_id
                 )
                 
-                self.emit_canonical_event(event)
+                # Persist to database for audit trail
+                self.persist_canonical_event(event)
+                
+                # Collect event for batch Redis publishing
+                all_events.append(event)
+                
                 file_unknown_count += len(unknown_fields)
             
             # Update stats
@@ -269,8 +288,37 @@ class FileSourceConnector:
             
             logger.info(f"  ✓ Processed {len(rows)} records from {file_info['filename']}")
         
-        # Commit all records
+        # Commit all database records
         self.db.commit()
+        logger.info(f"Database persistence complete: {stats['total_records']} records committed")
+        
+        # Batch publish all events to Redis via dcl_output_adapter
+        if self.redis_client and all_events:
+            logger.info(f"Publishing {len(all_events)} events to Redis via dcl_output_adapter...")
+            try:
+                publish_result = publish_to_dcl_stream(
+                    tenant_id="default",  # Use "default" for DCL tenant resolution
+                    connector_type="filesource",
+                    canonical_events=all_events,
+                    redis_client=self.redis_client
+                )
+                
+                stats['redis_publish'] = publish_result
+                
+                if publish_result['success']:
+                    logger.info(f"✅ Redis publish successful: {publish_result['batches_published']} batches, "
+                              f"{publish_result['total_records']} records -> {publish_result['stream_key']}")
+                else:
+                    logger.error(f"❌ Redis publish failed with errors: {publish_result['errors']}")
+            except Exception as e:
+                logger.error(f"❌ Failed to publish to Redis: {e}", exc_info=True)
+                stats['redis_publish'] = {
+                    'success': False,
+                    'error': str(e)
+                }
+        else:
+            logger.info("Skipping Redis publishing (no Redis client or no events)")
+            stats['redis_publish'] = None
         
         logger.info(f"Replay complete: {stats['total_records']} records from {stats['files_processed']} files")
         return stats
