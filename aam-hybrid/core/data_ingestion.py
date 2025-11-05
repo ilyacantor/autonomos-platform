@@ -27,6 +27,7 @@ sys.path.insert(0, str(project_root))
 sys.path.insert(0, str(current_dir))
 
 from dcl_output_adapter import publish_to_dcl_stream
+from canonical_processor import CanonicalProcessor
 from app.contracts.canonical_event import (
     EntityEvent,
     EventType,
@@ -34,6 +35,7 @@ from app.contracts.canonical_event import (
     SchemaFingerprint,
     FieldMapping
 )
+from app.config.feature_flags import FeatureFlagConfig, FeatureFlag
 
 logger = logging.getLogger(__name__)
 
@@ -251,6 +253,18 @@ async def ingest_connector_data(
             results['success'] = False
     
     if all_events:
+        # Canonical processing (feature-flagged)
+        if FeatureFlagConfig.is_enabled(FeatureFlag.ENABLE_CANONICAL_EVENTS):
+            try:
+                processor = CanonicalProcessor(redis_client)
+                all_events = processor.process_events(all_events)
+                logger.info(f"✅ Canonical processing complete: {len(all_events)} events validated")
+            except Exception as e:
+                error_msg = f"Error in canonical processing: {e}"
+                logger.error(error_msg, exc_info=True)
+                results['errors'].append(error_msg)
+                results['success'] = False
+        
         try:
             publish_result = publish_to_dcl_stream(
                 tenant_id=tenant_id,
