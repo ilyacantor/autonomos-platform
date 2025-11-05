@@ -24,6 +24,8 @@ import {
   X
 } from 'lucide-react';
 import { API_CONFIG, AUTH_TOKEN_KEY } from '../config/api';
+import ConfidenceGauge from './ConfidenceGauge';
+import { getDataQualityMetadata, DataQualityMetadata } from '../services/dataQualityApi';
 
 interface ServiceStatus {
   name: string;
@@ -154,6 +156,22 @@ export default function AAMDashboard() {
   // Connection operations state
   const [operationLoading, setOperationLoading] = useState<Record<string, boolean>>({});
   const [operationError, setOperationError] = useState<Record<string, string>>({});
+  
+  // Data quality state
+  const [dataQualityMetadata, setDataQualityMetadata] = useState<DataQualityMetadata | null>(null);
+  const [qualityLoading, setQualityLoading] = useState(false);
+
+  const fetchDataQuality = async () => {
+    setQualityLoading(true);
+    try {
+      const metadata = await getDataQualityMetadata();
+      setDataQualityMetadata(metadata);
+    } catch (err) {
+      console.error('Error fetching data quality:', err);
+    } finally {
+      setQualityLoading(false);
+    }
+  };
 
   const fetchAAMMetrics = async () => {
     try {
@@ -355,7 +373,8 @@ export default function AAMDashboard() {
     await Promise.all([
       fetchAAMMetrics(),
       fetchAAMConnections(),
-      fetchIntelligenceData()
+      fetchIntelligenceData(),
+      fetchDataQuality()
     ]);
     setLoading(false);
   };
@@ -533,11 +552,11 @@ export default function AAMDashboard() {
             {intelligenceLoading && <Activity className="w-4 h-4 text-gray-400 animate-spin" />}
           </div>
           <div className="text-3xl font-bold text-white">
-            {intelligenceLoading ? '...' : mappingsData?.total || 0}
+            {intelligenceLoading ? '...' : mappingsData?.total ?? 0}
           </div>
           <div className="text-sm text-gray-500 mt-2 space-y-1">
-            <div>Autofix: {intelligenceLoading ? '...' : `${mappingsData?.autofix_pct || 0}%`}</div>
-            <div>HITL: {intelligenceLoading ? '...' : `${mappingsData?.hitl_pct || 0}%`}</div>
+            <div>Autofix: {intelligenceLoading ? '...' : `${mappingsData?.autofix_pct ?? 0}%`}</div>
+            <div>HITL: {intelligenceLoading ? '...' : `${mappingsData?.hitl_pct ?? 0}%`}</div>
           </div>
           {intelligenceError && (
             <div className="text-xs text-red-400 mt-2">{intelligenceError}</div>
@@ -553,7 +572,7 @@ export default function AAMDashboard() {
             {intelligenceLoading && <Activity className="w-4 h-4 text-gray-400 animate-spin" />}
           </div>
           <div className="text-3xl font-bold text-white">
-            {intelligenceLoading ? '...' : driftData?.total || 0}
+            {intelligenceLoading ? '...' : driftData?.total ?? 0}
           </div>
           <div className="text-sm text-gray-500 mt-2">
             {intelligenceLoading ? 'Loading...' : (
@@ -580,13 +599,13 @@ export default function AAMDashboard() {
             {intelligenceLoading && <Activity className="w-4 h-4 text-gray-400 animate-spin" />}
           </div>
           <div className="text-3xl font-bold text-white">
-            {intelligenceLoading ? '...' : ragData?.pending || 0}
+            {intelligenceLoading ? '...' : ragData?.pending ?? 0}
           </div>
           <div className="text-sm text-gray-500 mt-2 space-y-1">
-            <div>Pending: {intelligenceLoading ? '...' : ragData?.pending || 0}</div>
+            <div>Pending: {intelligenceLoading ? '...' : ragData?.pending ?? 0}</div>
             <div>
-              Accepted: {intelligenceLoading ? '...' : ragData?.accepted || 0} | 
-              Rejected: {intelligenceLoading ? '...' : ragData?.rejected || 0}
+              Accepted: {intelligenceLoading ? '...' : ragData?.accepted ?? 0} | 
+              Rejected: {intelligenceLoading ? '...' : ragData?.rejected ?? 0}
             </div>
           </div>
           {intelligenceError && (
@@ -603,10 +622,10 @@ export default function AAMDashboard() {
             {intelligenceLoading && <Activity className="w-4 h-4 text-gray-400 animate-spin" />}
           </div>
           <div className="text-3xl font-bold text-white">
-            {intelligenceLoading ? '...' : `${((repairData?.avg_confidence || 0) * 100).toFixed(0)}%`}
+            {intelligenceLoading ? '...' : `${((repairData?.avg_confidence ?? 0) * 100).toFixed(0)}%`}
           </div>
           <div className="text-sm text-gray-500 mt-2">
-            Test Pass Rate: {intelligenceLoading ? '...' : `${((repairData?.test_pass_rate || 0) * 100).toFixed(0)}%`}
+            Test Pass Rate: {intelligenceLoading ? '...' : `${((repairData?.test_pass_rate ?? 0) * 100).toFixed(0)}%`}
           </div>
           {intelligenceError && (
             <div className="text-xs text-red-400 mt-2">{intelligenceError}</div>
@@ -623,7 +642,7 @@ export default function AAMDashboard() {
               <h3 className="text-sm font-medium text-gray-400">Total Connections</h3>
             </div>
           </div>
-          <div className="text-3xl font-bold text-white">{metrics?.total_connections || 0}</div>
+          <div className="text-3xl font-bold text-white">{metrics?.total_connections ?? 0}</div>
           {metrics?.active_connections !== undefined && (
             <div className="text-sm text-gray-500 mt-1">
               {metrics.active_connections} active
@@ -639,7 +658,7 @@ export default function AAMDashboard() {
             </div>
           </div>
           <div className="text-3xl font-bold text-white">
-            {metrics?.active_drift_detections_24h || 0}
+            {metrics?.active_drift_detections_24h ?? 0}
           </div>
         </div>
 
@@ -651,7 +670,7 @@ export default function AAMDashboard() {
             </div>
           </div>
           <div className="text-3xl font-bold text-white">
-            {metrics?.successful_repairs_24h || 0}
+            {metrics?.successful_repairs_24h ?? 0}
           </div>
         </div>
 
@@ -663,7 +682,7 @@ export default function AAMDashboard() {
             </div>
           </div>
           <div className="text-3xl font-bold text-white">
-            {metrics?.manual_reviews_required_24h || 0}
+            {metrics?.manual_reviews_required_24h ?? 0}
           </div>
         </div>
 
@@ -675,7 +694,7 @@ export default function AAMDashboard() {
             </div>
           </div>
           <div className="text-3xl font-bold text-white">
-            {((metrics?.average_confidence_score || 0) * 100).toFixed(0)}%
+            {((metrics?.average_confidence_score ?? 0) * 100).toFixed(0)}%
           </div>
         </div>
 
@@ -687,7 +706,7 @@ export default function AAMDashboard() {
             </div>
           </div>
           <div className="text-3xl font-bold text-white">
-            {formatTime(metrics?.average_repair_time_seconds || 0)}
+            {formatTime(metrics?.average_repair_time_seconds ?? 0)}
           </div>
         </div>
       </div>
@@ -718,17 +737,65 @@ export default function AAMDashboard() {
             </div>
           ) : (
             <div className="space-y-3">
-              {connections.map((conn) => (
+              {connections.map((conn) => {
+                const sourceMetadata = dataQualityMetadata?.sources?.[conn.name] ?? {};
+                const confidence = sourceMetadata.confidence ?? 0.85;
+                const driftDetected = sourceMetadata.drift_detected ?? false;
+                const repairProcessed = sourceMetadata.repair_processed ?? false;
+                const autoAppliedCount = sourceMetadata.auto_applied_count ?? 0;
+                const hitlQueuedCount = sourceMetadata.hitl_queued_count ?? 0;
+                const fieldsChanged = sourceMetadata.fields_changed ?? [];
+                
+                return (
                 <div
                   key={conn.id}
                   className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 hover:border-gray-600 transition-colors"
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
+                      <div className="flex items-center gap-3 mb-3">
                         <h3 className="text-base font-semibold text-white">{conn.name}</h3>
                         {getStatusBadge(conn.status)}
+                        <div className="ml-auto">
+                          <ConfidenceGauge
+                            confidence={confidence}
+                            label="Mapping Quality"
+                            size="small"
+                            showLabel={false}
+                          />
+                        </div>
                       </div>
+                      
+                      {/* Data Quality Alerts */}
+                      {driftDetected && (
+                        <div className="mb-3 p-2 bg-orange-900/20 border border-orange-500/30 rounded text-xs">
+                          <div className="flex items-center gap-2">
+                            <AlertTriangle className="w-4 h-4 text-orange-400" />
+                            <span className="text-orange-400 font-medium">
+                              Schema drift detected: {fieldsChanged.length} fields changed
+                            </span>
+                          </div>
+                          {fieldsChanged.length > 0 && (
+                            <div className="mt-1 ml-6 text-gray-400">
+                              Fields: {fieldsChanged.slice(0, 3).join(', ')}
+                              {fieldsChanged.length > 3 && ` +${fieldsChanged.length - 3} more`}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      {repairProcessed && (autoAppliedCount > 0 || hitlQueuedCount > 0) && (
+                        <div className="mb-3 p-2 bg-blue-900/20 border border-blue-500/30 rounded text-xs">
+                          <div className="flex items-center gap-2">
+                            <Wrench className="w-4 h-4 text-blue-400" />
+                            <span className="text-blue-400">
+                              {autoAppliedCount > 0 && `${autoAppliedCount} repairs auto-applied`}
+                              {autoAppliedCount > 0 && hitlQueuedCount > 0 && ', '}
+                              {hitlQueuedCount > 0 && `${hitlQueuedCount} pending review`}
+                            </span>
+                          </div>
+                        </div>
+                      )}
                       
                       <div className="grid grid-cols-2 gap-3 text-sm">
                         <div>
@@ -793,7 +860,8 @@ export default function AAMDashboard() {
                     </div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

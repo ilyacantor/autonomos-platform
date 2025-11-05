@@ -1837,6 +1837,189 @@ async def get_all_agent_results(
     
     return agent_executor.get_all_results(tenant_id)
 
+@app.get("/dcl/metadata")
+async def get_data_quality_metadata(
+    tenant_id: str = Query("default", description="Tenant identifier")
+):
+    """
+    Get aggregated data quality metadata for tenant.
+    Includes drift status, repair counts, confidence scores, and processing stages.
+    """
+    if not agent_executor:
+        return JSONResponse({
+            "overall_data_quality_score": 0.85,
+            "drift_detected": False,
+            "repair_processed": False,
+            "auto_applied_repairs": 0,
+            "hitl_pending_repairs": 0,
+            "sources_with_drift": [],
+            "low_confidence_sources": [],
+            "overall_confidence": None,
+            "sources": {}
+        })
+    
+    try:
+        # Get aggregated metadata from agent executor
+        metadata = await asyncio.to_thread(agent_executor._aggregate_metadata, tenant_id)
+        return JSONResponse(metadata)
+    except Exception as e:
+        log(f"⚠️ Error fetching data quality metadata: {e}")
+        return JSONResponse({
+            "overall_data_quality_score": 0.0,
+            "drift_detected": False,
+            "repair_processed": False,
+            "auto_applied_repairs": 0,
+            "hitl_pending_repairs": 0,
+            "sources_with_drift": [],
+            "low_confidence_sources": [],
+            "overall_confidence": None,
+            "sources": {},
+            "error": str(e)
+        }, status_code=500)
+
+@app.get("/dcl/drift-alerts")
+async def get_drift_alerts(
+    tenant_id: str = Query("default", description="Tenant identifier")
+):
+    """
+    Get active schema drift alerts for tenant.
+    Returns list of sources with detected schema drift including severity and affected fields.
+    """
+    if not agent_executor:
+        return JSONResponse({"alerts": []})
+    
+    try:
+        # Get metadata first
+        metadata = await asyncio.to_thread(agent_executor._aggregate_metadata, tenant_id)
+        
+        # Build drift alerts from sources with drift
+        alerts = []
+        sources_data = metadata.get("sources", {})
+        sources_with_drift = metadata.get("sources_with_drift", [])
+        
+        for source_id in sources_with_drift:
+            source_metadata = sources_data.get(source_id, {})
+            
+            # Determine severity based on number of fields changed
+            fields_changed = source_metadata.get("fields_changed", [])
+            field_count = len(fields_changed)
+            
+            if field_count >= 5:
+                severity = "high"
+            elif field_count >= 2:
+                severity = "medium"
+            else:
+                severity = "low"
+            
+            alerts.append({
+                "source_id": source_id,
+                "connector_type": source_metadata.get("connector_type", "unknown"),
+                "drift_severity": severity,
+                "fields_changed": fields_changed,
+                "detected_at": source_metadata.get("drift_detected_at", None)
+            })
+        
+        return JSONResponse({"alerts": alerts})
+    except Exception as e:
+        log(f"⚠️ Error fetching drift alerts: {e}")
+        return JSONResponse({"alerts": [], "error": str(e)}, status_code=500)
+
+@app.get("/dcl/hitl-pending")
+async def get_hitl_pending(
+    tenant_id: str = Query("default", description="Tenant identifier")
+):
+    """
+    Get pending HITL (Human-in-the-Loop) review requests.
+    Returns count and details of pending manual reviews.
+    """
+    if not agent_executor:
+        return JSONResponse({"pending_count": 0, "reviews": []})
+    
+    try:
+        # Get metadata
+        metadata = await asyncio.to_thread(agent_executor._aggregate_metadata, tenant_id)
+        
+        # Get HITL pending count
+        hitl_count = metadata.get("hitl_pending_repairs", 0)
+        
+        # Build review items from sources metadata
+        reviews = []
+        sources_data = metadata.get("sources", {})
+        
+        for source_id, source_metadata in sources_data.items():
+            hitl_repairs = source_metadata.get("hitl_queued_count", 0)
+            if hitl_repairs > 0:
+                reviews.append({
+                    "source_id": source_id,
+                    "connector_type": source_metadata.get("connector_type", "unknown"),
+                    "pending_repairs": hitl_repairs,
+                    "confidence_score": source_metadata.get("confidence", 0.0),
+                    "queued_at": source_metadata.get("repair_queued_at", None)
+                })
+        
+        return JSONResponse({
+            "pending_count": hitl_count,
+            "reviews": reviews
+        })
+    except Exception as e:
+        log(f"⚠️ Error fetching HITL pending: {e}")
+        return JSONResponse({"pending_count": 0, "reviews": [], "error": str(e)}, status_code=500)
+
+@app.get("/dcl/repair-history")
+async def get_repair_history(
+    tenant_id: str = Query("default", description="Tenant identifier"),
+    limit: int = Query(50, description="Maximum number of repair records to return")
+):
+    """
+    Get recent auto-repair history.
+    Returns recent repairs with confidence scores, auto-applied vs HITL status.
+    """
+    if not agent_executor:
+        return JSONResponse({"repairs": []})
+    
+    try:
+        # Get metadata
+        metadata = await asyncio.to_thread(agent_executor._aggregate_metadata, tenant_id)
+        
+        # Build repair history from sources metadata
+        repairs = []
+        sources_data = metadata.get("sources", {})
+        
+        for source_id, source_metadata in sources_data.items():
+            auto_applied = source_metadata.get("auto_applied_count", 0)
+            hitl_queued = source_metadata.get("hitl_queued_count", 0)
+            
+            if auto_applied > 0:
+                repairs.append({
+                    "source_id": source_id,
+                    "connector_type": source_metadata.get("connector_type", "unknown"),
+                    "repair_type": "auto_applied",
+                    "count": auto_applied,
+                    "confidence": source_metadata.get("confidence", 0.0),
+                    "applied_at": source_metadata.get("repair_applied_at", None),
+                    "fields_repaired": source_metadata.get("fields_repaired", [])
+                })
+            
+            if hitl_queued > 0:
+                repairs.append({
+                    "source_id": source_id,
+                    "connector_type": source_metadata.get("connector_type", "unknown"),
+                    "repair_type": "hitl_pending",
+                    "count": hitl_queued,
+                    "confidence": source_metadata.get("confidence", 0.0),
+                    "queued_at": source_metadata.get("repair_queued_at", None),
+                    "fields_requiring_review": source_metadata.get("fields_requiring_review", [])
+                })
+        
+        # Sort by timestamp (most recent first) and limit
+        repairs.sort(key=lambda x: x.get("applied_at") or x.get("queued_at") or "", reverse=True)
+        repairs = repairs[:limit]
+        
+        return JSONResponse({"repairs": repairs})
+    except Exception as e:
+        log(f"⚠️ Error fetching repair history: {e}")
+        return JSONResponse({"repairs": [], "error": str(e)}, status_code=500)
+
 @app.get("/connect")
 async def connect(
     sources: str = Query(...),
