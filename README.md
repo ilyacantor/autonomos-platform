@@ -93,12 +93,13 @@ A production-ready **full-stack SaaS platform** for AI-driven data orchestration
 **Backend:**
 - FastAPI (Python web framework)
 - SQLAlchemy 2.0 (async ORM)
+- Alembic (database migrations)
 - Python RQ + Redis (task queue)
 - DuckDB (embedded analytics for DCL)
 - Pydantic (validation)
 
 **Database & Storage:**
-- PostgreSQL (primary database)
+- PostgreSQL (primary database with Alembic migrations)
 - Redis (queue + caching)
 - DuckDB (DCL data processing)
 
@@ -328,13 +329,17 @@ cp .env.example .env
 # 4. Start PostgreSQL and Redis
 # (Ensure both are running locally)
 
-# 5. Start backend server
+# 5. Run database migrations (automatic on startup)
+# Migrations run automatically via start.sh
+# Or manually: alembic upgrade head
+
+# 6. Start backend server
 ./start.sh
 # Or manually:
 # python -m app.worker &  # Start RQ worker
 # uvicorn app.main:app --host 0.0.0.0 --port 5000
 
-# 6. Access the app
+# 7. Access the app
 open http://localhost:5000
 ```
 
@@ -359,6 +364,11 @@ open http://localhost:5000
 │           ├── aoa.py            # AOA orchestration
 │           ├── aam_monitoring.py # AAM dashboard API
 │           └── dcl.py            # DCL engine endpoints
+├── alembic/                      # Database migrations
+│   ├── versions/                 # Migration scripts
+│   │   └── 5a9d6371e18c_*.py    # Baseline migration
+│   ├── env.py                    # Alembic environment config
+│   └── script.py.mako            # Migration template
 ├── dcl/                          # Data Connection Layer
 │   ├── engine.py                 # Main DCL orchestration
 │   ├── llm_service.py            # LLM abstraction layer
@@ -393,8 +403,11 @@ open http://localhost:5000
 │   │   ├── models.py
 │   │   └── config.py
 │   └── README.md                 # AAM-specific docs
+├── scripts/                      # Utility scripts
+│   └── stamp_baseline.sh         # Production migration baseline
+├── alembic.ini                   # Alembic configuration
 ├── requirements.txt              # Python dependencies
-├── start.sh                      # Startup script
+├── start.sh                      # Startup script (auto-runs migrations)
 ├── replit.md                     # Project memory/notes
 └── README.md                     # This file
 ```
@@ -448,6 +461,84 @@ open http://localhost:5000
 - Live feed of sync jobs, drift detections, repairs
 - Timestamps and event details
 - Scrollable list of recent activity
+
+---
+
+## 🗄️ Database Migrations
+
+**Production-ready schema versioning with Alembic:**
+
+AutonomOS uses **Alembic** for database migrations, providing safe, trackable schema changes with zero downtime.
+
+### Key Features
+
+- **Automatic migrations on startup** - Every server start runs `alembic upgrade head`
+- **Multi-Base architecture** - Tracks both `app.models` and `aam_hybrid.shared.models` in one migration history
+- **Baseline migration** - Safe production deployment with existing data (no DROP TABLE warnings)
+- **Version controlled** - All migrations committed to git with code changes
+
+### Creating New Migrations
+
+When you change models in `app/models.py` or `aam_hybrid/shared/models.py`:
+
+```bash
+# Auto-generate migration from model changes
+alembic revision --autogenerate -m "Add user preferences table"
+
+# Review the generated migration in alembic/versions/
+# Test locally, then commit to git
+```
+
+### Managing Migrations
+
+```bash
+# Apply all pending migrations
+alembic upgrade head
+
+# Rollback last migration
+alembic downgrade -1
+
+# Check current migration version
+alembic current
+
+# View migration history
+alembic history
+```
+
+### First-Time Production Setup
+
+**IMPORTANT:** Before deploying Alembic to an existing production database:
+
+```bash
+# Run ONCE to align migration history with existing schema
+./scripts/stamp_baseline.sh
+```
+
+This marks the current production schema as baseline, preventing destructive DROP TABLE operations.
+
+### Migration Workflow
+
+1. **Development:**
+   - Modify SQLAlchemy models
+   - Run `alembic revision --autogenerate -m "description"`
+   - Review generated migration
+   - Test locally with `alembic upgrade head`
+
+2. **Staging:**
+   - Commit migration to git
+   - Deploy to staging
+   - Migrations auto-run on startup via `start.sh`
+
+3. **Production:**
+   - First deploy: Run `./scripts/stamp_baseline.sh`
+   - Subsequent deploys: Migrations auto-apply on startup
+
+### Notes
+
+- **Never manually edit production schema** - Always use Alembic migrations
+- **Test migrations locally first** - Use development database before production
+- **Migrations are atomic** - Each migration runs in a transaction
+- **Multi-tenant safe** - All migrations respect tenant isolation
 
 ---
 
