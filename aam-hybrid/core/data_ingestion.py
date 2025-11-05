@@ -255,9 +255,17 @@ async def ingest_connector_data(
         # Canonical processing (feature-flagged)
         if FeatureFlagConfig.is_enabled(FeatureFlag.ENABLE_CANONICAL_EVENTS):
             try:
-                processor = CanonicalProcessor(redis_client)
-                all_events = processor.process_events(all_events)
-                logger.info(f"✅ Canonical processing complete: {len(all_events)} events validated")
+                # Import db session if needed
+                from app.database import SessionLocal
+                db_session = SessionLocal()
+                
+                try:
+                    processor = CanonicalProcessor(redis_client, db_session=db_session)
+                    all_events = processor.process_events(all_events)
+                    logger.info(f"✅ Canonical processing complete: {len(all_events)} events validated")
+                finally:
+                    db_session.close()
+                    
             except Exception as e:
                 error_msg = f"Error in canonical processing: {e}"
                 logger.error(error_msg, exc_info=True)

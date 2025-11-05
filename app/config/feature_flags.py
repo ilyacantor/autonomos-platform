@@ -43,7 +43,7 @@ class FeatureFlagConfig:
     _flags: Dict[str, bool] = {
         FeatureFlag.USE_AAM_AS_SOURCE: True,  # Phase 2.5: ENABLED - Testing AAM → DCL bridge with correct tenant
         FeatureFlag.ENABLE_DRIFT_DETECTION: True,  # Phase 4: ENABLED - Detect schema drift in AAM connectors
-        FeatureFlag.ENABLE_AUTO_REPAIR: False,
+        FeatureFlag.ENABLE_AUTO_REPAIR: True,  # Phase 4: ENABLED (Task 8) - Auto-repair with 3-tier confidence scoring
         FeatureFlag.ENABLE_HITL_WORKFLOW: True,
         FeatureFlag.ENABLE_CANONICAL_EVENTS: True,  # Phase 4: ENABLED - Normalize and validate canonical events
         FeatureFlag.ENABLE_SCHEMA_FINGERPRINTING: True,  # Phase 4: ENABLED - Track schema versions for drift

@@ -40,14 +40,16 @@ class CanonicalProcessor:
     
     PROCESSOR_VERSION = "1.0"
     
-    def __init__(self, redis_client: redis.Redis):
+    def __init__(self, redis_client: redis.Redis, db_session=None):
         """
         Initialize the canonical processor.
         
         Args:
             redis_client: Redis client for metadata persistence
+            db_session: Optional SQLAlchemy session for PostgreSQL persistence
         """
         self.redis_client = redis_client
+        self.db_session = db_session
         logger.info(f"CanonicalProcessor initialized (version {self.PROCESSOR_VERSION})")
     
     def process_events(self, events: List[EntityEvent]) -> List[EntityEvent]:
@@ -96,11 +98,63 @@ class CanonicalProcessor:
                             f"{drift_event.changes.get('summary', 'unknown changes')}"
                         )
                         
+                        # Add drift metadata to event
                         if normalized_event.metadata is None:
                             normalized_event.metadata = {}
                         normalized_event.metadata["drift_detected"] = True
                         normalized_event.metadata["drift_severity"] = drift_event.severity
                         normalized_event.metadata["drift_event_id"] = drift_event.event_id
+                        
+                        # NEW: Process drift with RepairAgent
+                        if FeatureFlagConfig.is_enabled(FeatureFlag.ENABLE_AUTO_REPAIR):
+                            from .repair_agent import RepairAgent
+                            repair_agent = RepairAgent(
+                                redis_client=self.redis_client,
+                                db_session=self.db_session
+                            )
+                            
+                            try:
+                                repair_batch = repair_agent.suggest_repairs(drift_event, normalized_event)
+                                
+                                # Add repair metadata to event
+                                normalized_event.metadata["repair_processed"] = True
+                                normalized_event.metadata["repair_auto_applied"] = repair_batch.auto_applied_count
+                                normalized_event.metadata["repair_hitl_queued"] = repair_batch.hitl_queued_count
+                                normalized_event.metadata["repair_rejected"] = repair_batch.rejected_count
+                                normalized_event.metadata["repair_overall_confidence"] = repair_batch.overall_confidence
+                                
+                                # Log each suggestion with appropriate emoji
+                                for suggestion in repair_batch.suggestions:
+                                    if suggestion.repair_action == "auto_applied":
+                                        logger.info(
+                                            f"✅ Auto-applied repair: {suggestion.field_name} → "
+                                            f"{suggestion.suggested_mapping} (confidence: {suggestion.confidence:.2f})"
+                                        )
+                                    elif suggestion.repair_action == "hitl_queued":
+                                        logger.info(
+                                            f"📋 Queued for HITL review: {suggestion.field_name} → "
+                                            f"{suggestion.suggested_mapping} (confidence: {suggestion.confidence:.2f})"
+                                        )
+                                    elif suggestion.repair_action == "rejected":
+                                        logger.warning(
+                                            f"❌ Repair rejected (low confidence): {suggestion.field_name} "
+                                            f"(confidence: {suggestion.confidence:.2f})"
+                                        )
+                                
+                                # Store all suggestions in metadata for downstream consumers
+                                normalized_event.metadata["repair_suggestions"] = [
+                                    {
+                                        "field_name": s.field_name,
+                                        "suggested_mapping": s.suggested_mapping,
+                                        "confidence": s.confidence,
+                                        "action": s.repair_action
+                                    }
+                                    for s in repair_batch.suggestions
+                                ]
+                                        
+                            except Exception as e:
+                                logger.error(f"RepairAgent processing failed: {e}", exc_info=True)
+                                normalized_event.metadata["repair_error"] = str(e)
                 
                 # Stage 3: Validate
                 if not self.validate_event(normalized_event):
