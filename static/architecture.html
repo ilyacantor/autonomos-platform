@@ -98,12 +98,13 @@
             <li><a href="#aam">AAM Components</a></li>
             <li><a href="#middleware">Middleware Stack</a></li>
             <li><a href="#database">Database Schema</a></li>
+            <li><a href="#migrations">Database Migrations</a></li>
             <li><a href="#frontend">Frontend Architecture</a></li>
         </ul>
     </nav>
 
     <div class="note">
-        <strong>Current Production Status (November 2025):</strong> Platform includes 4 operational connectors (Salesforce, FileSource, Supabase, MongoDB), complete drift detection, autonomous auto-repair, canonical event normalization, and Live Flow visualization. FileSource → AAM → DCL integration complete with AWS cost data routing to FinOps Pilot via heuristic domain filtering.
+        <strong>Current Production Status (November 2025):</strong> Platform includes 4 operational connectors (Salesforce, FileSource, Supabase, MongoDB), complete drift detection, autonomous auto-repair, canonical event normalization, and Live Flow visualization. FileSource → AAM → DCL integration complete with AWS cost data routing to FinOps Pilot via heuristic domain filtering. <strong>Alembic migration system implemented</strong> for production-ready database schema versioning with automatic migrations on startup.
     </div>
 
     <section id="functional">
@@ -447,6 +448,75 @@ erDiagram
         datetime created_at
     }
         </pre>
+    </section>
+
+    <section id="migrations">
+        <h2>Database Migrations</h2>
+        <p>Production-ready schema versioning with Alembic for safe, trackable changes.</p>
+        
+        <div class="note">
+            <h4 style="margin-top: 0;">Key Features</h4>
+            <ul>
+                <li><strong>Automatic migrations on startup</strong> - Every server start runs <code>alembic upgrade head</code></li>
+                <li><strong>Multi-Base architecture</strong> - Tracks both <code>app.models.Base</code> and <code>aam_hybrid.shared.models.Base</code> in one history</li>
+                <li><strong>Baseline migration</strong> - Safe production deployment with existing data (no DROP TABLE warnings)</li>
+                <li><strong>Version controlled</strong> - All migrations committed to git with code changes</li>
+            </ul>
+        </div>
+
+        <pre class="mermaid">
+flowchart LR
+    DEV["👨‍💻 Developer<br/><br/>Modify models in:<br/>• app/models.py<br/>• aam_hybrid/shared/models.py"]
+    
+    GEN["📝 Generate Migration<br/><br/>alembic revision<br/>--autogenerate<br/>-m 'description'"]
+    
+    REVIEW["🔍 Review<br/><br/>Check generated<br/>migration in<br/>alembic/versions/"]
+    
+    TEST["🧪 Test Locally<br/><br/>alembic upgrade head<br/><br/>Verify schema<br/>changes work"]
+    
+    COMMIT["✅ Commit to Git<br/><br/>Migration script<br/>+ model changes"]
+    
+    DEPLOY["🚀 Deploy<br/><br/>start.sh runs<br/>alembic upgrade head<br/>automatically"]
+    
+    PROD["🎯 Production<br/><br/>Schema updated<br/>Zero downtime<br/>Rollback-ready"]
+    
+    DEV --> GEN
+    GEN --> REVIEW
+    REVIEW --> TEST
+    TEST --> COMMIT
+    COMMIT --> DEPLOY
+    DEPLOY --> PROD
+        </pre>
+
+        <div class="connector-list">
+            <div class="connector-card">
+                <h4>📦 Migration Commands</h4>
+                <code style="display: block; margin: 5px 0;">alembic revision --autogenerate -m "msg"</code>
+                <p>Generate new migration from model changes</p>
+            </div>
+            <div class="connector-card">
+                <h4>⬆️ Apply Migrations</h4>
+                <code style="display: block; margin: 5px 0;">alembic upgrade head</code>
+                <p>Apply all pending migrations (auto-runs on startup)</p>
+            </div>
+            <div class="connector-card">
+                <h4>⬇️ Rollback</h4>
+                <code style="display: block; margin: 5px 0;">alembic downgrade -1</code>
+                <p>Revert last migration</p>
+            </div>
+            <div class="connector-card">
+                <h4>📊 Status</h4>
+                <code style="display: block; margin: 5px 0;">alembic current</code>
+                <p>Check current migration version</p>
+            </div>
+        </div>
+
+        <div class="note">
+            <h4 style="margin-top: 0;">First-Time Production Setup</h4>
+            <p><strong>IMPORTANT:</strong> Before deploying Alembic to an existing production database, run the baseline stamp script:</p>
+            <code style="display: block; background: #2d2d2d; color: #f8f8f2; padding: 10px; border-radius: 4px; margin: 10px 0;">./scripts/stamp_baseline.sh</code>
+            <p>This marks the current production schema as baseline, preventing destructive DROP TABLE operations during first migration.</p>
+        </div>
     </section>
 
     <section id="frontend">
