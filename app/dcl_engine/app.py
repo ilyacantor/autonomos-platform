@@ -1526,11 +1526,19 @@ async def connect_source(
         })
         
         # Execute agents asynchronously with AAM-backed data
+        print(f"🔍 DEBUG: SELECTED_AGENTS={SELECTED_AGENTS}, agent_executor={agent_executor is not None}", flush=True)
         if SELECTED_AGENTS and agent_executor:
             try:
+                print(f"🚀 Agent execution started for {len(SELECTED_AGENTS)} agent(s)", flush=True)
                 await agent_executor.execute_agents_async(SELECTED_AGENTS, tenant_id, ws_manager)
+                print(f"✅ Agent results stored in cache", flush=True)
             except Exception as e:
-                log(f"Agent execution failed: {e}")
+                print(f"❌ Agent execution failed: {e}", flush=True)
+        else:
+            if not SELECTED_AGENTS:
+                print(f"⚠️ No agents selected for execution", flush=True)
+            if not agent_executor:
+                print(f"⚠️ Agent executor not initialized", flush=True)
         
         return {"ok": True, "score": score.confidence, "previews": previews, "source_mode": source_mode}
     finally:

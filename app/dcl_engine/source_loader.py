@@ -315,11 +315,11 @@ class AAMSourceAdapter(BaseSourceAdapter):
                 consumername=consumer_name,
                 streams={stream_key: '>'},
                 count=10,  # Read up to 10 messages
-                block=0  # Non-blocking read
+                block=None  # Non-blocking: return immediately if no messages
             )
             
             if not messages:
-                self.logger.warning(f"No new messages in stream '{stream_key}'")
+                self.logger.info(f"ℹ️ No new messages in stream '{stream_key}' (group: {group_name})")
                 return {}
             
             # Process messages and combine tables

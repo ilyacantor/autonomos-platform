@@ -149,9 +149,14 @@ async def startup_event():
     if dcl_app:
         from app.dcl_engine.agent_executor import AgentExecutor
         from app.dcl_engine.app import AGENT_RESULTS_CACHE, load_agents_config, DB_PATH
+        import app.dcl_engine.app as dcl_app_module
         try:
             agents_config = load_agents_config()
             dcl_app.agent_executor = AgentExecutor(DB_PATH, agents_config, AGENT_RESULTS_CACHE)
+            
+            # Set the global variable in dcl_app module (CRITICAL FIX)
+            dcl_app_module.agent_executor = dcl_app.agent_executor
+            
             logger.info("✅ DCL Agent Executor initialized successfully")
         except Exception as e:
             logger.warning(f"⚠️ DCL Agent Executor initialization failed: {e}. Continuing without agent execution.")
