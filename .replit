@@ -4,7 +4,7 @@ expertMode = true
 
 [nix]
 channel = "stable-25_05"
-packages = ["glibcLocales", "libxcrypt", "libyaml", "openssl", "redis", "imagemagick"]
+packages = ["glibcLocales", "imagemagick", "libxcrypt", "libyaml", "openssl", "redis"]
 
 [workflows]
 runButton = "Project"

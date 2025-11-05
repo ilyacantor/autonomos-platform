@@ -1,0 +1,434 @@
+"""
+Canonical Event Schema for AutonomOS AAM
+
+This module defines the canonical event structure used throughout the
+Adaptive API Mesh for normalizing heterogeneous data from multiple connectors.
+
+Canonical events provide:
+- Unified schema across all data sources
+- Schema fingerprinting for drift detection
+- Version tracking for backward compatibility
+- Rich metadata for observability
+"""
+
+from typing import Dict, List, Optional, Any, Literal, Union
+from pydantic import BaseModel, Field, validator
+from datetime import datetime
+from enum import Enum
+
+
+class EventSchemaVersion(str, Enum):
+    """Canonical event schema versions"""
+    V1_0 = "1.0"
+    V2_0 = "2.0"
+
+
+class EventType(str, Enum):
+    """Types of canonical events"""
+    ENTITY_CREATED = "entity_created"
+    ENTITY_UPDATED = "entity_updated"
+    ENTITY_DELETED = "entity_deleted"
+    SCHEMA_DRIFT_DETECTED = "schema_drift_detected"
+    REPAIR_COMPLETED = "repair_completed"
+    HEALTH_CHECK = "health_check"
+
+
+class CanonicalEntityType(str, Enum):
+    """Supported canonical entity types"""
+    OPPORTUNITY = "opportunity"
+    ACCOUNT = "account"
+    CONTACT = "contact"
+    CUSTOM = "custom"
+
+
+class DriftType(str, Enum):
+    """Types of schema drift"""
+    FIELD_ADDED = "field_added"
+    FIELD_REMOVED = "field_removed"
+    FIELD_RENAMED = "field_renamed"
+    TYPE_CHANGED = "type_changed"
+    CONSTRAINT_CHANGED = "constraint_changed"
+
+
+class SchemaFingerprint(BaseModel):
+    """
+    Cryptographic fingerprint of a schema for drift detection.
+    
+    Uses field names, types, and constraints to generate a unique hash.
+    """
+    fingerprint_hash: str = Field(..., description="SHA-256 hash of schema structure")
+    field_count: int = Field(..., ge=0)
+    field_names: List[str] = Field(..., description="Sorted list of field names")
+    
+    schema_version: str = Field(..., description="Connector-specific schema version")
+    generated_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    connector_name: str = Field(..., description="Source connector (e.g., 'salesforce')")
+    entity_type: str = Field(..., description="Entity type in source system")
+
+
+class DriftDetail(BaseModel):
+    """Details of individual field drift for granular tracking"""
+    drift_type: DriftType
+    field_affected: Optional[str] = Field(None, description="Field that changed")
+    
+    old_value: Optional[str] = Field(None, description="Previous field name/type")
+    new_value: Optional[str] = Field(None, description="Current field name/type")
+    
+    detected_at: datetime = Field(default_factory=datetime.utcnow)
+    severity: Literal["critical", "warning", "info"] = Field("warning")
+
+
+class DriftEvent(BaseModel):
+    """
+    Comprehensive drift event for schema change detection.
+    
+    Returned by DriftDetector when schema changes are detected between
+    the current and historical fingerprints.
+    """
+    event_id: str = Field(..., description="Unique drift event identifier")
+    drift_type: str = Field(..., description="Type of drift: schema_change, field_type_change, etc.")
+    severity: str = Field(..., description="Severity level: low, medium, high, critical")
+    
+    connector_name: str = Field(..., description="Source connector")
+    entity_type: str = Field(..., description="Entity type that changed")
+    tenant_id: str = Field(..., description="Tenant identifier")
+    
+    detected_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    changes: Dict[str, Any] = Field(
+        ..., 
+        description="Detailed changes: added_fields, removed_fields, field_count_delta, etc."
+    )
+    
+    previous_fingerprint: SchemaFingerprint = Field(..., description="Historical schema fingerprint")
+    current_fingerprint: SchemaFingerprint = Field(..., description="Current schema fingerprint")
+    
+    requires_repair: bool = Field(False, description="Whether auto-repair should be triggered")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
+
+
+class FieldMapping(BaseModel):
+    """
+    Mapping between source field and canonical field.
+    
+    Tracks the transformation logic and confidence.
+    """
+    source_field: str = Field(..., description="Original field name from connector")
+    canonical_field: str = Field(..., description="Mapped canonical field name")
+    
+    source_type: str = Field(..., description="Source data type")
+    canonical_type: str = Field(..., description="Canonical data type")
+    
+    mapping_method: Literal["exact", "rag", "llm", "heuristic", "manual"] = Field(
+        ..., description="How this mapping was determined"
+    )
+    
+    confidence_score: float = Field(..., ge=0.0, le=1.0)
+    
+    transformation_function: Optional[str] = Field(
+        None, description="Python function to transform data (e.g., 'datetime.fromisoformat')"
+    )
+    
+    semantic_similarity: Optional[float] = Field(
+        None, ge=0.0, le=1.0, description="RAG similarity score"
+    )
+    
+    human_verified: bool = Field(False, description="Whether a human verified this mapping")
+    verified_at: Optional[datetime] = None
+
+
+class RepairHistory(BaseModel):
+    """
+    History of repair actions performed on this event.
+    
+    Tracks all auto-repair attempts and their outcomes.
+    """
+    repair_event_id: str = Field(..., description="Unique repair event identifier")
+    
+    repair_action: Literal["auto_applied", "hitl_queued", "rejected"] = Field(
+        ..., description="Action taken: auto_applied, hitl_queued, rejected"
+    )
+    
+    field_name: str = Field(..., description="Field that was repaired")
+    suggested_mapping: str = Field(..., description="Suggested canonical field name")
+    
+    confidence: float = Field(..., ge=0.0, le=1.0, description="Repair confidence score")
+    confidence_reason: Optional[str] = Field(None, description="Why this confidence score")
+    
+    transformation: Optional[str] = Field(None, description="Applied transformation function")
+    
+    rag_similarity_count: int = Field(0, ge=0, description="Number of similar historical mappings found")
+    
+    # CHANGED: Remove misleading defaults - require explicit values
+    applied_at: datetime = Field(..., description="When this repair was applied (REQUIRED)")
+    applied_by: Literal["llm", "rag", "heuristic", "human"] = Field(..., description="Who/what applied the repair (REQUIRED)")
+    
+    # Keep these as explicit False by default since they represent pending states
+    human_reviewed: bool = Field(False, description="Whether human reviewed this repair")
+    reviewed_by: Optional[str] = Field(None, description="User ID who reviewed")
+    reviewed_at: Optional[datetime] = None
+
+
+class DataLineage(BaseModel):
+    """
+    Data lineage tracking for event transformation history.
+    
+    Tracks the journey of data from source connector through AAM to DCL.
+    """
+    source_system: str = Field(..., description="Original source system (e.g., 'Salesforce')")
+    source_connector_id: str = Field(..., description="Source connector instance ID")
+    
+    processing_stages: List[str] = Field(
+        default_factory=list, 
+        description="Stages: ingestion, normalization, drift_detection, repair, validation, enrichment"
+    )
+    
+    transformations_applied: List[str] = Field(
+        default_factory=list,
+        description="List of transformations applied (e.g., 'snake_case', 'type_inference', 'auto_repair')"
+    )
+    
+    processing_timestamp: datetime = Field(default_factory=datetime.utcnow)
+    
+    processor_version: str = Field("1.0", description="Version of CanonicalProcessor")
+    
+    data_quality_score: Optional[float] = Field(
+        None, ge=0.0, le=1.0, 
+        description="Overall data quality score after processing"
+    )
+
+
+class DriftStatus(BaseModel):
+    """
+    Current drift status for this event's schema.
+    
+    Indicates whether drift was detected and what action was taken.
+    """
+    drift_detected: bool = Field(False, description="Whether schema drift was detected")
+    
+    drift_event_id: Optional[str] = Field(None, description="ID of the drift event")
+    
+    drift_severity: Optional[Literal["low", "medium", "high", "critical"]] = Field(
+        None, description="Severity of detected drift"
+    )
+    
+    drift_type: Optional[str] = Field(
+        None, description="Type of drift: field_added, field_removed, field_renamed, type_changed"
+    )
+    
+    repair_attempted: bool = Field(False, description="Whether auto-repair was attempted")
+    repair_successful: bool = Field(False, description="Whether repair succeeded")
+    
+    detected_at: Optional[datetime] = None
+    resolved_at: Optional[datetime] = None
+    
+    requires_human_review: bool = Field(False, description="Whether HITL review is required")
+
+
+class RepairSummary(BaseModel):
+    """
+    Summary of repair actions for this event.
+    
+    Aggregates all repair attempts for quick reference.
+    """
+    repair_processed: bool = Field(False, description="Whether repair processing occurred")
+    
+    auto_applied_count: int = Field(0, ge=0, description="Number of auto-applied repairs")
+    hitl_queued_count: int = Field(0, ge=0, description="Number of repairs queued for HITL")
+    rejected_count: int = Field(0, ge=0, description="Number of rejected repairs")
+    
+    overall_confidence: Optional[float] = Field(
+        None, ge=0.0, le=1.0, 
+        description="Overall confidence across all repairs"
+    )
+    
+    repair_history: List[RepairHistory] = Field(
+        default_factory=list, 
+        description="Detailed history of all repairs"
+    )
+
+
+class CanonicalEvent(BaseModel):
+    """
+    Base canonical event structure.
+    
+    All events flowing through AAM conform to this schema.
+    """
+    schema_version: EventSchemaVersion = Field(
+        EventSchemaVersion.V1_0, description="Event schema version"
+    )
+    
+    event_id: str = Field(..., description="Unique event identifier")
+    event_type: EventType = Field(..., description="Type of event")
+    
+    connector_name: str = Field(..., description="Source connector (e.g., 'salesforce')")
+    connector_id: str = Field(..., description="Unique connector instance ID")
+    
+    entity_type: CanonicalEntityType = Field(..., description="Canonical entity type")
+    entity_id: str = Field(..., description="Unique entity identifier from source")
+    
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    
+    tenant_id: str = Field(..., description="Multi-tenant isolation")
+    
+    schema_fingerprint: SchemaFingerprint = Field(..., description="Schema version tracking")
+    
+    payload: Dict[str, Any] = Field(..., description="Event-specific data")
+    
+    metadata: Dict[str, Any] = Field(
+        default_factory=dict, description="Additional metadata"
+    )
+
+
+class EntityEvent(CanonicalEvent):
+    """
+    Canonical event for entity operations (create/update/delete).
+    
+    Extends base CanonicalEvent with entity-specific fields.
+    """
+    event_type: Literal[
+        EventType.ENTITY_CREATED,
+        EventType.ENTITY_UPDATED,
+        EventType.ENTITY_DELETED
+    ] = Field(..., description="Must be an entity operation")
+    
+    field_mappings: List[FieldMapping] = Field(
+        default_factory=list, description="Field-level mapping details"
+    )
+    
+    overall_confidence: float = Field(..., ge=0.0, le=1.0)
+    
+    raw_data: Optional[Dict[str, Any]] = Field(
+        None, description="Original raw data from connector (for debugging)"
+    )
+    
+    drift_status: Optional[DriftStatus] = Field(
+        None, description="Schema drift detection status"
+    )
+    
+    repair_summary: Optional[RepairSummary] = Field(
+        None, description="Summary of repair actions performed"
+    )
+    
+    data_lineage: Optional[DataLineage] = Field(
+        None, description="Data transformation lineage tracking"
+    )
+
+
+class SchemaEvent(CanonicalEvent):
+    """
+    Canonical event for schema changes (drift detection).
+    """
+    event_type: Literal[EventType.SCHEMA_DRIFT_DETECTED] = Field(
+        EventType.SCHEMA_DRIFT_DETECTED
+    )
+    
+    previous_fingerprint: SchemaFingerprint = Field(..., description="Previous schema state")
+    current_fingerprint: SchemaFingerprint = Field(..., description="Current schema state")
+    
+    drift_details: List[DriftDetail] = Field(..., description="Specific changes detected")
+    
+    auto_repair_attempted: bool = Field(False)
+    repair_job_id: Optional[str] = Field(None, description="ID of repair job if triggered")
+
+
+class RepairEvent(CanonicalEvent):
+    """
+    Canonical event for repair operations.
+    """
+    event_type: Literal[EventType.REPAIR_COMPLETED] = Field(EventType.REPAIR_COMPLETED)
+    
+    repair_job_id: str = Field(..., description="Unique repair job identifier")
+    
+    fields_repaired: List[FieldMapping] = Field(..., description="Fields that were repaired")
+    
+    repair_confidence: float = Field(..., ge=0.0, le=1.0)
+    repair_method: Literal["llm", "rag", "heuristic", "manual"]
+    
+    human_review_required: bool = Field(
+        False, description="Whether human review is needed"
+    )
+    human_reviewed: bool = Field(False)
+    reviewer_id: Optional[str] = None
+    
+    success: bool = Field(..., description="Whether repair succeeded")
+    error_message: Optional[str] = None
+
+
+class HealthCheckEvent(CanonicalEvent):
+    """
+    Canonical event for connector health checks.
+    """
+    event_type: Literal[EventType.HEALTH_CHECK] = Field(EventType.HEALTH_CHECK)
+    
+    connector_status: Literal["healthy", "degraded", "down"] = Field(...)
+    
+    response_time_ms: float = Field(..., ge=0.0)
+    error_rate: float = Field(0.0, ge=0.0, le=1.0)
+    
+    details: Dict[str, Any] = Field(default_factory=dict)
+
+
+class EventStream(BaseModel):
+    """
+    Stream of canonical events for batch processing.
+    """
+    stream_id: str = Field(..., description="Unique stream identifier")
+    
+    events: List[Union[EntityEvent, SchemaEvent, RepairEvent, HealthCheckEvent]] = Field(
+        ..., description="Events in this stream"
+    )
+    
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    total_events: int = Field(..., ge=0)
+    
+    @validator('total_events', pre=True, always=True)
+    def validate_total(cls, v, values):
+        """Ensure total matches event count"""
+        if 'events' in values:
+            return len(values['events'])
+        return v
+
+
+if __name__ == "__main__":
+    fingerprint = SchemaFingerprint(
+        fingerprint_hash="abc123def456",
+        field_count=5,
+        field_names=["id", "name", "amount", "stage", "close_date"],
+        schema_version="v2.3",
+        connector_name="salesforce",
+        entity_type="Opportunity"
+    )
+    
+    field_mapping = FieldMapping(
+        source_field="Amount",
+        canonical_field="amount",
+        source_type="decimal",
+        canonical_type="float",
+        mapping_method="exact",
+        confidence_score=1.0
+    )
+    
+    entity_event = EntityEvent(
+        event_id="evt-001",
+        event_type=EventType.ENTITY_CREATED,
+        connector_name="salesforce",
+        connector_id="sf-conn-001",
+        entity_type=CanonicalEntityType.OPPORTUNITY,
+        entity_id="SF-OPP-001",
+        tenant_id="tenant-123",
+        schema_fingerprint=fingerprint,
+        payload={
+            "opportunity_id": "SF-OPP-001",
+            "name": "Enterprise Deal",
+            "amount": 100000.0
+        },
+        field_mappings=[field_mapping],
+        overall_confidence=0.95
+    )
+    
+    print("Canonical Event Example:")
+    print("=" * 60)
+    print(entity_event.json(indent=2))

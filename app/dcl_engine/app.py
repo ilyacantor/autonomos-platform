@@ -10,6 +10,9 @@ import google.generativeai as genai  # type: ignore
 from rag_engine import RAGEngine
 from llm_service import get_llm_service
 import redis
+from app.dcl_engine.source_loader import get_source_adapter, AAMSourceAdapter
+from app.config.feature_flags import FeatureFlagConfig, FeatureFlag
+from app.dcl_engine.agent_executor import AgentExecutor
 
 # Use paths relative to this module's directory
 DCL_BASE_PATH = Path(__file__).parent
@@ -34,6 +37,8 @@ AUTO_INGEST_UNMAPPED = False
 ontology = None
 agents_config = None
 SELECTED_AGENTS: List[str] = []
+AGENT_RESULTS_CACHE: Dict[str, Dict] = {}  # tenant_id -> {agent_id -> results}
+agent_executor: Optional[AgentExecutor] = None
 LLM_CALLS = 0
 LLM_TOKENS = 0
 rag_engine = None
@@ -144,13 +149,18 @@ class ConnectionManager:
     
     async def broadcast(self, message: dict):
         """Broadcast message to all connected WebSocket clients"""
+        disconnected = []
         for connection in self.active_connections:
             try:
                 await connection.send_json(message)
-            except Exception as e:
-                log(f"⚠️ Error broadcasting to WebSocket client: {e}")
-                import traceback
-                log(f"   Traceback: {traceback.format_exc()}")
+            except Exception:
+                # Client disconnected - mark for removal
+                disconnected.append(connection)
+        
+        # Remove disconnected clients
+        for connection in disconnected:
+            if connection in self.active_connections:
+                self.active_connections.remove(connection)
 
 ws_manager = ConnectionManager()
 
@@ -1077,7 +1087,7 @@ def heuristic_plan(ontology: Dict[str, Any], source_key: str, tables: Dict[str, 
             log("⚡ High RAG coverage: Skipping LLM semantic validation, using heuristic filtering")
         else:
             log("⚡ Dev Mode OFF: Using heuristic domain filtering")
-        FINOPS_SOURCES = {"snowflake", "sap", "netsuite", "legacy_sql"}
+        FINOPS_SOURCES = {"snowflake", "sap", "netsuite", "legacy_sql", "filesource"}
         REVOPS_SOURCES = {"dynamics", "salesforce", "hubspot"}
         FINOPS_ENTITIES = {"aws_resources", "cost_reports"}
         REVOPS_ENTITIES = {"account", "opportunity"}
@@ -1361,7 +1371,11 @@ def preview_table(con, name: str, limit: int = 6) -> List[Dict[str,Any]]:
     except Exception:
         return []
 
-async def connect_source(source_key: str, llm_model: str = "gemini-2.5-flash") -> Dict[str, Any]:
+async def connect_source(
+    source_key: str, 
+    llm_model: str = "gemini-2.5-flash",
+    tenant_id: str = "default"
+) -> Dict[str, Any]:
     global ontology, agents_config, SOURCE_SCHEMAS, STATE_LOCK, TIMING_LOG, ASYNC_STATE_LOCK, ws_manager
     
     connect_start = time.time()
@@ -1381,10 +1395,34 @@ async def connect_source(source_key: str, llm_model: str = "gemini-2.5-flash") -
     
     if ontology is None:
         ontology = load_ontology()
-    schema_dir = os.path.join(SCHEMAS_DIR, source_key)
-    if not os.path.isdir(schema_dir):
-        return {"error": f"Unknown source '{source_key}'"}
-    tables = snapshot_tables_from_dir(source_key, schema_dir)
+    
+    # Get appropriate adapter based on feature flag
+    adapter = get_source_adapter()
+    source_mode = "aam_connectors" if FeatureFlagConfig.is_enabled(FeatureFlag.USE_AAM_AS_SOURCE) else "demo_files"
+    
+    log(f"📂 Using {source_mode} for source: {source_key} (tenant: {tenant_id})")
+    
+    # CRITICAL FIX: Clear cache for AAM sources to force fresh load from Redis Streams
+    # Without this, SOURCE_SCHEMAS caching prevents load_tables from being called
+    if FeatureFlagConfig.is_enabled(FeatureFlag.USE_AAM_AS_SOURCE):
+        if not ASYNC_STATE_LOCK:
+            ASYNC_STATE_LOCK = asyncio.Lock()
+        async with ASYNC_STATE_LOCK:
+            if source_key in SOURCE_SCHEMAS:
+                del SOURCE_SCHEMAS[source_key]
+                log(f"🗑️  Cleared SOURCE_SCHEMAS cache for AAM source: {source_key}")
+        
+        # Clear idempotency cache so all messages are reprocessed (fixes "0 sources" bug)
+        # SAFE: /dcl/connect is user-initiated and synchronous (no concurrent ingestion)
+        if isinstance(adapter, AAMSourceAdapter):
+            adapter.clear_idempotency_cache(tenant_id, source_id=source_key)
+            log(f"🗑️  Cleared idempotency cache for tenant: {tenant_id}")
+    
+    # Load tables using adapter
+    tables = adapter.load_tables(source_key, tenant_id)
+    
+    if not tables:
+        return {"error": f"No tables found for source '{source_key}'"}
     
     # STREAMING EVENT 2: Schema snapshot complete
     await ws_manager.broadcast({
@@ -1499,10 +1537,11 @@ async def connect_source(source_key: str, llm_model: str = "gemini-2.5-flash") -
             "message": f"✅ {source_key} mapping complete ({connect_elapsed:.1f}s)",
             "duration": connect_elapsed,
             "confidence": score.confidence,
+            "source_mode": source_mode,
             "timestamp": time.time()
         })
         
-        return {"ok": True, "score": score.confidence, "previews": previews}
+        return {"ok": True, "score": score.confidence, "previews": previews, "source_mode": source_mode}
     finally:
         release_db_lock(lock_id)
 
@@ -1579,6 +1618,9 @@ async def broadcast_state_change(event_type: str = "state_update"):
         # Calculate blended confidence
         blended_confidence = GRAPH_STATE.get("confidence")
         
+        # Determine source mode from feature flag
+        source_mode = "aam_connectors" if FeatureFlagConfig.is_enabled(FeatureFlag.USE_AAM_AS_SOURCE) else "demo_files"
+        
         # Send complete data (frontend has scrolling for unlimited display)
         state_payload = {
             "type": event_type,
@@ -1587,6 +1629,7 @@ async def broadcast_state_change(event_type: str = "state_update"):
                 "sources": SOURCES_ADDED,
                 "agents": SELECTED_AGENTS,
                 "devMode": get_dev_mode(),
+                "sourceMode": source_mode,
                 "graph": filtered_graph,  # Send filtered graph instead of raw GRAPH_STATE
                 "llmCalls": llm_stats["calls"],
                 "llmTokens": llm_stats["tokens"],
@@ -1657,7 +1700,7 @@ async def log_api_usage(request: Request, call_next):
 @app.on_event("startup")
 async def startup_event():
     """Initialize RAG engine and default settings on startup."""
-    global rag_engine
+    global rag_engine, agents_config, agent_executor
     
     # Initialize dev_mode to Prod Mode (False) as default if not already set
     try:
@@ -1680,6 +1723,14 @@ async def startup_event():
         log("✅ RAG Engine initialized successfully")
     except Exception as e:
         log(f"⚠️ RAG Engine initialization failed: {e}. Continuing without RAG.")
+    
+    # Initialize AgentExecutor
+    try:
+        agents_config = load_agents_config()
+        agent_executor = AgentExecutor(DB_PATH, agents_config, AGENT_RESULTS_CACHE, redis_client)
+        log("✅ AgentExecutor initialized successfully with Phase 4 metadata support")
+    except Exception as e:
+        log(f"⚠️ AgentExecutor initialization failed: {e}. Continuing without agent execution.")
 
 
 @app.websocket("/ws")
@@ -1743,6 +1794,9 @@ def state():
     # (Graph confidence already incorporates mapping quality and completeness)
     blended_confidence = GRAPH_STATE.get("confidence")
     
+    # Determine source mode from feature flag
+    source_mode = "aam_connectors" if FeatureFlagConfig.is_enabled(FeatureFlag.USE_AAM_AS_SOURCE) else "demo_files"
+    
     return JSONResponse({
         "events": EVENT_LOG,
         "timeline": EVENT_LOG[-5:],
@@ -1763,14 +1817,231 @@ def state():
         "selected_sources": SOURCES_ADDED,
         "selected_agents": SELECTED_AGENTS,
         "dev_mode": get_dev_mode(),  # Read from Redis for cross-process consistency
-        "auth_enabled": AUTH_ENABLED
+        "auth_enabled": AUTH_ENABLED,
+        "source_mode": source_mode
     })
+
+@app.get("/dcl/agents/{agent_id}/results")
+async def get_agent_results(
+    agent_id: str,
+    tenant_id: str = Query("default", description="Tenant identifier")
+):
+    """
+    Retrieve agent execution results.
+    Returns insights, statistics, and execution metadata for a specific agent.
+    """
+    if not agent_executor:
+        return JSONResponse({"error": "Agent executor not initialized"}, status_code=500)
+    
+    results = agent_executor.get_results(agent_id, tenant_id)
+    
+    if not results:
+        return JSONResponse(
+            {"error": f"No results found for agent '{agent_id}' (tenant: {tenant_id})"},
+            status_code=404
+        )
+    
+    return results
+
+@app.get("/dcl/agents/results")
+async def get_all_agent_results(
+    tenant_id: str = Query("default", description="Tenant identifier")
+):
+    """Retrieve all agent execution results for a tenant."""
+    if not agent_executor:
+        return JSONResponse({"error": "Agent executor not initialized"}, status_code=500)
+    
+    return agent_executor.get_all_results(tenant_id)
+
+@app.get("/dcl/metadata")
+async def get_data_quality_metadata(
+    tenant_id: str = Query("default", description="Tenant identifier")
+):
+    """
+    Get aggregated data quality metadata for tenant.
+    Includes drift status, repair counts, confidence scores, and processing stages.
+    """
+    if not agent_executor:
+        return JSONResponse({
+            "overall_data_quality_score": 0.85,
+            "drift_detected": False,
+            "repair_processed": False,
+            "auto_applied_repairs": 0,
+            "hitl_pending_repairs": 0,
+            "sources_with_drift": [],
+            "low_confidence_sources": [],
+            "overall_confidence": None,
+            "sources": {}
+        })
+    
+    try:
+        # Get aggregated metadata from agent executor
+        metadata = await asyncio.to_thread(agent_executor._aggregate_metadata, tenant_id)
+        return JSONResponse(metadata)
+    except Exception as e:
+        log(f"⚠️ Error fetching data quality metadata: {e}")
+        return JSONResponse({
+            "overall_data_quality_score": 0.0,
+            "drift_detected": False,
+            "repair_processed": False,
+            "auto_applied_repairs": 0,
+            "hitl_pending_repairs": 0,
+            "sources_with_drift": [],
+            "low_confidence_sources": [],
+            "overall_confidence": None,
+            "sources": {},
+            "error": str(e)
+        }, status_code=500)
+
+@app.get("/dcl/drift-alerts")
+async def get_drift_alerts(
+    tenant_id: str = Query("default", description="Tenant identifier")
+):
+    """
+    Get active schema drift alerts for tenant.
+    Returns list of sources with detected schema drift including severity and affected fields.
+    """
+    if not agent_executor:
+        return JSONResponse({"alerts": []})
+    
+    try:
+        # Get metadata first
+        metadata = await asyncio.to_thread(agent_executor._aggregate_metadata, tenant_id)
+        
+        # Build drift alerts from sources with drift
+        alerts = []
+        sources_data = metadata.get("sources", {})
+        sources_with_drift = metadata.get("sources_with_drift", [])
+        
+        for source_id in sources_with_drift:
+            source_metadata = sources_data.get(source_id, {})
+            
+            # Determine severity based on number of fields changed
+            fields_changed = source_metadata.get("fields_changed", [])
+            field_count = len(fields_changed)
+            
+            if field_count >= 5:
+                severity = "high"
+            elif field_count >= 2:
+                severity = "medium"
+            else:
+                severity = "low"
+            
+            alerts.append({
+                "source_id": source_id,
+                "connector_type": source_metadata.get("connector_type", "unknown"),
+                "drift_severity": severity,
+                "fields_changed": fields_changed,
+                "detected_at": source_metadata.get("drift_detected_at", None)
+            })
+        
+        return JSONResponse({"alerts": alerts})
+    except Exception as e:
+        log(f"⚠️ Error fetching drift alerts: {e}")
+        return JSONResponse({"alerts": [], "error": str(e)}, status_code=500)
+
+@app.get("/dcl/hitl-pending")
+async def get_hitl_pending(
+    tenant_id: str = Query("default", description="Tenant identifier")
+):
+    """
+    Get pending HITL (Human-in-the-Loop) review requests.
+    Returns count and details of pending manual reviews.
+    """
+    if not agent_executor:
+        return JSONResponse({"pending_count": 0, "reviews": []})
+    
+    try:
+        # Get metadata
+        metadata = await asyncio.to_thread(agent_executor._aggregate_metadata, tenant_id)
+        
+        # Get HITL pending count
+        hitl_count = metadata.get("hitl_pending_repairs", 0)
+        
+        # Build review items from sources metadata
+        reviews = []
+        sources_data = metadata.get("sources", {})
+        
+        for source_id, source_metadata in sources_data.items():
+            hitl_repairs = source_metadata.get("hitl_queued_count", 0)
+            if hitl_repairs > 0:
+                reviews.append({
+                    "source_id": source_id,
+                    "connector_type": source_metadata.get("connector_type", "unknown"),
+                    "pending_repairs": hitl_repairs,
+                    "confidence_score": source_metadata.get("confidence", 0.0),
+                    "queued_at": source_metadata.get("repair_queued_at", None)
+                })
+        
+        return JSONResponse({
+            "pending_count": hitl_count,
+            "reviews": reviews
+        })
+    except Exception as e:
+        log(f"⚠️ Error fetching HITL pending: {e}")
+        return JSONResponse({"pending_count": 0, "reviews": [], "error": str(e)}, status_code=500)
+
+@app.get("/dcl/repair-history")
+async def get_repair_history(
+    tenant_id: str = Query("default", description="Tenant identifier"),
+    limit: int = Query(50, description="Maximum number of repair records to return")
+):
+    """
+    Get recent auto-repair history.
+    Returns recent repairs with confidence scores, auto-applied vs HITL status.
+    """
+    if not agent_executor:
+        return JSONResponse({"repairs": []})
+    
+    try:
+        # Get metadata
+        metadata = await asyncio.to_thread(agent_executor._aggregate_metadata, tenant_id)
+        
+        # Build repair history from sources metadata
+        repairs = []
+        sources_data = metadata.get("sources", {})
+        
+        for source_id, source_metadata in sources_data.items():
+            auto_applied = source_metadata.get("auto_applied_count", 0)
+            hitl_queued = source_metadata.get("hitl_queued_count", 0)
+            
+            if auto_applied > 0:
+                repairs.append({
+                    "source_id": source_id,
+                    "connector_type": source_metadata.get("connector_type", "unknown"),
+                    "repair_type": "auto_applied",
+                    "count": auto_applied,
+                    "confidence": source_metadata.get("confidence", 0.0),
+                    "applied_at": source_metadata.get("repair_applied_at", None),
+                    "fields_repaired": source_metadata.get("fields_repaired", [])
+                })
+            
+            if hitl_queued > 0:
+                repairs.append({
+                    "source_id": source_id,
+                    "connector_type": source_metadata.get("connector_type", "unknown"),
+                    "repair_type": "hitl_pending",
+                    "count": hitl_queued,
+                    "confidence": source_metadata.get("confidence", 0.0),
+                    "queued_at": source_metadata.get("repair_queued_at", None),
+                    "fields_requiring_review": source_metadata.get("fields_requiring_review", [])
+                })
+        
+        # Sort by timestamp (most recent first) and limit
+        repairs.sort(key=lambda x: x.get("applied_at") or x.get("queued_at") or "", reverse=True)
+        repairs = repairs[:limit]
+        
+        return JSONResponse({"repairs": repairs})
+    except Exception as e:
+        log(f"⚠️ Error fetching repair history: {e}")
+        return JSONResponse({"repairs": [], "error": str(e)}, status_code=500)
 
 @app.get("/connect")
 async def connect(
     sources: str = Query(...),
     agents: str = Query(...),
-    llm_model: str = Query("gemini-2.5-flash", description="LLM model: gemini-2.5-flash, gpt-4o-mini, gpt-4o")
+    llm_model: str = Query("gemini-2.5-flash", description="LLM model: gemini-2.5-flash, gpt-4o-mini, gpt-4o"),
+    tenant_id: str = Query("default", description="Tenant identifier for multi-tenant isolation")
 ):
     """
     Idempotent connection endpoint - clears prior state and rebuilds from scratch.
@@ -1787,9 +2058,13 @@ async def connect(
     if not agent_list:
         return JSONResponse({"error": "No agents provided"}, status_code=400)
     
+    # Determine source mode from feature flag
+    source_mode = "aam_connectors" if FeatureFlagConfig.is_enabled(FeatureFlag.USE_AAM_AS_SOURCE) else "demo_files"
+    
     # Clear prior state (preserves dev_mode) for idempotent behavior
     reset_state(exclude_dev_mode=True)
     log(f"🔌 Connecting {len(source_list)} source(s) with {len(agent_list)} agent(s)...")
+    log(f"📂 Using {source_mode} for sources: {', '.join(source_list)} (tenant: {tenant_id})")
     
     # Store selected agents globally
     SELECTED_AGENTS = agent_list
@@ -1799,7 +2074,7 @@ async def connect(
     
     try:
         # Connect all sources in parallel using async concurrency
-        tasks = [connect_source(source, llm_model) for source in source_list]
+        tasks = [connect_source(source, llm_model, tenant_id) for source in source_list]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         
         # Check for any errors in the results
@@ -1817,10 +2092,34 @@ async def connect(
         log(f"❌ Connection error: {str(e)}")
         return JSONResponse({"error": str(e)}, status_code=500)
     
+    # Execute agents after all sources have completed and materialized views are ready
+    if agent_list and agent_executor:
+        # Check if DuckDB database exists before attempting agent execution
+        if os.path.exists(DB_PATH):
+            try:
+                log(f"🚀 Executing {len(agent_list)} agent(s) on unified DCL views (tenant: {tenant_id})")
+                await agent_executor.execute_agents_async(agent_list, tenant_id, ws_manager)
+                log(f"✅ Agent results stored in cache - accessible via /dcl/agents/{{agent_id}}/results")
+            except Exception as e:
+                log(f"❌ Agent execution failed: {e}")
+                # Don't fail the entire connection if agents fail - log and continue
+        else:
+            log(f"ℹ️ No materialized views available - skipping agent execution (DuckDB not created)")
+    elif not agent_list:
+        log(f"ℹ️ No agents selected for execution")
+    elif not agent_executor:
+        log(f"⚠️ Agent executor not initialized - skipping agent execution")
+    
     # Broadcast state change to WebSocket clients
     await broadcast_state_change("sources_connected")
     
-    return JSONResponse({"ok": True, "sources": SOURCES_ADDED, "agents": agent_list})
+    return JSONResponse({
+        "ok": True, 
+        "sources": SOURCES_ADDED, 
+        "agents": agent_list,
+        "source_mode": source_mode,
+        "tenant_id": tenant_id
+    })
 
 # DEPRECATED: /reset endpoint - replaced by unified idempotent /connect logic
 # Keeping this commented out for reference. All reset+connect behavior is now handled by /connect.
@@ -1997,6 +2296,39 @@ def toggle_auto_ingest(enabled: bool = Query(...)):
     global AUTO_INGEST_UNMAPPED
     AUTO_INGEST_UNMAPPED = enabled
     return JSONResponse({"ok": True, "enabled": AUTO_INGEST_UNMAPPED})
+
+@app.get("/feature_flags")
+def get_feature_flags():
+    """Get current state of all feature flags."""
+    from app.config.feature_flags import FeatureFlagConfig
+    return JSONResponse(FeatureFlagConfig.get_all_flags())
+
+@app.post("/feature_flags/toggle")
+async def toggle_feature_flag(request: Dict[str, Any]):
+    """Toggle a feature flag (USE_AAM_AS_SOURCE)."""
+    from app.config.feature_flags import FeatureFlagConfig, FeatureFlag
+    
+    flag_name = request.get("flag")
+    enabled = request.get("enabled")
+    
+    if flag_name not in [f.value for f in FeatureFlag]:
+        return JSONResponse({"error": f"Invalid flag: {flag_name}"}, status_code=400)
+    
+    # Set the flag
+    flag_enum = FeatureFlag(flag_name)
+    FeatureFlagConfig.set_flag(flag_enum, enabled)
+    
+    # Get updated state
+    all_flags = FeatureFlagConfig.get_all_flags()
+    migration_phase = FeatureFlagConfig.get_migration_phase()
+    
+    return JSONResponse({
+        "ok": True,
+        "flag": flag_name,
+        "enabled": enabled,
+        "all_flags": all_flags,
+        "migration_phase": migration_phase
+    })
 
 @app.get("/rag/stats")
 def rag_stats():

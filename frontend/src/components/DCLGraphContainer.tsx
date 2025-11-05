@@ -7,7 +7,7 @@ import { useDCLState } from '../hooks/useDCLState';
 import TypingText from './TypingText';
 import { aoaApi } from '../services/aoaApi';
 import { AUTH_TOKEN_KEY, API_CONFIG } from '../config/api';
-import { getDefaultSources, getDefaultAgents } from '../config/dclDefaults';
+import { getDefaultSources, getDefaultAgents, getAamSourceValues, getAllSourceValues } from '../config/dclDefaults';
 
 interface DCLGraphContainerProps {
   mappings: MappingReview[];
@@ -23,6 +23,7 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
   const { state: dclState } = useDCLState();
   const [typingEvents, setTypingEvents] = useState<Array<{ text: string; isTyping: boolean; key: string }>>([]);
   const [selectedModel, setSelectedModel] = useState('gemini-2.5-flash');
+  const [useAamSource, setUseAamSource] = useState(true);
   
   // Timer and progress state
   const [elapsedTime, setElapsedTime] = useState(0);
@@ -47,13 +48,21 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
     window.dispatchEvent(new CustomEvent('auth:unauthorized'));
   };
 
-  // Get persisted selections from localStorage, fallback to all sources/agents
+  // Get persisted selections from localStorage, fallback to mode-appropriate sources
   // Ensures we never send empty query params to backend
   const getPersistedSources = () => {
+    // Filter sources based on current mode
+    const allAvailableSources = useAamSource ? getAamSourceValues() : getAllSourceValues();
     const defaultSources = getDefaultSources();
-    console.log('[DCL] Current sources from localStorage:', defaultSources);
-    // getDefaultSources always returns non-empty array (fallback to all sources)
-    return defaultSources.join(',');
+    
+    // Filter to only include sources valid for current mode
+    const filteredSources = defaultSources.filter(s => allAvailableSources.includes(s));
+    
+    // If no valid sources after filtering, use all available for current mode
+    const sources = filteredSources.length > 0 ? filteredSources : allAvailableSources;
+    
+    console.log('[DCL] Current sources from localStorage:', sources);
+    return sources.join(',');
   };
   
   const getPersistedAgents = () => {
@@ -65,12 +74,36 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
   
   // Select all sources/agents (selection only, doesn't run)
   const selectAllSources = () => {
-    const allSources = ['dynamics', 'salesforce', 'hubspot', 'sap', 'netsuite', 'legacy_sql', 'snowflake', 'supabase', 'mongodb'];
+    // Select all sources based on current mode
+    const allSources = useAamSource ? getAamSourceValues() : getAllSourceValues();
     const allAgents = ['revops_pilot', 'finops_pilot'];
     localStorage.setItem('aos.selectedSources', JSON.stringify(allSources));
     localStorage.setItem('aos.selectedAgents', JSON.stringify(allAgents));
     console.log('[DCL] ✅ Selected ALL sources and agents:', allSources, allAgents);
   };
+
+  // Load feature flags from API
+  useEffect(() => {
+    fetch(API_CONFIG.buildDclUrl('/feature_flags'))
+      .then(res => res.json())
+      .then(flags => {
+        const aamMode = flags.USE_AAM_AS_SOURCE || false;
+        setUseAamSource(aamMode);
+        
+        // Auto-update selected sources to match mode
+        const correctSources = aamMode ? getAamSourceValues() : getAllSourceValues();
+        localStorage.setItem('aos.selectedSources', JSON.stringify(correctSources));
+        console.log(`[DCL] Initialized sources for ${aamMode ? 'AAM' : 'Legacy'} mode:`, correctSources);
+      })
+      .catch(err => console.error('Failed to load feature flags:', err));
+  }, []);
+  
+  // Update sources when AAM mode changes
+  useEffect(() => {
+    const correctSources = useAamSource ? getAamSourceValues() : getAllSourceValues();
+    localStorage.setItem('aos.selectedSources', JSON.stringify(correctSources));
+    console.log(`[DCL] Updated sources for ${useAamSource ? 'AAM' : 'Legacy'} mode:`, correctSources);
+  }, [useAamSource]);
 
   // Sync dev mode from backend state
   useEffect(() => {
@@ -337,6 +370,31 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
     }
   };
 
+  // Toggle source mode handler
+  const toggleSourceMode = async () => {
+    const newValue = !useAamSource;
+    try {
+      const response = await fetch(API_CONFIG.buildDclUrl('/feature_flags/toggle'), {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          ...getAuthHeader(),
+        },
+        body: JSON.stringify({
+          flag: 'USE_AAM_AS_SOURCE',
+          enabled: newValue
+        })
+      });
+      const data = await response.json();
+      if (data.ok) {
+        setUseAamSource(newValue);
+        console.log(`[DCL] Switched to ${newValue ? 'AAM Connectors' : 'Legacy File Sources'}`);
+      }
+    } catch (err) {
+      console.error('[DCL] Failed to toggle source mode:', err);
+    }
+  };
+
   return (
     <div id="dcl-graph-container" className="bg-gray-900 rounded-xl border border-gray-800 p-2 sm:p-3 -mt-[5px]">
       {/* Top-Mounted Progress Bar - Shows only for manual/connection-triggered runs */}
@@ -389,7 +447,7 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
               <div className="flex-1 w-full sm:w-auto">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center sm:justify-between gap-2 sm:gap-3 mb-3 sm:mb-1">
                   <h3 className="text-sm sm:text-sm font-medium text-white">
-                    Intelligent Mapping & Ontology Engine
+                    Ontology Graph
                   </h3>
                   {/* Mobile: 2x2 Grid, Desktop: Row */}
                   <div className="grid grid-cols-2 sm:flex items-center gap-2 w-full sm:w-auto">
@@ -406,6 +464,22 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
                       <div className="flex items-center gap-2 justify-center">
                         <div className={`w-2 h-2 rounded-full ${devMode ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'}`} />
                         <span className="whitespace-nowrap">{devMode ? 'Dev Mode' : 'Prod Mode'}</span>
+                      </div>
+                    </button>
+
+                    {/* Data Source Mode Toggle */}
+                    <button
+                      onClick={toggleSourceMode}
+                      className={`touch-target-h mobile-tap-highlight px-3 py-2 sm:px-2 sm:py-1 rounded text-xs sm:text-[10px] transition-all ${
+                        useAamSource
+                          ? 'bg-blue-600/20 border border-blue-500/40 text-blue-300 hover:bg-blue-600/30'
+                          : 'bg-green-600/20 border border-green-500/40 text-green-300 hover:bg-green-600/30'
+                      }`}
+                      title={useAamSource ? 'Using AAM Connectors (Redis Streams)' : 'Using Legacy File Sources (CSV)'}
+                    >
+                      <div className="flex items-center gap-2 justify-center">
+                        <div className={`w-2 h-2 rounded-full ${useAamSource ? 'bg-blue-400' : 'bg-green-400'}`} />
+                        <span className="whitespace-nowrap">{useAamSource ? 'AAM' : 'Legacy'}</span>
                       </div>
                     </button>
 

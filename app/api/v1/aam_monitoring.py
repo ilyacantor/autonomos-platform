@@ -48,7 +48,7 @@ AAM_MODELS_AVAILABLE = False
 try:
     import sys
     from pathlib import Path
-    aam_path = Path(__file__).parent.parent.parent.parent / "aam-hybrid"
+    aam_path = Path(__file__).parent.parent.parent.parent / "aam_hybrid"
     sys.path.insert(0, str(aam_path))
     
     from shared.models import Connection, JobHistory, SyncCatalogVersion, ConnectionStatus, JobStatus

@@ -11,17 +11,26 @@ from sqlalchemy.orm import Session
 from redis import Redis
 from rq import Queue, Retry
 import httpx
+import logging
+
+# Configure logger
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+handler = logging.StreamHandler()
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
 
 from app import crud, schemas, models
 from app.database import get_db, engine
 from app.config import settings
 from app.security import (
-    authenticate_user, 
-    create_access_token, 
+    authenticate_user,
+    create_access_token,
     get_current_user,
     ACCESS_TOKEN_EXPIRE_MINUTES
 )
-from app.api.v1 import auth, aoa, aam_monitoring, aam_mesh, platform_stubs, filesource, dcl_views, debug, mesh_test, events, dcl_unify
+from app.api.v1 import auth, aoa, aam_monitoring, aam_mesh, aam_connections, platform_stubs, filesource, dcl_views, debug, mesh_test, events, dcl_unify
 
 # Initialize database tables - with error handling for resilience
 try:
@@ -43,7 +52,7 @@ allowed_origins = [
 if os.getenv("REPL_SLUG"):  # Running on Replit
     # Allow all Replit domains (dev and production)
     allowed_origins.append("*")  # Simplest for Replit deployments
-    
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins if "*" not in allowed_origins else ["*"],
@@ -59,7 +68,7 @@ try:
     from app.gateway.middleware.rate_limit import rate_limit_middleware
     from app.gateway.middleware.idempotency import idempotency_middleware
     from app.gateway.middleware.audit import audit_middleware
-    
+
     # Register middleware in correct order (FIRST = outermost, LAST = innermost)
     # Order: Tracing → Auth → RateLimit → Idempotency → Audit
     app.middleware("http")(tracing_middleware)
@@ -67,7 +76,7 @@ try:
     app.middleware("http")(rate_limit_middleware)
     app.middleware("http")(idempotency_middleware)
     app.middleware("http")(audit_middleware)
-    
+
     print("✅ Gateway middleware registered successfully")
 except Exception as e:
     print(f"⚠️ Gateway middleware not available: {e}")
@@ -84,11 +93,11 @@ try:
         if REDIS_URL.startswith("redis://"):
             REDIS_URL = "rediss://" + REDIS_URL[8:]
             print("🔒 Using TLS/SSL for Redis connection (rediss:// protocol)")
-        
+
         redis_conn = Redis.from_url(REDIS_URL, decode_responses=False)
     else:
         redis_conn = Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB)
-    
+
     task_queue = Queue(connection=redis_conn)
     print("✅ Redis connected successfully")
 except Exception as e:
@@ -100,11 +109,11 @@ except Exception as e:
 # This allows us to share the Redis client with DCL engine to avoid connection limit issues
 try:
     from app.dcl_engine import dcl_app, set_redis_client
-    
+
     # Share Redis client with DCL engine (avoids hitting Upstash 20 connection limit)
     if redis_conn:
         set_redis_client(redis_conn)
-    
+
     app.mount("/dcl", dcl_app)
     print("✅ DCL Engine mounted successfully at /dcl")
 except Exception as e:
@@ -112,9 +121,52 @@ except Exception as e:
     import traceback
     traceback.print_exc()
 
+@app.on_event("startup")
+async def startup_event():
+    """Initialize services on startup"""
+    # Initialize AAM database (create tables and enums)
+    try:
+        import sys
+        # Insert 'aam_hybrid' directory into sys.path to allow importing from it
+        sys.path.insert(0, 'aam_hybrid')
+        from shared.database import init_db
+        await init_db()
+        logger.info("✅ AAM database initialized successfully")
+    except Exception as e:
+        logger.warning(f"⚠️ AAM database initialization failed: {e}. Some AAM features may not work.")
+
+    # Initialize DCL RAG engine
+    global dcl_app
+    if dcl_app:
+        from app.dcl_engine.rag_engine import RAGEngine
+        try:
+            dcl_app.rag_engine = RAGEngine()
+            logger.info("✅ DCL RAG Engine initialized successfully")
+        except Exception as e:
+            logger.warning(f"⚠️ DCL RAG Engine initialization failed: {e}. Continuing without RAG.")
+
+    # Initialize DCL Agent Executor
+    if dcl_app:
+        from app.dcl_engine.agent_executor import AgentExecutor
+        from app.dcl_engine.app import AGENT_RESULTS_CACHE, load_agents_config, DB_PATH
+        import app.dcl_engine.app as dcl_app_module
+        try:
+            agents_config = load_agents_config()
+            # Pass redis_conn for Phase 4 metadata support
+            dcl_app.agent_executor = AgentExecutor(DB_PATH, agents_config, AGENT_RESULTS_CACHE, redis_conn)
+            
+            # Set the global variable in dcl_app module (CRITICAL FIX)
+            dcl_app_module.agent_executor = dcl_app.agent_executor
+            
+            logger.info("✅ DCL Agent Executor initialized successfully with Phase 4 metadata support")
+        except Exception as e:
+            logger.warning(f"⚠️ DCL Agent Executor initialization failed: {e}. Continuing without agent execution.")
+
+
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(aoa.router, prefix="/api/v1/aoa", tags=["AOA Orchestration"])
 app.include_router(aam_monitoring.router, prefix="/api/v1/aam", tags=["AAM Monitoring"])
+app.include_router(aam_connections.router, prefix="/api/v1/aam", tags=["AAM Connections"])
 app.include_router(aam_mesh.router, prefix="/api/v1/mesh", tags=["AAM Mesh"])
 app.include_router(mesh_test.router, prefix="/api/v1", tags=["Mesh Test (Dev-Only)"])
 app.include_router(filesource.router, prefix="/api/v1/filesource", tags=["FileSource Connector"])
@@ -129,7 +181,7 @@ if os.path.exists(STATIC_DIR) and os.path.isdir(STATIC_DIR):
     assets_dir = os.path.join(STATIC_DIR, "assets")
     if os.path.exists(assets_dir):
         app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
-    
+
     @app.get("/")
     def serve_frontend(request: Request):
         """Serve the frontend index.html"""
@@ -148,7 +200,7 @@ if os.path.exists(STATIC_DIR) and os.path.isdir(STATIC_DIR):
                 }
             )
         return {"message": "AutonomOS - Frontend not deployed yet. API available at /api/v1/*"}
-    
+
     @app.get("/favicon.png")
     def serve_favicon():
         """Serve the favicon"""
@@ -156,7 +208,7 @@ if os.path.exists(STATIC_DIR) and os.path.isdir(STATIC_DIR):
         if os.path.exists(favicon_path):
             return FileResponse(favicon_path, media_type="image/png")
         raise HTTPException(status_code=404, detail="Favicon not found")
-    
+
     @app.get("/image.png")
     def serve_image():
         """Serve the image file"""
@@ -164,7 +216,7 @@ if os.path.exists(STATIC_DIR) and os.path.isdir(STATIC_DIR):
         if os.path.exists(image_path):
             return FileResponse(image_path)
         raise HTTPException(status_code=404, detail="Image not found")
-    
+
     @app.get("/dcl-bridge.js")
     def serve_dcl_bridge():
         """Serve the DCL bridge script"""
@@ -172,7 +224,7 @@ if os.path.exists(STATIC_DIR) and os.path.isdir(STATIC_DIR):
         if os.path.exists(script_path):
             return FileResponse(script_path, media_type="application/javascript")
         raise HTTPException(status_code=404, detail="DCL bridge script not found")
-    
+
     @app.get("/architecture.html")
     def serve_architecture():
         """Serve the architecture visualization page"""
@@ -180,7 +232,7 @@ if os.path.exists(STATIC_DIR) and os.path.isdir(STATIC_DIR):
         if os.path.exists(arch_path):
             return FileResponse(arch_path, media_type="text/html")
         raise HTTPException(status_code=404, detail="Architecture page not found")
-    
+
     @app.get("/__version")
     def version_info():
         """Debug endpoint for build verification"""
@@ -197,7 +249,7 @@ if os.path.exists(STATIC_DIR) and os.path.isdir(STATIC_DIR):
                 "css": [os.path.basename(f) for f in css_files]
             }
         }
-    
+
     @app.get("/__whoami")
     def whoami(request: Request):
         """Environment and deployment info"""
@@ -205,13 +257,13 @@ if os.path.exists(STATIC_DIR) and os.path.isdir(STATIC_DIR):
         import subprocess
         js_files = glob.glob(os.path.join(STATIC_DIR, "assets", "index-*.js"))
         index_path = os.path.join(STATIC_DIR, "index.html")
-        
+
         try:
-            git_sha = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'], 
+            git_sha = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'],
                                              stderr=subprocess.DEVNULL).decode().strip()
         except:
             git_sha = 'unknown'
-        
+
         return {
             "host": request.headers.get("host", "unknown"),
             "staticRoot": os.path.abspath(STATIC_DIR),
@@ -220,7 +272,7 @@ if os.path.exists(STATIC_DIR) and os.path.isdir(STATIC_DIR):
             "commit": git_sha,
             "currentJS": os.path.basename(js_files[0]) if js_files else None
         }
-    
+
     @app.get("/aam-monitor")
     def serve_aam_monitor(request: Request):
         """Serve AAM Monitor frontend page"""
@@ -237,7 +289,7 @@ if os.path.exists(STATIC_DIR) and os.path.isdir(STATIC_DIR):
                 }
             )
         raise HTTPException(status_code=404, detail="Frontend not found")
-    
+
     @app.get("/dashboard")
     def serve_dashboard(request: Request):
         """Serve Dashboard frontend page"""
@@ -252,7 +304,7 @@ if os.path.exists(STATIC_DIR) and os.path.isdir(STATIC_DIR):
                 }
             )
         raise HTTPException(status_code=404, detail="Frontend not found")
-    
+
     @app.get("/connections")
     def serve_connections(request: Request):
         """Serve Connections frontend page"""
@@ -267,7 +319,7 @@ if os.path.exists(STATIC_DIR) and os.path.isdir(STATIC_DIR):
                 }
             )
         raise HTTPException(status_code=404, detail="Frontend not found")
-    
+
     @app.get("/ontology")
     def serve_ontology(request: Request):
         """Serve Ontology frontend page"""
@@ -282,7 +334,7 @@ if os.path.exists(STATIC_DIR) and os.path.isdir(STATIC_DIR):
                 }
             )
         raise HTTPException(status_code=404, detail="Frontend not found")
-    
+
     @app.get("/live-flow")
     def serve_live_flow(request: Request):
         """Serve Live Flow frontend page"""
@@ -314,15 +366,15 @@ def register_user(user_data: schemas.UserRegister, db: Session = Depends(get_db)
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email already registered"
         )
-    
+
     tenant = crud.create_tenant(db, schemas.TenantCreate(name=user_data.name))
-    
+
     user = crud.create_user(
-        db, 
+        db,
         schemas.UserCreate(email=user_data.email, password=user_data.password),
         tenant.id
     )
-    
+
     return user
 
 @app.post("/token", response_model=schemas.Token)
@@ -338,13 +390,13 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={"user_id": str(user.id), "tenant_id": str(user.tenant_id)},
         expires_delta=access_token_expires
     )
-    
+
     return {"access_token": access_token, "token_type": "bearer"}
 
 @app.get("/users/me", response_model=schemas.User)
@@ -354,7 +406,7 @@ def get_current_user_info(current_user: models.User = Depends(get_current_user))
 
 @app.post("/api/v1/tasks", response_model=schemas.Task)
 def create_task(
-    task: schemas.TaskCreate, 
+    task: schemas.TaskCreate,
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -363,23 +415,23 @@ def create_task(
     The task is automatically associated with the authenticated user's tenant.
     """
     db_task = crud.create_task(db, task, current_user.tenant_id)
-    
+
     # Only enqueue if Redis/task_queue is available
     if task_queue is None:
         raise HTTPException(
-            status_code=503, 
+            status_code=503,
             detail="Task queue not available. Redis connection required for background tasks."
         )
-    
+
     try:
         from app.worker import execute_task
-        
+
         retry_config = None
         if task.max_retries and task.max_retries > 0:
             retry_config = Retry(max=task.max_retries, interval=[10, 30, 60])
-        
+
         task_queue.enqueue(
-            execute_task, 
+            execute_task,
             str(db_task.id),
             job_timeout=task.timeout_seconds,
             retry=retry_config
@@ -388,15 +440,15 @@ def create_task(
         import logging
         logging.error(f"Failed to enqueue task {db_task.id}: {str(e)}")
         raise HTTPException(
-            status_code=503, 
+            status_code=503,
             detail="Task created but failed to enqueue for processing. Please check Redis connection."
         )
-    
+
     return db_task
 
 @app.get("/api/v1/tasks/{task_id}", response_model=schemas.Task)
 def get_task(
-    task_id: UUID, 
+    task_id: UUID,
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -412,7 +464,7 @@ def get_task(
 
 @app.delete("/api/v1/tasks/{task_id}", response_model=schemas.Task)
 def cancel_task(
-    task_id: UUID, 
+    task_id: UUID,
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -423,10 +475,10 @@ def cancel_task(
     db_task = crud.get_task(db, task_id, current_user.tenant_id)
     if db_task is None:
         raise HTTPException(status_code=404, detail="Task not found")
-    
+
     if db_task.status in ["success", "failed", "canceled"]:
         raise HTTPException(status_code=400, detail=f"Cannot cancel task with status '{db_task.status}'")
-    
+
     try:
         from rq.job import Job
         job = Job.fetch(str(task_id), connection=redis_conn)
@@ -438,7 +490,7 @@ def cancel_task(
         logging.warning(f"Could not cancel job in RQ: {str(e)}")
         crud.update_task_status(db, task_id, "canceled", {"message": "Task canceled by user"}, current_user.tenant_id)
         crud.create_task_log(db, task_id, "Task canceled by user request")
-    
+
     db_task = crud.get_task(db, task_id, current_user.tenant_id)
     return db_task
 
@@ -463,4 +515,3 @@ def health_worker():
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Redis connection failed: {str(e)}"
         )
-

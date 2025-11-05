@@ -1,6 +1,15 @@
 import { useState, useEffect } from 'react';
 import { Database, Search, ChevronDown, ChevronRight, Loader2, AlertCircle, FileText, Table, Layers, FolderTree } from 'lucide-react';
 import { API_CONFIG } from '../config/api';
+import DataQualityScore from './DataQualityScore';
+import DriftAlertBanner, { DriftAlert } from './DriftAlertBanner';
+import RepairStatusCard, { RepairStatus } from './RepairStatusCard';
+import ConfidenceGauge from './ConfidenceGauge';
+import { 
+  getDataQualityMetadata, 
+  getDriftAlerts,
+  DataQualityMetadata 
+} from '../services/dataQualityApi';
 
 interface FieldMapping {
   source_field: string;
@@ -43,9 +52,21 @@ export default function OntologyPage() {
   const [expandedDataSources, setExpandedDataSources] = useState<Set<string>>(new Set());
   const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<'entities' | 'universe'>('entities');
+  
+  const [dataQualityMetadata, setDataQualityMetadata] = useState<DataQualityMetadata | null>(null);
+  const [driftAlerts, setDriftAlerts] = useState<DriftAlert[]>([]);
+  const [repairStatus, setRepairStatus] = useState<RepairStatus>({
+    auto_applied_count: 0,
+    hitl_queued_count: 0,
+    rejected_count: 0,
+    last_repair_at: null
+  });
+  const [qualityLoading, setQualityLoading] = useState(false);
+  const [dataQualityError, setDataQualityError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchOntologySchema();
+    fetchDataQuality();
   }, []);
 
   const fetchOntologySchema = async () => {
@@ -63,6 +84,32 @@ export default function OntologyPage() {
       setError(err instanceof Error ? err.message : 'Failed to load ontology schema');
     } finally {
       setIsLoading(false);
+    }
+  };
+  
+  const fetchDataQuality = async () => {
+    setQualityLoading(true);
+    setDataQualityError(null);
+    try {
+      const [metadata, alerts] = await Promise.all([
+        getDataQualityMetadata(),
+        getDriftAlerts()
+      ]);
+      
+      setDataQualityMetadata(metadata);
+      setDriftAlerts(alerts);
+      
+      setRepairStatus({
+        auto_applied_count: metadata.auto_applied_repairs ?? 0,
+        hitl_queued_count: metadata.hitl_pending_repairs ?? 0,
+        rejected_count: 0,
+        last_repair_at: null
+      });
+    } catch (err) {
+      console.error('Error fetching data quality:', err);
+      setDataQualityError('Unable to load data quality metrics');
+    } finally {
+      setQualityLoading(false);
     }
   };
 
@@ -152,6 +199,54 @@ export default function OntologyPage() {
         <p className="text-sm text-gray-400">
           Define the canonical entities and their structure for unified data mapping
         </p>
+      </div>
+      
+      {/* Data Quality Intelligence Section */}
+      <div className="px-6">
+        {/* Data Quality Error Alert */}
+        {dataQualityError && (
+          <div className="mb-6 bg-yellow-900/20 border border-yellow-500/50 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-yellow-400">Data Quality Metrics Unavailable</p>
+                <p className="text-sm text-gray-400 mt-1">{dataQualityError}</p>
+              </div>
+              <button
+                onClick={fetchDataQuality}
+                className="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 text-white text-sm rounded-lg transition-colors"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        )}
+        
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Data Quality Score */}
+          <div className="lg:col-span-2">
+            {dataQualityMetadata && (
+              <DataQualityScore
+                score={dataQualityMetadata.overall_data_quality_score ?? 0.85}
+                sources_with_drift={dataQualityMetadata.sources_with_drift ?? []}
+                low_confidence_sources={dataQualityMetadata.low_confidence_sources ?? []}
+                total_sources={Object.keys(dataQualityMetadata.sources ?? {}).length}
+              />
+            )}
+          </div>
+          
+          {/* Repair Status Card */}
+          <div>
+            <RepairStatusCard status={repairStatus} />
+          </div>
+        </div>
+        
+        {/* Drift Alert Banner */}
+        {driftAlerts.length > 0 && (
+          <div className="mt-6">
+            <DriftAlertBanner alerts={driftAlerts} />
+          </div>
+        )}
       </div>
 
       {/* View Mode Tabs */}

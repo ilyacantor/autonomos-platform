@@ -19,3 +19,7 @@ pyyaml
 pydantic[email]
 openai
 pymongo
+pytest
+pytest-asyncio
+pytest-cov
+requests

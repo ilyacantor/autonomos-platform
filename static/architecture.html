@@ -103,7 +103,7 @@
     </nav>
 
     <div class="note">
-        <strong>Current Production Status (November 2025):</strong> Platform includes 4 operational connectors (Salesforce, FileSource, Supabase, MongoDB), complete drift detection, autonomous auto-repair, canonical event normalization, and Live Flow visualization.
+        <strong>Current Production Status (November 2025):</strong> Platform includes 4 operational connectors (Salesforce, FileSource, Supabase, MongoDB), complete drift detection, autonomous auto-repair, canonical event normalization, and Live Flow visualization. FileSource → AAM → DCL integration complete with AWS cost data routing to FinOps Pilot via heuristic domain filtering.
     </div>
 
     <section id="functional">
@@ -201,7 +201,7 @@ flowchart TB
             </div>
             <div class="connector-card">
                 <h4>✅ FileSource</h4>
-                <p>Legacy systems - CSV files, flat files</p>
+                <p>AWS cost data - CSV files (aws_resources, cost_reports) → FinOps Pilot via heuristic filtering</p>
             </div>
         </div>
     </section>
@@ -329,6 +329,47 @@ graph TB
     ORCH --> DRIFT & SCHEMA & RAG
     DRIFT & SCHEMA --> CONN_REG
         </pre>
+        
+        <div class="note">
+            <h4 style="margin-top: 0;">Intelligence Layer: LLM/RAG Behavior</h4>
+            <p><strong>Key Insight:</strong> The LLM/RAG intelligence layer operates <em>identically</em> in both AAM mode and Legacy mode. Behavior is controlled by the <code>dev_mode</code> flag, not the data source type.</p>
+            
+            <h4>RAG Retrieval (Always Runs):</h4>
+            <ul>
+                <li>Queries Pinecone vector database for similar field mappings</li>
+                <li>Executes in parallel for all fields using async tasks</li>
+                <li>Caches results to avoid duplicate lookups</li>
+                <li>Works identically whether using AAM connectors or legacy file sources</li>
+            </ul>
+            
+            <h4>LLM Calls (Controlled by dev_mode):</h4>
+            <ul>
+                <li><strong>Dev Mode ON</strong> (dev_mode=true):
+                    <ul>
+                        <li>RAG runs → Intelligent coverage check → LLM called if needed</li>
+                        <li>If RAG coverage >90%: Skip LLM, use RAG inventory</li>
+                        <li>If RAG coverage 75-90%: LLM call with RAG context</li>
+                        <li>If RAG coverage <75%: Full LLM reasoning</li>
+                    </ul>
+                </li>
+                <li><strong>Prod Mode</strong> (dev_mode=false - DEFAULT):
+                    <ul>
+                        <li>RAG runs → LLM skipped → Heuristics used</li>
+                        <li>Uses hard-coded domain rules for routing</li>
+                        <li>Fast, deterministic, cost-effective</li>
+                    </ul>
+                </li>
+            </ul>
+            
+            <h4>Domain Filtering (Heuristic Routing):</h4>
+            <ul>
+                <li><strong>FinOps Sources:</strong> snowflake, sap, netsuite, legacy_sql, <strong>filesource</strong> → Route to FinOps Pilot</li>
+                <li><strong>RevOps Sources:</strong> dynamics, salesforce, hubspot → Route to RevOps Pilot</li>
+                <li><strong>FinOps Entities:</strong> aws_resources, cost_reports</li>
+                <li><strong>RevOps Entities:</strong> account, opportunity</li>
+                <li><strong>Unknown Sources:</strong> Pass through without filtering for extensibility</li>
+            </ul>
+        </div>
     </section>
 
     <section id="middleware">

@@ -18,9 +18,14 @@ import {
   Target,
   BarChart3,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  Plus,
+  Trash2,
+  X
 } from 'lucide-react';
-import { API_CONFIG } from '../config/api';
+import { API_CONFIG, AUTH_TOKEN_KEY } from '../config/api';
+import ConfidenceGauge from './ConfidenceGauge';
+import { getDataQualityMetadata, DataQualityMetadata } from '../services/dataQualityApi';
 
 interface ServiceStatus {
   name: string;
@@ -48,6 +53,7 @@ interface AAMConnection {
   status: 'ACTIVE' | 'PENDING' | 'FAILED' | 'HEALING' | 'INACTIVE';
   created_at: string;
   updated_at: string;
+  last_health_check?: string;
 }
 
 interface AAMEvent {
@@ -137,6 +143,36 @@ export default function AAMDashboard() {
   const [activeTab, setActiveTab] = useState<'overview' | 'details'>('overview');
   const [expandedConnector, setExpandedConnector] = useState<string | null>(null);
 
+  // Register connection modal state
+  const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [registerForm, setRegisterForm] = useState({
+    name: '',
+    source_type: 'Salesforce',
+    connector_config: '{}'
+  });
+  const [registerLoading, setRegisterLoading] = useState(false);
+  const [registerError, setRegisterError] = useState<string | null>(null);
+
+  // Connection operations state
+  const [operationLoading, setOperationLoading] = useState<Record<string, boolean>>({});
+  const [operationError, setOperationError] = useState<Record<string, string>>({});
+  
+  // Data quality state
+  const [dataQualityMetadata, setDataQualityMetadata] = useState<DataQualityMetadata | null>(null);
+  const [qualityLoading, setQualityLoading] = useState(false);
+
+  const fetchDataQuality = async () => {
+    setQualityLoading(true);
+    try {
+      const metadata = await getDataQualityMetadata();
+      setDataQualityMetadata(metadata);
+    } catch (err) {
+      console.error('Error fetching data quality:', err);
+    } finally {
+      setQualityLoading(false);
+    }
+  };
+
   const fetchAAMMetrics = async () => {
     try {
       const response = await fetch(API_CONFIG.buildApiUrl('/aam/metrics'));
@@ -160,14 +196,137 @@ export default function AAMDashboard() {
     }
   };
 
+  const getAuthHeaders = (): HeadersInit => {
+    const token = localStorage.getItem(AUTH_TOKEN_KEY);
+    if (token) {
+      return { 'Authorization': `Bearer ${token}` };
+    }
+    return {};
+  };
+
   const fetchAAMConnections = async () => {
     try {
-      const response = await fetch(API_CONFIG.buildApiUrl('/aam/connections'));
+      const response = await fetch(API_CONFIG.buildApiUrl('/aam/connections'), {
+        headers: getAuthHeaders()
+      });
       if (!response.ok) throw new Error('Failed to fetch AAM connections');
       const data = await response.json();
       setConnections(data.connections || []);
     } catch (err) {
       console.error('Error fetching AAM connections:', err);
+    }
+  };
+
+  const handleRegisterConnection = async () => {
+    setRegisterLoading(true);
+    setRegisterError(null);
+
+    try {
+      let configJson;
+      try {
+        configJson = JSON.parse(registerForm.connector_config);
+      } catch (err) {
+        throw new Error('Invalid JSON in connector configuration');
+      }
+
+      const response = await fetch(API_CONFIG.buildApiUrl('/aam/connections'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders()
+        },
+        body: JSON.stringify({
+          name: registerForm.name,
+          source_type: registerForm.source_type,
+          connector_config: configJson
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to register connection');
+      }
+
+      await fetchAAMConnections();
+      await fetchAAMMetrics();
+      
+      setShowRegisterModal(false);
+      setRegisterForm({
+        name: '',
+        source_type: 'Salesforce',
+        connector_config: '{}'
+      });
+    } catch (err: any) {
+      console.error('Error registering connection:', err);
+      setRegisterError(err.message || 'Failed to register connection');
+    } finally {
+      setRegisterLoading(false);
+    }
+  };
+
+  const handleHealthCheck = async (connectionId: string) => {
+    setOperationLoading(prev => ({ ...prev, [connectionId]: true }));
+    setOperationError(prev => ({ ...prev, [connectionId]: '' }));
+
+    try {
+      const response = await fetch(
+        API_CONFIG.buildApiUrl(`/aam/connections/${connectionId}/health-check`),
+        {
+          method: 'POST',
+          headers: getAuthHeaders()
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Health check failed');
+      }
+
+      await fetchAAMConnections();
+      await fetchAAMMetrics();
+    } catch (err: any) {
+      console.error('Error running health check:', err);
+      setOperationError(prev => ({ 
+        ...prev, 
+        [connectionId]: err.message || 'Health check failed' 
+      }));
+    } finally {
+      setOperationLoading(prev => ({ ...prev, [connectionId]: false }));
+    }
+  };
+
+  const handleDeleteConnection = async (connectionId: string, connectionName: string) => {
+    if (!confirm(`Are you sure you want to delete "${connectionName}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    setOperationLoading(prev => ({ ...prev, [`delete_${connectionId}`]: true }));
+    setOperationError(prev => ({ ...prev, [`delete_${connectionId}`]: '' }));
+
+    try {
+      const response = await fetch(
+        API_CONFIG.buildApiUrl(`/aam/connections/${connectionId}`),
+        {
+          method: 'DELETE',
+          headers: getAuthHeaders()
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to delete connection');
+      }
+
+      await fetchAAMConnections();
+      await fetchAAMMetrics();
+    } catch (err: any) {
+      console.error('Error deleting connection:', err);
+      setOperationError(prev => ({ 
+        ...prev, 
+        [`delete_${connectionId}`]: err.message || 'Failed to delete connection' 
+      }));
+    } finally {
+      setOperationLoading(prev => ({ ...prev, [`delete_${connectionId}`]: false }));
     }
   };
 
@@ -214,7 +373,8 @@ export default function AAMDashboard() {
     await Promise.all([
       fetchAAMMetrics(),
       fetchAAMConnections(),
-      fetchIntelligenceData()
+      fetchIntelligenceData(),
+      fetchDataQuality()
     ]);
     setLoading(false);
   };
@@ -392,11 +552,11 @@ export default function AAMDashboard() {
             {intelligenceLoading && <Activity className="w-4 h-4 text-gray-400 animate-spin" />}
           </div>
           <div className="text-3xl font-bold text-white">
-            {intelligenceLoading ? '...' : mappingsData?.total || 0}
+            {intelligenceLoading ? '...' : mappingsData?.total ?? 0}
           </div>
           <div className="text-sm text-gray-500 mt-2 space-y-1">
-            <div>Autofix: {intelligenceLoading ? '...' : `${mappingsData?.autofix_pct || 0}%`}</div>
-            <div>HITL: {intelligenceLoading ? '...' : `${mappingsData?.hitl_pct || 0}%`}</div>
+            <div>Autofix: {intelligenceLoading ? '...' : `${mappingsData?.autofix_pct ?? 0}%`}</div>
+            <div>HITL: {intelligenceLoading ? '...' : `${mappingsData?.hitl_pct ?? 0}%`}</div>
           </div>
           {intelligenceError && (
             <div className="text-xs text-red-400 mt-2">{intelligenceError}</div>
@@ -412,7 +572,7 @@ export default function AAMDashboard() {
             {intelligenceLoading && <Activity className="w-4 h-4 text-gray-400 animate-spin" />}
           </div>
           <div className="text-3xl font-bold text-white">
-            {intelligenceLoading ? '...' : driftData?.total || 0}
+            {intelligenceLoading ? '...' : driftData?.total ?? 0}
           </div>
           <div className="text-sm text-gray-500 mt-2">
             {intelligenceLoading ? 'Loading...' : (
@@ -439,13 +599,13 @@ export default function AAMDashboard() {
             {intelligenceLoading && <Activity className="w-4 h-4 text-gray-400 animate-spin" />}
           </div>
           <div className="text-3xl font-bold text-white">
-            {intelligenceLoading ? '...' : ragData?.pending || 0}
+            {intelligenceLoading ? '...' : ragData?.pending ?? 0}
           </div>
           <div className="text-sm text-gray-500 mt-2 space-y-1">
-            <div>Pending: {intelligenceLoading ? '...' : ragData?.pending || 0}</div>
+            <div>Pending: {intelligenceLoading ? '...' : ragData?.pending ?? 0}</div>
             <div>
-              Accepted: {intelligenceLoading ? '...' : ragData?.accepted || 0} | 
-              Rejected: {intelligenceLoading ? '...' : ragData?.rejected || 0}
+              Accepted: {intelligenceLoading ? '...' : ragData?.accepted ?? 0} | 
+              Rejected: {intelligenceLoading ? '...' : ragData?.rejected ?? 0}
             </div>
           </div>
           {intelligenceError && (
@@ -462,10 +622,10 @@ export default function AAMDashboard() {
             {intelligenceLoading && <Activity className="w-4 h-4 text-gray-400 animate-spin" />}
           </div>
           <div className="text-3xl font-bold text-white">
-            {intelligenceLoading ? '...' : `${((repairData?.avg_confidence || 0) * 100).toFixed(0)}%`}
+            {intelligenceLoading ? '...' : `${((repairData?.avg_confidence ?? 0) * 100).toFixed(0)}%`}
           </div>
           <div className="text-sm text-gray-500 mt-2">
-            Test Pass Rate: {intelligenceLoading ? '...' : `${((repairData?.test_pass_rate || 0) * 100).toFixed(0)}%`}
+            Test Pass Rate: {intelligenceLoading ? '...' : `${((repairData?.test_pass_rate ?? 0) * 100).toFixed(0)}%`}
           </div>
           {intelligenceError && (
             <div className="text-xs text-red-400 mt-2">{intelligenceError}</div>
@@ -482,7 +642,7 @@ export default function AAMDashboard() {
               <h3 className="text-sm font-medium text-gray-400">Total Connections</h3>
             </div>
           </div>
-          <div className="text-3xl font-bold text-white">{metrics?.total_connections || 0}</div>
+          <div className="text-3xl font-bold text-white">{metrics?.total_connections ?? 0}</div>
           {metrics?.active_connections !== undefined && (
             <div className="text-sm text-gray-500 mt-1">
               {metrics.active_connections} active
@@ -498,7 +658,7 @@ export default function AAMDashboard() {
             </div>
           </div>
           <div className="text-3xl font-bold text-white">
-            {metrics?.active_drift_detections_24h || 0}
+            {metrics?.active_drift_detections_24h ?? 0}
           </div>
         </div>
 
@@ -510,7 +670,7 @@ export default function AAMDashboard() {
             </div>
           </div>
           <div className="text-3xl font-bold text-white">
-            {metrics?.successful_repairs_24h || 0}
+            {metrics?.successful_repairs_24h ?? 0}
           </div>
         </div>
 
@@ -522,7 +682,7 @@ export default function AAMDashboard() {
             </div>
           </div>
           <div className="text-3xl font-bold text-white">
-            {metrics?.manual_reviews_required_24h || 0}
+            {metrics?.manual_reviews_required_24h ?? 0}
           </div>
         </div>
 
@@ -534,7 +694,7 @@ export default function AAMDashboard() {
             </div>
           </div>
           <div className="text-3xl font-bold text-white">
-            {((metrics?.average_confidence_score || 0) * 100).toFixed(0)}%
+            {((metrics?.average_confidence_score ?? 0) * 100).toFixed(0)}%
           </div>
         </div>
 
@@ -546,59 +706,163 @@ export default function AAMDashboard() {
             </div>
           </div>
           <div className="text-3xl font-bold text-white">
-            {formatTime(metrics?.average_repair_time_seconds || 0)}
+            {formatTime(metrics?.average_repair_time_seconds ?? 0)}
           </div>
         </div>
       </div>
 
-      {/* Connection Health Table - Full Width */}
+      {/* Registered Connections Section */}
       <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Database className="w-5 h-5 text-green-400" />
-          <h2 className="text-lg font-medium text-white">Connection Health</h2>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Database className="w-5 h-5 text-green-400" />
+            <h2 className="text-lg font-medium text-white">Registered Connections</h2>
+            <span className="text-sm text-gray-500">({connections.length})</span>
+          </div>
+          <button
+            onClick={() => setShowRegisterModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Register Connection
+          </button>
         </div>
-        <div className="overflow-auto max-h-[400px]">
+
+        <div className="overflow-auto max-h-[500px]">
           {connections.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              No connections found
+            <div className="text-center py-12 text-gray-500">
+              <Database className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+              <p className="text-gray-400 mb-2">No connections registered</p>
+              <p className="text-sm text-gray-500">Click "Register Connection" to add your first data source</p>
             </div>
           ) : (
-            <table className="w-full">
-              <thead className="sticky top-0 bg-gray-900">
-                <tr className="border-b border-gray-800">
-                  <th className="text-left text-xs font-medium text-gray-500 tracking-wider pb-3">
-                    Connection
-                  </th>
-                  <th className="text-left text-xs font-medium text-gray-500 tracking-wider pb-3">
-                    Source
-                  </th>
-                  <th className="text-center text-xs font-medium text-gray-500 tracking-wider pb-3">
-                    Status
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {connections.map((conn) => (
-                  <tr
-                    key={conn.id}
-                    className="border-b border-gray-800 hover:bg-gray-800/50 transition-colors"
-                  >
-                    <td className="py-3">
-                      <div className="text-sm font-medium text-white">{conn.name}</div>
-                      <div className="text-xs text-gray-500">
-                        {new Date(conn.updated_at).toLocaleDateString()}
+            <div className="space-y-3">
+              {connections.map((conn) => {
+                const sourceMetadata = dataQualityMetadata?.sources?.[conn.name] ?? {};
+                const confidence = sourceMetadata.confidence ?? 0.85;
+                const driftDetected = sourceMetadata.drift_detected ?? false;
+                const repairProcessed = sourceMetadata.repair_processed ?? false;
+                const autoAppliedCount = sourceMetadata.auto_applied_count ?? 0;
+                const hitlQueuedCount = sourceMetadata.hitl_queued_count ?? 0;
+                const fieldsChanged = sourceMetadata.fields_changed ?? [];
+                
+                return (
+                <div
+                  key={conn.id}
+                  className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 hover:border-gray-600 transition-colors"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-3">
+                        <h3 className="text-base font-semibold text-white">{conn.name}</h3>
+                        {getStatusBadge(conn.status)}
+                        <div className="ml-auto">
+                          <ConfidenceGauge
+                            confidence={confidence}
+                            label="Mapping Quality"
+                            size="small"
+                            showLabel={false}
+                          />
+                        </div>
                       </div>
-                    </td>
-                    <td className="py-3">
-                      <div className="text-sm text-gray-300">{conn.source_type}</div>
-                    </td>
-                    <td className="py-3 text-center">
-                      {getStatusBadge(conn.status)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      
+                      {/* Data Quality Alerts */}
+                      {driftDetected && (
+                        <div className="mb-3 p-2 bg-orange-900/20 border border-orange-500/30 rounded text-xs">
+                          <div className="flex items-center gap-2">
+                            <AlertTriangle className="w-4 h-4 text-orange-400" />
+                            <span className="text-orange-400 font-medium">
+                              Schema drift detected: {fieldsChanged.length} fields changed
+                            </span>
+                          </div>
+                          {fieldsChanged.length > 0 && (
+                            <div className="mt-1 ml-6 text-gray-400">
+                              Fields: {fieldsChanged.slice(0, 3).join(', ')}
+                              {fieldsChanged.length > 3 && ` +${fieldsChanged.length - 3} more`}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      {repairProcessed && (autoAppliedCount > 0 || hitlQueuedCount > 0) && (
+                        <div className="mb-3 p-2 bg-blue-900/20 border border-blue-500/30 rounded text-xs">
+                          <div className="flex items-center gap-2">
+                            <Wrench className="w-4 h-4 text-blue-400" />
+                            <span className="text-blue-400">
+                              {autoAppliedCount > 0 && `${autoAppliedCount} repairs auto-applied`}
+                              {autoAppliedCount > 0 && hitlQueuedCount > 0 && ', '}
+                              {hitlQueuedCount > 0 && `${hitlQueuedCount} pending review`}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <span className="text-gray-500">Source Type:</span>
+                          <span className="ml-2 text-gray-300 font-medium">{conn.source_type}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Last Health Check:</span>
+                          <span className="ml-2 text-gray-300">
+                            {conn.last_health_check ? formatTimestamp(conn.last_health_check) : 'Never'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Created:</span>
+                          <span className="ml-2 text-gray-300">{formatTimestamp(conn.created_at)}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Updated:</span>
+                          <span className="ml-2 text-gray-300">{formatTimestamp(conn.updated_at)}</span>
+                        </div>
+                      </div>
+
+                      {operationError[conn.id] && (
+                        <div className="mt-2 text-xs text-red-400 bg-red-900/20 border border-red-800/30 rounded px-2 py-1">
+                          {operationError[conn.id]}
+                        </div>
+                      )}
+                      {operationError[`delete_${conn.id}`] && (
+                        <div className="mt-2 text-xs text-red-400 bg-red-900/20 border border-red-800/30 rounded px-2 py-1">
+                          {operationError[`delete_${conn.id}`]}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2 ml-4">
+                      <button
+                        onClick={() => handleHealthCheck(conn.id)}
+                        disabled={operationLoading[conn.id]}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:text-gray-500 text-white text-sm rounded-lg transition-colors"
+                        title="Run health check"
+                      >
+                        {operationLoading[conn.id] ? (
+                          <Activity className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Activity className="w-4 h-4" />
+                        )}
+                        Health Check
+                      </button>
+                      <button
+                        onClick={() => handleDeleteConnection(conn.id, conn.name)}
+                        disabled={operationLoading[`delete_${conn.id}`]}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-red-600 hover:bg-red-700 disabled:bg-gray-700 disabled:text-gray-500 text-white text-sm rounded-lg transition-colors"
+                        title="Delete connection"
+                      >
+                        {operationLoading[`delete_${conn.id}`] ? (
+                          <Activity className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-4 h-4" />
+                        )}
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                );
+              })}
+            </div>
           )}
         </div>
       </div>
@@ -817,6 +1081,155 @@ export default function AAMDashboard() {
               </table>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Register Connection Modal */}
+      {showRegisterModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 border border-gray-700 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-auto">
+            <div className="sticky top-0 bg-gray-900 border-b border-gray-700 px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Database className="w-5 h-5 text-green-400" />
+                <h2 className="text-xl font-semibold text-white">Register New Connection</h2>
+              </div>
+              <button
+                onClick={() => {
+                  setShowRegisterModal(false);
+                  setRegisterError(null);
+                }}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {registerError && (
+                <div className="bg-red-900/20 border border-red-800/30 rounded-lg p-3 text-sm text-red-400">
+                  {registerError}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">
+                  Connection Name *
+                </label>
+                <input
+                  type="text"
+                  value={registerForm.name}
+                  onChange={(e) => setRegisterForm({ ...registerForm, name: e.target.value })}
+                  placeholder="e.g., Salesforce Production"
+                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">
+                  Source Type *
+                </label>
+                <select
+                  value={registerForm.source_type}
+                  onChange={(e) => setRegisterForm({ ...registerForm, source_type: e.target.value })}
+                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500"
+                >
+                  <option value="Salesforce">Salesforce</option>
+                  <option value="Supabase">Supabase</option>
+                  <option value="MongoDB">MongoDB</option>
+                  <option value="FileSource">FileSource</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">
+                  Connector Configuration (JSON) *
+                </label>
+                <div className="text-xs text-gray-500 mb-2">
+                  {registerForm.source_type === 'Salesforce' && (
+                    <div className="bg-gray-800/50 border border-gray-700 rounded p-2">
+                      Example: {'{'}
+                      <br />
+                      &nbsp;&nbsp;"instance_url": "https://yourcompany.salesforce.com",
+                      <br />
+                      &nbsp;&nbsp;"access_token": "00D..."
+                      <br />
+                      {'}'}
+                    </div>
+                  )}
+                  {registerForm.source_type === 'Supabase' && (
+                    <div className="bg-gray-800/50 border border-gray-700 rounded p-2">
+                      Example: {'{'}
+                      <br />
+                      &nbsp;&nbsp;"url": "https://yourproject.supabase.co",
+                      <br />
+                      &nbsp;&nbsp;"service_key": "eyJ..."
+                      <br />
+                      {'}'}
+                    </div>
+                  )}
+                  {registerForm.source_type === 'MongoDB' && (
+                    <div className="bg-gray-800/50 border border-gray-700 rounded p-2">
+                      Example: {'{'}
+                      <br />
+                      &nbsp;&nbsp;"connection_string": "mongodb+srv://...",
+                      <br />
+                      &nbsp;&nbsp;"database": "mydb"
+                      <br />
+                      {'}'}
+                    </div>
+                  )}
+                  {registerForm.source_type === 'FileSource' && (
+                    <div className="bg-gray-800/50 border border-gray-700 rounded p-2">
+                      Example: {'{'}
+                      <br />
+                      &nbsp;&nbsp;"file_path": "/path/to/data.csv",
+                      <br />
+                      &nbsp;&nbsp;"format": "csv"
+                      <br />
+                      {'}'}
+                    </div>
+                  )}
+                </div>
+                <textarea
+                  value={registerForm.connector_config}
+                  onChange={(e) => setRegisterForm({ ...registerForm, connector_config: e.target.value })}
+                  placeholder='{"key": "value"}'
+                  rows={8}
+                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 font-mono text-sm focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={handleRegisterConnection}
+                  disabled={registerLoading || !registerForm.name || !registerForm.connector_config}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-lg transition-colors"
+                >
+                  {registerLoading ? (
+                    <>
+                      <Activity className="w-4 h-4 animate-spin" />
+                      Registering...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-4 h-4" />
+                      Register Connection
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowRegisterModal(false);
+                    setRegisterError(null);
+                  }}
+                  disabled={registerLoading}
+                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 text-white rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

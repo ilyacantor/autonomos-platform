@@ -1,0 +1,11 @@
+resource_id,resource_type,region,instance_type,vcpus,memory,storage,db_engine,instance_class,allocated_storage,storage_type,storage_class,size_gb,object_count,versioning,cpu_utilization,memory_utilization,network_in,network_out,db_connections,read_latency,write_latency,get_requests,put_requests,data_transfer_out,monthly_cost
+i-0a1b2c3d4e5f6g7h8,EC2,us-east-1,t3.large,2,8,100,,,,,,,,,45.2,62.1,1250000,850000,,,,,,,245.80
+i-9h8g7f6e5d4c3b2a1,EC2,us-west-2,m5.xlarge,4,16,200,,,,,,,,,78.5,71.3,3200000,2100000,,,,,,,492.00
+db-prod-001,RDS,us-east-1,,,,,postgres,db.r5.large,500,gp3,,,,,,,,,,125,12.5,,,,580.50
+db-staging-001,RDS,eu-west-1,,,,,mysql,db.t3.medium,100,gp2,,,,,,,,,,45,18.3,,,,185.20
+s3-data-lake,S3,us-east-1,,,,,,,,,standard,2500,125000,enabled,,,,,,,,85000,12000,450000,95.75
+s3-backup-vault,S3,us-west-2,,,,,,,,,glacier,8000,50000,disabled,,,,,,,,2500,800,25000,42.30
+i-test-ec2-small,EC2,ap-southeast-1,t3.micro,2,1,30,,,,,,,,,12.8,25.4,180000,95000,,,,,,,18.45
+db-analytics-001,RDS,us-east-1,,,,,postgres,db.m5.2xlarge,1000,io1,,,,,,,,,,280,8.1,,,,1250.00
+s3-logs-bucket,S3,us-east-1,,,,,,,,,standard-ia,450,85000,disabled,,,,,,,,15000,2500,120000,28.90
+i-batch-worker-01,EC2,eu-central-1,c5.2xlarge,8,16,250,,,,,,,,,92.1,88.7,5500000,3800000,,,,,,,658.20

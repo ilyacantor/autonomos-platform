@@ -76,13 +76,56 @@ class CanonicalContact(BaseModel):
     extras: Dict[str, Any] = Field(default_factory=dict, description="Additional unmapped fields")
 
 
+class CanonicalAWSResource(BaseModel):
+    """Canonical AWS resource entity schema for FinOps"""
+    resource_id: str = Field(..., description="AWS resource identifier")
+    resource_type: str = Field(..., description="Resource type (EC2, RDS, S3)")
+    region: str = Field(..., description="AWS region")
+    instance_type: Optional[str] = Field(None, description="EC2/RDS instance type")
+    vcpus: Optional[int] = Field(None, description="Virtual CPUs")
+    memory: Optional[int] = Field(None, description="Memory in GB")
+    storage: Optional[int] = Field(None, description="Storage in GB")
+    db_engine: Optional[str] = Field(None, description="Database engine (RDS)")
+    instance_class: Optional[str] = Field(None, description="RDS instance class")
+    allocated_storage: Optional[int] = Field(None, description="RDS allocated storage")
+    storage_type: Optional[str] = Field(None, description="Storage type (gp2, gp3, io1)")
+    storage_class: Optional[str] = Field(None, description="S3 storage class")
+    size_gb: Optional[float] = Field(None, description="S3 bucket size in GB")
+    object_count: Optional[int] = Field(None, description="S3 object count")
+    versioning: Optional[str] = Field(None, description="S3 versioning enabled/disabled")
+    cpu_utilization: Optional[float] = Field(None, description="CPU utilization %")
+    memory_utilization: Optional[float] = Field(None, description="Memory utilization %")
+    network_in: Optional[float] = Field(None, description="Network in bytes")
+    network_out: Optional[float] = Field(None, description="Network out bytes")
+    db_connections: Optional[int] = Field(None, description="Database connections")
+    read_latency: Optional[float] = Field(None, description="Read latency ms")
+    write_latency: Optional[float] = Field(None, description="Write latency ms")
+    get_requests: Optional[int] = Field(None, description="S3 GET requests")
+    put_requests: Optional[int] = Field(None, description="S3 PUT requests")
+    data_transfer_out: Optional[float] = Field(None, description="Data transfer out bytes")
+    monthly_cost: Optional[Decimal] = Field(None, description="Monthly cost USD")
+    extras: Dict[str, Any] = Field(default_factory=dict, description="Additional unmapped fields")
+
+
+class CanonicalCostReport(BaseModel):
+    """Canonical AWS cost report entity schema for FinOps"""
+    service_category: str = Field(..., description="AWS service category")
+    resource_id: Optional[str] = Field(None, description="Associated resource ID")
+    region: str = Field(..., description="AWS region")
+    cost: Decimal = Field(..., description="Cost amount")
+    usage: Optional[float] = Field(None, description="Usage amount")
+    usage_type: str = Field(..., description="AWS usage type")
+    monthly_cost: Optional[Decimal] = Field(None, description="Monthly cost USD")
+    extras: Dict[str, Any] = Field(default_factory=dict, description="Additional unmapped fields")
+
+
 class CanonicalEvent(BaseModel):
     """Complete canonical event envelope with strict typing"""
     meta: CanonicalMeta
     source: CanonicalSource
-    entity: Literal["account", "opportunity", "contact"] = Field(..., description="Entity type")
+    entity: Literal["account", "opportunity", "contact", "aws_resources", "cost_reports"] = Field(..., description="Entity type")
     op: Literal["upsert", "delete"] = Field("upsert", description="Operation type")
-    data: Union[CanonicalAccount, CanonicalOpportunity, CanonicalContact] = Field(..., description="Canonical entity data (strictly typed)")
+    data: Union[CanonicalAccount, CanonicalOpportunity, CanonicalContact, CanonicalAWSResource, CanonicalCostReport] = Field(..., description="Canonical entity data (strictly typed)")
     unknown_fields: List[str] = Field(default_factory=list, description="Fields that couldn't be mapped")
     
     @model_validator(mode='after')
@@ -94,6 +137,10 @@ class CanonicalEvent(BaseModel):
             raise ValueError(f"Entity type 'opportunity' requires CanonicalOpportunity data, got {type(self.data)}")
         elif self.entity == 'contact' and not isinstance(self.data, CanonicalContact):
             raise ValueError(f"Entity type 'contact' requires CanonicalContact data, got {type(self.data)}")
+        elif self.entity == 'aws_resources' and not isinstance(self.data, CanonicalAWSResource):
+            raise ValueError(f"Entity type 'aws_resources' requires CanonicalAWSResource data, got {type(self.data)}")
+        elif self.entity == 'cost_reports' and not isinstance(self.data, CanonicalCostReport):
+            raise ValueError(f"Entity type 'cost_reports' requires CanonicalCostReport data, got {type(self.data)}")
         
         return self
     

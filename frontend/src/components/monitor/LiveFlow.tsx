@@ -12,7 +12,9 @@ import {
   Bot,
   AlertTriangle,
   Zap,
-  RefreshCw
+  RefreshCw,
+  FileText,
+  Link
 } from 'lucide-react';
 import { useEventStream } from '../../hooks/useEventStream';
 import { EventItem, SourceSystem } from '../../types/events';
@@ -56,12 +58,29 @@ export default function LiveFlow() {
   const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
   const [displayedEvents, setDisplayedEvents] = useState<EventItem[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [sourceMode, setSourceMode] = useState<'demo_files' | 'aam_connectors'>('demo_files');
 
   useEffect(() => {
     if (!isPaused) {
       setDisplayedEvents(events);
     }
   }, [events, isPaused]);
+
+  useEffect(() => {
+    const fetchSourceMode = async () => {
+      try {
+        const response = await fetch(API_CONFIG.buildDclUrl('/state'));
+        if (response.ok) {
+          const data = await response.json();
+          setSourceMode(data.source_mode || 'demo_files');
+          console.log('[Live Flow] Source mode fetched:', data.source_mode);
+        }
+      } catch (err) {
+        console.error('[Live Flow] Failed to fetch source mode:', err);
+      }
+    };
+    fetchSourceMode();
+  }, []);
 
   const filteredEvents = useMemo(() => {
     return selectedSources.size === 0 ? displayedEvents : displayedEvents.filter(e => selectedSources.has(e.source_system));
@@ -91,8 +110,7 @@ export default function LiveFlow() {
     setIsGenerating(true);
     try {
       // Use the correct endpoint - /dcl/connect (not /api/v1/dcl/connect)
-      const baseUrl = API_CONFIG.getBaseUrl();
-      const response = await fetch(`${baseUrl}/dcl/connect`, {
+      const response = await fetch(API_CONFIG.buildDclUrl('/connect'), {
         method: 'GET',  // DCL connect uses GET, not POST
         headers: {
           'Content-Type': 'application/json'
@@ -155,6 +173,23 @@ export default function LiveFlow() {
                 </>
               )}
             </button>
+            
+            <div 
+              className="flex items-center gap-2 px-3 py-1 rounded-lg bg-gray-800 border border-gray-700 cursor-help"
+              title="Source mode controlled by feature flags. Contact admin to switch."
+            >
+              {sourceMode === 'aam_connectors' ? (
+                <Link className="w-4 h-4 text-green-400" />
+              ) : (
+                <FileText className="w-4 h-4 text-blue-400" />
+              )}
+              <span className="text-sm font-medium text-gray-300">
+                Data Source:
+              </span>
+              <span className={`text-sm font-semibold ${sourceMode === 'aam_connectors' ? 'text-green-400' : 'text-blue-400'}`}>
+                {sourceMode === 'aam_connectors' ? 'AAM Connectors' : 'Demo Files'}
+              </span>
+            </div>
             
             {isMockMode && (
               <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-amber-500/10 text-amber-500 border border-amber-500/20">
