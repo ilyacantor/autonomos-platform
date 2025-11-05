@@ -33,6 +33,16 @@ export const DEFAULT_SOURCES: DCLSource[] = [
   { id: '9', name: 'MongoDB', value: 'mongodb', type: 'Database', status: 'connected', description: 'NoSQL document database' },
 ];
 
+/**
+ * AAM-specific production connectors (4 sources)
+ */
+export const AAM_SOURCES: DCLSource[] = [
+  { id: '2', name: 'Salesforce', value: 'salesforce', type: 'CRM', status: 'connected', description: 'Cloud-based CRM platform' },
+  { id: '8', name: 'Supabase', value: 'supabase', type: 'Database', status: 'connected', description: 'Open source database platform' },
+  { id: '9', name: 'MongoDB', value: 'mongodb', type: 'Database', status: 'connected', description: 'NoSQL document database' },
+  { id: '10', name: 'FileSource', value: 'filesource', type: 'Database', status: 'connected', description: 'File-based data sources' },
+];
+
 export const DEFAULT_AGENTS: DCLAgent[] = [
   { id: '1', name: 'RevOps Pilot', value: 'revops_pilot', description: 'Revenue operations intelligence agent' },
   { id: '2', name: 'FinOps Pilot', value: 'finops_pilot', description: 'Financial operations intelligence agent' },
@@ -43,6 +53,20 @@ export const DEFAULT_AGENTS: DCLAgent[] = [
  */
 export const getAllSourceValues = (): string[] => {
   return DEFAULT_SOURCES.map(s => s.value);
+};
+
+/**
+ * Get AAM source values (4 production connectors)
+ */
+export const getAamSourceValues = (): string[] => {
+  return AAM_SOURCES.map(s => s.value);
+};
+
+/**
+ * Get sources based on mode (AAM or Legacy)
+ */
+export const getSourcesByMode = (useAamMode: boolean): DCLSource[] => {
+  return useAamMode ? AAM_SOURCES : DEFAULT_SOURCES;
 };
 
 /**

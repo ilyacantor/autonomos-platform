@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Database, Server, Warehouse, Users, Settings2, Activity, Search } from 'lucide-react';
-import { DEFAULT_SOURCES, DEFAULT_AGENTS, getDefaultSources, getDefaultAgents } from '../config/dclDefaults';
+import { DEFAULT_SOURCES, AAM_SOURCES, DEFAULT_AGENTS, getDefaultSources, getDefaultAgents, getSourcesByMode } from '../config/dclDefaults';
 
-const connections = DEFAULT_SOURCES;
 const agents = DEFAULT_AGENTS;
 
 function getIcon(type: string) {
@@ -39,6 +38,20 @@ export default function ConnectionsPage() {
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
   const [lineageSearchQuery, setLineageSearchQuery] = useState('');
+  const [useAamSource, setUseAamSource] = useState(true);
+  
+  // Get connections based on AAM mode
+  const connections = useAamSource ? AAM_SOURCES : DEFAULT_SOURCES;
+
+  // Load feature flags from API
+  useEffect(() => {
+    fetch('/dcl/feature_flags')
+      .then(res => res.json())
+      .then(flags => {
+        setUseAamSource(flags.USE_AAM_AS_SOURCE || false);
+      })
+      .catch(err => console.error('Failed to load feature flags:', err));
+  }, []);
 
   // Load selections from localStorage on mount (with defaults if empty)
   useEffect(() => {
@@ -77,7 +90,9 @@ export default function ConnectionsPage() {
 
 
   const handleSelectAll = () => {
-    setSelectedSources(connections.map(c => c.value));
+    // Select all sources based on current mode
+    const allSources = connections.map(c => c.value);
+    setSelectedSources(allSources);
     setSelectedAgents(agents.map(a => a.value));
   };
 

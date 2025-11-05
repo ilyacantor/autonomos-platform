@@ -7,7 +7,7 @@ import { useDCLState } from '../hooks/useDCLState';
 import TypingText from './TypingText';
 import { aoaApi } from '../services/aoaApi';
 import { AUTH_TOKEN_KEY, API_CONFIG } from '../config/api';
-import { getDefaultSources, getDefaultAgents } from '../config/dclDefaults';
+import { getDefaultSources, getDefaultAgents, getAamSourceValues, getAllSourceValues } from '../config/dclDefaults';
 
 interface DCLGraphContainerProps {
   mappings: MappingReview[];
@@ -48,13 +48,21 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
     window.dispatchEvent(new CustomEvent('auth:unauthorized'));
   };
 
-  // Get persisted selections from localStorage, fallback to all sources/agents
+  // Get persisted selections from localStorage, fallback to mode-appropriate sources
   // Ensures we never send empty query params to backend
   const getPersistedSources = () => {
+    // Filter sources based on current mode
+    const allAvailableSources = useAamSource ? getAamSourceValues() : getAllSourceValues();
     const defaultSources = getDefaultSources();
-    console.log('[DCL] Current sources from localStorage:', defaultSources);
-    // getDefaultSources always returns non-empty array (fallback to all sources)
-    return defaultSources.join(',');
+    
+    // Filter to only include sources valid for current mode
+    const filteredSources = defaultSources.filter(s => allAvailableSources.includes(s));
+    
+    // If no valid sources after filtering, use all available for current mode
+    const sources = filteredSources.length > 0 ? filteredSources : allAvailableSources;
+    
+    console.log('[DCL] Current sources from localStorage:', sources);
+    return sources.join(',');
   };
   
   const getPersistedAgents = () => {
@@ -66,7 +74,8 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
   
   // Select all sources/agents (selection only, doesn't run)
   const selectAllSources = () => {
-    const allSources = ['dynamics', 'salesforce', 'hubspot', 'sap', 'netsuite', 'legacy_sql', 'snowflake', 'supabase', 'mongodb'];
+    // Select all sources based on current mode
+    const allSources = useAamSource ? getAamSourceValues() : getAllSourceValues();
     const allAgents = ['revops_pilot', 'finops_pilot'];
     localStorage.setItem('aos.selectedSources', JSON.stringify(allSources));
     localStorage.setItem('aos.selectedAgents', JSON.stringify(allAgents));
@@ -78,10 +87,23 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
     fetch(API_CONFIG.buildDclUrl('/feature_flags'))
       .then(res => res.json())
       .then(flags => {
-        setUseAamSource(flags.USE_AAM_AS_SOURCE || false);
+        const aamMode = flags.USE_AAM_AS_SOURCE || false;
+        setUseAamSource(aamMode);
+        
+        // Auto-update selected sources to match mode
+        const correctSources = aamMode ? getAamSourceValues() : getAllSourceValues();
+        localStorage.setItem('aos.selectedSources', JSON.stringify(correctSources));
+        console.log(`[DCL] Initialized sources for ${aamMode ? 'AAM' : 'Legacy'} mode:`, correctSources);
       })
       .catch(err => console.error('Failed to load feature flags:', err));
   }, []);
+  
+  // Update sources when AAM mode changes
+  useEffect(() => {
+    const correctSources = useAamSource ? getAamSourceValues() : getAllSourceValues();
+    localStorage.setItem('aos.selectedSources', JSON.stringify(correctSources));
+    console.log(`[DCL] Updated sources for ${useAamSource ? 'AAM' : 'Legacy'} mode:`, correctSources);
+  }, [useAamSource]);
 
   // Sync dev mode from backend state
   useEffect(() => {
