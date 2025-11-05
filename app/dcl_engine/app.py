@@ -10,7 +10,7 @@ import google.generativeai as genai  # type: ignore
 from rag_engine import RAGEngine
 from llm_service import get_llm_service
 import redis
-from app.dcl_engine.source_loader import get_source_adapter
+from app.dcl_engine.source_loader import get_source_adapter, AAMSourceAdapter
 from app.config.feature_flags import FeatureFlagConfig, FeatureFlag
 from app.dcl_engine.agent_executor import AgentExecutor
 
@@ -1410,17 +1410,18 @@ async def connect_source(
         async with ASYNC_STATE_LOCK:
             if source_key in SOURCE_SCHEMAS:
                 del SOURCE_SCHEMAS[source_key]
-                log(f"🗑️  Cleared cache for AAM source: {source_key}")
+                log(f"🗑️  Cleared SOURCE_SCHEMAS cache for AAM source: {source_key}")
+        
+        # Clear idempotency cache so all messages are reprocessed (fixes "0 sources" bug)
+        # SAFE: /dcl/connect is user-initiated and synchronous (no concurrent ingestion)
+        if isinstance(adapter, AAMSourceAdapter):
+            adapter.clear_idempotency_cache(tenant_id, source_id=source_key)
+            log(f"🗑️  Cleared idempotency cache for tenant: {tenant_id}")
     
     # Load tables using adapter
-    log(f"🔧 DEBUG: Calling adapter.load_tables('{source_key}', '{tenant_id}')")
-    log(f"🔧 DEBUG: Adapter type: {type(adapter).__name__}")
     tables = adapter.load_tables(source_key, tenant_id)
-    log(f"🔧 DEBUG: load_tables returned: {len(tables) if tables else 0} tables")
-    log(f"🔧 DEBUG: Tables dict keys: {list(tables.keys()) if tables else 'EMPTY'}")
     
     if not tables:
-        log(f"⚠️ No tables found for source '{source_key}' - returning error")
         return {"error": f"No tables found for source '{source_key}'"}
     
     # STREAMING EVENT 2: Schema snapshot complete

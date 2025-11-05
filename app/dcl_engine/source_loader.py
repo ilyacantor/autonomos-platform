@@ -251,20 +251,15 @@ class AAMSourceAdapter(BaseSourceAdapter):
         Raises:
             RuntimeError: If Redis is not available
         """
-        print(f"🔍 _get_redis_client() called, self.redis={self.redis}")
         if self.redis is None:
             import app.dcl_engine.app as dcl_app
-            print(f"🔍 Imported dcl_app, redis_available={dcl_app.redis_available}, redis_client={dcl_app.redis_client}")
             
             if not dcl_app.redis_available or not dcl_app.redis_client:
-                print(f"🚨 Redis NOT available! Raising RuntimeError")
                 raise RuntimeError("Redis required for AAM source adapter but not available")
             
             self.redis = dcl_app.redis_client
-            print(f"✅ AAMSourceAdapter successfully got Redis client")
             self.logger.info("✅ AAMSourceAdapter connected to Redis")
         
-        print(f"🔍 Returning redis client: {self.redis}")
         return self.redis
     
     def discover_sources(self, tenant_id: str) -> List[str]:
@@ -323,16 +318,10 @@ class AAMSourceAdapter(BaseSourceAdapter):
         Returns:
             Dictionary mapping table names to table metadata (same format as FileSourceAdapter)
         """
-        # CRITICAL DEBUG: Print FIRST to see if method is even entered
-        print(f"🔍 AAMSourceAdapter.load_tables() ENTERED for source_id='{source_id}', tenant_id='{tenant_id}'")
         stream_key = f"aam:dcl:{tenant_id}:{source_id}"
-        print(f"🔍 Stream key: {stream_key}")
         
         try:
-            print(f"🔍 Calling _get_redis_client()...")
             redis = self._get_redis_client()
-            print(f"✅ Got Redis client: {redis}")
-            print(f"🔍 About to call XRANGE on stream '{stream_key}'...")
             self.logger.info(f"🔍 Loading tables from stream '{stream_key}'...")
             
             # Read ALL messages from stream using XRANGE (from beginning '-' to end '+')
@@ -344,7 +333,6 @@ class AAMSourceAdapter(BaseSourceAdapter):
                 count=100  # Read up to 100 messages
             )
             
-            print(f"📦 XRANGE returned {len(messages)} messages from stream '{stream_key}'")
             self.logger.info(f"📦 XRANGE returned {len(messages)} messages from '{stream_key}'")
             
             if not messages:
@@ -633,6 +621,36 @@ class AAMSourceAdapter(BaseSourceAdapter):
             redis._client.expire(set_key, AAM_IDEMPOTENCY_TTL)
         except Exception as e:
             self.logger.error(f"Error marking batch as processed: {e}")
+    
+    def clear_idempotency_cache(self, tenant_id: str, source_id: str = None):
+        """
+        Clear processed batch tracking for a tenant.
+        
+        Called when user explicitly requests fresh connection via /dcl/connect
+        to ensure all messages are reprocessed. Safe for user-initiated connections
+        because /dcl/connect is synchronous and processes one source at a time.
+        
+        IMPORTANT: Current implementation uses tenant-level key tracking.
+        If future changes introduce per-source sharding (e.g., 
+        dcl:processed_batches:{tenant_id}:{source}), update this method
+        to use pattern-based deletion with SCAN.
+        
+        Args:
+            tenant_id: Tenant identifier
+            source_id: Optional source identifier for future per-source clearing
+        """
+        try:
+            redis = self._get_redis_client()
+            
+            # Current implementation: single tenant-level key
+            # TODO: If background ingestion is added, consider per-source keys
+            # to avoid clearing cache for concurrent sources
+            set_key = f"dcl:processed_batches:{tenant_id}"
+            deleted = redis._client.delete(set_key)
+            if deleted:
+                self.logger.info(f"🗑️  Cleared idempotency cache for tenant '{tenant_id}' ({deleted} keys)")
+        except Exception as e:
+            self.logger.error(f"Error clearing idempotency cache: {e}")
     
     def extract_metadata(self, canonical_event: dict) -> dict:
         """
