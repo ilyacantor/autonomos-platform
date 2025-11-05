@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { LayoutDashboard, Cable, Network, Bell, Menu, X, LogIn, UserPlus, HelpCircle, Activity, Zap } from 'lucide-react';
+import { LayoutDashboard, Cable, Network, Bell, Menu, X, LogIn, UserPlus, HelpCircle, Activity, Search } from 'lucide-react';
 import AutonomyModeToggle from './AutonomyModeToggle';
 import type { PersonaType } from '../types';
 import autonomosLogo from '../assets/autonomos-logo.png';
@@ -22,11 +22,11 @@ export default function TopBar({ onAuthOpen, currentPage, onNavigate }: TopBarPr
   const [hasNotifications] = useState(true);
 
   const navItems: NavItem[] = [
-    { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
-    { id: 'connections', label: 'Connections', icon: <Cable className="w-5 h-5" /> },
+    { id: 'control-center', label: 'Control Center', icon: <LayoutDashboard className="w-5 h-5" /> },
+    { id: 'discover', label: 'Discover', icon: <Search className="w-5 h-5" /> },
+    { id: 'connect', label: 'Connect', icon: <Cable className="w-5 h-5" />, tooltip: 'AAM Connect - Self-healing data connectivity' },
     { id: 'ontology', label: 'Ontology', icon: <Network className="w-5 h-5" /> },
-    { id: 'aam-monitor', label: 'AAM Monitor', icon: <Activity className="w-5 h-5" />, tooltip: 'Adaptive API Mesh Monitoring' },
-    { id: 'live-flow', label: 'Live Flow', icon: <Zap className="w-5 h-5" />, tooltip: 'Real-time Event Visualization' },
+    { id: 'orchestration', label: 'Orchestration', icon: <Activity className="w-5 h-5" /> },
     { id: 'faq', label: 'FAQ', icon: <HelpCircle className="w-5 h-5" /> },
   ];
 
@@ -36,7 +36,7 @@ export default function TopBar({ onAuthOpen, currentPage, onNavigate }: TopBarPr
         {/* Logo */}
         <div className="flex-shrink-0 -ml-[10px]">
           <button
-            onClick={() => onNavigate('dashboard')}
+            onClick={() => onNavigate('control-center')}
             className="hover:opacity-80 transition-opacity cursor-pointer"
           >
             <img 

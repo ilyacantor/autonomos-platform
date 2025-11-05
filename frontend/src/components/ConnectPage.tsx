@@ -28,7 +28,7 @@ import ConfidenceGauge from './ConfidenceGauge';
 import { getDataQualityMetadata, DataQualityMetadata } from '../services/dataQualityApi';
 import AutonomOSArchitectureFlow from './AutonomOSArchitectureFlow';
 import AdaptiveAPIMesh from './AdaptiveAPIMesh';
-import LiveFlow from './monitor/LiveFlow';
+import LiveFlow from './archive/LiveFlow';
 
 interface ServiceStatus {
   name: string;
