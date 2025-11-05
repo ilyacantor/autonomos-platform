@@ -236,15 +236,31 @@ class AAMSourceAdapter(BaseSourceAdapter):
     """
     
     def __init__(self):
-        """Initialize AAM adapter with Redis client."""
-        from app.dcl_engine.app import redis_client, redis_available
-        
-        if not redis_available:
-            raise RuntimeError("Redis required for AAM source adapter but not available")
-        
-        self.redis = redis_client
+        """Initialize AAM adapter (Redis client loaded lazily to avoid circular import)."""
+        self.redis = None
         self.logger = logging.getLogger(__name__)
-        self.logger.info("🔌 AAMSourceAdapter initialized with Redis client")
+        self.logger.info("🔌 AAMSourceAdapter initialized (Redis will be loaded on first use)"  )
+    
+    def _get_redis_client(self):
+        """
+        Get Redis client, loading it lazily to avoid circular import issues.
+        
+        Returns:
+            Redis client wrapper
+            
+        Raises:
+            RuntimeError: If Redis is not available
+        """
+        if self.redis is None:
+            import app.dcl_engine.app as dcl_app
+            
+            if not dcl_app.redis_available or not dcl_app.redis_client:
+                raise RuntimeError("Redis required for AAM source adapter but not available")
+            
+            self.redis = dcl_app.redis_client
+            self.logger.info("✅ AAMSourceAdapter connected to Redis")
+        
+        return self.redis
     
     def discover_sources(self, tenant_id: str) -> List[str]:
         """
@@ -259,13 +275,14 @@ class AAMSourceAdapter(BaseSourceAdapter):
             List of available connector IDs (e.g., ['salesforce', 'supabase'])
         """
         try:
+            redis = self._get_redis_client()
             pattern = f"aam:dcl:{tenant_id}:*"
             sources = []
             
             # Use SCAN to find matching stream keys
             cursor = 0
             while True:
-                cursor, keys = self.redis._client.scan(cursor, match=pattern, count=100)
+                cursor, keys = redis._client.scan(cursor, match=pattern, count=100)
                 
                 # Extract connector type from each key
                 for key in keys:
@@ -304,11 +321,12 @@ class AAMSourceAdapter(BaseSourceAdapter):
         stream_key = f"aam:dcl:{tenant_id}:{source_id}"
         
         try:
+            redis = self._get_redis_client()
             self.logger.info(f"🔍 Loading tables from stream '{stream_key}'...")
             
             # Read ALL messages from stream using XRANGE (from beginning '-' to end '+')
             # This is simpler than consumer groups and works well for demo/development
-            messages = self.redis._client.xrange(
+            messages = redis._client.xrange(
                 stream_key,
                 min='-',  # Start from beginning
                 max='+',  # Read to end
@@ -357,8 +375,28 @@ class AAMSourceAdapter(BaseSourceAdapter):
                         self.logger.debug(f"Skipping already processed batch: {batch_id}")
                         continue
                     
-                    # Extract tables from payload
-                    tables = payload.get('tables', {})
+                    # Extract tables from payload - handle both flat and envelope formats
+                    # Phase 4 canonical events may nest tables under canonical_event/canonical_data envelope
+                    tables = {}
+                    
+                    # Try envelope format first (Phase 4)
+                    if 'canonical_event' in payload:
+                        # Format: payload['canonical_event']['data']['tables']
+                        canonical_event = payload['canonical_event']
+                        if isinstance(canonical_event, dict) and 'data' in canonical_event:
+                            tables = canonical_event['data'].get('tables', {})
+                        elif isinstance(canonical_event, dict) and 'tables' in canonical_event:
+                            tables = canonical_event.get('tables', {})
+                    elif 'canonical_data' in payload:
+                        # Format: payload['canonical_data']['tables']
+                        canonical_data = payload['canonical_data']
+                        if isinstance(canonical_data, dict):
+                            tables = canonical_data.get('tables', {})
+                    else:
+                        # Flat format (current demo data): payload['tables']
+                        tables = payload.get('tables', {})
+                    
+                    self.logger.info(f"📦 Extracted {len(tables)} tables from {source_id} (batch: {batch_id})")
                     
                     # Merge tables (latest wins if same table name)
                     for table_name, table_data in tables.items():
@@ -456,9 +494,10 @@ class AAMSourceAdapter(BaseSourceAdapter):
         stream_key = f"aam:dcl:{tenant_id}:{source_id}"
         
         try:
+            redis = self._get_redis_client()
             # Get stream info
             try:
-                stream_info = self.redis._client.xinfo_stream(stream_key)
+                stream_info = redis._client.xinfo_stream(stream_key)
             except Exception as e:
                 # Stream doesn't exist or error
                 return {
@@ -470,7 +509,7 @@ class AAMSourceAdapter(BaseSourceAdapter):
                 }
             
             # Read last message to get payload metadata
-            last_messages = self.redis._client.xrevrange(stream_key, count=1)
+            last_messages = redis._client.xrevrange(stream_key, count=1)
             
             metadata = {
                 "source_id": source_id,
@@ -522,10 +561,11 @@ class AAMSourceAdapter(BaseSourceAdapter):
             group_name: Consumer group name
         """
         try:
+            redis = self._get_redis_client()
             # Try to create consumer group
             # MKSTREAM creates stream if it doesn't exist
             # Start reading from beginning with '0'
-            self.redis._client.xgroup_create(stream_key, group_name, id='0', mkstream=True)
+            redis._client.xgroup_create(stream_key, group_name, id='0', mkstream=True)
             self.logger.info(f"Created consumer group '{group_name}' for stream '{stream_key}'")
         except Exception as e:
             # Group likely already exists (BUSYGROUP error)
@@ -549,8 +589,9 @@ class AAMSourceAdapter(BaseSourceAdapter):
             True if batch already processed, False otherwise
         """
         try:
+            redis = self._get_redis_client()
             set_key = f"dcl:processed_batches:{tenant_id}"
-            result = self.redis._client.sismember(set_key, batch_id)
+            result = redis._client.sismember(set_key, batch_id)
             return bool(result)
         except Exception as e:
             self.logger.error(f"Error checking batch processed status: {e}")
@@ -567,10 +608,11 @@ class AAMSourceAdapter(BaseSourceAdapter):
             batch_id: Batch identifier
         """
         try:
+            redis = self._get_redis_client()
             set_key = f"dcl:processed_batches:{tenant_id}"
-            self.redis._client.sadd(set_key, batch_id)
+            redis._client.sadd(set_key, batch_id)
             # Set configurable expiry to prevent unbounded growth (default 24h)
-            self.redis._client.expire(set_key, AAM_IDEMPOTENCY_TTL)
+            redis._client.expire(set_key, AAM_IDEMPOTENCY_TTL)
         except Exception as e:
             self.logger.error(f"Error marking batch as processed: {e}")
     
@@ -675,13 +717,14 @@ class AAMSourceAdapter(BaseSourceAdapter):
             metadata: Extracted metadata dictionary
         """
         try:
+            redis = self._get_redis_client()
             redis_key = f"dcl:metadata:{tenant_id}:{source_id}"
             
             # Store as JSON string
             metadata_json = json.dumps(metadata)
             
             # Store with 24-hour expiry
-            self.redis._client.setex(redis_key, AAM_IDEMPOTENCY_TTL, metadata_json)
+            redis._client.setex(redis_key, AAM_IDEMPOTENCY_TTL, metadata_json)
             
             self.logger.debug(f"📊 Stored metadata in Redis: {redis_key}")
             
@@ -698,9 +741,16 @@ def get_source_adapter() -> BaseSourceAdapter:
         AAMSourceAdapter when USE_AAM_AS_SOURCE=True
     """
     if FeatureFlagConfig.is_enabled(FeatureFlag.USE_AAM_AS_SOURCE):
-        adapter = AAMSourceAdapter()
-        adapter_type = "AAMSourceAdapter"
-        logger.info(f"📂 Using {adapter_type} for data ingestion")
+        try:
+            adapter = AAMSourceAdapter()
+            adapter_type = "AAMSourceAdapter"
+            logger.info(f"📂 Using {adapter_type} for data ingestion")
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize AAMSourceAdapter: {e}", exc_info=True)
+            logger.warning(f"⚠️ Falling back to FileSourceAdapter due to AAM init failure")
+            adapter = FileSourceAdapter()
+            adapter_type = "FileSourceAdapter (fallback)"
+            logger.info(f"📂 Using {adapter_type} for data ingestion")
     else:
         adapter = FileSourceAdapter()
         adapter_type = "FileSourceAdapter"
