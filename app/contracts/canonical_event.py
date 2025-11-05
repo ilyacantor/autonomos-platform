@@ -138,6 +138,117 @@ class FieldMapping(BaseModel):
     verified_at: Optional[datetime] = None
 
 
+class RepairHistory(BaseModel):
+    """
+    History of repair actions performed on this event.
+    
+    Tracks all auto-repair attempts and their outcomes.
+    """
+    repair_event_id: str = Field(..., description="Unique repair event identifier")
+    
+    repair_action: Literal["auto_applied", "hitl_queued", "rejected"] = Field(
+        ..., description="Action taken: auto_applied, hitl_queued, rejected"
+    )
+    
+    field_name: str = Field(..., description="Field that was repaired")
+    suggested_mapping: str = Field(..., description="Suggested canonical field name")
+    
+    confidence: float = Field(..., ge=0.0, le=1.0, description="Repair confidence score")
+    confidence_reason: Optional[str] = Field(None, description="Why this confidence score")
+    
+    transformation: Optional[str] = Field(None, description="Applied transformation function")
+    
+    rag_similarity_count: int = Field(0, ge=0, description="Number of similar historical mappings found")
+    
+    # CHANGED: Remove misleading defaults - require explicit values
+    applied_at: datetime = Field(..., description="When this repair was applied (REQUIRED)")
+    applied_by: Literal["llm", "rag", "heuristic", "human"] = Field(..., description="Who/what applied the repair (REQUIRED)")
+    
+    # Keep these as explicit False by default since they represent pending states
+    human_reviewed: bool = Field(False, description="Whether human reviewed this repair")
+    reviewed_by: Optional[str] = Field(None, description="User ID who reviewed")
+    reviewed_at: Optional[datetime] = None
+
+
+class DataLineage(BaseModel):
+    """
+    Data lineage tracking for event transformation history.
+    
+    Tracks the journey of data from source connector through AAM to DCL.
+    """
+    source_system: str = Field(..., description="Original source system (e.g., 'Salesforce')")
+    source_connector_id: str = Field(..., description="Source connector instance ID")
+    
+    processing_stages: List[str] = Field(
+        default_factory=list, 
+        description="Stages: ingestion, normalization, drift_detection, repair, validation, enrichment"
+    )
+    
+    transformations_applied: List[str] = Field(
+        default_factory=list,
+        description="List of transformations applied (e.g., 'snake_case', 'type_inference', 'auto_repair')"
+    )
+    
+    processing_timestamp: datetime = Field(default_factory=datetime.utcnow)
+    
+    processor_version: str = Field("1.0", description="Version of CanonicalProcessor")
+    
+    data_quality_score: Optional[float] = Field(
+        None, ge=0.0, le=1.0, 
+        description="Overall data quality score after processing"
+    )
+
+
+class DriftStatus(BaseModel):
+    """
+    Current drift status for this event's schema.
+    
+    Indicates whether drift was detected and what action was taken.
+    """
+    drift_detected: bool = Field(False, description="Whether schema drift was detected")
+    
+    drift_event_id: Optional[str] = Field(None, description="ID of the drift event")
+    
+    drift_severity: Optional[Literal["low", "medium", "high", "critical"]] = Field(
+        None, description="Severity of detected drift"
+    )
+    
+    drift_type: Optional[str] = Field(
+        None, description="Type of drift: field_added, field_removed, field_renamed, type_changed"
+    )
+    
+    repair_attempted: bool = Field(False, description="Whether auto-repair was attempted")
+    repair_successful: bool = Field(False, description="Whether repair succeeded")
+    
+    detected_at: Optional[datetime] = None
+    resolved_at: Optional[datetime] = None
+    
+    requires_human_review: bool = Field(False, description="Whether HITL review is required")
+
+
+class RepairSummary(BaseModel):
+    """
+    Summary of repair actions for this event.
+    
+    Aggregates all repair attempts for quick reference.
+    """
+    repair_processed: bool = Field(False, description="Whether repair processing occurred")
+    
+    auto_applied_count: int = Field(0, ge=0, description="Number of auto-applied repairs")
+    hitl_queued_count: int = Field(0, ge=0, description="Number of repairs queued for HITL")
+    rejected_count: int = Field(0, ge=0, description="Number of rejected repairs")
+    
+    overall_confidence: Optional[float] = Field(
+        None, ge=0.0, le=1.0, 
+        description="Overall confidence across all repairs"
+    )
+    
+    repair_history: List[RepairHistory] = Field(
+        default_factory=list, 
+        description="Detailed history of all repairs"
+    )
+
+
 class CanonicalEvent(BaseModel):
     """
     Base canonical event structure.
@@ -190,6 +301,18 @@ class EntityEvent(CanonicalEvent):
     
     raw_data: Optional[Dict[str, Any]] = Field(
         None, description="Original raw data from connector (for debugging)"
+    )
+    
+    drift_status: Optional[DriftStatus] = Field(
+        None, description="Schema drift detection status"
+    )
+    
+    repair_summary: Optional[RepairSummary] = Field(
+        None, description="Summary of repair actions performed"
+    )
+    
+    data_lineage: Optional[DataLineage] = Field(
+        None, description="Data transformation lineage tracking"
     )
 
 

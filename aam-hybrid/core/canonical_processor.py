@@ -98,7 +98,19 @@ class CanonicalProcessor:
                             f"{drift_event.changes.get('summary', 'unknown changes')}"
                         )
                         
-                        # Add drift metadata to event
+                        # Use structured DriftStatus
+                        from app.contracts.canonical_event import DriftStatus
+                        
+                        drift_status = DriftStatus(
+                            drift_detected=True,
+                            drift_event_id=drift_event.event_id,
+                            drift_severity=drift_event.severity,
+                            drift_type=drift_event.drift_type,
+                            detected_at=datetime.utcnow()
+                        )
+                        normalized_event.drift_status = drift_status
+                        
+                        # Keep backward compatibility: also add to metadata
                         if normalized_event.metadata is None:
                             normalized_event.metadata = {}
                         normalized_event.metadata["drift_detected"] = True
@@ -108,6 +120,8 @@ class CanonicalProcessor:
                         # NEW: Process drift with RepairAgent
                         if FeatureFlagConfig.is_enabled(FeatureFlag.ENABLE_AUTO_REPAIR):
                             from .repair_agent import RepairAgent
+                            from app.contracts.canonical_event import RepairSummary, RepairHistory
+                            
                             repair_agent = RepairAgent(
                                 redis_client=self.redis_client,
                                 db_session=self.db_session
@@ -116,12 +130,40 @@ class CanonicalProcessor:
                             try:
                                 repair_batch = repair_agent.suggest_repairs(drift_event, normalized_event)
                                 
-                                # Add repair metadata to event
-                                normalized_event.metadata["repair_processed"] = True
-                                normalized_event.metadata["repair_auto_applied"] = repair_batch.auto_applied_count
-                                normalized_event.metadata["repair_hitl_queued"] = repair_batch.hitl_queued_count
-                                normalized_event.metadata["repair_rejected"] = repair_batch.rejected_count
-                                normalized_event.metadata["repair_overall_confidence"] = repair_batch.overall_confidence
+                                # Build RepairHistory objects with EXPLICIT values
+                                repair_history_list = []
+                                for suggestion in repair_batch.suggestions:
+                                    repair_history_list.append(RepairHistory(
+                                        repair_event_id=drift_event.event_id,
+                                        repair_action=suggestion.repair_action,
+                                        field_name=suggestion.field_name,
+                                        suggested_mapping=suggestion.suggested_mapping,
+                                        confidence=suggestion.confidence,
+                                        confidence_reason=suggestion.confidence_reason if hasattr(suggestion, 'confidence_reason') else None,
+                                        transformation=suggestion.transformation if hasattr(suggestion, 'transformation') else None,
+                                        rag_similarity_count=suggestion.rag_similarity_count if hasattr(suggestion, 'rag_similarity_count') else 0,
+                                        applied_at=datetime.utcnow(),  # EXPLICIT timestamp
+                                        applied_by="llm",  # EXPLICIT attribution
+                                        human_reviewed=False,  # EXPLICIT pending state
+                                        reviewed_by=None,
+                                        reviewed_at=None
+                                    ))
+                                
+                                # Create RepairSummary
+                                repair_summary = RepairSummary(
+                                    repair_processed=True,
+                                    auto_applied_count=repair_batch.auto_applied_count,
+                                    hitl_queued_count=repair_batch.hitl_queued_count,
+                                    rejected_count=repair_batch.rejected_count,
+                                    overall_confidence=repair_batch.overall_confidence,
+                                    repair_history=repair_history_list
+                                )
+                                normalized_event.repair_summary = repair_summary
+                                
+                                # Update drift_status
+                                drift_status.repair_attempted = True
+                                drift_status.repair_successful = repair_batch.auto_applied_count > 0
+                                drift_status.requires_human_review = repair_batch.hitl_queued_count > 0
                                 
                                 # Log each suggestion with appropriate emoji
                                 for suggestion in repair_batch.suggestions:
@@ -141,7 +183,12 @@ class CanonicalProcessor:
                                             f"(confidence: {suggestion.confidence:.2f})"
                                         )
                                 
-                                # Store all suggestions in metadata for downstream consumers
+                                # Keep backward compatibility: also add to metadata
+                                normalized_event.metadata["repair_processed"] = True
+                                normalized_event.metadata["repair_auto_applied"] = repair_batch.auto_applied_count
+                                normalized_event.metadata["repair_hitl_queued"] = repair_batch.hitl_queued_count
+                                normalized_event.metadata["repair_rejected"] = repair_batch.rejected_count
+                                normalized_event.metadata["repair_overall_confidence"] = repair_batch.overall_confidence
                                 normalized_event.metadata["repair_suggestions"] = [
                                     {
                                         "field_name": s.field_name,
@@ -298,6 +345,7 @@ class CanonicalProcessor:
         - Calculate overall confidence score from field mappings
         - Add lineage info (ingested_at, processor_version)
         - Prepare for future drift detection metadata
+        - Add DataLineage tracking
         
         Args:
             event: Event to enrich
@@ -310,6 +358,7 @@ class CanonicalProcessor:
         
         # Add processing timestamp
         event.metadata['processed_at'] = datetime.utcnow().isoformat()
+        event.metadata['processor_version'] = self.PROCESSOR_VERSION
         
         # Calculate overall confidence from field mappings if not set or low
         if event.field_mappings:
@@ -323,7 +372,7 @@ class CanonicalProcessor:
             event.metadata['field_confidence_min'] = round(min(m.confidence_score for m in event.field_mappings), 3)
             event.metadata['field_confidence_max'] = round(max(m.confidence_score for m in event.field_mappings), 3)
         
-        # Add lineage information
+        # Add lineage information (keep for backward compatibility)
         event.metadata['lineage'] = {
             'ingested_at': event.timestamp.isoformat() if hasattr(event.timestamp, 'isoformat') else str(event.timestamp),
             'processor_version': self.PROCESSOR_VERSION,
@@ -332,12 +381,37 @@ class CanonicalProcessor:
             'tenant_id': event.tenant_id
         }
         
-        # Prepare for future drift detection
+        # Prepare for future drift detection (keep for backward compatibility)
         event.metadata['drift_detection'] = {
             'schema_fingerprint': event.schema_fingerprint.fingerprint_hash,
             'field_count': event.schema_fingerprint.field_count,
             'schema_version': event.schema_fingerprint.schema_version
         }
+        
+        # NEW: Add DataLineage tracking
+        from app.contracts.canonical_event import DataLineage
+        
+        processing_stages = ["ingestion", "normalization"]
+        transformations = ["snake_case", "type_inference"]
+        
+        if event.drift_status and event.drift_status.drift_detected:
+            processing_stages.append("drift_detection")
+        
+        if event.repair_summary and event.repair_summary.repair_processed:
+            processing_stages.append("repair")
+            transformations.append("auto_repair")
+        
+        processing_stages.extend(["validation", "enrichment"])
+        
+        data_lineage = DataLineage(
+            source_system=event.connector_name,
+            source_connector_id=event.connector_id,
+            processing_stages=processing_stages,
+            transformations_applied=transformations,
+            processor_version=self.PROCESSOR_VERSION,
+            data_quality_score=event.overall_confidence
+        )
+        event.data_lineage = data_lineage
         
         logger.debug(
             f"Enriched event {event.event_id}: "
