@@ -486,19 +486,11 @@ export default function ConnectPage() {
   }
 
   return (
-    <div className="space-y-8">
-      {/* 1. Page Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-white">AAM Connect</h1>
-        <p className="text-gray-400 mt-2">
-          Adaptive API Mesh - Self-healing data connectivity with real-time monitoring
-        </p>
-      </div>
-
-      {/* 2. 3D Adaptive API Mesh Visual */}
+    <div className="space-y-4">
+      {/* 3D Adaptive API Mesh Visual */}
       <AdaptiveAPIMesh />
 
-      {/* 4. AAM Overview & Connector Details */}
+      {/* AAM Overview & Connector Details */}
       <div className="space-y-6 pb-8">
         <div className="flex items-center justify-between">
           <div className="flex-1">
@@ -1055,8 +1047,8 @@ export default function ConnectPage() {
         )}
       </div>
 
-      {/* 5. Live Flow Monitor */}
-      <LiveFlow />
+      {/* Archived: Live Flow Monitor */}
+      {/* <LiveFlow /> */}
 
       {showRegisterModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
