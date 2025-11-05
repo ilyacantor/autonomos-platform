@@ -17,6 +17,8 @@ import json
 import pandas as pd
 import logging
 import warnings
+import tempfile
+import csv
 
 from app.config.feature_flags import FeatureFlagConfig, FeatureFlag
 
@@ -469,8 +471,12 @@ class AAMSourceAdapter(BaseSourceAdapter):
                 self.store_metadata_in_redis(tenant_id, source_id, aggregated_metadata)
                 self.logger.info(f"📊 Aggregated metadata: {aggregated_metadata['events_processed']} events, drift={aggregated_metadata['drift_detected']}, repairs={aggregated_metadata['auto_applied_count']}")
             
-            self.logger.info(f"📡 Loaded {len(all_tables)} tables from AAM source '{source_id}' (processed {len(processed_batch_ids)} batches)")
-            return all_tables
+            # Materialize AAM samples to temporary CSV files for DuckDB compatibility
+            # DuckDB can't read from "aam://stream" placeholder paths, so we write samples to temp files
+            materialized_tables = self._materialize_tables_to_csv(all_tables, tenant_id, source_id)
+            
+            self.logger.info(f"📡 Loaded {len(materialized_tables)} tables from AAM source '{source_id}' (processed {len(processed_batch_ids)} batches)")
+            return materialized_tables
             
         except Exception as e:
             # CRITICAL DEBUG: Print directly to console (bypasses logging config issues)
@@ -621,6 +627,95 @@ class AAMSourceAdapter(BaseSourceAdapter):
             redis._client.expire(set_key, AAM_IDEMPOTENCY_TTL)
         except Exception as e:
             self.logger.error(f"Error marking batch as processed: {e}")
+    
+    def _materialize_tables_to_csv(self, tables: Dict[str, Any], tenant_id: str, source_id: str) -> Dict[str, Any]:
+        """
+        Materialize AAM table samples to temporary CSV files for DuckDB compatibility.
+        
+        DuckDB cannot read from placeholder paths like "aam://stream", so we write
+        the sample data to actual CSV files that DuckDB can read with read_csv_auto().
+        
+        Args:
+            tables: Dictionary of table metadata from Redis Streams
+            tenant_id: Tenant identifier
+            source_id: Source/connector identifier
+            
+        Returns:
+            Updated tables dictionary with real file paths
+        """
+        materialized_tables = {}
+        
+        # Create temporary directory for this source
+        temp_dir = Path(tempfile.gettempdir()) / "aam_tables" / tenant_id / source_id
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Clean up old CSV files before creating new ones
+        self._cleanup_old_temp_files(temp_dir)
+        
+        for table_name, table_data in tables.items():
+            try:
+                samples = table_data.get("samples", [])
+                
+                if not samples:
+                    self.logger.warning(f"Table '{table_name}' has no samples, skipping materialization")
+                    continue
+                
+                # Write samples to CSV file
+                csv_path = temp_dir / f"{table_name}.csv"
+                
+                # Get field names from schema or first sample
+                if "schema" in table_data and table_data["schema"]:
+                    fieldnames = list(table_data["schema"].keys())
+                else:
+                    fieldnames = list(samples[0].keys())
+                
+                # Write CSV file
+                with open(csv_path, 'w', newline='', encoding='utf-8') as csvfile:
+                    writer = csv.DictWriter(csvfile, fieldnames=fieldnames, extrasaction='ignore')
+                    writer.writeheader()
+                    writer.writerows(samples)
+                
+                # Update table metadata with real path
+                materialized_tables[table_name] = {
+                    **table_data,
+                    "path": str(csv_path)
+                }
+                
+                self.logger.debug(f"✅ Materialized table '{table_name}' to {csv_path} ({len(samples)} rows)")
+                
+            except Exception as e:
+                self.logger.error(f"Failed to materialize table '{table_name}': {e}", exc_info=True)
+                continue
+        
+        return materialized_tables
+    
+    def _cleanup_old_temp_files(self, temp_dir: Path):
+        """
+        Clean up old CSV files from previous materializations.
+        
+        Removes all .csv files in the temp directory to prevent stale data
+        and unbounded disk usage.
+        
+        Args:
+            temp_dir: Path to temporary directory to clean
+        """
+        try:
+            if not temp_dir.exists():
+                return
+            
+            deleted_count = 0
+            for csv_file in temp_dir.glob("*.csv"):
+                try:
+                    csv_file.unlink()
+                    deleted_count += 1
+                except Exception as e:
+                    self.logger.warning(f"Failed to delete old temp file {csv_file}: {e}")
+            
+            if deleted_count > 0:
+                self.logger.debug(f"🧹 Cleaned up {deleted_count} old temp files from {temp_dir}")
+                
+        except Exception as e:
+            self.logger.error(f"Error during temp file cleanup: {e}")
     
     def clear_idempotency_cache(self, tenant_id: str, source_id: str = None):
         """
