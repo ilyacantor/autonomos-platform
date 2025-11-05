@@ -1,4 +1,4 @@
-import { ArrowRight, ArrowDown, Database, Network, Layers, Users, TrendingUp, MousePointerClick } from 'lucide-react';
+import { ArrowRight, ArrowDown, Search, Network, Layers, Command, TrendingUp, MousePointerClick } from 'lucide-react';
 import autonomosArrow from '../assets/autonomos-arrow.png';
 
 const AutonomOSArchitectureFlow = () => {
@@ -11,10 +11,11 @@ const AutonomOSArchitectureFlow = () => {
 
   const modules = [
     {
-      icon: Database,
-      title: 'Enterprise Data',
-      tags: ['SaaS Applications', 'Databases & Warehouses', 'Legacy Systems', 'APIs & Files'],
+      icon: Search,
+      title: 'AOS Discover (AOD)',
+      tags: ['Autonomously fingerprints your entire tech stack. Catalogs 100s of apps, databases, and tools without manual configuration.', 'Infers relationships instantly. Creates secure architectural views using metadata only.'],
       linkedTags: [] as string[],
+      tagLinks: {} as Record<string, string>,
       bgColor: 'bg-[#0A2540]',
       borderColor: 'border-[#1E4A6F]',
       linkTo: null
@@ -22,30 +23,29 @@ const AutonomOSArchitectureFlow = () => {
     {
       icon: Network,
       title: 'Adaptive API Mesh (AAM)',
-      tags: ['Self-Healing Integration', 'Autonomous Drift Repair', 'Real-time Schema Normalization', 'Universal Connectivity', 'Governed Data Exchange'],
+      tags: ['Self-healing integration layer eliminates iPaaS brittleness. Monitors API health and detects schema drifts in real-time.', 'Autonomously adapts integrations before failures occur. Resilient across cloud and on-premise environments.'],
       linkedTags: [] as string[],
+      tagLinks: {} as Record<string, string>,
       bgColor: 'bg-[#0D2F3F]',
       borderColor: 'border-[#1A4D5E]',
       linkTo: 'adaptive-api-mesh'
     },
     {
       icon: Layers,
-      title: 'Data Connectivity Layer',
-      tags: ['Unified Enterprise Ontology', 'Semantic Context Engine', 'Autonomous RAG Indexing', 'Real-time AI Data Streams', 'Unified Data Observability'],
+      title: 'Data Connectivity Layer (DCL)',
+      tags: ['Unified enterprise ontology maps disparate sources into coherent knowledge graphs. Creates semantic understanding beyond simple integration.', 'Enriches data with business logic. Provides context for intelligent decision-making.'],
       linkedTags: [] as string[],
+      tagLinks: {} as Record<string, string>,
       bgColor: 'bg-[#1A2F4A]',
       borderColor: 'border-[#2A4A6F]',
       linkTo: 'dcl-graph-container'
     },
     {
-      icon: Users,
-      title: 'Custom Domain Agents',
-      tags: ['FinOps', 'RevOps', 'Productized Domain Expertise', 'FinOps/RevOps Blueprints', 'Autonomous Workflow Orchestration', 'Business Process and Integration Support', 'Insight to Action at Scale'],
-      linkedTags: ['FinOps', 'RevOps'] as string[],
-      tagLinks: {
-        'FinOps': 'https://finopsagent.onrender.com/',
-        'RevOps': 'https://autonomos-revops-agent.onrender.com/'
-      } as Record<string, string>,
+      icon: Command,
+      title: 'Agentic Orchestration Architecture (AOA)',
+      tags: ['Governance engine manages data operations at enterprise scale. Coordinates multi-agent workflows with robust audit trails.', 'Provides HITL mechanisms for trust. Orchestrates native and third-party agents seamlessly.'],
+      linkedTags: [] as string[],
+      tagLinks: {} as Record<string, string>,
       bgColor: 'bg-[#2A1F4A]',
       borderColor: 'border-[#3F2F6F]',
       linkTo: 'agent-performance-monitor'
