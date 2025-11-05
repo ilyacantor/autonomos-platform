@@ -291,7 +291,7 @@ class AAMSourceAdapter(BaseSourceAdapter):
         """
         Load tables from AAM Redis Stream.
         
-        Reads from stream using consumer groups for reliable processing.
+        Reads all messages from stream using XRANGE (no consumer groups for demo data).
         Implements idempotency to prevent duplicate processing.
         
         Args:
@@ -302,25 +302,23 @@ class AAMSourceAdapter(BaseSourceAdapter):
             Dictionary mapping table names to table metadata (same format as FileSourceAdapter)
         """
         stream_key = f"aam:dcl:{tenant_id}:{source_id}"
-        group_name = f"dcl_engine:{tenant_id}"
-        consumer_name = f"dcl_worker_{os.getpid()}"
         
         try:
-            # Ensure consumer group exists
-            self._create_consumer_group(stream_key, group_name)
+            self.logger.info(f"🔍 Loading tables from stream '{stream_key}'...")
             
-            # Read messages from stream using consumer group
-            # Use '>' to read only new messages not yet delivered to this group
-            messages = self.redis._client.xreadgroup(
-                groupname=group_name,
-                consumername=consumer_name,
-                streams={stream_key: '>'},
-                count=10,  # Read up to 10 messages
-                block=None  # Non-blocking: return immediately if no messages
+            # Read ALL messages from stream using XRANGE (from beginning '-' to end '+')
+            # This is simpler than consumer groups and works well for demo/development
+            messages = self.redis._client.xrange(
+                stream_key,
+                min='-',  # Start from beginning
+                max='+',  # Read to end
+                count=100  # Read up to 100 messages
             )
             
+            self.logger.info(f"📦 XRANGE returned {len(messages)} messages from '{stream_key}'")
+            
             if not messages:
-                self.logger.info(f"ℹ️ No new messages in stream '{stream_key}' (group: {group_name})")
+                self.logger.info(f"ℹ️ No messages in stream '{stream_key}'")
                 return {}
             
             # Process messages and combine tables
@@ -342,83 +340,78 @@ class AAMSourceAdapter(BaseSourceAdapter):
                 "data_quality_scores": []
             }
             
-            for stream, message_list in messages:
-                for message_id, data in message_list:
-                    try:
-                        # Parse payload from message
-                        payload_json = data.get(b'payload')
-                        if not payload_json:
-                            self.logger.warning(f"Message {message_id} missing 'payload' field")
-                            continue
-                        
-                        payload = json.loads(payload_json)
-                        batch_id = payload.get('batch_id')
-                        
-                        # Check idempotency
-                        if batch_id and self._is_batch_processed(tenant_id, batch_id):
-                            self.logger.info(f"Skipping already processed batch: {batch_id}")
-                            # Acknowledge message even if already processed
-                            self.redis._client.xack(stream_key, group_name, message_id)
-                            continue
-                        
-                        # Extract tables from payload
-                        tables = payload.get('tables', {})
-                        
-                        # Merge tables (latest wins if same table name)
-                        for table_name, table_data in tables.items():
-                            all_tables[table_name] = table_data
-                        
-                        # Extract Phase 4 metadata from canonical event
-                        event_metadata = self.extract_metadata(payload)
-                        
-                        # Aggregate metadata across events
-                        if event_metadata.get("drift_detected"):
-                            aggregated_metadata["drift_detected"] = True
-                            if source_id not in aggregated_metadata["sources_with_drift"]:
-                                aggregated_metadata["sources_with_drift"].append(source_id)
-                        
-                        if event_metadata.get("repair_processed"):
-                            aggregated_metadata["repair_processed"] = True
-                        
-                        aggregated_metadata["auto_applied_count"] += event_metadata.get("auto_applied_count", 0)
-                        aggregated_metadata["hitl_queued_count"] += event_metadata.get("hitl_queued_count", 0)
-                        aggregated_metadata["rejected_count"] += event_metadata.get("rejected_count", 0)
-                        
-                        # Collect processing stages
-                        for stage in event_metadata.get("processing_stages", []):
-                            aggregated_metadata["processing_stages"].add(stage)
-                        
-                        # Collect transformations
-                        for transform in event_metadata.get("transformations_applied", []):
-                            aggregated_metadata["transformations_applied"].add(transform)
-                        
-                        # Track data quality scores for averaging
-                        if event_metadata.get("data_quality_score") is not None:
-                            aggregated_metadata["data_quality_scores"].append(event_metadata["data_quality_score"])
-                        
-                        # Track low confidence sources
-                        if event_metadata.get("overall_confidence") is not None and event_metadata["overall_confidence"] < 0.7:
-                            if source_id not in aggregated_metadata["low_confidence_sources"]:
-                                aggregated_metadata["low_confidence_sources"].append(source_id)
-                        
-                        aggregated_metadata["events_processed"] += 1
-                        
-                        # Mark batch as processed
-                        if batch_id:
-                            self._mark_batch_processed(tenant_id, batch_id)
-                            processed_batch_ids.append(batch_id)
-                        
-                        # Acknowledge message after successful processing
-                        self.redis._client.xack(stream_key, group_name, message_id)
-                        
-                        self.logger.info(f"✅ Processed batch {batch_id} from stream '{stream_key}'")
-                        
-                    except json.JSONDecodeError as e:
-                        self.logger.error(f"Failed to parse JSON from message {message_id}: {e}")
+            # XRANGE returns list of (message_id, data) tuples directly
+            for message_id, data in messages:
+                try:
+                    # Parse payload from message
+                    payload_json = data.get(b'payload')
+                    if not payload_json:
+                        self.logger.warning(f"Message {message_id} missing 'payload' field")
                         continue
-                    except Exception as e:
-                        self.logger.error(f"Error processing message {message_id}: {e}", exc_info=True)
+                    
+                    payload = json.loads(payload_json)
+                    batch_id = payload.get('batch_id')
+                    
+                    # Check idempotency
+                    if batch_id and self._is_batch_processed(tenant_id, batch_id):
+                        self.logger.debug(f"Skipping already processed batch: {batch_id}")
                         continue
+                    
+                    # Extract tables from payload
+                    tables = payload.get('tables', {})
+                    
+                    # Merge tables (latest wins if same table name)
+                    for table_name, table_data in tables.items():
+                        all_tables[table_name] = table_data
+                    
+                    # Extract Phase 4 metadata from canonical event
+                    event_metadata = self.extract_metadata(payload)
+                    
+                    # Aggregate metadata across events
+                    if event_metadata.get("drift_detected"):
+                        aggregated_metadata["drift_detected"] = True
+                        if source_id not in aggregated_metadata["sources_with_drift"]:
+                            aggregated_metadata["sources_with_drift"].append(source_id)
+                    
+                    if event_metadata.get("repair_processed"):
+                        aggregated_metadata["repair_processed"] = True
+                    
+                    aggregated_metadata["auto_applied_count"] += event_metadata.get("auto_applied_count", 0)
+                    aggregated_metadata["hitl_queued_count"] += event_metadata.get("hitl_queued_count", 0)
+                    aggregated_metadata["rejected_count"] += event_metadata.get("rejected_count", 0)
+                    
+                    # Collect processing stages
+                    for stage in event_metadata.get("processing_stages", []):
+                        aggregated_metadata["processing_stages"].add(stage)
+                    
+                    # Collect transformations
+                    for transform in event_metadata.get("transformations_applied", []):
+                        aggregated_metadata["transformations_applied"].add(transform)
+                    
+                    # Track data quality scores for averaging
+                    if event_metadata.get("data_quality_score") is not None:
+                        aggregated_metadata["data_quality_scores"].append(event_metadata["data_quality_score"])
+                    
+                    # Track low confidence sources
+                    if event_metadata.get("overall_confidence") is not None and event_metadata["overall_confidence"] < 0.7:
+                        if source_id not in aggregated_metadata["low_confidence_sources"]:
+                            aggregated_metadata["low_confidence_sources"].append(source_id)
+                    
+                    aggregated_metadata["events_processed"] += 1
+                    
+                    # Mark batch as processed
+                    if batch_id:
+                        self._mark_batch_processed(tenant_id, batch_id)
+                        processed_batch_ids.append(batch_id)
+                    
+                    self.logger.info(f"✅ Processed batch {batch_id} from stream '{stream_key}'")
+                    
+                except json.JSONDecodeError as e:
+                    self.logger.error(f"Failed to parse JSON from message {message_id}: {e}")
+                    continue
+                except Exception as e:
+                    self.logger.error(f"Error processing message {message_id}: {e}", exc_info=True)
+                    continue
             
             # Finalize aggregated metadata
             aggregated_metadata["processing_stages"] = list(aggregated_metadata["processing_stages"])

@@ -1402,6 +1402,16 @@ async def connect_source(
     
     log(f"📂 Using {source_mode} for source: {source_key} (tenant: {tenant_id})")
     
+    # CRITICAL FIX: Clear cache for AAM sources to force fresh load from Redis Streams
+    # Without this, SOURCE_SCHEMAS caching prevents load_tables from being called
+    if FeatureFlagConfig.is_enabled(FeatureFlag.USE_AAM_AS_SOURCE):
+        if not ASYNC_STATE_LOCK:
+            ASYNC_STATE_LOCK = asyncio.Lock()
+        async with ASYNC_STATE_LOCK:
+            if source_key in SOURCE_SCHEMAS:
+                del SOURCE_SCHEMAS[source_key]
+                log(f"🗑️  Cleared cache for AAM source: {source_key}")
+    
     # Load tables using adapter
     tables = adapter.load_tables(source_key, tenant_id)
     
