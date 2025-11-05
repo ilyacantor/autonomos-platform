@@ -18,9 +18,9 @@ import sys
 import os
 from pathlib import Path
 
-# Add parent paths to sys.path
-sys.path.insert(0, str(Path(__file__).parent.parent))
-sys.path.insert(0, str(Path(__file__).parent))
+# Add aam-hybrid directory to sys.path for package imports
+sys.path.insert(0, str(Path(__file__).parent.parent))  # Project root for app imports
+sys.path.insert(0, str(Path(__file__).parent))  # aam-hybrid directory for core imports
 
 import redis
 

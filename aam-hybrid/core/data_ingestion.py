@@ -24,10 +24,9 @@ aam_root = current_dir.parent
 project_root = aam_root.parent
 
 sys.path.insert(0, str(project_root))
-sys.path.insert(0, str(current_dir))
 
-from dcl_output_adapter import publish_to_dcl_stream
-from canonical_processor import CanonicalProcessor
+from .dcl_output_adapter import publish_to_dcl_stream
+from .canonical_processor import CanonicalProcessor
 from app.contracts.canonical_event import (
     EntityEvent,
     EventType,
