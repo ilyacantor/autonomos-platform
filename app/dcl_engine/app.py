@@ -1087,7 +1087,7 @@ def heuristic_plan(ontology: Dict[str, Any], source_key: str, tables: Dict[str, 
             log("⚡ High RAG coverage: Skipping LLM semantic validation, using heuristic filtering")
         else:
             log("⚡ Dev Mode OFF: Using heuristic domain filtering")
-        FINOPS_SOURCES = {"snowflake", "sap", "netsuite", "legacy_sql"}
+        FINOPS_SOURCES = {"snowflake", "sap", "netsuite", "legacy_sql", "filesource"}
         REVOPS_SOURCES = {"dynamics", "salesforce", "hubspot"}
         FINOPS_ENTITIES = {"aws_resources", "cost_reports"}
         REVOPS_ENTITIES = {"account", "opportunity"}
