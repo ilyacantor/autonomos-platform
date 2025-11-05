@@ -1895,13 +1895,17 @@ async def connect(
     
     # Execute agents after all sources have completed and materialized views are ready
     if agent_list and agent_executor:
-        try:
-            log(f"🚀 Executing {len(agent_list)} agent(s) on unified DCL views (tenant: {tenant_id})")
-            await agent_executor.execute_agents_async(agent_list, tenant_id, ws_manager)
-            log(f"✅ Agent results stored in cache - accessible via /dcl/agents/{{agent_id}}/results")
-        except Exception as e:
-            log(f"❌ Agent execution failed: {e}")
-            # Don't fail the entire connection if agents fail - log and continue
+        # Check if DuckDB database exists before attempting agent execution
+        if os.path.exists(DB_PATH):
+            try:
+                log(f"🚀 Executing {len(agent_list)} agent(s) on unified DCL views (tenant: {tenant_id})")
+                await agent_executor.execute_agents_async(agent_list, tenant_id, ws_manager)
+                log(f"✅ Agent results stored in cache - accessible via /dcl/agents/{{agent_id}}/results")
+            except Exception as e:
+                log(f"❌ Agent execution failed: {e}")
+                # Don't fail the entire connection if agents fail - log and continue
+        else:
+            log(f"ℹ️ No materialized views available - skipping agent execution (DuckDB not created)")
     elif not agent_list:
         log(f"ℹ️ No agents selected for execution")
     elif not agent_executor:
