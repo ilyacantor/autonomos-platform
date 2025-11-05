@@ -29,16 +29,6 @@ export default function HeroSection() {
           <span className="text-cyan-400">Stop building pipelines.</span> <span className="text-white">Start delivering outcomes.</span>
         </p>
       </div>
-
-      {/* Run Interactive Demo Button */}
-      <div className="mt-6 sm:mt-8">
-        <button
-          onClick={scrollToDCL}
-          className="bg-cyan-500 hover:bg-cyan-600 text-white font-medium px-6 sm:px-8 py-3 sm:py-3 rounded-lg transition-colors duration-200 shadow-lg hover:shadow-cyan-500/50 touch-target mobile-tap-highlight text-base sm:text-base"
-        >
-          Run Interactive Demo
-        </button>
-      </div>
     </div>
   );
 }

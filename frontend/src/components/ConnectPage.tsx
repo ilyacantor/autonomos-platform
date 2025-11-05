@@ -26,7 +26,6 @@ import {
 import { API_CONFIG, AUTH_TOKEN_KEY } from '../config/api';
 import ConfidenceGauge from './ConfidenceGauge';
 import { getDataQualityMetadata, DataQualityMetadata } from '../services/dataQualityApi';
-import AutonomOSArchitectureFlow from './AutonomOSArchitectureFlow';
 import AdaptiveAPIMesh from './AdaptiveAPIMesh';
 import LiveFlow from './archive/LiveFlow';
 
@@ -496,10 +495,7 @@ export default function ConnectPage() {
         </p>
       </div>
 
-      {/* 2. Architecture Flow */}
-      <AutonomOSArchitectureFlow />
-
-      {/* 3. 3D Adaptive API Mesh Visual */}
+      {/* 2. 3D Adaptive API Mesh Visual */}
       <AdaptiveAPIMesh />
 
       {/* 4. AAM Overview & Connector Details */}
