@@ -117,15 +117,10 @@ export default function ConnectionsPage() {
       if (data.ok) {
         setUseAamSource(newValue);
         setMigrationPhase(data.migration_phase || '');
-        // Show success message
-        alert(newValue
-          ? 'Switched to AAM Connectors (Redis Streams)\nRefresh the graph to see changes.'
-          : 'Switched to Legacy File Sources\nRefresh the graph to see changes.'
-        );
+        console.log(`Switched to ${newValue ? 'AAM Connectors' : 'Legacy File Sources'}`);
       }
     } catch (err) {
       console.error('Failed to toggle source mode:', err);
-      alert('Failed to switch source mode. Please try again.');
     }
   };
 
