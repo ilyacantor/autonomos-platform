@@ -25,6 +25,7 @@ project_root = current_dir.parent.parent
 sys.path.insert(0, str(project_root))
 
 from app.contracts.canonical_event import EntityEvent, FieldMapping
+from app.config.feature_flags import FeatureFlagConfig, FeatureFlag
 
 logger = logging.getLogger(__name__)
 
@@ -55,9 +56,10 @@ class CanonicalProcessor:
         
         Pipeline stages:
         1. Normalize each event (field names, data types)
-        2. Validate events (schema compliance, required fields)
-        3. Enrich with metadata (timestamps, confidence, lineage)
-        4. Filter out invalid events
+        2. Detect drift (schema changes via fingerprint comparison)
+        3. Validate events (schema compliance, required fields)
+        4. Enrich with metadata (timestamps, confidence, lineage)
+        5. Filter out invalid events
         
         Args:
             events: List of canonical events to process
@@ -71,6 +73,12 @@ class CanonicalProcessor:
         
         logger.info(f"Processing {len(events)} canonical events...")
         
+        drift_detector = None
+        if FeatureFlagConfig.is_enabled(FeatureFlag.ENABLE_DRIFT_DETECTION):
+            from .drift_detector import DriftDetector
+            drift_detector = DriftDetector(self.redis_client)
+            logger.info("Drift detection enabled")
+        
         processed_events = []
         invalid_count = 0
         
@@ -79,7 +87,22 @@ class CanonicalProcessor:
                 # Stage 1: Normalize
                 normalized_event = self.normalize_event(event)
                 
-                # Stage 2: Validate
+                # Stage 2: Detect drift (after normalization, before validation)
+                if drift_detector:
+                    drift_event = drift_detector.detect_drift(normalized_event)
+                    if drift_event:
+                        logger.warning(
+                            f"⚠️ Schema drift detected: {drift_event.severity} - "
+                            f"{drift_event.changes.get('summary', 'unknown changes')}"
+                        )
+                        
+                        if normalized_event.metadata is None:
+                            normalized_event.metadata = {}
+                        normalized_event.metadata["drift_detected"] = True
+                        normalized_event.metadata["drift_severity"] = drift_event.severity
+                        normalized_event.metadata["drift_event_id"] = drift_event.event_id
+                
+                # Stage 3: Validate
                 if not self.validate_event(normalized_event):
                     invalid_count += 1
                     logger.warning(
@@ -88,7 +111,7 @@ class CanonicalProcessor:
                     )
                     continue
                 
-                # Stage 3: Enrich metadata
+                # Stage 4: Enrich metadata
                 enriched_event = self.enrich_metadata(normalized_event)
                 
                 processed_events.append(enriched_event)

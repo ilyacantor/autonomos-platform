@@ -67,8 +67,8 @@ class SchemaFingerprint(BaseModel):
     entity_type: str = Field(..., description="Entity type in source system")
 
 
-class DriftEvent(BaseModel):
-    """Details of detected schema drift"""
+class DriftDetail(BaseModel):
+    """Details of individual field drift for granular tracking"""
     drift_type: DriftType
     field_affected: Optional[str] = Field(None, description="Field that changed")
     
@@ -77,6 +77,35 @@ class DriftEvent(BaseModel):
     
     detected_at: datetime = Field(default_factory=datetime.utcnow)
     severity: Literal["critical", "warning", "info"] = Field("warning")
+
+
+class DriftEvent(BaseModel):
+    """
+    Comprehensive drift event for schema change detection.
+    
+    Returned by DriftDetector when schema changes are detected between
+    the current and historical fingerprints.
+    """
+    event_id: str = Field(..., description="Unique drift event identifier")
+    drift_type: str = Field(..., description="Type of drift: schema_change, field_type_change, etc.")
+    severity: str = Field(..., description="Severity level: low, medium, high, critical")
+    
+    connector_name: str = Field(..., description="Source connector")
+    entity_type: str = Field(..., description="Entity type that changed")
+    tenant_id: str = Field(..., description="Tenant identifier")
+    
+    detected_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    changes: Dict[str, Any] = Field(
+        ..., 
+        description="Detailed changes: added_fields, removed_fields, field_count_delta, etc."
+    )
+    
+    previous_fingerprint: SchemaFingerprint = Field(..., description="Historical schema fingerprint")
+    current_fingerprint: SchemaFingerprint = Field(..., description="Current schema fingerprint")
+    
+    requires_repair: bool = Field(False, description="Whether auto-repair should be triggered")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
 
 
 class FieldMapping(BaseModel):
@@ -175,7 +204,7 @@ class SchemaEvent(CanonicalEvent):
     previous_fingerprint: SchemaFingerprint = Field(..., description="Previous schema state")
     current_fingerprint: SchemaFingerprint = Field(..., description="Current schema state")
     
-    drift_details: List[DriftEvent] = Field(..., description="Specific changes detected")
+    drift_details: List[DriftDetail] = Field(..., description="Specific changes detected")
     
     auto_repair_attempted: bool = Field(False)
     repair_job_id: Optional[str] = Field(None, description="ID of repair job if triggered")
