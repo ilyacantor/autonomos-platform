@@ -145,6 +145,17 @@ async def startup_event():
         except Exception as e:
             logger.warning(f"⚠️ DCL RAG Engine initialization failed: {e}. Continuing without RAG.")
 
+    # Initialize DCL Agent Executor
+    if dcl_app:
+        from app.dcl_engine.agent_executor import AgentExecutor
+        from app.dcl_engine.app import AGENT_RESULTS_CACHE, load_agents_config, DB_PATH
+        try:
+            agents_config = load_agents_config()
+            dcl_app.agent_executor = AgentExecutor(DB_PATH, agents_config, AGENT_RESULTS_CACHE)
+            logger.info("✅ DCL Agent Executor initialized successfully")
+        except Exception as e:
+            logger.warning(f"⚠️ DCL Agent Executor initialization failed: {e}. Continuing without agent execution.")
+
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(aoa.router, prefix="/api/v1/aoa", tags=["AOA Orchestration"])

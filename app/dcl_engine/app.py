@@ -12,6 +12,7 @@ from llm_service import get_llm_service
 import redis
 from app.dcl_engine.source_loader import get_source_adapter
 from app.config.feature_flags import FeatureFlagConfig, FeatureFlag
+from app.dcl_engine.agent_executor import AgentExecutor
 
 # Use paths relative to this module's directory
 DCL_BASE_PATH = Path(__file__).parent
@@ -36,6 +37,8 @@ AUTO_INGEST_UNMAPPED = False
 ontology = None
 agents_config = None
 SELECTED_AGENTS: List[str] = []
+AGENT_RESULTS_CACHE: Dict[str, Dict] = {}  # tenant_id -> {agent_id -> results}
+agent_executor: Optional[AgentExecutor] = None
 LLM_CALLS = 0
 LLM_TOKENS = 0
 rag_engine = None
@@ -1522,6 +1525,13 @@ async def connect_source(
             "timestamp": time.time()
         })
         
+        # Execute agents asynchronously with AAM-backed data
+        if SELECTED_AGENTS and agent_executor:
+            try:
+                await agent_executor.execute_agents_async(SELECTED_AGENTS, tenant_id, ws_manager)
+            except Exception as e:
+                log(f"Agent execution failed: {e}")
+        
         return {"ok": True, "score": score.confidence, "previews": previews, "source_mode": source_mode}
     finally:
         release_db_lock(lock_id)
@@ -1681,7 +1691,7 @@ async def log_api_usage(request: Request, call_next):
 @app.on_event("startup")
 async def startup_event():
     """Initialize RAG engine and default settings on startup."""
-    global rag_engine
+    global rag_engine, agents_config, agent_executor
     
     # Initialize dev_mode to Prod Mode (False) as default if not already set
     try:
@@ -1704,6 +1714,14 @@ async def startup_event():
         log("✅ RAG Engine initialized successfully")
     except Exception as e:
         log(f"⚠️ RAG Engine initialization failed: {e}. Continuing without RAG.")
+    
+    # Initialize AgentExecutor
+    try:
+        agents_config = load_agents_config()
+        agent_executor = AgentExecutor(DB_PATH, agents_config, AGENT_RESULTS_CACHE)
+        log("✅ AgentExecutor initialized successfully")
+    except Exception as e:
+        log(f"⚠️ AgentExecutor initialization failed: {e}. Continuing without agent execution.")
 
 
 @app.websocket("/ws")
@@ -1793,6 +1811,38 @@ def state():
         "auth_enabled": AUTH_ENABLED,
         "source_mode": source_mode
     })
+
+@app.get("/dcl/agents/{agent_id}/results")
+async def get_agent_results(
+    agent_id: str,
+    tenant_id: str = Query("default", description="Tenant identifier")
+):
+    """
+    Retrieve agent execution results.
+    Returns insights, statistics, and execution metadata for a specific agent.
+    """
+    if not agent_executor:
+        return JSONResponse({"error": "Agent executor not initialized"}, status_code=500)
+    
+    results = agent_executor.get_results(agent_id, tenant_id)
+    
+    if not results:
+        return JSONResponse(
+            {"error": f"No results found for agent '{agent_id}' (tenant: {tenant_id})"},
+            status_code=404
+        )
+    
+    return results
+
+@app.get("/dcl/agents/results")
+async def get_all_agent_results(
+    tenant_id: str = Query("default", description="Tenant identifier")
+):
+    """Retrieve all agent execution results for a tenant."""
+    if not agent_executor:
+        return JSONResponse({"error": "Agent executor not initialized"}, status_code=500)
+    
+    return agent_executor.get_all_results(tenant_id)
 
 @app.get("/connect")
 async def connect(
