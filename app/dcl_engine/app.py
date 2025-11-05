@@ -1891,7 +1891,7 @@ async def connect(
             return JSONResponse({"error": f"Partial failure: {'; '.join(errors)}"}, status_code=207)
     except Exception as e:
         log(f"❌ Connection error: {str(e)}")
-        return JSONResponse({"error": str(e)}", status_code=500)
+        return JSONResponse({"error": str(e)}, status_code=500)
     
     # Execute agents after all sources have completed and materialized views are ready
     if agent_list and agent_executor:
