@@ -251,15 +251,20 @@ class AAMSourceAdapter(BaseSourceAdapter):
         Raises:
             RuntimeError: If Redis is not available
         """
+        print(f"🔍 _get_redis_client() called, self.redis={self.redis}")
         if self.redis is None:
             import app.dcl_engine.app as dcl_app
+            print(f"🔍 Imported dcl_app, redis_available={dcl_app.redis_available}, redis_client={dcl_app.redis_client}")
             
             if not dcl_app.redis_available or not dcl_app.redis_client:
+                print(f"🚨 Redis NOT available! Raising RuntimeError")
                 raise RuntimeError("Redis required for AAM source adapter but not available")
             
             self.redis = dcl_app.redis_client
+            print(f"✅ AAMSourceAdapter successfully got Redis client")
             self.logger.info("✅ AAMSourceAdapter connected to Redis")
         
+        print(f"🔍 Returning redis client: {self.redis}")
         return self.redis
     
     def discover_sources(self, tenant_id: str) -> List[str]:
@@ -313,15 +318,21 @@ class AAMSourceAdapter(BaseSourceAdapter):
         
         Args:
             source_id: Connector identifier (e.g., 'salesforce')
-            tenant_id: Tenant identifier
+            tenant_id: Tenant_identifier
             
         Returns:
             Dictionary mapping table names to table metadata (same format as FileSourceAdapter)
         """
+        # CRITICAL DEBUG: Print FIRST to see if method is even entered
+        print(f"🔍 AAMSourceAdapter.load_tables() ENTERED for source_id='{source_id}', tenant_id='{tenant_id}'")
         stream_key = f"aam:dcl:{tenant_id}:{source_id}"
+        print(f"🔍 Stream key: {stream_key}")
         
         try:
+            print(f"🔍 Calling _get_redis_client()...")
             redis = self._get_redis_client()
+            print(f"✅ Got Redis client: {redis}")
+            print(f"🔍 About to call XRANGE on stream '{stream_key}'...")
             self.logger.info(f"🔍 Loading tables from stream '{stream_key}'...")
             
             # Read ALL messages from stream using XRANGE (from beginning '-' to end '+')
@@ -333,6 +344,7 @@ class AAMSourceAdapter(BaseSourceAdapter):
                 count=100  # Read up to 100 messages
             )
             
+            print(f"📦 XRANGE returned {len(messages)} messages from stream '{stream_key}'")
             self.logger.info(f"📦 XRANGE returned {len(messages)} messages from '{stream_key}'")
             
             if not messages:
@@ -473,6 +485,12 @@ class AAMSourceAdapter(BaseSourceAdapter):
             return all_tables
             
         except Exception as e:
+            # CRITICAL DEBUG: Print directly to console (bypasses logging config issues)
+            import traceback
+            print(f"🚨 AAMSourceAdapter.load_tables() EXCEPTION for '{source_id}':")
+            print(f"🚨 Error: {e}")
+            print(f"🚨 Traceback:")
+            traceback.print_exc()
             self.logger.error(f"Failed to load tables from AAM source '{source_id}': {e}", exc_info=True)
             return {}
     

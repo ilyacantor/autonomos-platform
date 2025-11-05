@@ -1413,9 +1413,14 @@ async def connect_source(
                 log(f"🗑️  Cleared cache for AAM source: {source_key}")
     
     # Load tables using adapter
+    log(f"🔧 DEBUG: Calling adapter.load_tables('{source_key}', '{tenant_id}')")
+    log(f"🔧 DEBUG: Adapter type: {type(adapter).__name__}")
     tables = adapter.load_tables(source_key, tenant_id)
+    log(f"🔧 DEBUG: load_tables returned: {len(tables) if tables else 0} tables")
+    log(f"🔧 DEBUG: Tables dict keys: {list(tables.keys()) if tables else 'EMPTY'}")
     
     if not tables:
+        log(f"⚠️ No tables found for source '{source_key}' - returning error")
         return {"error": f"No tables found for source '{source_key}'"}
     
     # STREAMING EVENT 2: Schema snapshot complete
