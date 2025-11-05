@@ -2291,6 +2291,39 @@ def toggle_auto_ingest(enabled: bool = Query(...)):
     AUTO_INGEST_UNMAPPED = enabled
     return JSONResponse({"ok": True, "enabled": AUTO_INGEST_UNMAPPED})
 
+@app.get("/feature_flags")
+def get_feature_flags():
+    """Get current state of all feature flags."""
+    from app.config.feature_flags import FeatureFlagConfig
+    return JSONResponse(FeatureFlagConfig.get_all_flags())
+
+@app.post("/feature_flags/toggle")
+async def toggle_feature_flag(request: Dict[str, Any]):
+    """Toggle a feature flag (USE_AAM_AS_SOURCE)."""
+    from app.config.feature_flags import FeatureFlagConfig, FeatureFlag
+    
+    flag_name = request.get("flag")
+    enabled = request.get("enabled")
+    
+    if flag_name not in [f.value for f in FeatureFlag]:
+        return JSONResponse({"error": f"Invalid flag: {flag_name}"}, status_code=400)
+    
+    # Set the flag
+    flag_enum = FeatureFlag(flag_name)
+    FeatureFlagConfig.set_flag(flag_enum, enabled)
+    
+    # Get updated state
+    all_flags = FeatureFlagConfig.get_all_flags()
+    migration_phase = FeatureFlagConfig.get_migration_phase()
+    
+    return JSONResponse({
+        "ok": True,
+        "flag": flag_name,
+        "enabled": enabled,
+        "all_flags": all_flags,
+        "migration_phase": migration_phase
+    })
+
 @app.get("/rag/stats")
 def rag_stats():
     """Get RAG engine statistics."""

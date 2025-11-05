@@ -39,6 +39,18 @@ export default function ConnectionsPage() {
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
   const [lineageSearchQuery, setLineageSearchQuery] = useState('');
+  const [useAamSource, setUseAamSource] = useState(true);
+  const [migrationPhase, setMigrationPhase] = useState('');
+
+  // Load feature flags from API
+  useEffect(() => {
+    fetch('/dcl/feature_flags')
+      .then(res => res.json())
+      .then(flags => {
+        setUseAamSource(flags.USE_AAM_AS_SOURCE || false);
+      })
+      .catch(err => console.error('Failed to load feature flags:', err));
+  }, []);
 
   // Load selections from localStorage on mount (with defaults if empty)
   useEffect(() => {
@@ -90,6 +102,33 @@ export default function ConnectionsPage() {
     }
   };
 
+  const toggleSourceMode = async () => {
+    const newValue = !useAamSource;
+    try {
+      const response = await fetch('/dcl/feature_flags/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          flag: 'USE_AAM_AS_SOURCE',
+          enabled: newValue
+        })
+      });
+      const data = await response.json();
+      if (data.ok) {
+        setUseAamSource(newValue);
+        setMigrationPhase(data.migration_phase || '');
+        // Show success message
+        alert(newValue
+          ? 'Switched to AAM Connectors (Redis Streams)\nRefresh the graph to see changes.'
+          : 'Switched to Legacy File Sources\nRefresh the graph to see changes.'
+        );
+      }
+    } catch (err) {
+      console.error('Failed to toggle source mode:', err);
+      alert('Failed to switch source mode. Please try again.');
+    }
+  };
+
   return (
     <div className="space-y-4 sm:space-y-6">
       <div>
@@ -97,6 +136,39 @@ export default function ConnectionsPage() {
         <p className="text-sm sm:text-base text-gray-400">
           Select data sources and agents to create unified entity mappings
         </p>
+      </div>
+
+      {/* Source Mode Toggle */}
+      <div className="bg-gradient-to-r from-blue-900/20 to-purple-900/20 border border-blue-700/50 rounded-lg p-4">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex-1">
+            <h3 className="text-base font-semibold text-white mb-1 flex items-center gap-2">
+              <Settings2 className="w-4 h-4 text-blue-400" />
+              Data Source Mode
+            </h3>
+            <p className="text-xs text-gray-400">
+              {useAamSource 
+                ? '🔵 Using AAM Connectors (Redis Streams) - Production-ready with drift detection & auto-repair'
+                : '🟢 Using Legacy File Sources (CSV) - Original demo mode'
+              }
+            </p>
+            {migrationPhase && (
+              <p className="text-xs text-blue-300 mt-1">Current Phase: {migrationPhase}</p>
+            )}
+          </div>
+          <button
+            onClick={toggleSourceMode}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 ${
+              useAamSource ? 'bg-blue-600' : 'bg-gray-600'
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                useAamSource ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
