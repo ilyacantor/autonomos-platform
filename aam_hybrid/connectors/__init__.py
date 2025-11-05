@@ -17,7 +17,7 @@ Available Adapters:
 - filesource_adapter: File-based data sources (CSV, JSON, YAML)
 
 Usage:
-    from aam-hybrid.connectors import salesforce_adapter
+    from aam_hybrid.connectors import salesforce_adapter
     
     config = {
         "instance_url": "https://mycompany.salesforce.com",

@@ -127,8 +127,8 @@ async def startup_event():
     # Initialize AAM database (create tables and enums)
     try:
         import sys
-        # Insert 'aam-hybrid' directory into sys.path to allow importing from it
-        sys.path.insert(0, 'aam-hybrid')
+        # Insert 'aam_hybrid' directory into sys.path to allow importing from it
+        sys.path.insert(0, 'aam_hybrid')
         from shared.database import init_db
         await init_db()
         logger.info("✅ AAM database initialized successfully")

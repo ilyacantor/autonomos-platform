@@ -19,7 +19,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from pydantic import BaseModel, Field
 
-sys.path.insert(0, 'aam-hybrid')
+sys.path.insert(0, 'aam_hybrid')
 
 from core.connection_manager import connection_manager
 from shared.models import ConnectionStatus

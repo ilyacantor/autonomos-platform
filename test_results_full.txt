@@ -1,0 +1,49 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.2, pluggy-1.6.0 -- /home/runner/workspace/.pythonlibs/bin/python
+cachedir: .pytest_cache
+rootdir: /home/runner/workspace
+plugins: anyio-4.11.0, cov-7.0.0, asyncio-1.2.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 93 items
+
+tests/test_aam_drift_automated.py::test_aam_schema_drift_automated PASSED [  1%]
+tests/test_auth.py::TestUserRegistration::test_register_new_user_creates_tenant_and_user PASSED [  2%]
+tests/test_auth.py::TestUserRegistration::test_register_duplicate_email_fails PASSED [  3%]
+tests/test_auth.py::TestUserRegistration::test_register_weak_password_validation PASSED [  4%]
+tests/test_auth.py::TestLogin::test_login_with_valid_credentials_returns_jwt PASSED [  5%]
+tests/test_auth.py::TestLogin::test_login_with_wrong_password_fails PASSED [  6%]
+tests/test_auth.py::TestLogin::test_login_with_nonexistent_user_fails PASSED [  7%]
+tests/test_auth.py::TestCurrentUser::test_get_current_user_with_valid_token PASSED [  8%]
+tests/test_auth.py::TestCurrentUser::test_get_current_user_without_token_fails FAILED [  9%]
+tests/test_auth.py::TestCurrentUser::test_get_current_user_with_invalid_token_fails PASSED [ 10%]
+tests/test_auth.py::TestCurrentUser::test_get_current_user_with_malformed_token_fails FAILED [ 11%]
+tests/test_canonical_processor.py::TestEventNormalization::test_normalize_event_basic PASSED [ 12%]
+tests/test_canonical_processor.py::TestEventNormalization::test_numeric_string_preservation FAILED [ 13%]
+tests/test_canonical_processor.py::TestEventNormalization::test_backward_compatibility PASSED [ 15%]
+tests/test_canonical_processor.py::TestEventValidation::test_validate_event_success PASSED [ 16%]
+tests/test_canonical_processor.py::TestEventValidation::test_validate_event_failure_missing_fingerprint PASSED [ 17%]
+tests/test_canonical_processor.py::TestMetadataEnrichment::test_enrich_metadata PASSED [ 18%]
+tests/test_canonical_processor.py::TestMetadataEnrichment::test_data_lineage_tracking PASSED [ 19%]
+tests/test_canonical_processor.py::TestMetadataEnrichment::test_confidence_scoring PASSED [ 20%]
+tests/test_canonical_processor.py::TestProcessingPipeline::test_process_events_pipeline PASSED [ 21%]
+tests/test_canonical_processor.py::TestProcessingPipeline::test_process_events_empty_list PASSED [ 22%]
+tests/test_canonical_processor.py::TestCanonicalProcessorUnit::test_processor_initialization PASSED [ 23%]
+tests/test_dcl_entity_unification.py::test_dcl_entity_unification PASSED [ 24%]
+tests/test_dcl_unification_e2e.py::test_dcl_unification_e2e PASSED       [ 25%]
+tests/test_dcl_unification_e2e.py::test_multi_tenant_isolation PASSED    [ 26%]
+tests/test_drift_detector.py::TestSchemaFingerprinting::test_schema_fingerprinting_sorted_fields PASSED [ 27%]
+tests/test_drift_detector.py::TestSchemaFingerprinting::test_fingerprint_generation_consistency PASSED [ 29%]
+tests/test_drift_detector.py::TestDriftDetection::test_no_drift_on_first_run PASSED [ 30%]
+tests/test_drift_detector.py::TestDriftDetection::test_drift_detected_new_field FAILED [ 31%]
+tests/test_drift_detector.py::TestDriftDetection::test_drift_detected_removed_field FAILED [ 32%]
+tests/test_drift_detector.py::TestSeverityClassification::test_severity_classification_low PASSED [ 33%]
+tests/test_drift_detector.py::TestSeverityClassification::test_severity_classification_medium PASSED [ 34%]
+tests/test_drift_detector.py::TestSeverityClassification::test_severity_classification_high PASSED [ 35%]
+tests/test_drift_detector.py::TestRedisPersistence::test_redis_persistence PASSED [ 36%]
+tests/test_drift_detector.py::TestRedisPersistence::test_drift_event_structure PASSED [ 37%]
+tests/test_drift_detector.py::TestDriftDetectorUnit::test_detector_initialization PASSED [ 38%]
+tests/test_drift_detector.py::TestDriftDetectorUnit::test_build_redis_key_format PASSED [ 39%]
+tests/test_isolation.py::TestCrossTenantIsolation::test_user_from_tenant_b_cannot_access_tenant_a_task PASSED [ 40%]
+tests/test_isolation.py::TestCrossTenantIsolation::test_user_from_tenant_b_cannot_delete_tenant_a_task PASSED [ 41%]
+tests/test_isolation.py::TestCrossTenantIsolation::test_tenant_can_only_see_their_own_user_info PASSED [ 43%]
+tests/test_isolation.py::TestCrossTenantIsolation::test_multiple_tasks_across_tenants_remain_isolated 

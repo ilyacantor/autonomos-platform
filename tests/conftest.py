@@ -154,3 +154,221 @@ def two_tenants(client):
             "user_data": register_b.json()
         }
     }
+
+
+@pytest.fixture(scope="function")
+def mock_redis():
+    """
+    Mock Redis client for Phase 4 testing.
+    
+    Provides in-memory Redis-like behavior without requiring
+    an actual Redis instance for unit tests.
+    """
+    from unittest.mock import MagicMock
+    
+    mock = MagicMock()
+    
+    storage = {}
+    
+    def mock_set(key, value, ex=None):
+        storage[key] = value
+        return True
+    
+    def mock_setex(key, time, value):
+        storage[key] = value
+        return True
+    
+    def mock_get(key):
+        return storage.get(key)
+    
+    def mock_delete(key):
+        if key in storage:
+            del storage[key]
+        return 1
+    
+    def mock_exists(key):
+        return 1 if key in storage else 0
+    
+    def mock_xadd(stream_name, fields, id='*', maxlen=None):
+        if stream_name not in storage:
+            storage[stream_name] = []
+        storage[stream_name].append(fields)
+        return f"{len(storage[stream_name])}-0"
+    
+    mock.set = mock_set
+    mock.setex = mock_setex
+    mock.get = mock_get
+    mock.delete = mock_delete
+    mock.exists = mock_exists
+    mock.xadd = mock_xadd
+    
+    return mock
+
+
+@pytest.fixture(scope="function")
+def mock_duckdb():
+    """
+    Mock DuckDB connection for Phase 4 testing.
+    
+    Returns an in-memory DuckDB instance for testing
+    without persisting data to disk.
+    """
+    import duckdb
+    
+    conn = duckdb.connect(':memory:')
+    
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS dcl_metadata (
+            tenant_id VARCHAR NOT NULL,
+            source_id VARCHAR NOT NULL,
+            metadata_json JSON NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    
+    yield conn
+    
+    conn.close()
+
+
+@pytest.fixture(scope="function")
+def sample_canonical_event():
+    """
+    Sample CanonicalEvent with Phase 4 metadata for testing.
+    
+    Returns a valid EntityEvent with all Phase 4 fields populated:
+    - schema_fingerprint
+    - field_mappings
+    - drift_status
+    - repair_summary
+    - data_lineage
+    """
+    from app.contracts.canonical_event import (
+        EntityEvent, EventType, CanonicalEntityType,
+        SchemaFingerprint, FieldMapping, DriftStatus,
+        RepairSummary, DataLineage
+    )
+    from datetime import datetime
+    
+    fingerprint = SchemaFingerprint(
+        fingerprint_hash="abc123def456",
+        field_count=5,
+        field_names=["id", "name", "amount", "stage", "close_date"],
+        schema_version="v1.0",
+        connector_name="salesforce",
+        entity_type="Opportunity"
+    )
+    
+    field_mapping = FieldMapping(
+        source_field="Amount",
+        canonical_field="amount",
+        source_type="decimal",
+        canonical_type="float",
+        mapping_method="exact",
+        confidence_score=0.95
+    )
+    
+    drift_status = DriftStatus(
+        drift_detected=False
+    )
+    
+    repair_summary = RepairSummary(
+        repair_processed=False,
+        auto_applied_count=0,
+        hitl_queued_count=0,
+        rejected_count=0
+    )
+    
+    lineage = DataLineage(
+        source_system="Salesforce",
+        source_connector_id="sf-conn-001",
+        processing_stages=["ingestion", "normalization", "validation"],
+        transformations_applied=["snake_case", "type_inference"],
+        processor_version="1.0",
+        data_quality_score=0.95
+    )
+    
+    return EntityEvent(
+        event_id="test-evt-001",
+        event_type=EventType.ENTITY_CREATED,
+        connector_name="salesforce",
+        connector_id="sf-conn-001",
+        entity_type=CanonicalEntityType.OPPORTUNITY,
+        entity_id="SF-OPP-001",
+        tenant_id="test-tenant-123",
+        schema_fingerprint=fingerprint,
+        payload={
+            "opportunity_id": "SF-OPP-001",
+            "name": "Test Deal",
+            "amount": 50000.0,
+            "stage": "Prospecting",
+            "close_date": "2025-12-31"
+        },
+        field_mappings=[field_mapping],
+        overall_confidence=0.95,
+        drift_status=drift_status,
+        repair_summary=repair_summary,
+        data_lineage=lineage
+    )
+
+
+@pytest.fixture(scope="function")
+def sample_drift_scenario():
+    """
+    Sample drift scenario with old and new schema fingerprints.
+    
+    Returns a dict with:
+    - old_fingerprint: Historical schema
+    - new_fingerprint: Current schema with drift
+    - expected_drift: Expected drift details
+    """
+    from app.contracts.canonical_event import SchemaFingerprint
+    
+    old_fingerprint = SchemaFingerprint(
+        fingerprint_hash="old-hash-123",
+        field_count=5,
+        field_names=["id", "name", "amount", "stage", "close_date"],
+        schema_version="v1.0",
+        connector_name="salesforce",
+        entity_type="Opportunity"
+    )
+    
+    new_fingerprint = SchemaFingerprint(
+        fingerprint_hash="new-hash-456",
+        field_count=6,
+        field_names=["id", "name", "amount", "stage", "close_date", "owner_id"],
+        schema_version="v1.1",
+        connector_name="salesforce",
+        entity_type="Opportunity"
+    )
+    
+    return {
+        "old_fingerprint": old_fingerprint,
+        "new_fingerprint": new_fingerprint,
+        "expected_drift": {
+            "added_fields": ["owner_id"],
+            "removed_fields": [],
+            "severity": "low"
+        }
+    }
+
+
+@pytest.fixture(scope="function")
+def mock_llm_response():
+    """
+    Mock LLM API response for repair agent testing.
+    
+    Returns a realistic LLM field mapping suggestion that
+    the RepairAgent would receive from OpenAI/Gemini.
+    """
+    return {
+        "field_name": "closeDate",
+        "suggested_mapping": "close_date",
+        "confidence": 0.92,
+        "confidence_reason": "Strong semantic similarity: closeDate → close_date. Common CRM field pattern.",
+        "transformation": "direct",
+        "metadata": {
+            "llm_model": "gemini-2.5-flash",
+            "reasoning": "Field name suggests a date field for opportunity closure. Standard snake_case conversion."
+        }
+    }

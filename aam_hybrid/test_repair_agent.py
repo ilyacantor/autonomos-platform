@@ -4,7 +4,7 @@ Test Script for Auto-Repair Agent
 This script validates the RepairAgent implementation with simulated drift events.
 
 Usage:
-    python aam-hybrid/test_repair_agent.py
+    python aam_hybrid/test_repair_agent.py
 """
 
 import sys
