@@ -23,7 +23,7 @@ export default function LeftNav({ isCollapsed, currentPage, onNavigate, isMobile
     { id: 'discover', label: 'Discover', icon: <Search className="w-5 h-5" /> },
     { id: 'connect', label: 'Connect', icon: <Cable className="w-5 h-5" />, highlight: true, tooltip: 'AAM Connect - Self-healing data connectivity' },
     { id: 'ontology', label: 'Ontology', icon: <Network className="w-5 h-5" /> },
-    { id: 'orchestration', label: 'Orchestration', icon: <Activity className="w-5 h-5" /> },
+    { id: 'orchestration', label: 'Orchestrate', icon: <Activity className="w-5 h-5" /> },
     { id: 'faq', label: 'FAQ', icon: <HelpCircle className="w-5 h-5" /> },
   ];
 
