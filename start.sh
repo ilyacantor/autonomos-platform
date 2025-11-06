@@ -11,16 +11,28 @@ else
   echo "Using external Redis from REDIS_URL (production mode)..."
 fi
 
+# Auto-stamp production on first deploy if needed
+echo "Checking if database needs baseline stamping..."
+if ! alembic current 2>/dev/null | grep -q "head"; then
+  echo "🏷️  First deployment detected - stamping database baseline..."
+  alembic stamp head
+  if [ $? -eq 0 ]; then
+    echo "✅ Database stamped successfully"
+  else
+    echo "⚠️ Database stamp failed - will try migrations anyway"
+  fi
+else
+  echo "✅ Database already at baseline"
+fi
+
 # Run database migrations
-# TEMPORARILY DISABLED - Production database needs stamping first
-# echo "Running database migrations..."
-# alembic upgrade head
-# if [ $? -eq 0 ]; then
-#   echo "✅ Database migrations completed successfully"
-# else
-#   echo "⚠️ Database migrations failed - continuing anyway"
-# fi
-echo "⚠️ Migrations temporarily disabled - deploy, then stamp production"
+echo "Running database migrations..."
+alembic upgrade head
+if [ $? -eq 0 ]; then
+  echo "✅ Database migrations completed successfully"
+else
+  echo "⚠️ Database migrations failed - continuing anyway"
+fi
 
 echo "Starting RQ worker..."
 python -m app.worker &
