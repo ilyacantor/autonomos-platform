@@ -11,9 +11,14 @@ else
   echo "Using external Redis from REDIS_URL (production mode)..."
 fi
 
-# Database migrations temporarily disabled - Alembic removed for clean deployment
-echo "⚠️ Database migrations temporarily disabled (Alembic hidden for deployment)"
-echo "Tables already exist in production - no schema changes needed"
+# Run database migrations
+echo "Running database migrations..."
+alembic upgrade head
+if [ $? -eq 0 ]; then
+  echo "✅ Database migrations completed successfully"
+else
+  echo "⚠️ Database migrations failed - continuing anyway"
+fi
 
 echo "Starting RQ worker..."
 python -m app.worker &
