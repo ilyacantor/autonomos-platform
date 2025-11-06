@@ -8,6 +8,16 @@ export default function DiscoverPage() {
           Autonomously fingerprints your entire tech stack. Catalogs 100s of apps, databases, and tools without manual configuration. 
           Infers relationships instantly. Creates secure architectural views using metadata only.
         </p>
+        <div className="mt-4">
+          <a 
+            href="https://aos-discover.replit.app/" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-cyan-400 hover:text-cyan-300 underline font-medium"
+          >
+            Click here for working demo
+          </a>
+        </div>
       </div>
 
       {/* Stats Bar */}
