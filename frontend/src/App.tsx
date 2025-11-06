@@ -8,6 +8,7 @@ import DiscoverPage from './components/DiscoverPage';
 import ConnectPage from './components/ConnectPage';
 import NewOntologyPage from './components/NewOntologyPage';
 import OrchestrationPage from './components/OrchestrationPage';
+import AgentsPage from './components/AgentsPage';
 import FAQPage from './components/FAQPage';
 import AuthModal from './components/AuthModal';
 
@@ -15,7 +16,7 @@ function AppContent() {
   // Initialize page from URL path
   const getInitialPage = () => {
     const path = window.location.pathname.slice(1); // Remove leading slash
-    const validPages = ['control-center', 'discover', 'connect', 'ontology', 'orchestration', 'faq'];
+    const validPages = ['control-center', 'discover', 'connect', 'ontology', 'orchestration', 'agents', 'faq'];
     return validPages.includes(path) ? path : 'control-center';
   };
   
@@ -46,7 +47,7 @@ function AppContent() {
   useEffect(() => {
     const handlePopState = () => {
       const path = window.location.pathname.slice(1);
-      const validPages = ['control-center', 'discover', 'connect', 'ontology', 'orchestration', 'faq'];
+      const validPages = ['control-center', 'discover', 'connect', 'ontology', 'orchestration', 'agents', 'faq'];
       if (validPages.includes(path)) {
         setCurrentPage(path);
       }
@@ -79,6 +80,8 @@ function AppContent() {
         return <NewOntologyPage />;
       case 'orchestration':
         return <OrchestrationPage />;
+      case 'agents':
+        return <AgentsPage />;
       case 'faq':
         return <FAQPage />;
       default:
