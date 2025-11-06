@@ -12,15 +12,13 @@ else
 fi
 
 # Run database migrations
-# TEMPORARILY DISABLED - Need to stamp production baseline first
-# echo "Running database migrations..."
-# alembic upgrade head
-# if [ $? -eq 0 ]; then
-#   echo "✅ Database migrations completed successfully"
-# else
-#   echo "⚠️ Database migrations failed - continuing anyway"
-# fi
-echo "⚠️ Database migrations temporarily disabled - stamp production first"
+echo "Running database migrations..."
+alembic upgrade head
+if [ $? -eq 0 ]; then
+  echo "✅ Database migrations completed successfully"
+else
+  echo "⚠️ Database migrations failed - continuing anyway"
+fi
 
 echo "Starting RQ worker..."
 python -m app.worker &
