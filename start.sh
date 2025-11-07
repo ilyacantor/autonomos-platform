@@ -11,13 +11,18 @@ else
   echo "Using external Redis from REDIS_URL (production mode)..."
 fi
 
-# Run database migrations
-echo "Running database migrations..."
-alembic upgrade head
-if [ $? -eq 0 ]; then
-  echo "✅ Database migrations completed successfully"
+# Run database migrations (unless disabled)
+if [ "${DISABLE_AUTO_MIGRATIONS:-false}" = "true" ]; then
+  echo "⚠️  Auto-migrations disabled by DISABLE_AUTO_MIGRATIONS flag"
+  echo "   Skipping: alembic upgrade head"
 else
-  echo "⚠️ Database migrations failed - continuing anyway"
+  echo "Running database migrations..."
+  alembic upgrade head
+  if [ $? -eq 0 ]; then
+    echo "✅ Database migrations completed successfully"
+  else
+    echo "⚠️ Database migrations failed - continuing anyway"
+  fi
 fi
 
 echo "Starting RQ worker..."
