@@ -2,7 +2,7 @@ import React from 'react';
 import { Activity, ChevronDown, Play, X, CheckCircle } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import type { AgentNode, DCLStats, MappingReview, SchemaChange } from '../types';
-import LiveSankeyGraph from './LiveSankeyGraph';
+import LazyGraphShell from './LazyGraphShell';
 import { useDCLState } from '../hooks/useDCLState';
 import TypingText from './TypingText';
 import { aoaApi } from '../services/aoaApi';
@@ -23,7 +23,7 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
   const { state: dclState } = useDCLState();
   const [typingEvents, setTypingEvents] = useState<Array<{ text: string; isTyping: boolean; key: string }>>([]);
   const [selectedModel, setSelectedModel] = useState('gemini-2.5-flash');
-  const [useAamSource, setUseAamSource] = useState(true);
+  const [useAamSource, setUseAamSource] = useState(false);
   
   // Timer and progress state
   const [elapsedTime, setElapsedTime] = useState(0);
@@ -582,7 +582,7 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
           </div>
 
           <div className="relative pb-2 md:min-h-[500px]">
-            <LiveSankeyGraph />
+            <LazyGraphShell />
           </div>
         </div>
 

@@ -89,7 +89,7 @@ export default function NewOntologyPage() {
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
   const [lineageSearchQuery, setLineageSearchQuery] = useState('');
-  const [useAamSource, setUseAamSource] = useState(true);
+  const [useAamSource, setUseAamSource] = useState(false);
   
   // OntologyPage state
   const [ontologyData, setOntologyData] = useState<OntologyData | null>(null);
