@@ -1,9 +1,5 @@
 #!/bin/bash
 
-# Disable Replit's automatic database migration management
-# We manage migrations manually via Alembic
-export DISABLE_AUTO_MIGRATIONS=true
-
 echo "Starting AutonomOS Platform..."
 
 # Only start local Redis if REDIS_URL is not set (development mode)
