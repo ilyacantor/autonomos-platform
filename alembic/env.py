@@ -39,6 +39,30 @@ for table in AAMBase.metadata.tables.values():
 
 target_metadata = combined_metadata
 
+
+def include_object(object, name, type_, reflected, compare_to):
+    """
+    Filter which database objects Alembic should track.
+    
+    Exclude capitalized tables (e.g., Account, Contact, Event) which are
+    managed by external connectors (Salesforce, etc.) and not part of the
+    application's SQLAlchemy models.
+    
+    This prevents Alembic from:
+    - Proposing DROP TABLE for connector-managed tables
+    - Tracking schema changes in external tables
+    - Interfering with connector data pipelines
+    """
+    if type_ == "table":
+        # Ignore tables with capitalized names (connector-managed)
+        # Examples: Account, Contact, Event, Lead, Opportunity, etc.
+        if name and name[0].isupper():
+            return False
+    
+    # Track all other objects (lowercase tables, indexes, constraints)
+    return True
+
+
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
 # my_important_option = config.get_main_option("my_important_option")
@@ -63,6 +87,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        include_object=include_object,
     )
 
     with context.begin_transaction():
@@ -84,7 +109,9 @@ def run_migrations_online() -> None:
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, target_metadata=target_metadata
+            connection=connection,
+            target_metadata=target_metadata,
+            include_object=include_object,
         )
 
         with context.begin_transaction():
