@@ -11,21 +11,31 @@ This document establishes the **single source of truth** for database migrations
 **RULE:** Alembic is the **only** owner of database schema migrations.
 
 - ✅ All schema changes MUST go through Alembic migrations
-- ❌ NEVER manually edit production database schema via SQL
+- ❌ NEVER manually edit database schema via SQL
 - ❌ NEVER approve Replit Publishing plans showing `DROP TABLE` statements
-- ✅ Production and development databases are tracked by the same migration history
+- ✅ Database is tracked by Alembic migration history
+
+---
+
+## Database Model
+
+**Single Database:** AutonomOS uses ONE database referenced by `DATABASE_URL`.
+- In development: `DATABASE_URL` points to your development database
+- In production (when published): `DATABASE_URL` points to your production database
+
+All scripts work with `DATABASE_URL` - no separate dev/prod database URLs needed.
 
 ---
 
 ## First-Time Production Setup
 
-When deploying Alembic to an **existing** production database with pre-existing tables, you must perform a one-time baseline stamp.
+When deploying Alembic to an **existing** database with pre-existing tables, you must perform a one-time baseline stamp.
 
 ### Why?
 
 Alembic needs to know that production's current state is the "baseline" - otherwise it will try to drop all existing tables to match the empty baseline migration.
 
-### How to Baseline Stamp Production
+### How to Baseline Stamp
 
 **Run this script ONCE** before your first Alembic-managed deployment:
 
@@ -35,12 +45,12 @@ Alembic needs to know that production's current state is the "baseline" - otherw
 
 This script:
 - ✅ Is **idempotent** - safe to run multiple times
-- ✅ Checks if production is already stamped (no-op if correct)
-- ✅ Creates `alembic_version` table and marks production as being at baseline
+- ✅ Checks if database is already stamped (no-op if correct)
+- ✅ Creates `alembic_version` table and marks database as being at baseline
 - ✅ Verifies that `alembic upgrade head` completes without destructive operations
 - ❌ NEVER issues `DROP TABLE` statements
 
-**After stamping:** Production is tracked by Alembic and ready for incremental migrations.
+**After stamping:** Database is tracked by Alembic and ready for incremental migrations.
 
 ---
 
@@ -53,16 +63,16 @@ This script:
 ```
 
 This guard script:
-1. Audits both development and production databases
-2. Checks that both have `alembic_version` tracking
-3. Compares schema distance (table count differences)
+1. Audits the current database (`DATABASE_URL`)
+2. Checks that it has `alembic_version` tracking
+3. Verifies Alembic is managing schema
 4. **Exits with error** if issues are detected
 
 ### Guard Results
 
 | Status | Meaning | Action |
 |--------|---------|--------|
-| ✅ GUARD PASSED | Schemas synchronized, Alembic tracking in sync | Proceed with Publishing |
+| ✅ GUARD PASSED | Database tracked by Alembic | Proceed with Publishing |
 | ❌ GUARD FAILED | Issues detected (see output) | Fix issues, re-run guard |
 
 ---
@@ -83,8 +93,8 @@ If Replit's Publishing page displays a migration plan containing:
    ```bash
    ./scripts/db_audit.sh
    ```
-3. Review audit outputs in `./ops/db_audit/`
-4. If production lacks `alembic_version`:
+3. Review audit output in `./ops/db_audit/summary.txt`
+4. If database lacks `alembic_version`:
    ```bash
    ./scripts/stamp_prod_baseline.sh
    ```
@@ -171,23 +181,20 @@ Run the audit script anytime to check database health:
 ./scripts/db_audit.sh
 ```
 
-**Outputs:**
-- `ops/db_audit/dev-summary.txt` - Development database state
-- `ops/db_audit/prod-summary.txt` - Production database state (if `DATABASE_URL_PROD` set)
+**Output:**
+- `ops/db_audit/summary.txt` - Current database state
 
 **Diagnosis codes:**
-- `✅ OK` - Schemas synchronized, Alembic versions match
-- `⚠️ MISMATCH` - Schema drift or version mismatch detected
-- `❌ MISSING` - Production lacks `alembic_version` table
+- `✅ OK` - Database tracked by Alembic
+- `❌ MISSING` - Database lacks `alembic_version` table
 
 ### What the Audit Checks
 
-For each database:
+The audit checks:
 - Current database name and user
 - Search path configuration
 - List of all tables in `public` schema
 - Current Alembic migration version
-- Schema distance calculation (table count difference)
 
 ---
 
@@ -219,15 +226,11 @@ This preserves the existing production schema without recreating it. All future 
 
 ## Troubleshooting
 
-### "Production has unexpected Alembic version"
+### "Database already tracked by Alembic"
 
-If `stamp_prod_baseline.sh` reports this error, production is already being tracked by Alembic but at a different migration than expected.
+If `stamp_prod_baseline.sh` shows this message, your database is already being tracked at a different migration than the baseline.
 
-**DO NOT force-stamp.** Instead:
-1. Check migration history: `alembic history`
-2. Check production version: `alembic current` (with `DATABASE_URL_PROD`)
-3. Investigate why versions diverged
-4. Manual intervention may be required
+**This is normal** if you've applied migrations after the baseline. No action needed.
 
 ### "Database migrations failed - continuing anyway"
 
@@ -242,7 +245,7 @@ If `start.sh` shows this warning:
 If the guard passes but Replit still shows destructive plans:
 1. Replit's auto-diff may be comparing against a cached schema
 2. Try canceling and re-initiating the publish
-3. Check that production database URL is correct in Replit secrets
+3. Verify `DATABASE_URL` is correct in Replit secrets/environment
 4. As a last resort, contact Replit support - the platform may need to refresh its schema cache
 
 ---
@@ -259,7 +262,7 @@ If the guard passes but Replit still shows destructive plans:
 ## Summary Checklist
 
 **First-time setup:**
-- [ ] Run `./scripts/stamp_prod_baseline.sh` once
+- [ ] Run `./scripts/stamp_prod_baseline.sh` once (in production context)
 
 **Before every publish:**
 - [ ] Run `./scripts/deploy_guard.sh`

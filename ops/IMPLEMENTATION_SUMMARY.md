@@ -2,7 +2,8 @@
 
 **PR Title:** `fix(deploy): alembic-owns-migrations + prod-baseline + guardrails`
 
-**Date:** November 7, 2025
+**Date:** November 7, 2025  
+**Update:** Simplified to single database model (removed dual dev/prod complexity)
 
 ---
 
@@ -17,10 +18,10 @@ This PR implements a complete solution to stop Replit's schema auto-diff from pr
 ### 1. Database Audit & Diagnosis
 
 **Created:** `scripts/db_audit.sh`
-- Audits both development and production databases
-- Writes summaries to `ops/db_audit/{dev,prod}-summary.txt`
-- Provides diagnosis: `OK`, `MISMATCH`, or `MISSING`
-- Calculates schema distance (table count differences)
+- Audits the current database (`DATABASE_URL`)
+- Writes summary to `ops/db_audit/summary.txt`
+- Provides diagnosis: `OK` or `MISSING`
+- Works in both dev and production contexts
 
 **Created:** `scripts/_psql.py`
 - Portable PostgreSQL query helper for shell scripts
@@ -47,23 +48,23 @@ This PR implements a complete solution to stop Replit's schema auto-diff from pr
 ### 2. Production Baseline Stamp (Idempotent)
 
 **Created:** `scripts/stamp_prod_baseline.sh`
-- One-time initialization to mark production at baseline migration
+- One-time initialization to mark database at baseline migration
 - Detects baseline revision automatically: `5a9d6371e18c`
 - Idempotent: safe to run multiple times, no-ops if already stamped
+- Works with single `DATABASE_URL` (context-aware)
 - Safety checks: never issues DROP TABLE statements
 - Validates with `alembic upgrade head` after stamping
 
-**Test Output (Error Handling):**
+**Test Output (Already Stamped):**
 ```
-🏷️  AutonomOS Production Baseline Stamp
-========================================
+🏷️  AutonomOS Baseline Stamp
+============================
 
 Baseline revision: 5a9d6371e18c
+   → alembic_version exists with value: 5a9d6371e18c
 
-❌ ERROR: DATABASE_URL_PROD not set
-
-Set the production database URL:
-  export DATABASE_URL_PROD='postgresql://user:pass@host/db'
+✅ Database already stamped at baseline (5a9d6371e18c)
+   No action needed (idempotent no-op)
 ```
 
 ### 3. Alembic as Single Source of Truth
@@ -95,7 +96,7 @@ fi
 
 **Created:** `scripts/deploy_guard.sh`
 - Runs `db_audit.sh` and interprets results
-- Exits non-zero if production lacks `alembic_version` or schemas diverged
+- Exits non-zero if database lacks `alembic_version`
 - Provides clear remediation instructions
 - Warns about destructive Replit plans
 
@@ -143,14 +144,15 @@ Safe to proceed with Replit Publishing.
 
 ✅ **Database Audit Script**
 - `./scripts/db_audit.sh` completes successfully
-- Writes two summaries (dev/prod) to `ops/db_audit/`
-- Final diagnosis line: `OK:`, `MISMATCH:`, or `MISSING:`
+- Writes summary to `ops/db_audit/summary.txt`
+- Final diagnosis line: `OK:` or `MISSING:`
 - No errors during execution
 
-✅ **Production Baseline Stamp**
+✅ **Baseline Stamp**
 - `./scripts/stamp_prod_baseline.sh` validates inputs correctly
-- Error handling works (fails gracefully without DATABASE_URL_PROD)
+- Error handling works (fails gracefully without DATABASE_URL)
 - Idempotent design: re-runs are no-ops
+- Recognizes already-tracked databases
 - Never generates DROP TABLE statements
 
 ✅ **Auto-Migration Control**
@@ -159,8 +161,8 @@ Safe to proceed with Replit Publishing.
 - No breaking changes to startup flow
 
 ✅ **Deploy Guard**
-- `./scripts/deploy_guard.sh` exits non-zero when prod not stamped
-- Exits zero when schemas are synchronized
+- `./scripts/deploy_guard.sh` exits non-zero when database not stamped
+- Exits zero when database tracked by Alembic
 - Provides actionable remediation steps
 
 ✅ **Documentation**
@@ -262,21 +264,18 @@ version_num
 
 ## Usage Instructions
 
-### For First-Time Production Deployment
+### For First-Time Deployment with Alembic
 
-1. **Set production database URL:**
-   ```bash
-   export DATABASE_URL_PROD='postgresql://user:pass@host/db'
-   ```
+1. **Ensure DATABASE_URL is set** (automatically configured in Replit)
 
-2. **Run baseline stamp (once):**
+2. **Run baseline stamp (once) in production context:**
    ```bash
    ./scripts/stamp_prod_baseline.sh
    ```
 
 3. **Verify successful stamping:**
-   - Script should report: "Production database stamped successfully!"
-   - Alembic version should be: `5a9d6371e18c`
+   - Script should report: "Database stamped successfully!" or "already stamped"
+   - Alembic version should be: `5a9d6371e18c` or later
 
 ### Before Every Replit Publish
 
@@ -386,9 +385,9 @@ The audit script computes table count difference between dev and prod. Threshold
 
 **Problem:** Replit's publishing flow detected schema differences between dev and prod, generated destructive DROP TABLE migrations.
 
-**Root Cause:** Production database never stamped with Alembic baseline, so Alembic thought production was "unmigrated" and tried to match the empty baseline by dropping all tables.
+**Root Cause:** Database never stamped with Alembic baseline, so Alembic thought it was "unmigrated" and tried to match the empty baseline by dropping all tables.
 
-**Solution:** One-time baseline stamp + guardrails prevent Replit from running auto-generated destructive plans. Alembic now owns all migrations going forward.
+**Solution:** One-time baseline stamp + guardrails prevent Replit from running auto-generated destructive plans. Alembic now owns all migrations going forward. Single database model (`DATABASE_URL`) simplifies the approach.
 
 ---
 
