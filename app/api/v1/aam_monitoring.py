@@ -176,7 +176,7 @@ async def get_aam_metrics():
                 select(func.count(JobHistory.id)).where(  # type: ignore
                     and_(
                         JobHistory.started_at >= last_24h,  # type: ignore
-                        JobHistory.status == JobStatus.FAILED  # type: ignore
+                        JobHistory.status == "failed"  # type: ignore
                     )
                 )
             )
@@ -187,7 +187,7 @@ async def get_aam_metrics():
                 select(func.count(JobHistory.id)).where(  # type: ignore
                     and_(
                         JobHistory.started_at >= last_24h,  # type: ignore
-                        JobHistory.status == JobStatus.SUCCEEDED  # type: ignore
+                        JobHistory.status == "succeeded"  # type: ignore
                     )
                 )
             )
