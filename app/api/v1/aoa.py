@@ -239,104 +239,127 @@ async def discover(
     # ═══════════════════════════════════════════════════════════
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
-            aod_url = f"{settings.AOD_BASE_URL}/discover"
+            aod_url = f"{settings.AOD_BASE_URL}/api/discover"
             
             logger.info(f"[DISCOVER E2E] Making HTTP POST to AOD: {aod_url}")
             
+            # Transform request to match AOD's expected contract
+            # AOD expects "query" instead of "nlp_query"
+            aod_payload = {
+                "query": request.nlp_query,
+                "tenant_id": request.tenant_id,
+                "discovery_types": [dt.value for dt in request.discovery_types],
+                "context": request.context,
+                "max_results": request.max_results,
+                "min_confidence": request.min_confidence
+            }
+            
             response = await client.post(
                 aod_url,
-                json=request.dict(),
+                json=aod_payload,
                 headers={"Content-Type": "application/json"}
             )
             
             response.raise_for_status()
-            discovery_data = response.json()
-            
-            # Parse into DiscoveryResponse for type safety
-            discovery_response = DiscoveryResponse(**discovery_data)
+            aod_response = response.json()
             
     except httpx.HTTPError as e:
-        logger.error(
+        error_log = (
             f"[DISCOVER E2E] AOD service API call failed | "
             f"request_id={request_id} | error={str(e)} | "
             f"AOD_URL={settings.AOD_BASE_URL}"
         )
+        logger.error(error_log)
+        print(error_log)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Failed to reach AOS Discover service: {str(e)}. "
                    f"Ensure AOD_BASE_URL is configured correctly."
         )
-    except Exception as e:
-        logger.error(
-            f"[DISCOVER E2E] Failed to parse AOD response | "
-            f"request_id={request_id} | error={str(e)}"
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Invalid response from AOD service: {str(e)}"
-        )
     
     # ═══════════════════════════════════════════════════════════
     # STEP 3: LOG - JSON response received from AOD
     # ═══════════════════════════════════════════════════════════
+    aod_status = aod_response.get("status", "unknown")
+    aod_results = aod_response.get("results", [])
+    aod_total = aod_response.get("total_count", 0)
+    aod_timestamp = aod_response.get("timestamp", "")
+    
     log_msg2 = (
         f"[DISCOVER E2E] Step 2/3: Received discovery response from AOD | "
-        f"request_id={request_id} | success={discovery_response.success} | "
-        f"entities_found={discovery_response.total_entities_found} | "
-        f"filtered={discovery_response.filtered_count} | "
-        f"confidence={discovery_response.overall_confidence:.2f} | "
-        f"recommended_agents={len(discovery_response.agent_recommendations)}"
+        f"request_id={request_id} | aod_status={aod_status} | "
+        f"results_count={len(aod_results)} | total_count={aod_total} | "
+        f"timestamp={aod_timestamp}"
     )
     logger.info(log_msg2)
     print(log_msg2)  # Ensure console output for debugging
-    logger.debug(
-        f"[DISCOVER E2E] Full AOD response: {discovery_response.dict()}"
-    )
+    logger.debug(f"[DISCOVER E2E] Full AOD response sample: {str(aod_response)[:500]}...")
     
     # ═══════════════════════════════════════════════════════════
-    # STEP 4: Transform to DiscoveryHandoff for Agent layer
+    # STEP 4: Transform AOD response to internal format
     # ═══════════════════════════════════════════════════════════
-    assigned_agents = [
-        rec.agent_name 
-        for rec in discovery_response.agent_recommendations
-        if rec.priority in ["high", "medium"]
-    ]
+    # Determine recommended agents based on asset types and query keywords
+    assigned_agents = []
+    query_lower = request.nlp_query.lower()
     
-    handoff = DiscoveryHandoff(
-        discovery_response=discovery_response,
-        tenant_id=str(current_user.tenant_id),
-        original_query=request.nlp_query,
-        assigned_agents=assigned_agents,
-        processing_priority="high" if discovery_response.overall_confidence >= 0.9 else "medium",
-        handoff_status="assigned" if assigned_agents else "pending"
-    )
+    # FinOps domain keywords
+    if any(kw in query_lower for kw in ["cost", "spending", "aws", "cloud", "infrastructure", "finops"]):
+        assigned_agents.append("finops_pilot")
+    
+    # RevOps domain keywords
+    if any(kw in query_lower for kw in ["revenue", "sales", "opportunity", "pipeline", "revops"]):
+        assigned_agents.append("revops_pilot")
+    
+    # Default to general agent if no specific domain
+    if not assigned_agents:
+        assigned_agents.append("general_agent")
+    
+    # Calculate overall confidence from AOD assets
+    avg_confidence = 0.0
+    if aod_results:
+        confidences = [asset.get("confidence", 0.0) for asset in aod_results if "confidence" in asset]
+        avg_confidence = sum(confidences) / len(confidences) if confidences else 0.0
     
     # ═══════════════════════════════════════════════════════════
     # STEP 5: LOG - Data handoff to Agents & Humans
     # ═══════════════════════════════════════════════════════════
+    priority = "high" if avg_confidence >= 0.9 else "medium"
+    handoff_status = "assigned" if assigned_agents else "pending"
+    
     log_msg3 = (
         f"[DISCOVER E2E] Step 3/3: Handing off to Agents & Humans | "
         f"request_id={request_id} | assigned_agents={assigned_agents} | "
-        f"priority={handoff.processing_priority} | status={handoff.handoff_status}"
+        f"priority={priority} | status={handoff_status} | avg_confidence={avg_confidence:.2f}"
     )
     logger.info(log_msg3)
     print(log_msg3)  # Ensure console output for debugging
-    logger.debug(
-        f"[DISCOVER E2E] Full handoff payload: {handoff.dict()}"
-    )
-    
-    # TODO: Actual handoff to Agents & Humans components
-    # This will be implemented in task 6 (agent handoff bridge)
-    # For now, we return the handoff data to frontend
     
     logger.info(
         f"[DISCOVER E2E] ✓ Discovery flow completed successfully | "
         f"request_id={request_id}"
     )
     
+    # Return transformed response compatible with frontend
     return {
         "success": True,
         "request_id": request_id,
-        "discovery": discovery_response.dict(),
-        "handoff": handoff.dict()
+        "message": f"Discovered {len(aod_results)} assets from AOD service",
+        "discovery": {
+            "total_entities_found": aod_total,
+            "filtered_count": len(aod_results),
+            "overall_confidence": avg_confidence,
+            "entities": aod_results[:10],  # First 10 for display
+            "agent_recommendations": [
+                {
+                    "agent_name": agent,
+                    "agent_type": agent.split("_")[0],  # finops, revops, general
+                    "reason": f"Query matched {agent.split('_')[0]} domain keywords",
+                    "confidence_score": avg_confidence,
+                    "priority": priority
+                }
+                for agent in assigned_agents
+            ],
+            "aod_status": aod_status,
+            "timestamp": aod_timestamp
+        }
     }
