@@ -46,4 +46,4 @@ echo "Starting FastAPI server..."
 export DEV_DEBUG=true
 export FEATURE_USE_FILESOURCE=true
 export REQUIRED_SOURCES=salesforce,supabase,mongodb,filesource
-exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-5000} --proxy-headers
+exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-5000} --proxy-headers --log-level info

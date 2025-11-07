@@ -224,12 +224,14 @@ async def discover(
     # ═══════════════════════════════════════════════════════════
     # STEP 1: LOG - Data being sent to AOD service
     # ═══════════════════════════════════════════════════════════
-    logger.info(
+    log_msg = (
         f"[DISCOVER E2E] Step 1/3: Sending discovery request to AOD service | "
         f"request_id={request_id} | tenant_id={current_user.tenant_id} | "
         f"nlp_query='{request.nlp_query}' | discovery_types={request.discovery_types} | "
         f"AOD_URL={settings.AOD_BASE_URL}"
     )
+    logger.info(log_msg)
+    print(log_msg)  # Ensure console output for debugging
     logger.debug(f"[DISCOVER E2E] Full request payload: {request.dict()}")
     
     # ═══════════════════════════════════════════════════════════
@@ -277,7 +279,7 @@ async def discover(
     # ═══════════════════════════════════════════════════════════
     # STEP 3: LOG - JSON response received from AOD
     # ═══════════════════════════════════════════════════════════
-    logger.info(
+    log_msg2 = (
         f"[DISCOVER E2E] Step 2/3: Received discovery response from AOD | "
         f"request_id={request_id} | success={discovery_response.success} | "
         f"entities_found={discovery_response.total_entities_found} | "
@@ -285,6 +287,8 @@ async def discover(
         f"confidence={discovery_response.overall_confidence:.2f} | "
         f"recommended_agents={len(discovery_response.agent_recommendations)}"
     )
+    logger.info(log_msg2)
+    print(log_msg2)  # Ensure console output for debugging
     logger.debug(
         f"[DISCOVER E2E] Full AOD response: {discovery_response.dict()}"
     )
@@ -310,11 +314,13 @@ async def discover(
     # ═══════════════════════════════════════════════════════════
     # STEP 5: LOG - Data handoff to Agents & Humans
     # ═══════════════════════════════════════════════════════════
-    logger.info(
+    log_msg3 = (
         f"[DISCOVER E2E] Step 3/3: Handing off to Agents & Humans | "
         f"request_id={request_id} | assigned_agents={assigned_agents} | "
         f"priority={handoff.processing_priority} | status={handoff.handoff_status}"
     )
+    logger.info(log_msg3)
+    print(log_msg3)  # Ensure console output for debugging
     logger.debug(
         f"[DISCOVER E2E] Full handoff payload: {handoff.dict()}"
     )

@@ -45,6 +45,7 @@ async def tenant_auth_middleware(request: Request, call_next: Callable):
         "/architecture.html",        # Architecture visualization page
         "/aam-monitor",              # AAM Monitor frontend page (demo access)
         "/live-flow",                # Live Flow frontend page (demo access)
+        "/discover",                 # Mock AOD service endpoint (temporary for E2E testing)
     ]
     
     # Also bypass static frontend paths
