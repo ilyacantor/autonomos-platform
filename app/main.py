@@ -30,7 +30,7 @@ from app.security import (
     get_current_user,
     ACCESS_TOKEN_EXPIRE_MINUTES
 )
-from app.api.v1 import auth, aoa, aam_monitoring, aam_mesh, aam_connections, platform_stubs, filesource, dcl_views, debug, mesh_test, events, dcl_unify
+from app.api.v1 import auth, aoa, aam_monitoring, aam_mesh, aam_connections, platform_stubs, filesource, dcl_views, debug, mesh_test, events, dcl_unify, aod_mock
 
 # Initialize database tables - with error handling for resilience
 try:
@@ -175,6 +175,7 @@ app.include_router(dcl_unify.router, prefix="/api/v1/dcl", tags=["DCL Unificatio
 app.include_router(debug.router, prefix="/api/v1", tags=["Debug (Dev-Only)"])
 app.include_router(events.router, prefix="/api/v1/events", tags=["Event Stream"])
 app.include_router(platform_stubs.router, prefix="/api/v1", tags=["Platform Stubs"])
+app.include_router(aod_mock.router, prefix="", tags=["AOD Mock (Testing)"])
 
 STATIC_DIR = "static"
 if os.path.exists(STATIC_DIR) and os.path.isdir(STATIC_DIR):
