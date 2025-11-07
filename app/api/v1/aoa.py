@@ -1,6 +1,7 @@
 import logging
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+import uuid
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
 from sqlalchemy.orm import Session
 from redis import Redis
 from rq import Queue
@@ -9,6 +10,11 @@ from app import crud, schemas, models
 from app.database import get_db
 from app.config import settings
 from app.security import get_current_user
+from app.contracts.aod_contract import (
+    DiscoveryRequest,
+    DiscoveryResponse,
+    DiscoveryHandoff
+)
 
 logger = logging.getLogger(__name__)
 
@@ -189,3 +195,142 @@ def toggle_prod_mode(
         )
     
     return db_task
+
+
+@router.post("/discover")
+async def discover(
+    request: DiscoveryRequest = Body(...),
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    API-based E2E Flow: NLP Discovery with AOS Discover (AOD) Service
+    
+    This endpoint implements the CTO directive for microservice integration:
+    1. Accept NLP query from frontend
+    2. Call external AOD service via network API
+    3. Log all data flow for debugging
+    4. Hand off discovery results to Agents & Humans
+    
+    Flow:
+    - User NLP input → This endpoint → AOD service API
+    - AOD returns JSON → Log response → Hand to Agents
+    """
+    request_id = str(uuid.uuid4())
+    
+    # Override tenant_id with authenticated user's tenant
+    request.tenant_id = str(current_user.tenant_id)
+    
+    # ═══════════════════════════════════════════════════════════
+    # STEP 1: LOG - Data being sent to AOD service
+    # ═══════════════════════════════════════════════════════════
+    logger.info(
+        f"[DISCOVER E2E] Step 1/3: Sending discovery request to AOD service | "
+        f"request_id={request_id} | tenant_id={current_user.tenant_id} | "
+        f"nlp_query='{request.nlp_query}' | discovery_types={request.discovery_types} | "
+        f"AOD_URL={settings.AOD_BASE_URL}"
+    )
+    logger.debug(f"[DISCOVER E2E] Full request payload: {request.dict()}")
+    
+    # ═══════════════════════════════════════════════════════════
+    # STEP 2: Network API Call to AOS Discover (AOD) service
+    # ═══════════════════════════════════════════════════════════
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            aod_url = f"{settings.AOD_BASE_URL}/discover"
+            
+            logger.info(f"[DISCOVER E2E] Making HTTP POST to AOD: {aod_url}")
+            
+            response = await client.post(
+                aod_url,
+                json=request.dict(),
+                headers={"Content-Type": "application/json"}
+            )
+            
+            response.raise_for_status()
+            discovery_data = response.json()
+            
+            # Parse into DiscoveryResponse for type safety
+            discovery_response = DiscoveryResponse(**discovery_data)
+            
+    except httpx.HTTPError as e:
+        logger.error(
+            f"[DISCOVER E2E] AOD service API call failed | "
+            f"request_id={request_id} | error={str(e)} | "
+            f"AOD_URL={settings.AOD_BASE_URL}"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Failed to reach AOS Discover service: {str(e)}. "
+                   f"Ensure AOD_BASE_URL is configured correctly."
+        )
+    except Exception as e:
+        logger.error(
+            f"[DISCOVER E2E] Failed to parse AOD response | "
+            f"request_id={request_id} | error={str(e)}"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Invalid response from AOD service: {str(e)}"
+        )
+    
+    # ═══════════════════════════════════════════════════════════
+    # STEP 3: LOG - JSON response received from AOD
+    # ═══════════════════════════════════════════════════════════
+    logger.info(
+        f"[DISCOVER E2E] Step 2/3: Received discovery response from AOD | "
+        f"request_id={request_id} | success={discovery_response.success} | "
+        f"entities_found={discovery_response.total_entities_found} | "
+        f"filtered={discovery_response.filtered_count} | "
+        f"confidence={discovery_response.overall_confidence:.2f} | "
+        f"recommended_agents={len(discovery_response.agent_recommendations)}"
+    )
+    logger.debug(
+        f"[DISCOVER E2E] Full AOD response: {discovery_response.dict()}"
+    )
+    
+    # ═══════════════════════════════════════════════════════════
+    # STEP 4: Transform to DiscoveryHandoff for Agent layer
+    # ═══════════════════════════════════════════════════════════
+    assigned_agents = [
+        rec.agent_name 
+        for rec in discovery_response.agent_recommendations
+        if rec.priority in ["high", "medium"]
+    ]
+    
+    handoff = DiscoveryHandoff(
+        discovery_response=discovery_response,
+        tenant_id=str(current_user.tenant_id),
+        original_query=request.nlp_query,
+        assigned_agents=assigned_agents,
+        processing_priority="high" if discovery_response.overall_confidence >= 0.9 else "medium",
+        handoff_status="assigned" if assigned_agents else "pending"
+    )
+    
+    # ═══════════════════════════════════════════════════════════
+    # STEP 5: LOG - Data handoff to Agents & Humans
+    # ═══════════════════════════════════════════════════════════
+    logger.info(
+        f"[DISCOVER E2E] Step 3/3: Handing off to Agents & Humans | "
+        f"request_id={request_id} | assigned_agents={assigned_agents} | "
+        f"priority={handoff.processing_priority} | status={handoff.handoff_status}"
+    )
+    logger.debug(
+        f"[DISCOVER E2E] Full handoff payload: {handoff.dict()}"
+    )
+    
+    # TODO: Actual handoff to Agents & Humans components
+    # This will be implemented in task 6 (agent handoff bridge)
+    # For now, we return the handoff data to frontend
+    
+    logger.info(
+        f"[DISCOVER E2E] ✓ Discovery flow completed successfully | "
+        f"request_id={request_id}"
+    )
+    
+    return {
+        "success": True,
+        "request_id": request_id,
+        "discovery": discovery_response.dict(),
+        "handoff": handoff.dict()
+    }

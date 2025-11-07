@@ -78,6 +78,43 @@ class AOAApiService {
     });
     return this.handleResponse(response);
   }
+
+  async discover(nlpQuery: string) {
+    const payload = {
+      nlp_query: nlpQuery,
+      tenant_id: '',
+      discovery_types: ['entity_mapping'],
+      max_results: 10,
+      min_confidence: 0.7,
+    };
+
+    console.log('[Discover] Sending request:', payload);
+
+    const response = await fetch(API_CONFIG.buildApiUrl('/aoa/discover'), {
+      method: 'POST',
+      headers: {
+        ...this.getAuthHeader(),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await this.handleResponse(response);
+    
+    console.log('[Discover] Received response:', data);
+    
+    if (data.agent_recommendations && data.agent_recommendations.length > 0) {
+      const assignedAgents = data.agent_recommendations.map((rec: any) => rec.agent_name);
+      console.log('[Discover] Handing to agents:', {
+        assigned_agents: assignedAgents,
+        processing_priority: data.agent_recommendations[0]?.priority || 'medium',
+        total_entities: data.total_entities_found,
+        overall_confidence: data.overall_confidence,
+      });
+    }
+
+    return data;
+  }
 }
 
 export const aoaApi = new AOAApiService();
