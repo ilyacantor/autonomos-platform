@@ -115,6 +115,24 @@ class AOAApiService {
 
     return data;
   }
+
+  async demoScan() {
+    console.log('[Demo Scan] Starting full asset scan...');
+
+    const response = await fetch(API_CONFIG.buildApiUrl('/aoa/demo-scan'), {
+      method: 'POST',
+      headers: {
+        ...this.getAuthHeader(),
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const data = await this.handleResponse(response);
+    
+    console.log('[Demo Scan] Scan completed:', data);
+    
+    return data;
+  }
 }
 
 export const aoaApi = new AOAApiService();
