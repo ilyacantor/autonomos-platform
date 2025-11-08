@@ -1,0 +1,21 @@
+### Get Incident Details
+POST http://localhost:8001/v1/revops/incident
+Content-Type: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+{
+  "tenant_id": "demo-tenant",
+  "env": "dev",
+  "incident_id": "inc-001"
+}
+
+### Get Another Incident
+POST http://localhost:8001/v1/revops/incident
+Content-Type: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+{
+  "tenant_id": "demo-tenant",
+  "env": "dev",
+  "incident_id": "inc-002"
+}

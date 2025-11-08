@@ -1,0 +1,25 @@
+{"query": "Show me cost savings for November", "expected_endpoint": "/v1/finops/summary", "category": "finops"}
+{"query": "What happened with incident inc-001?", "expected_endpoint": "/v1/revops/incident", "category": "revops"}
+{"query": "What are the dependencies for the checkout service?", "expected_endpoint": "/v1/aod/dependencies", "category": "aod"}
+{"query": "List all AAM connectors", "expected_endpoint": "/v1/aam/connectors", "category": "aam"}
+{"query": "How do I configure Salesforce connector?", "expected_endpoint": "/v1/kb/search", "category": "kb"}
+{"query": "What is the total cloud spend this month?", "expected_endpoint": "/v1/finops/summary", "category": "finops"}
+{"query": "Show me all incidents in the past week", "expected_endpoint": "/v1/revops/incident", "category": "revops"}
+{"query": "Which services depend on Redis?", "expected_endpoint": "/v1/aod/dependencies", "category": "aod"}
+{"query": "Are there any drifted connectors?", "expected_endpoint": "/v1/aam/connectors", "category": "aam"}
+{"query": "How to troubleshoot MongoDB drift?", "expected_endpoint": "/v1/kb/search", "category": "kb"}
+{"query": "What are the top 3 cost optimization opportunities?", "expected_endpoint": "/v1/finops/summary", "category": "finops"}
+{"query": "Explain the Salesforce sync failure from yesterday", "expected_endpoint": "/v1/revops/incident", "category": "revops"}
+{"query": "Show service dependencies for the API gateway", "expected_endpoint": "/v1/aod/dependencies", "category": "aod"}
+{"query": "List healthy SaaS connectors only", "expected_endpoint": "/v1/aam/connectors", "category": "aam"}
+{"query": "What is the ingestion pipeline process?", "expected_endpoint": "/v1/kb/search", "category": "kb"}
+{"query": "Calculate savings if we right-size all EC2 instances", "expected_endpoint": "/v1/finops/summary", "category": "finops"}
+{"query": "What was the impact of the HubSpot incident?", "expected_endpoint": "/v1/revops/incident", "category": "revops"}
+{"query": "Is Elasticsearch up or down?", "expected_endpoint": "/v1/aod/dependencies", "category": "aod"}
+{"query": "Show me all database connectors", "expected_endpoint": "/v1/aam/connectors", "category": "aam"}
+{"query": "How do I enable PII redaction?", "expected_endpoint": "/v1/kb/search", "category": "kb"}
+{"query": "What actions were executed vs identified this quarter?", "expected_endpoint": "/v1/finops/summary", "category": "finops"}
+{"query": "Show timeline for incident inc-002", "expected_endpoint": "/v1/revops/incident", "category": "revops"}
+{"query": "Which services are currently degraded?", "expected_endpoint": "/v1/aod/dependencies", "category": "aod"}
+{"query": "When was the last successful Salesforce sync?", "expected_endpoint": "/v1/aam/connectors", "category": "aam"}
+{"query": "Explain the hybrid retrieval architecture", "expected_endpoint": "/v1/kb/search", "category": "kb"}

@@ -1,0 +1,11 @@
+### Get FinOps Summary
+POST http://localhost:8001/v1/finops/summary
+Content-Type: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+{
+  "tenant_id": "demo-tenant",
+  "env": "dev",
+  "from": "2024-11-01",
+  "to": "2024-11-07"
+}

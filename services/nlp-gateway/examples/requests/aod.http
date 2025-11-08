@@ -1,0 +1,21 @@
+### Get Service Dependencies - Checkout
+POST http://localhost:8001/v1/aod/dependencies
+Content-Type: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+{
+  "tenant_id": "demo-tenant",
+  "env": "dev",
+  "service": "checkout"
+}
+
+### Get Service Dependencies - API Gateway
+POST http://localhost:8001/v1/aod/dependencies
+Content-Type: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+{
+  "tenant_id": "demo-tenant",
+  "env": "dev",
+  "service": "api-gateway"
+}

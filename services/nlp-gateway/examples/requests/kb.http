@@ -1,0 +1,60 @@
+### Ingest Document from Text
+POST http://localhost:8001/v1/kb/ingest
+Content-Type: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+{
+  "tenant_id": "demo-tenant",
+  "env": "dev",
+  "items": [
+    {
+      "type": "text",
+      "location": "The AutonomOS platform provides automated operations for cloud infrastructure. It includes FinOps for cost optimization, RevOps for revenue operations, and AOD for observability. The platform uses AI agents to detect drift, propose repairs, and maintain system health.",
+      "tags": ["platform", "overview", "documentation"]
+    }
+  ],
+  "policy": {
+    "chunk": "auto",
+    "max_chunk_tokens": 1200,
+    "redact_pii": true
+  }
+}
+
+### Search Knowledge Base
+POST http://localhost:8001/v1/kb/search
+Content-Type: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+{
+  "tenant_id": "demo-tenant",
+  "env": "dev",
+  "query": "How does AutonomOS detect drift?",
+  "top_k": 5
+}
+
+### Ingest Multiple Documents
+POST http://localhost:8001/v1/kb/ingest
+Content-Type: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+{
+  "tenant_id": "demo-tenant",
+  "env": "dev",
+  "items": [
+    {
+      "type": "text",
+      "location": "FinOps Module: Automated cost optimization through cloud resource analysis. Identifies right-sizing opportunities, unused resources, and budget anomalies. Provides actionable recommendations with estimated savings.",
+      "tags": ["finops", "documentation"]
+    },
+    {
+      "type": "text",
+      "location": "RevOps Module: Revenue operations incident management. Tracks sync failures, data quality issues, and pipeline health. Provides root cause analysis and automated remediation suggestions.",
+      "tags": ["revops", "documentation"]
+    }
+  ],
+  "policy": {
+    "chunk": "auto",
+    "max_chunk_tokens": 800,
+    "redact_pii": true
+  }
+}
