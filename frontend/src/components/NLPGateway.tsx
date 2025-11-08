@@ -111,111 +111,115 @@ export default function NLPGateway() {
 
   return (
     <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
-      <div className="bg-gradient-to-r from-green-900 to-blue-900 p-4 border-b border-gray-700">
-        <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-          <BookOpen className="w-5 h-5" />
-          AOS NLP Gateway
-        </h2>
-        <p className="text-gray-300 text-sm mt-1">Natural language interface to AutonomOS services</p>
-      </div>
-
-      <div className="p-4 space-y-4">
-        <div className="flex gap-2 flex-wrap">
+      <div className="bg-gradient-to-r from-green-900 to-blue-900 px-4 py-3 border-b border-gray-700 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <BookOpen className="w-5 h-5 text-white" />
+          <h2 className="text-lg font-semibold text-white">AOS NLP Gateway</h2>
+        </div>
+        <div className="flex gap-2">
           {services.map(service => (
             <button
               key={service.id}
               onClick={() => setSelectedService(service.id)}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 ${
+              className={`px-2 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1 ${
                 selectedService === service.id
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  ? 'bg-white bg-opacity-20 text-white'
+                  : 'text-gray-300 hover:bg-white hover:bg-opacity-10'
               }`}
+              title={service.name}
             >
-              <service.icon className="w-4 h-4" />
-              {service.name}
+              <service.icon className="w-3.5 h-3.5" />
+              <span className="hidden md:inline">{service.name}</span>
             </button>
           ))}
         </div>
+      </div>
 
-        {messages.length === 0 && (
-          <div className="space-y-3">
-            <p className="text-gray-400 text-sm">Try these prompts:</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {prompts.map((prompt, i) => (
-                <button
-                  key={i}
-                  onClick={() => handlePromptClick(prompt)}
-                  className="p-3 bg-gray-700 hover:bg-gray-600 rounded-lg text-left text-sm text-gray-300 transition-colors border border-gray-600"
-                >
-                  {prompt}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div className="space-y-3 max-h-96 overflow-y-auto">
-          {messages.map((msg, i) => (
-            <div
-              key={i}
-              className={`p-3 rounded-lg ${
-                msg.role === 'user'
-                  ? 'bg-blue-900 bg-opacity-30 border border-blue-700'
-                  : 'bg-gray-700 border border-gray-600'
-              }`}
-            >
-              <div className="text-xs text-gray-400 mb-1">
-                {msg.role === 'user' ? 'You' : 'NLP Gateway'}
-                {msg.trace_id && <span className="ml-2 font-mono">{msg.trace_id}</span>}
-              </div>
-              <div className="text-gray-200 whitespace-pre-wrap font-mono text-sm">
-                {msg.content}
-              </div>
-              {msg.sources && msg.sources.length > 0 && (
-                <div className="mt-2 pt-2 border-t border-gray-600">
-                  <div className="text-xs text-gray-400 mb-1">Sources:</div>
-                  <div className="flex flex-wrap gap-1">
-                    {msg.sources.map((source, i) => (
-                      <span key={i} className="text-xs bg-gray-600 px-2 py-0.5 rounded text-gray-300">
-                        {source}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-
-        <form onSubmit={handleSubmit} className="flex gap-2">
+      <div className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="flex gap-3">
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask a question or make a request..."
-            className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Ask anything about AutonomOS services..."
+            className="flex-1 px-6 py-4 text-lg bg-gray-700 border-2 border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             disabled={loading}
+            autoFocus
           />
           <button
             type="submit"
             disabled={loading || !input.trim()}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:cursor-not-allowed rounded-lg text-white font-medium transition-colors flex items-center gap-2"
+            className="px-6 py-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:cursor-not-allowed rounded-lg text-white font-semibold transition-colors flex items-center gap-2 text-lg"
           >
             {loading ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Loader2 className="w-5 h-5 animate-spin" />
                 Thinking
               </>
             ) : (
               <>
-                <Send className="w-4 h-4" />
+                <Send className="w-5 h-5" />
                 Send
               </>
             )}
           </button>
         </form>
 
-        <div className="text-xs text-gray-500 mt-2">
+        <div className="space-y-3 min-h-[400px] max-h-[500px] overflow-y-auto bg-gray-900 bg-opacity-50 rounded-lg p-4 border border-gray-700">
+          {messages.length === 0 ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center space-y-4 max-w-2xl">
+                <p className="text-gray-400 text-sm mb-3">Get started with these prompts:</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {prompts.map((prompt, i) => (
+                    <button
+                      key={i}
+                      onClick={() => handlePromptClick(prompt)}
+                      className="p-2 bg-gray-800 hover:bg-gray-700 rounded text-left text-xs text-gray-300 transition-colors border border-gray-700"
+                    >
+                      {prompt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : (
+            messages.map((msg, i) => (
+              <div
+                key={i}
+                className={`p-4 rounded-lg ${
+                  msg.role === 'user'
+                    ? 'bg-blue-900 bg-opacity-40 border border-blue-700'
+                    : 'bg-gray-800 border border-gray-600'
+                }`}
+              >
+                <div className="text-xs text-gray-400 mb-2 flex items-center justify-between">
+                  <span className="font-semibold">
+                    {msg.role === 'user' ? 'You' : 'NLP Gateway'}
+                  </span>
+                  {msg.trace_id && <span className="font-mono text-gray-500">{msg.trace_id}</span>}
+                </div>
+                <div className="text-gray-200 whitespace-pre-wrap font-mono text-sm">
+                  {msg.content}
+                </div>
+                {msg.sources && msg.sources.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-gray-700">
+                    <div className="text-xs text-gray-400 mb-2">Sources:</div>
+                    <div className="flex flex-wrap gap-1">
+                      {msg.sources.map((source, i) => (
+                        <span key={i} className="text-xs bg-gray-700 px-2 py-1 rounded text-gray-300">
+                          {source}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="text-xs text-gray-500 text-center">
           Port: 8001 | Tenant: demo-tenant | Env: prod | Auth: JWT
         </div>
       </div>
