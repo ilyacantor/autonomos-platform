@@ -30,7 +30,7 @@ from app.security import (
     get_current_user,
     ACCESS_TOKEN_EXPIRE_MINUTES
 )
-from app.api.v1 import auth, aoa, aam_monitoring, aam_mesh, aam_connections, platform_stubs, filesource, dcl_views, debug, mesh_test, events, dcl_unify, aod_mock
+from app.api.v1 import auth, aoa, aam_monitoring, aam_mesh, aam_connections, platform_stubs, filesource, dcl_views, debug, mesh_test, events, dcl_unify, aod_mock, aam_onboarding
 from app import nlp_simple
 
 # Initialize database tables - with error handling for resilience
@@ -162,6 +162,27 @@ async def startup_event():
             logger.info("✅ DCL Agent Executor initialized successfully with Phase 4 metadata support")
         except Exception as e:
             logger.warning(f"⚠️ DCL Agent Executor initialization failed: {e}. Continuing without agent execution.")
+    
+    # Initialize AAM Auto-Onboarding Services
+    if redis_conn:
+        try:
+            from aam_hybrid.core.funnel_metrics import FunnelMetricsTracker
+            from aam_hybrid.core.onboarding_service import OnboardingService
+            import app.api.v1.aam_onboarding as onboarding_module
+            
+            # Create funnel metrics tracker
+            funnel_tracker = FunnelMetricsTracker(redis_conn)
+            onboarding_module.funnel_tracker = funnel_tracker
+            
+            # Create onboarding service
+            onboarding_service = OnboardingService(funnel_tracker)
+            onboarding_module.onboarding_service = onboarding_service
+            
+            logger.info("✅ AAM Auto-Onboarding services initialized (Safe Mode enabled, 90% SLO target)")
+        except Exception as e:
+            logger.warning(f"⚠️ AAM Auto-Onboarding initialization failed: {e}. Auto-onboarding disabled.")
+    else:
+        logger.warning("⚠️ Redis not available - AAM Auto-Onboarding disabled")
 
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
@@ -169,6 +190,7 @@ app.include_router(nlp_simple.router, tags=["NLP Gateway"])
 app.include_router(aoa.router, prefix="/api/v1/aoa", tags=["AOA Orchestration"])
 app.include_router(aam_monitoring.router, prefix="/api/v1/aam", tags=["AAM Monitoring"])
 app.include_router(aam_connections.router, prefix="/api/v1/aam", tags=["AAM Connections"])
+app.include_router(aam_onboarding.router, prefix="/api/v1/aam", tags=["AAM Auto-Onboarding"])
 app.include_router(aam_mesh.router, prefix="/api/v1/mesh", tags=["AAM Mesh"])
 app.include_router(mesh_test.router, prefix="/api/v1", tags=["Mesh Test (Dev-Only)"])
 app.include_router(filesource.router, prefix="/api/v1/filesource", tags=["FileSource Connector"])

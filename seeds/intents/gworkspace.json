@@ -1,0 +1,18 @@
+{
+  "source_type": "gworkspace_drive",
+  "resource_ids": ["domain_company.com"],
+  "scopes_mode": "safe_readonly",
+  "credential_locator": "consent:gworkspace-admin-flow",
+  "namespace": "autonomy",
+  "risk_level": "low",
+  "evidence": {
+    "status": "Sanctioned",
+    "source": "IdP",
+    "ts": "2025-11-08T16:45:00Z"
+  },
+  "owner": {
+    "user": "workspace-admin@company.com",
+    "confidence": 0.92,
+    "why": "idp_owner"
+  }
+}

@@ -1,7 +1,26 @@
+"""
+AutonomOS Schemas
+
+Consolidated schemas for:
+- Core platform (Tenant, User, Task, Token, Auth)
+- AAM Auto-Onboarding (ConnectionIntent, FunnelMetrics)
+"""
+
 from datetime import datetime
 from typing import Any, Optional
 from uuid import UUID
 from pydantic import BaseModel, EmailStr
+
+from app.schemas.connection_intent import (
+    ConnectionIntent,
+    ConnectionEvidence,
+    ConnectionOwner,
+    OnboardingResult,
+    FunnelMetrics,
+    OnboardBatchRequest,
+    OnboardBatchResult
+)
+
 
 class TenantBase(BaseModel):
     name: str
@@ -23,7 +42,7 @@ class UserCreate(UserBase):
     password: str
 
 class UserRegister(BaseModel):
-    name: str  # Organization/tenant name
+    name: str
     email: EmailStr
     password: str
 
@@ -73,3 +92,28 @@ class Task(TaskBase):
 
 class ProdModeRequest(BaseModel):
     enabled: bool
+
+
+__all__ = [
+    'TenantBase',
+    'TenantCreate',
+    'Tenant',
+    'UserBase',
+    'UserCreate',
+    'UserRegister',
+    'User',
+    'LoginRequest',
+    'Token',
+    'TokenData',
+    'TaskBase',
+    'TaskCreate',
+    'Task',
+    'ProdModeRequest',
+    'ConnectionIntent',
+    'ConnectionEvidence',
+    'ConnectionOwner',
+    'OnboardingResult',
+    'FunnelMetrics',
+    'OnboardBatchRequest',
+    'OnboardBatchResult'
+]

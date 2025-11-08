@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from enum import Enum
 from typing import Optional
-from sqlalchemy import Column, String, DateTime, Integer, Enum as SQLEnum, ForeignKey, JSON
+from sqlalchemy import Column, String, DateTime, Integer, Float, Enum as SQLEnum, ForeignKey, JSON
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import declarative_base, relationship
 from pydantic import BaseModel, Field
@@ -39,6 +39,15 @@ class Connection(Base):
     - last_health_check: Timestamp of most recent health check
     - schema_fingerprint: Hash for drift detection
     - normalized_output_path: Redis Stream or file path for DCL consumption
+    
+    Auto-Onboarding Enhancements (Nov 2025):
+    - namespace: Scope connections to 'autonomy' (auto-onboarded) or 'demo' (manual)
+    - first_sync_rows: Row count from initial tiny sync (≤20 items)
+    - latency_ms: Response time for first sync in milliseconds
+    - credential_locator: Reference to credential source (vault:/env:/consent:/sp:)
+    - risk_level: Risk assessment from AOD (low/med/high)
+    - evidence: Sanctioning evidence (status, source, timestamp)
+    - owner: Ownership metadata (user, confidence, why)
     """
     __tablename__ = "connections"
     
@@ -55,6 +64,14 @@ class Connection(Base):
     last_health_check = Column(DateTime, nullable=True)
     schema_fingerprint = Column(String, nullable=True)
     normalized_output_path = Column(String, nullable=True)
+    
+    namespace = Column(String, nullable=False, default='demo')
+    first_sync_rows = Column(Integer, nullable=True)
+    latency_ms = Column(Float, nullable=True)
+    credential_locator = Column(String, nullable=True)
+    risk_level = Column(String, nullable=True)
+    evidence = Column(JSON, nullable=True)
+    owner = Column(JSON, nullable=True)
     
     catalog_versions = relationship("SyncCatalogVersion", back_populates="connection", cascade="all, delete-orphan")
     job_history = relationship("JobHistory", back_populates="connection", cascade="all, delete-orphan")

@@ -1,0 +1,18 @@
+{
+  "source_type": "supabase",
+  "resource_ids": ["project_abcdefghijklmnop"],
+  "scopes_mode": "safe_readonly",
+  "credential_locator": "env:SUPABASE_SERVICE_KEY",
+  "namespace": "demo",
+  "risk_level": "low",
+  "evidence": {
+    "status": "Sanctioned",
+    "source": "CMDB",
+    "ts": "2025-11-08T14:00:00Z"
+  },
+  "owner": {
+    "user": "devops@company.com",
+    "confidence": 0.78,
+    "why": "usage"
+  }
+}
