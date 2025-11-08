@@ -43,18 +43,18 @@ class TestAAMOnboarding:
     
     def test_allowlist_validation_blocks_unsupported_type(self):
         """Test that unsupported source types are rejected"""
-        from aam_hybrid.core.onboarding_service import OnboardingService
+        from aam_hybrid.core import onboarding_service
         
-        # Create mock service
-        service = OnboardingService(funnel_tracker=None)
+        # Access module-level ALLOWLIST constant
+        ALLOWLIST = onboarding_service.ALLOWLIST
         
         # Validate that "custom_unknown_source" is not in allowlist
-        assert "custom_unknown_source" not in service.ALLOWLIST
+        assert "custom_unknown_source" not in ALLOWLIST
         
         # Validate that known sources ARE in allowlist
-        assert "salesforce" in service.ALLOWLIST
-        assert "slack" in service.ALLOWLIST
-        assert "snowflake" in service.ALLOWLIST
+        assert "salesforce" in ALLOWLIST
+        assert "slack" in ALLOWLIST
+        assert "snowflake" in ALLOWLIST
     
     def test_safe_mode_enforces_readonly_scopes(self):
         """Test that Safe Mode requires read-only scopes"""
