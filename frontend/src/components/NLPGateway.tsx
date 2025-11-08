@@ -42,7 +42,7 @@ export default function NLPGateway() {
       const token = localStorage.getItem('token');
       const service = services.find(s => s.id === selectedService);
       
-      let endpoint = `http://localhost:8001${service?.endpoint}`;
+      let endpoint = `/nlp${service?.endpoint}`;
       let payload: any = {
         tenant_id: 'demo-tenant',
         env: 'prod',
@@ -220,7 +220,7 @@ export default function NLPGateway() {
         </div>
 
         <div className="text-xs text-gray-500 text-center">
-          Port: 8001 | Tenant: demo-tenant | Env: prod | Auth: JWT
+          Tenant: demo-tenant | Env: prod | Auth: JWT
         </div>
       </div>
     </div>

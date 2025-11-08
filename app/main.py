@@ -31,6 +31,7 @@ from app.security import (
     ACCESS_TOKEN_EXPIRE_MINUTES
 )
 from app.api.v1 import auth, aoa, aam_monitoring, aam_mesh, aam_connections, platform_stubs, filesource, dcl_views, debug, mesh_test, events, dcl_unify, aod_mock
+from app import nlp_simple
 
 # Initialize database tables - with error handling for resilience
 try:
@@ -164,6 +165,7 @@ async def startup_event():
 
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
+app.include_router(nlp_simple.router, tags=["NLP Gateway"])
 app.include_router(aoa.router, prefix="/api/v1/aoa", tags=["AOA Orchestration"])
 app.include_router(aam_monitoring.router, prefix="/api/v1/aam", tags=["AAM Monitoring"])
 app.include_router(aam_connections.router, prefix="/api/v1/aam", tags=["AAM Connections"])
