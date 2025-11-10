@@ -1,6 +1,6 @@
 # Install CPU-only PyTorch FIRST to avoid CUDA dependencies (saves 4-5GB)
 # This must be installed before sentence-transformers
 --extra-index-url https://download.pytorch.org/whl/cpu
-torch==2.9.0+cpu
+torch==2.5.0+cpu
 torchvision==0.20.0+cpu
-torchaudio==2.9.0+cpu
+torchaudio==2.5.0+cpu

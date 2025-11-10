@@ -54,6 +54,10 @@ externalPort = 3003
 localPort = 45227
 externalPort = 3002
 
+[[ports]]
+localPort = 45827
+externalPort = 4200
+
 [deployment]
 run = ["bash", "start.sh"]
 deploymentTarget = "vm"
