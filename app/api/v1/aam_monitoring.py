@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 import os
 from app.models import DriftEvent as SyncDriftEvent
+from app.database import get_async_db
 
 logger = logging.getLogger(__name__)
 
@@ -473,7 +474,7 @@ async def get_aam_connections():
 
 
 @router.get("/intelligence/mappings")
-async def get_mapping_status(request: Request, db: Session = Depends(lambda: next(__import__('app.database').database.get_db()))):
+async def get_mapping_status(request: Request, db: AsyncSession = Depends(get_async_db)):
     """
     Get mapping registry status scoped to tenant
     Returns statistics about field mappings and autofix/human-in-loop breakdown
@@ -483,23 +484,27 @@ async def get_mapping_status(request: Request, db: Session = Depends(lambda: nex
     try:
         tenant_id = getattr(request.state, "tenant_id", None)
         if not tenant_id:
-            # No tenant context - return empty
             return {"total": 0, "last_update": None, "autofix_pct": 0.0, "hitl_pct": 0.0}
         
-        # Query MappingRegistry scoped by tenant_id
-        mappings = db.query(MappingRegistry).filter(MappingRegistry.tenant_id == tenant_id).all()
+        result = await db.execute(
+            select(
+                func.count(MappingRegistry.id).label("total"),
+                func.max(MappingRegistry.created_at).label("last_update"),
+                func.sum(case((MappingRegistry.confidence >= 0.85, 1), else_=0)).label("autofix_count")
+            ).where(MappingRegistry.tenant_id == tenant_id)
+        )
+        row = result.one()
         
-        if not mappings:
-            # Fallback to mock for demo
+        total = row.total or 0
+        if total == 0:
             return {"total": 150, "last_update": datetime.utcnow().isoformat(), "autofix_pct": 80.0, "hitl_pct": 20.0}
         
-        total = len(mappings)
-        last_update = max(m.created_at for m in mappings)
-        autofix_count = sum(1 for m in mappings if m.confidence >= 0.85)
+        autofix_count = row.autofix_count or 0
+        last_update = row.last_update
         
         return {
             "total": total,
-            "last_update": last_update.isoformat(),
+            "last_update": last_update.isoformat() if last_update else None,
             "autofix_pct": round(autofix_count / total * 100, 1) if total > 0 else 0,
             "hitl_pct": round((total - autofix_count) / total * 100, 1) if total > 0 else 0
         }
@@ -509,29 +514,33 @@ async def get_mapping_status(request: Request, db: Session = Depends(lambda: nex
 
 
 @router.get("/intelligence/drift_events_24h")
-async def get_drift_events(request: Request, db: Session = Depends(lambda: next(__import__('app.database').database.get_db()))):
+async def get_drift_events(request: Request, db: AsyncSession = Depends(get_async_db)):
     """
     Get drift events from last 24 hours scoped to tenant
     Returns drift detection statistics grouped by source
     """
     from app.models import DriftEvent
+    from sqlalchemy import text
     
     try:
         tenant_id = getattr(request.state, "tenant_id", None)
         if not tenant_id:
-            # No tenant context - return empty
             return {"total": 0, "by_source": {}}
         
         last_24h = datetime.utcnow() - timedelta(hours=24)
         
-        # Query DriftEvent scoped by tenant_id
-        events = db.query(DriftEvent).filter(
-            DriftEvent.tenant_id == tenant_id,
-            DriftEvent.created_at >= last_24h
-        ).all()
+        total_result = await db.execute(
+            select(func.count(DriftEvent.id))
+            .where(
+                and_(
+                    DriftEvent.tenant_id == tenant_id,
+                    DriftEvent.created_at >= last_24h
+                )
+            )
+        )
+        total = total_result.scalar() or 0
         
-        if not events:
-            # Fallback to mock for demo
+        if total == 0:
             return {
                 "total": 5,
                 "by_source": {
@@ -541,13 +550,24 @@ async def get_drift_events(request: Request, db: Session = Depends(lambda: next(
                 }
             }
         
-        by_source = {}
-        for event in events:
-            source = event.old_schema.get("source_type", "unknown") if event.old_schema else "unknown"
-            by_source[source] = by_source.get(source, 0) + 1
+        group_result = await db.execute(
+            select(
+                func.coalesce(DriftEvent.old_schema['source_type'].astext, 'unknown').label('source_type'),
+                func.count(DriftEvent.id).label('count')
+            )
+            .where(
+                and_(
+                    DriftEvent.tenant_id == tenant_id,
+                    DriftEvent.created_at >= last_24h
+                )
+            )
+            .group_by(text('1'))
+        )
+        
+        by_source = {row.source_type: row.count for row in group_result}
         
         return {
-            "total": len(events),
+            "total": total,
             "by_source": by_source
         }
     except Exception as e:
@@ -556,7 +576,7 @@ async def get_drift_events(request: Request, db: Session = Depends(lambda: next(
 
 
 @router.get("/intelligence/rag_queue")
-async def get_rag_queue(request: Request, db: Session = Depends(lambda: next(__import__('app.database').database.get_db()))):
+async def get_rag_queue(request: Request, db: AsyncSession = Depends(get_async_db)):
     """
     Get RAG suggestion queue status scoped to tenant
     Returns pending, accepted, and rejected suggestion counts
@@ -566,25 +586,22 @@ async def get_rag_queue(request: Request, db: Session = Depends(lambda: next(__i
     try:
         tenant_id = getattr(request.state, "tenant_id", None)
         if not tenant_id:
-            # No tenant context - return empty
             return {"pending": 0, "accepted": 0, "rejected": 0}
         
-        # Query DriftEvent scoped by tenant_id
-        pending = db.query(DriftEvent).filter(
-            DriftEvent.tenant_id == tenant_id,
-            DriftEvent.status == "detected"
-        ).count()
-        accepted = db.query(DriftEvent).filter(
-            DriftEvent.tenant_id == tenant_id,
-            DriftEvent.status == "auto_repaired"
-        ).count()
-        rejected = db.query(DriftEvent).filter(
-            DriftEvent.tenant_id == tenant_id,
-            DriftEvent.status == "requires_approval"
-        ).count()
+        result = await db.execute(
+            select(
+                func.sum(case((DriftEvent.status == "detected", 1), else_=0)).label("pending"),
+                func.sum(case((DriftEvent.status == "auto_repaired", 1), else_=0)).label("accepted"),
+                func.sum(case((DriftEvent.status == "requires_approval", 1), else_=0)).label("rejected")
+            ).where(DriftEvent.tenant_id == tenant_id)
+        )
+        row = result.one()
+        
+        pending = row.pending or 0
+        accepted = row.accepted or 0
+        rejected = row.rejected or 0
         
         if pending == 0 and accepted == 0 and rejected == 0:
-            # Fallback to mock for demo
             return {
                 "pending": 3,
                 "accepted": 45,
@@ -602,7 +619,7 @@ async def get_rag_queue(request: Request, db: Session = Depends(lambda: next(__i
 
 
 @router.get("/intelligence/repair_metrics")
-async def get_repair_metrics(request: Request, db: Session = Depends(lambda: next(__import__('app.database').database.get_db()))):
+async def get_repair_metrics(request: Request, db: AsyncSession = Depends(get_async_db)):
     """
     Get drift repair performance metrics scoped to tenant
     Returns average confidence and test pass rate
@@ -612,30 +629,36 @@ async def get_repair_metrics(request: Request, db: Session = Depends(lambda: nex
     try:
         tenant_id = getattr(request.state, "tenant_id", None)
         if not tenant_id:
-            # No tenant context - return empty
             return {"avg_confidence": 0.0, "test_pass_rate": 0.0}
         
-        # Query DriftEvent scoped by tenant_id
-        events_with_confidence = db.query(DriftEvent).filter(
-            DriftEvent.tenant_id == tenant_id,
-            DriftEvent.confidence.isnot(None)
-        ).all()
+        result = await db.execute(
+            select(
+                func.avg(DriftEvent.confidence).label("avg_confidence"),
+                func.count(DriftEvent.id).label("total_repairs"),
+                func.sum(case((DriftEvent.status == "auto_repaired", 1), else_=0)).label("passed_repairs")
+            ).where(
+                and_(
+                    DriftEvent.tenant_id == tenant_id,
+                    DriftEvent.confidence.isnot(None)
+                )
+            )
+        )
+        row = result.one()
         
-        if not events_with_confidence:
-            # Fallback to mock for demo
+        avg_confidence = row.avg_confidence or 0.0
+        total_repairs = row.total_repairs or 0
+        passed_repairs = row.passed_repairs or 0
+        
+        if total_repairs == 0:
             return {
                 "avg_confidence": 0.89,
                 "test_pass_rate": 94.5
             }
         
-        avg_confidence = sum(e.confidence for e in events_with_confidence) / len(events_with_confidence)
-        
-        total_repairs = len(events_with_confidence)
-        passed_repairs = sum(1 for e in events_with_confidence if e.status == "auto_repaired")
         test_pass_rate = (passed_repairs / total_repairs * 100) if total_repairs > 0 else 0
         
         return {
-            "avg_confidence": round(avg_confidence, 2),
+            "avg_confidence": round(float(avg_confidence), 2),
             "test_pass_rate": round(test_pass_rate, 1)
         }
     except Exception as e:
