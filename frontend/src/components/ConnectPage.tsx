@@ -139,7 +139,6 @@ export default function ConnectPage() {
 
   const [connectorDetails, setConnectorDetails] = useState<ConnectorDetails[]>([]);
   const [detailsLoading, setDetailsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'details'>('overview');
   const [expandedConnector, setExpandedConnector] = useState<string | null>(null);
 
   const [showRegisterModal, setShowRegisterModal] = useState(false);
@@ -369,7 +368,8 @@ export default function ConnectPage() {
       fetchAAMMetrics(),
       fetchAAMConnections(),
       fetchIntelligenceData(),
-      fetchDataQuality()
+      fetchDataQuality(),
+      fetchConnectorDetails()
     ]);
     setLoading(false);
   };
@@ -377,12 +377,6 @@ export default function ConnectPage() {
   useEffect(() => {
     fetchAllData();
   }, []);
-
-  useEffect(() => {
-    if (activeTab === 'details' && connectorDetails.length === 0 && !detailsLoading) {
-      fetchConnectorDetails();
-    }
-  }, [activeTab, connectorDetails.length, detailsLoading]);
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -510,32 +504,213 @@ export default function ConnectPage() {
           </div>
         </div>
 
-        <div className="flex gap-2 border-b border-gray-800">
-          <button
-            onClick={() => setActiveTab('overview')}
-            className={`px-4 py-2 text-sm font-medium transition-colors ${
-              activeTab === 'overview'
-                ? 'text-white border-b-2 border-blue-500'
-                : 'text-gray-500 hover:text-gray-300'
-            }`}
-          >
-            Overview
-          </button>
-          <button
-            onClick={() => setActiveTab('details')}
-            className={`px-4 py-2 text-sm font-medium transition-colors ${
-              activeTab === 'details'
-                ? 'text-white border-b-2 border-blue-500'
-                : 'text-gray-500 hover:text-gray-300'
-            }`}
-          >
-            Connector Details
-          </button>
+        {/* Connector Details - Moved to Top */}
+        <div className="bg-gray-900 rounded-xl border border-gray-800">
+          <div className="p-6 border-b border-gray-800">
+            <div className="flex items-center gap-2">
+              <GitMerge className="w-5 h-5 text-purple-400" />
+              <h3 className="text-lg font-semibold text-white">Connector Details</h3>
+            </div>
+            <p className="text-sm text-gray-400 mt-1">
+              Field mappings, drift events, and repair history per connector
+            </p>
+          </div>
+
+          {detailsLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Activity className="w-8 h-8 text-blue-400 animate-spin" />
+            </div>
+          ) : connectorDetails.length === 0 ? (
+            <div className="text-center py-12">
+              <Database className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+              <p className="text-gray-500">No connector details available</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-800/50 border-b border-gray-700">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                      Connector
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                      Mappings
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                      High Confidence
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-800">
+                  {connectorDetails.map((connector) => {
+                    const isExpanded = expandedConnector === connector.vendor;
+                    
+                    return (
+                      <>
+                        <tr key={connector.vendor} className="hover:bg-gray-800/30 transition-colors">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-white">{connector.vendor}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {getStatusBadge(connector.status)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-white">{connector.total_mappings}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-white">
+                              {connector.high_confidence_mappings} / {connector.total_mappings}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <button
+                              onClick={() => toggleConnectorExpansion(connector.vendor)}
+                              className="flex items-center gap-2 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors text-sm"
+                            >
+                              {isExpanded ? (
+                                <>
+                                  <ChevronDown className="w-4 h-4" />
+                                  Hide Details
+                                </>
+                              ) : (
+                                <>
+                                  <ChevronRight className="w-4 h-4" />
+                                  Show Details
+                                </>
+                              )}
+                            </button>
+                          </td>
+                        </tr>
+                        
+                        {isExpanded && (
+                          <tr>
+                            <td colSpan={5} className="px-6 py-4 bg-gray-950/50">
+                              <div className="space-y-6">
+                                {connector.field_mappings && connector.field_mappings.length > 0 && (
+                                  <div>
+                                    <h4 className="text-sm font-medium text-gray-400 mb-3 flex items-center gap-2">
+                                      <GitMerge className="w-4 h-4" />
+                                      Field Mappings ({connector.field_mappings.length})
+                                    </h4>
+                                    <div className="space-y-2">
+                                      {connector.field_mappings.map((mapping, idx) => (
+                                        <div
+                                          key={idx}
+                                          className="flex items-center gap-3 p-3 bg-gray-800/50 border border-gray-700 rounded-lg hover:bg-gray-700/30 transition-colors"
+                                        >
+                                          <code className="px-3 py-1.5 bg-gray-800 border border-gray-600 rounded text-sm text-gray-300 font-mono">
+                                            {mapping.source_field}
+                                          </code>
+                                          <span className="text-gray-500 font-bold">→</span>
+                                          <code className="px-3 py-1.5 bg-blue-900/30 border border-blue-500/30 rounded text-sm text-blue-400 font-mono">
+                                            {mapping.canonical_field}
+                                          </code>
+                                          <div className="ml-auto flex items-center gap-2">
+                                            {getConfidenceBadge(mapping.confidence)}
+                                            {mapping.version && (
+                                              <span className="text-xs text-gray-500">v{mapping.version}</span>
+                                            )}
+                                          </div>
+                                          {mapping.transform && mapping.transform !== 'direct' && (
+                                            <span className="px-2 py-1 bg-yellow-900/20 border border-yellow-500/20 rounded text-xs text-yellow-400">
+                                              {mapping.transform}
+                                            </span>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {connector.recent_drift_events && connector.recent_drift_events.length > 0 && (
+                                  <div>
+                                    <h4 className="text-sm font-medium text-gray-400 mb-3 flex items-center gap-2">
+                                      <AlertTriangle className="w-4 h-4" />
+                                      Recent Drift Events ({connector.recent_drift_events.length})
+                                    </h4>
+                                    <div className="space-y-2">
+                                      {connector.recent_drift_events.map((event, idx) => (
+                                        <div
+                                          key={idx}
+                                          className="flex items-center gap-3 p-3 bg-gray-800/50 border border-gray-700 rounded-lg"
+                                        >
+                                          <div className="flex-1">
+                                            <div className="flex items-center gap-2 mb-1">
+                                              <span className="text-sm text-white font-medium">{event.event_type}</span>
+                                              {getStatusBadge(event.status)}
+                                            </div>
+                                            <div className="text-xs text-gray-500">
+                                              Detected: {formatTimestamp(event.detected_at)}
+                                            </div>
+                                          </div>
+                                          {getConfidenceBadge(event.confidence)}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {connector.repair_history && connector.repair_history.length > 0 && (
+                                  <div>
+                                    <h4 className="text-sm font-medium text-gray-400 mb-3 flex items-center gap-2">
+                                      <Wrench className="w-4 h-4" />
+                                      Repair History ({connector.repair_history.length})
+                                    </h4>
+                                    <div className="space-y-2">
+                                      {connector.repair_history.map((repair, idx) => (
+                                        <div
+                                          key={idx}
+                                          className="flex items-center gap-3 p-3 bg-gray-800/50 border border-gray-700 rounded-lg"
+                                        >
+                                          <div className="flex-1">
+                                            <div className="flex items-center gap-2 mb-1">
+                                              <span className="text-sm text-white font-medium">{repair.change_type}</span>
+                                              <CheckCircle className="w-4 h-4 text-green-400" />
+                                            </div>
+                                            <div className="text-xs text-gray-500">
+                                              Applied: {formatTimestamp(repair.applied_at)}
+                                            </div>
+                                          </div>
+                                          {repair.details && (
+                                            <code className="px-2 py-1 bg-gray-900/50 border border-gray-600 rounded text-xs text-gray-400">
+                                              {JSON.stringify(repair.details).substring(0, 50)}...
+                                            </code>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {(!connector.field_mappings || connector.field_mappings.length === 0) &&
+                                 (!connector.recent_drift_events || connector.recent_drift_events.length === 0) &&
+                                 (!connector.repair_history || connector.repair_history.length === 0) && (
+                                  <div className="text-center py-8 text-gray-500">
+                                    <Database className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+                                    <p className="text-sm">No detailed information available for this connector</p>
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
-        {activeTab === 'overview' && (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Intelligence Metrics */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
@@ -833,214 +1008,6 @@ export default function ConnectPage() {
                 )}
               </div>
             </div>
-          </>
-        )}
-
-        {activeTab === 'details' && (
-          <div className="bg-gray-900 rounded-xl border border-gray-800">
-            <div className="p-6 border-b border-gray-800">
-              <div className="flex items-center gap-2">
-                <GitMerge className="w-5 h-5 text-purple-400" />
-                <h3 className="text-lg font-semibold text-white">Connector Details</h3>
-              </div>
-              <p className="text-sm text-gray-400 mt-1">
-                Field mappings, drift events, and repair history per connector
-              </p>
-            </div>
-
-            {detailsLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Activity className="w-8 h-8 text-blue-400 animate-spin" />
-              </div>
-            ) : connectorDetails.length === 0 ? (
-              <div className="text-center py-12">
-                <Database className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-                <p className="text-gray-500">No connector details available</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-800/50 border-b border-gray-700">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                        Connector
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                        Mappings
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                        High Confidence
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-800">
-                    {connectorDetails.map((connector) => {
-                      const isExpanded = expandedConnector === connector.vendor;
-                      
-                      return (
-                        <>
-                          <tr key={connector.vendor} className="hover:bg-gray-800/30 transition-colors">
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm font-medium text-white">{connector.vendor}</div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              {getStatusBadge(connector.status)}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-white">{connector.total_mappings}</div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-white">
-                                {connector.high_confidence_mappings} / {connector.total_mappings}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <button
-                                onClick={() => toggleConnectorExpansion(connector.vendor)}
-                                className="flex items-center gap-2 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors text-sm"
-                              >
-                                {isExpanded ? (
-                                  <>
-                                    <ChevronDown className="w-4 h-4" />
-                                    Hide Details
-                                  </>
-                                ) : (
-                                  <>
-                                    <ChevronRight className="w-4 h-4" />
-                                    Show Details
-                                  </>
-                                )}
-                              </button>
-                            </td>
-                          </tr>
-                          
-                          {isExpanded && (
-                            <tr>
-                              <td colSpan={5} className="px-6 py-4 bg-gray-950/50">
-                                <div className="space-y-6">
-                                  {connector.field_mappings && connector.field_mappings.length > 0 && (
-                                    <div>
-                                      <h4 className="text-sm font-medium text-gray-400 mb-3 flex items-center gap-2">
-                                        <GitMerge className="w-4 h-4" />
-                                        Field Mappings ({connector.field_mappings.length})
-                                      </h4>
-                                      <div className="space-y-2">
-                                        {connector.field_mappings.map((mapping, idx) => (
-                                          <div
-                                            key={idx}
-                                            className="flex items-center gap-3 p-3 bg-gray-800/50 border border-gray-700 rounded-lg hover:bg-gray-700/30 transition-colors"
-                                          >
-                                            <code className="px-3 py-1.5 bg-gray-800 border border-gray-600 rounded text-sm text-gray-300 font-mono">
-                                              {mapping.source_field}
-                                            </code>
-                                            <span className="text-gray-500 font-bold">→</span>
-                                            <code className="px-3 py-1.5 bg-blue-900/30 border border-blue-500/30 rounded text-sm text-blue-400 font-mono">
-                                              {mapping.canonical_field}
-                                            </code>
-                                            <div className="ml-auto flex items-center gap-2">
-                                              {getConfidenceBadge(mapping.confidence)}
-                                              {mapping.version && (
-                                                <span className="text-xs text-gray-500">v{mapping.version}</span>
-                                              )}
-                                            </div>
-                                            {mapping.transform && mapping.transform !== 'direct' && (
-                                              <span className="px-2 py-1 bg-yellow-900/20 border border-yellow-500/20 rounded text-xs text-yellow-400">
-                                                {mapping.transform}
-                                              </span>
-                                            )}
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  )}
-
-                                  {connector.recent_drift_events && connector.recent_drift_events.length > 0 && (
-                                    <div>
-                                      <h4 className="text-sm font-medium text-gray-400 mb-3 flex items-center gap-2">
-                                        <AlertTriangle className="w-4 h-4" />
-                                        Recent Drift Events ({connector.recent_drift_events.length})
-                                      </h4>
-                                      <div className="space-y-2">
-                                        {connector.recent_drift_events.map((event, idx) => (
-                                          <div
-                                            key={idx}
-                                            className="flex items-center gap-3 p-3 bg-gray-800/50 border border-gray-700 rounded-lg"
-                                          >
-                                            <div className="flex-1">
-                                              <div className="flex items-center gap-2 mb-1">
-                                                <span className="text-sm text-white font-medium">{event.event_type}</span>
-                                                {getStatusBadge(event.status)}
-                                              </div>
-                                              <div className="text-xs text-gray-500">
-                                                Detected: {formatTimestamp(event.detected_at)}
-                                              </div>
-                                            </div>
-                                            {getConfidenceBadge(event.confidence)}
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  )}
-
-                                  {connector.repair_history && connector.repair_history.length > 0 && (
-                                    <div>
-                                      <h4 className="text-sm font-medium text-gray-400 mb-3 flex items-center gap-2">
-                                        <Wrench className="w-4 h-4" />
-                                        Repair History ({connector.repair_history.length})
-                                      </h4>
-                                      <div className="space-y-2">
-                                        {connector.repair_history.map((repair, idx) => (
-                                          <div
-                                            key={idx}
-                                            className="flex items-center gap-3 p-3 bg-gray-800/50 border border-gray-700 rounded-lg"
-                                          >
-                                            <div className="flex-1">
-                                              <div className="flex items-center gap-2 mb-1">
-                                                <span className="text-sm text-white font-medium">{repair.change_type}</span>
-                                                <CheckCircle className="w-4 h-4 text-green-400" />
-                                              </div>
-                                              <div className="text-xs text-gray-500">
-                                                Applied: {formatTimestamp(repair.applied_at)}
-                                              </div>
-                                            </div>
-                                            {repair.details && (
-                                              <code className="px-2 py-1 bg-gray-900/50 border border-gray-600 rounded text-xs text-gray-400">
-                                                {JSON.stringify(repair.details).substring(0, 50)}...
-                                              </code>
-                                            )}
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  )}
-
-                                  {(!connector.field_mappings || connector.field_mappings.length === 0) &&
-                                   (!connector.recent_drift_events || connector.recent_drift_events.length === 0) &&
-                                   (!connector.repair_history || connector.repair_history.length === 0) && (
-                                    <div className="text-center py-8 text-gray-500">
-                                      <Database className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-                                      <p className="text-sm">No detailed information available for this connector</p>
-                                    </div>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
-                          )}
-                        </>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Archived: Live Flow Monitor */}
