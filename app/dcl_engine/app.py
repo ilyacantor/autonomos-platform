@@ -442,20 +442,6 @@ async def llm_propose(
     
     llm_start = time.time()
     
-    # PERFORMANCE FIX: Skip RAG retrieval entirely in production mode (dev_mode=False)
-    # Production mode uses fast heuristics only, no need for expensive RAG/LLM calls
-    current_dev_mode = get_dev_mode()
-    if not current_dev_mode:
-        log(f"⚡ Prod Mode: Skipping RAG + LLM, using fast heuristics for {source_key}")
-        await ws_manager.broadcast({
-            "type": "mapping_progress",
-            "source": source_key,
-            "stage": "fast_heuristics",
-            "message": f"⚡ Using fast heuristic mapping (production mode)",
-            "timestamp": time.time()
-        })
-        return (None, False)  # (plan, skip_semantic_validation)
-    
     # Initialize RAG engine if not already initialized (for worker processes)
     if rag_engine is None and os.getenv("PINECONE_API_KEY"):
         try:
@@ -465,7 +451,7 @@ async def llm_propose(
         except Exception as e:
             log(f"⚠️ RAG Engine initialization failed in worker: {e}")
     
-    # STREAMING EVENT: RAG retrieval starting (DEV MODE ONLY)
+    # STREAMING EVENT: RAG retrieval starting
     await ws_manager.broadcast({
         "type": "mapping_progress",
         "source": source_key,
@@ -474,7 +460,7 @@ async def llm_propose(
         "timestamp": time.time()
     })
     
-    # Build RAG context if available (PARALLELIZED) - DEV MODE ONLY
+    # Build RAG context if available (PARALLELIZED) - WORKS IN BOTH DEV AND PROD MODES
     rag_context = ""
     rag_task_start = time.time()
     
@@ -558,7 +544,14 @@ async def llm_propose(
         except Exception as e:
             log(f"⚠️ RAG retrieval failed: {e}")
     
-    # INTELLIGENT LLM DECISION: Check RAG coverage before calling LLM (DEV MODE ONLY)
+    # Skip LLM calls if dev mode is disabled (check Redis for cross-process state)
+    # RAG retrieval still happened above for both modes
+    current_dev_mode = get_dev_mode()
+    if not current_dev_mode:
+        log(f"⚡ Prod Mode: RAG retrieval complete, skipping LLM - falling back to heuristics for {source_key}")
+        return (None, False)  # (plan, skip_semantic_validation)
+    
+    # INTELLIGENT LLM DECISION: Check RAG coverage before calling LLM
     # Calculate how many source fields have high-confidence RAG matches
     if rag_engine and all_similar:
         total_fields = sum(len(table_info.get('schema', {})) for table_info in tables.values())
