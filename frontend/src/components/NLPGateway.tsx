@@ -23,10 +23,10 @@ export default function NLPGateway() {
   ];
 
   const prompts = [
-    'Show me the FinOps summary for this month',
-    'How does the AAM connector system work?',
-    'What are the current drifted connectors?',
-    'Show me dependencies for checkout-service',
+    { text: 'Show me the FinOps summary for this month', service: 'finops' },
+    { text: 'How does the AAM connector system work?', service: 'kb' },
+    { text: 'What are the current drifted connectors?', service: 'aam' },
+    { text: 'Show me dependencies for checkout-service', service: 'aod' },
   ];
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -130,8 +130,9 @@ export default function NLPGateway() {
     }
   };
 
-  const handlePromptClick = (prompt: string) => {
-    setInput(prompt);
+  const handlePromptClick = (promptText: string, service: string) => {
+    setSelectedService(service);
+    setInput(promptText);
   };
 
   return (
@@ -199,10 +200,10 @@ export default function NLPGateway() {
                   {prompts.map((prompt, i) => (
                     <button
                       key={i}
-                      onClick={() => handlePromptClick(prompt)}
+                      onClick={() => handlePromptClick(prompt.text, prompt.service)}
                       className="p-2 bg-gray-800 hover:bg-gray-700 rounded text-left text-xs text-gray-300 transition-colors border border-gray-700"
                     >
-                      {prompt}
+                      {prompt.text}
                     </button>
                   ))}
                 </div>
