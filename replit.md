@@ -47,3 +47,10 @@ The platform employs a "Strangler Fig" pattern with feature flags for zero downt
 *   **Slack Incoming Webhooks:** For notifications.
 *   **AOS Discover (AOD):** External microservice for asset discovery.
 *   **pgvector:** PostgreSQL extension for vector embeddings.
+
+## Deployment Optimizations
+*   **Build Optimization:** Vite configured with code splitting (react-vendor, d3-vendor), CSS splitting, and esbuild minification
+*   **Static Assets:** Automated cleanup via `emptyOutDir: true`, reduced from 35MB to 1.6MB
+*   **.dockerignore:** Comprehensive exclusion list (node_modules, tests, docs, dev files) to minimize deployment image size
+*   **Dependencies:** Production-only requirements.txt (removed duplicates and test dependencies)
+*   **Build Script:** Uses `npm ci` for faster, reproducible builds
