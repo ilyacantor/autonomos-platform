@@ -480,7 +480,10 @@ export default function DCLGraphContainer() {
                     <select
                       onChange={(e) => {
                         if (e.target.value === 'select') {
-                          window.dispatchEvent(new CustomEvent('navigate', { detail: { page: 'connections' } }));
+                          const dataSourcesSection = document.getElementById('data-sources-section');
+                          if (dataSourcesSection) {
+                            dataSourcesSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                          }
                         } else if (e.target.value === 'all') {
                           selectAllSources();
                         }
