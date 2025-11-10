@@ -3,7 +3,7 @@ Simple NLP Gateway endpoints integrated into main AutonomOS API.
 Provides natural language interface without requiring a separate service.
 """
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime
 import uuid
@@ -34,8 +34,8 @@ class KBSearchResponse(BaseModel):
 class FinOpsRequest(BaseModel):
     tenant_id: str = "demo-tenant"
     env: str = "prod"
-    from_date: str = "from"
-    to_date: str = "to"
+    from_: str = Field(alias="from", default="2025-11-01")
+    to: str = "2025-11-10"
 
 
 class RevOpsRequest(BaseModel):

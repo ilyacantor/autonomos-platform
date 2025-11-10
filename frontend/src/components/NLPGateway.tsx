@@ -83,6 +83,31 @@ export default function NLPGateway() {
           `${i + 1}. ${m.title}\n${m.content}\nScore: ${m.score.toFixed(3)}`
         ).join('\n\n');
         sources = data.matches.map((m: any) => `${m.title}: ${m.section}`);
+      } else if (selectedService === 'finops' && data.summary) {
+        const s = data.summary;
+        content = `💰 FinOps Cost Summary\n\n` +
+          `Total Cost: ${s.total_cost} (${s.vs_last_month} vs last month)\n\n` +
+          `Top Services:\n` +
+          s.top_services.map((svc: any) => `  • ${svc.name}: ${svc.cost}`).join('\n') +
+          `\n\n💡 Savings Opportunities: ${s.savings_opportunities}`;
+      } else if (selectedService === 'revops' && data.incident) {
+        const i = data.incident;
+        content = `🔧 Incident: ${i.incident_id}\n\n` +
+          `Title: ${i.title}\n` +
+          `Status: ${i.status}\n` +
+          `Root Cause: ${i.root_cause}\n` +
+          `Resolution: ${i.resolution}\n` +
+          `Impact: ${i.impact}`;
+      } else if (selectedService === 'aod' && data.dependencies) {
+        content = `🔍 Service: ${data.service}\n` +
+          `Health: ${data.health}\n\n` +
+          `Upstream Dependencies:\n${data.dependencies.upstream.map((d: string) => `  • ${d}`).join('\n')}\n\n` +
+          `Downstream Dependencies:\n${data.dependencies.downstream.map((d: string) => `  • ${d}`).join('\n')}`;
+      } else if (selectedService === 'aam' && data.connectors) {
+        content = `🔌 AAM Connectors (${data.total} total)\n\n` +
+          data.connectors.map((c: any) => 
+            `${c.status === 'Healthy' ? '✅' : '⚠️'} ${c.name}\n  Status: ${c.status}\n  Last Sync: ${c.last_sync}`
+          ).join('\n\n');
       } else {
         content = JSON.stringify(data, null, 2);
       }
