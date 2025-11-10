@@ -11,7 +11,6 @@ import {
 } from '../services/dataQualityApi';
 import { DEFAULT_SOURCES, AAM_SOURCES, DEFAULT_AGENTS, getDefaultSources, getDefaultAgents } from '../config/dclDefaults';
 import { API_CONFIG } from '../config/api';
-import { mockMappingReviews, mockSchemaChanges } from '../mocks/data';
 
 const agents = DEFAULT_AGENTS;
 
@@ -302,10 +301,7 @@ export default function NewOntologyPage() {
   return (
     <div className="space-y-6">
       {/* Base: DCL Graph Container */}
-      <DCLGraphContainer
-        mappings={mockMappingReviews}
-        schemaChanges={mockSchemaChanges}
-      />
+      <DCLGraphContainer />
 
       {/* Section 1: Data Connection Section */}
       <div className="space-y-4 sm:space-y-6">

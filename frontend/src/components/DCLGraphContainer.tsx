@@ -9,17 +9,10 @@ import { aoaApi } from '../services/aoaApi';
 import { AUTH_TOKEN_KEY, API_CONFIG } from '../config/api';
 import { getDefaultSources, getDefaultAgents, getAamSourceValues, getAllSourceValues } from '../config/dclDefaults';
 
-interface DCLGraphContainerProps {
-  mappings: MappingReview[];
-  schemaChanges: SchemaChange[];
-}
-
-export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphContainerProps) {
-  const [activeTab, setActiveTab] = useState<'review' | 'schema'>('review');
+export default function DCLGraphContainer() {
   const [devMode, setDevMode] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showProgress, setShowProgress] = useState(false); // Separate flag to control progress bar visibility
-  const [selectedMapping, setSelectedMapping] = useState<MappingReview | null>(null);
   const { state: dclState } = useDCLState();
   const [typingEvents, setTypingEvents] = useState<Array<{ text: string; isTyping: boolean; key: string }>>([]);
   const [selectedModel, setSelectedModel] = useState('gemini-2.5-flash');
@@ -588,7 +581,7 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
 
         <div className="flex flex-col gap-4">
           {/* Narration Panel with Typing Animation - MOVED TO TOP FOR PROMINENCE */}
-          <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 flex-1">
+          <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 flex-1 max-w-md mx-auto w-full">
             <div className="flex items-center gap-2 mb-3">
               <div className="w-6 h-6 rounded-full bg-purple-500 flex items-center justify-center text-white text-xs">
                 📝
@@ -620,7 +613,7 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
           </div>
 
           {/* RAG Learning Engine - EXACT LEGACY LAYOUT */}
-          <div className="rounded-lg p-4 bg-gradient-to-br from-teal-950 to-cyan-950 border border-teal-700/30">
+          <div className="rounded-lg p-4 bg-gradient-to-br from-teal-950 to-cyan-950 border border-teal-700/30 max-w-md mx-auto w-full">
             <div className="flex items-center gap-2 mb-3">
               <div className="w-6 h-6 rounded-full bg-teal-500 flex items-center justify-center text-white text-xs">
                 🧠
@@ -668,213 +661,8 @@ export default function DCLGraphContainer({ mappings, schemaChanges }: DCLGraphC
             </div>
           </div>
 
-          {/* Intelligence Review Panel - MOVED TO BOTTOM */}
-          <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-6 h-6 rounded-full bg-orange-600 flex items-center justify-center text-white text-xs">
-                🤖
-              </div>
-              <span 
-                className="text-white text-sm cursor-help" 
-                title="Aggregates flagged data quality or mapping anomalies for human or agentic review before execution. Supports auto-correction and retraining triggers."
-              >
-                Intelligence Review
-              </span>
-            </div>
-
-            <div className="flex gap-2 mb-3">
-              <button
-                onClick={() => setActiveTab('review')}
-                className={`flex-1 px-2 py-1 text-[11px] font-medium rounded transition-colors ${
-                  activeTab === 'review'
-                    ? 'bg-orange-600 text-white'
-                    : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
-                }`}
-              >
-                Review ({mappings.length})
-              </button>
-              <button
-                onClick={() => setActiveTab('schema')}
-                className={`flex-1 px-2 py-1 text-[11px] font-medium rounded transition-colors ${
-                  activeTab === 'schema'
-                    ? 'bg-orange-600 text-white'
-                    : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
-                }`}
-              >
-                Schema Log ({schemaChanges.length})
-              </button>
-            </div>
-
-            <div className="text-xs space-y-2 overflow-y-auto max-h-[260px]">
-              {activeTab === 'review' ? (
-                <div className="space-y-2">
-                  {mappings.map((mapping) => (
-                    <div key={mapping.id} className="p-2 bg-gray-900 rounded border border-gray-700">
-                      <div className="flex items-start justify-between mb-1">
-                        <div className="flex-1 min-w-0">
-                          <div className="text-blue-400 font-mono text-[10px] truncate">
-                            {mapping.sourceField}
-                          </div>
-                          <div className="text-green-400 font-mono text-[10px] mt-1 truncate">
-                            → {mapping.unifiedField}
-                          </div>
-                        </div>
-                        <div
-                          className={`ml-2 px-1.5 py-0.5 rounded text-[9px] flex-shrink-0 ${
-                            mapping.confidence >= 80
-                              ? 'bg-green-500/20 text-green-400'
-                              : mapping.confidence >= 60
-                              ? 'bg-orange-500/20 text-orange-400'
-                              : 'bg-red-500/20 text-red-400'
-                          }`}
-                        >
-                          {mapping.confidence}%
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => setSelectedMapping(mapping)}
-                        className="mt-2 w-full px-2 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-medium rounded transition-colors"
-                      >
-                        Review
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {schemaChanges.map((change) => (
-                    <div key={change.id} className="p-2 bg-gray-900 rounded border border-gray-700">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span
-                          className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
-                            change.changeType === 'added'
-                              ? 'bg-green-500/20 text-green-400'
-                              : change.changeType === 'modified'
-                              ? 'bg-blue-500/20 text-blue-400'
-                              : 'bg-red-500/20 text-red-400'
-                          }`}
-                        >
-                          {change.changeType.toUpperCase()}
-                        </span>
-                        <span className="text-gray-400 text-[10px] font-mono">{change.source}</span>
-                      </div>
-                      <div className="text-[10px] text-gray-300">{change.field}</div>
-                      <div className="text-[9px] text-gray-500 mt-1">
-                        {new Date(change.timestamp).toLocaleString()}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
         </div>
       </div>
-
-      {/* Review Mapping Modal - Mobile Friendly */}
-      {selectedMapping && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-4">
-          <div className="bg-gray-900 rounded-xl border border-gray-700 max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-auto">
-            <div className="sticky top-0 bg-gray-900 border-b border-gray-700 p-4 sm:p-6 flex items-center justify-between">
-              <h3 className="text-lg sm:text-xl font-semibold text-white">Review Mapping</h3>
-              <button
-                onClick={() => setSelectedMapping(null)}
-                className="p-2 sm:p-2 hover:bg-gray-800 rounded-lg transition-colors min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center"
-                aria-label="Close modal"
-              >
-                <X className="w-5 h-5 sm:w-5 sm:h-5 text-gray-400" />
-              </button>
-            </div>
-
-            <div className="p-4 sm:p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
-                <div>
-                  <h4 className="text-xs sm:text-sm font-semibold text-gray-400 mb-2 sm:mb-3 uppercase tracking-wider">
-                    Source Data Snippet
-                  </h4>
-                  <div className="bg-gray-800 rounded-lg p-3 sm:p-4 border border-gray-700">
-                    <pre className="text-xs text-green-400 font-mono overflow-x-auto">
-                      {selectedMapping.sourceSample}
-                    </pre>
-                  </div>
-                  <div className="mt-3 sm:mt-4">
-                    <div className="text-xs sm:text-sm text-gray-400 mb-1">Source Field</div>
-                    <div className="text-sm sm:text-base text-blue-400 font-mono break-all">
-                      {selectedMapping.sourceField}
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="text-xs sm:text-sm font-semibold text-gray-400 mb-2 sm:mb-3 uppercase tracking-wider">
-                    Proposed Unified Mapping
-                  </h4>
-                  <div className="bg-gray-800 rounded-lg p-3 sm:p-4 border border-gray-700 mb-3 sm:mb-4">
-                    <div className="text-xs sm:text-sm text-gray-400 mb-2">Unified Entity & Field</div>
-                    <div className="text-base sm:text-lg text-green-400 font-mono break-all">
-                      {selectedMapping.unifiedField}
-                    </div>
-                    <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-gray-700">
-                      <div className="text-xs sm:text-sm text-gray-400 mb-1">Confidence Score</div>
-                      <div className="flex items-center gap-3">
-                        <div className="flex-1 h-2 bg-gray-700 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-gradient-to-r from-orange-500 to-orange-400"
-                            style={{ width: `${selectedMapping.confidence}%` }}
-                          />
-                        </div>
-                        <span className="text-orange-400 font-semibold">{selectedMapping.confidence}%</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mb-4 sm:mb-6">
-                <h4 className="text-xs sm:text-sm font-semibold text-gray-400 mb-2 sm:mb-3 uppercase tracking-wider">
-                  LLM Reasoning
-                </h4>
-                <div className="bg-gray-800 rounded-lg p-3 sm:p-4 border border-gray-700">
-                  <p className="text-xs sm:text-sm text-gray-300 leading-relaxed">
-                    {selectedMapping.llmReasoning}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-                <button
-                  onClick={() => {
-                    console.log('Approved:', selectedMapping.id);
-                    setSelectedMapping(null);
-                  }}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 sm:py-3 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white font-medium rounded-lg transition-colors min-h-[48px] sm:min-h-0"
-                >
-                  <CheckCircle className="w-5 h-5" />
-                  <span className="text-sm sm:text-base">Approve</span>
-                </button>
-                <button
-                  onClick={() => {
-                    console.log('Editing:', selectedMapping.id);
-                  }}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 sm:py-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-medium rounded-lg transition-colors min-h-[48px] sm:min-h-0"
-                >
-                  <span className="text-sm sm:text-base">Edit Mapping</span>
-                </button>
-                <button
-                  onClick={() => {
-                    console.log('Ignored:', selectedMapping.id);
-                    setSelectedMapping(null);
-                  }}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 sm:py-3 bg-gray-700 hover:bg-gray-600 active:bg-gray-800 text-white font-medium rounded-lg transition-colors min-h-[48px] sm:min-h-0"
-                >
-                  <X className="w-5 h-5" />
-                  <span className="text-sm sm:text-base">Ignore & Flag</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
