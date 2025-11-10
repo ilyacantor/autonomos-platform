@@ -1,3 +1,25 @@
+# Python virtual environments and caches (CRITICAL - saves 11.5GB)
+.pythonlibs/
+.cache/
+.local/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+pip-log.txt
+pip-delete-this-directory.txt
+.venv/
+venv/
+env/
+
+# Git repository (saves ~135MB)
+.git/
+.gitignore
+.gitattributes
+
 # Node modules (will be rebuilt)
 node_modules/
 frontend/node_modules/
@@ -9,13 +31,6 @@ frontend/node_modules/
 *.spec.js
 *.spec.ts
 tests/
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.pytest_cache/
-.coverage
-htmlcov/
 *.log
 
 # Development dependencies
