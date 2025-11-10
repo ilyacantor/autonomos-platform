@@ -26,7 +26,6 @@ import {
 import { API_CONFIG, AUTH_TOKEN_KEY } from '../config/api';
 import ConfidenceGauge from './ConfidenceGauge';
 import { getDataQualityMetadata, DataQualityMetadata } from '../services/dataQualityApi';
-import AdaptiveAPIMesh from './AdaptiveAPIMesh';
 import LiveFlow from './archive/LiveFlow';
 
 interface ServiceStatus {
@@ -487,9 +486,6 @@ export default function ConnectPage() {
 
   return (
     <div className="space-y-4">
-      {/* 3D Adaptive API Mesh Visual */}
-      <AdaptiveAPIMesh />
-
       {/* AAM Overview & Connector Details */}
       <div className="space-y-6 pb-8">
         <div className="flex items-center justify-between">
