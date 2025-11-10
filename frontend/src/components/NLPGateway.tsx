@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Send, Loader2, BookOpen, DollarSign, AlertCircle, Network, Database } from 'lucide-react';
+import { Send, Loader2, BookOpen, DollarSign, AlertCircle, Network, Database, RotateCcw } from 'lucide-react';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -135,12 +135,28 @@ export default function NLPGateway() {
     setInput(promptText);
   };
 
+  const handleReset = () => {
+    setMessages([]);
+    setInput('');
+    setSelectedService('kb');
+  };
+
   return (
     <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
       <div className="bg-gradient-to-r from-green-900 to-blue-900 px-4 py-3 border-b border-gray-700 flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <BookOpen className="w-5 h-5 text-white" />
           <h2 className="text-lg font-semibold text-white">AOS NLP Gateway</h2>
+          {messages.length > 0 && (
+            <button
+              onClick={handleReset}
+              className="flex items-center gap-1 px-2 py-1 text-xs bg-red-600 hover:bg-red-700 text-white rounded transition-colors"
+              title="Clear conversation"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Clear</span>
+            </button>
+          )}
         </div>
         <div className="flex gap-2">
           {services.map(service => (
