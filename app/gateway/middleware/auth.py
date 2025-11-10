@@ -42,6 +42,7 @@ async def tenant_auth_middleware(request: Request, call_next: Callable):
         "/api/v1/debug/",            # Debug endpoints (dev-only, feature-flagged)
         "/api/v1/mesh/test/",        # Mesh test endpoints (dev-only, for drift demos)
         "/api/v1/events/stream",     # SSE endpoint for Live Flow (uses query-token auth)
+        "/nlp/v1/",                  # NLP Gateway endpoints (demo access)
         "/architecture.html",        # Architecture visualization page
         "/aam-monitor",              # AAM Monitor frontend page (demo access)
         "/live-flow",                # Live Flow frontend page (demo access)
