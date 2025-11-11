@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { Send, Loader2, BookOpen, DollarSign, AlertCircle, Network, Database, RotateCcw } from 'lucide-react';
+import LiveStatusBadge from './LiveStatusBadge';
+import { getLiveStatus } from '../config/liveStatus';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -147,6 +149,7 @@ export default function NLPGateway() {
         <div className="flex items-center gap-3">
           <BookOpen className="w-5 h-5 text-white" />
           <h2 className="text-lg font-semibold text-white">AOS NLP Gateway</h2>
+          <LiveStatusBadge {...getLiveStatus('nlp-gateway')!} />
           {messages.length > 0 && (
             <button
               onClick={handleReset}

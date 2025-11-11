@@ -1,3 +1,6 @@
+import LiveStatusBadge from './LiveStatusBadge';
+import { getLiveStatus } from '../config/liveStatus';
+
 export default function AgentsPage() {
   return (
     <div className="space-y-8">
@@ -22,9 +25,12 @@ export default function AgentsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* FinOps Agent */}
           <div className="bg-slate-800/60 rounded-xl border border-slate-700 overflow-hidden">
-            <div className="bg-slate-900/50 px-4 py-3 border-b border-slate-700">
-              <h4 className="text-lg font-medium text-blue-400">FinOps Agent</h4>
-              <p className="text-xs text-gray-400 mt-1">Financial operations optimization and cost management</p>
+            <div className="bg-slate-900/50 px-4 py-3 border-b border-slate-700 flex items-center justify-between">
+              <div>
+                <h4 className="text-lg font-medium text-blue-400">FinOps Agent</h4>
+                <p className="text-xs text-gray-400 mt-1">Financial operations optimization and cost management</p>
+              </div>
+              <LiveStatusBadge {...getLiveStatus('finops-agent')!} />
             </div>
             <div className="relative" style={{ height: '600px' }}>
               <iframe
@@ -39,9 +45,12 @@ export default function AgentsPage() {
 
           {/* RevOps Agent */}
           <div className="bg-slate-800/60 rounded-xl border border-slate-700 overflow-hidden">
-            <div className="bg-slate-900/50 px-4 py-3 border-b border-slate-700">
-              <h4 className="text-lg font-medium text-purple-400">RevOps Agent</h4>
-              <p className="text-xs text-gray-400 mt-1">Revenue operations analytics and pipeline management</p>
+            <div className="bg-slate-900/50 px-4 py-3 border-b border-slate-700 flex items-center justify-between">
+              <div>
+                <h4 className="text-lg font-medium text-purple-400">RevOps Agent</h4>
+                <p className="text-xs text-gray-400 mt-1">Revenue operations analytics and pipeline management</p>
+              </div>
+              <LiveStatusBadge {...getLiveStatus('revops-agent')!} />
             </div>
             <div className="relative" style={{ height: '600px' }}>
               <iframe

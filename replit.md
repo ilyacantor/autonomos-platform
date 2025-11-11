@@ -10,7 +10,7 @@ I prefer clear, concise explanations and direct answers. I value iterative devel
 AutonomOS is a full-stack SaaS platform built around a multi-tenant architecture ensuring complete data isolation via UUID-based `tenant_id` scoping and JWT authentication.
 
 **UI/UX Decisions:**
-The frontend, built with React 18 and TypeScript, features a responsive UI/UX design with Quicksand typography, a distinct color scheme (Green, Blue, Purple), and dark mode support. It includes pages for Dashboard, AAM Monitor, Live Flow, Ontology, Connections, Data Lineage, and an interactive architecture viewer.
+The frontend, built with React 18 and TypeScript, features a responsive UI/UX design with Quicksand typography, a distinct color scheme (Green, Blue, Purple), and dark mode support. It includes pages for Dashboard, AAM Monitor, Live Flow, Ontology, Connections, Data Lineage, and an interactive architecture viewer. **Live Status Indicators:** Components are tagged with visual "Live" badges (green pulsing dot) to distinguish real backend data from demonstration/mock data. The centralized registry (`frontend/src/config/liveStatus.ts`) manages all component statuses with tooltips explaining data provenance.
 
 **Technical Implementations:**
 *   **Task Orchestration:** Utilizes Python RQ and Redis Queue for asynchronous background job processing with full lifecycle management.

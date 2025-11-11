@@ -27,6 +27,8 @@ import { API_CONFIG, AUTH_TOKEN_KEY } from '../config/api';
 import ConfidenceGauge from './ConfidenceGauge';
 import { getDataQualityMetadata, DataQualityMetadata } from '../services/dataQualityApi';
 import LiveFlow from './archive/LiveFlow';
+import LiveStatusBadge from './LiveStatusBadge';
+import { getLiveStatus } from '../config/liveStatus';
 
 interface ServiceStatus {
   name: string;
@@ -484,7 +486,10 @@ export default function ConnectPage() {
       <div className="space-y-6 pb-8">
         <div className="flex items-center justify-between">
           <div className="flex-1">
-            <h2 className="text-2xl font-bold text-white mb-2">AAM Monitor</h2>
+            <div className="flex items-center gap-3 mb-2">
+              <h2 className="text-2xl font-bold text-white">AAM Monitor</h2>
+              <LiveStatusBadge {...getLiveStatus('aam-monitor')!} />
+            </div>
             <p className="text-gray-400">
               Adaptive API Mesh intelligence metrics and connection health
             </p>
