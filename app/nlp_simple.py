@@ -2,13 +2,15 @@
 Simple NLP Gateway endpoints integrated into main AutonomOS API.
 Provides natural language interface without requiring a separate service.
 """
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Literal
 from datetime import datetime
 import uuid
 
 router = APIRouter(prefix="/nlp/v1", tags=["NLP Gateway"])
+
+PersonaSlug = Literal["cto", "cro", "coo", "cfo"]
 
 
 class KBSearchRequest(BaseModel):
@@ -193,3 +195,128 @@ async def nlp_health():
         "service": "nlp-gateway",
         "version": "1.0.0"
     }
+
+
+class PersonaClassifyRequest(BaseModel):
+    query: str
+    tenant_id: str = "demo-tenant"
+
+
+class PersonaClassifyResponse(BaseModel):
+    persona: PersonaSlug
+    confidence: float
+    matched_keywords: List[str]
+    trace_id: str
+
+
+class PersonaTile(BaseModel):
+    key: str
+    title: str
+    value: Optional[str]
+    delta: Optional[str]
+    timeframe: str
+    last_updated: Optional[str]
+    href: str
+    note: Optional[str] = None
+
+
+class PersonaTable(BaseModel):
+    title: str
+    columns: List[str]
+    rows: List[List[str]]
+    href: str
+    note: Optional[str] = None
+
+
+class PersonaSummaryResponse(BaseModel):
+    persona: PersonaSlug
+    tiles: List[PersonaTile]
+    table: PersonaTable
+    trace_id: str
+
+
+@router.post("/persona/classify", response_model=PersonaClassifyResponse)
+async def classify_persona(request: PersonaClassifyRequest):
+    """Classify a query into a persona (CTO, CRO, COO, CFO)."""
+    trace_id = f"nlp_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{str(uuid.uuid4())[:8]}"
+    
+    query_lower = request.query.lower()
+    
+    coo_keywords = ["spend", "budget", "vendor", "renewal", "finops", "cost", "cloud"]
+    cfo_keywords = ["revenue", "ebitda", "cash", "burn", "runway", "margin"]
+    cro_keywords = ["pipeline", "win rate", "quota", "sales", "deal"]
+    cto_keywords = ["connector", "drift", "schema", "api", "service", "incident"]
+    
+    scores = {
+        "coo": sum(1 for kw in coo_keywords if kw in query_lower),
+        "cfo": sum(1 for kw in cfo_keywords if kw in query_lower),
+        "cro": sum(1 for kw in cro_keywords if kw in query_lower),
+        "cto": sum(1 for kw in cto_keywords if kw in query_lower),
+    }
+    
+    persona = max(scores, key=scores.get)  # type: ignore
+    matched = [kw for kw in (coo_keywords + cfo_keywords + cro_keywords + cto_keywords) if kw in query_lower]
+    confidence = min(0.95, 0.6 + (scores[persona] * 0.1))
+    
+    return PersonaClassifyResponse(
+        persona=persona,  # type: ignore
+        confidence=confidence,
+        matched_keywords=matched[:5],
+        trace_id=trace_id
+    )
+
+
+@router.get("/persona/summary", response_model=PersonaSummaryResponse)
+async def get_persona_summary(persona: PersonaSlug = Query(..., description="Persona type")):
+    """Get persona-specific dashboard summary."""
+    trace_id = f"nlp_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{str(uuid.uuid4())[:8]}"
+    
+    if persona == "coo":
+        return PersonaSummaryResponse(
+            persona="coo",
+            tiles=[
+                PersonaTile(key="cloud_spend", title="Cloud Spend (MTD)", value=None, delta=None, timeframe="MTD vs Budget", last_updated=None, href="/finops", note="stub"),
+                PersonaTile(key="variance_mtd", title="Variance", value=None, delta=None, timeframe="MTD", last_updated=None, href="/finops", note="stub"),
+                PersonaTile(key="vendors_over_threshold", title="Vendors > $50k", value=None, delta=None, timeframe="Rolling 30d", last_updated=None, href="/finops/vendors", note="stub"),
+                PersonaTile(key="renewals_30d", title="Renewals (30d)", value=None, delta=None, timeframe="Next 30d", last_updated=None, href="/finops/renewals", note="stub"),
+                PersonaTile(key="top_cost_centers", title="Top Cost Centers", value=None, delta=None, timeframe="MTD", last_updated=None, href="/finops/cost-centers", note="stub"),
+            ],
+            table=PersonaTable(title="Top 10 Cost Centers (MTD)", columns=["Cost Center", "MTD Spend", "Δ vs prior period"], rows=[], href="/finops/cost-centers", note="stub"),
+            trace_id=trace_id
+        )
+    elif persona == "cfo":
+        return PersonaSummaryResponse(
+            persona="cfo",
+            tiles=[
+                PersonaTile(key="revenue_mtd", title="Revenue (MTD)", value=None, delta=None, timeframe="MTD/QTD/YTD", last_updated=None, href="#", note="stub"),
+                PersonaTile(key="gross_margin_pct", title="Gross Margin %", value=None, delta=None, timeframe="MTD", last_updated=None, href="#", note="stub"),
+                PersonaTile(key="cash_balance", title="Cash Balance", value=None, delta=None, timeframe="Today", last_updated=None, href="#", note="stub"),
+                PersonaTile(key="burn_rate", title="Burn Rate", value=None, delta=None, timeframe="Rolling 30d", last_updated=None, href="#", note="stub"),
+                PersonaTile(key="runway_months", title="Runway (mo)", value=None, delta=None, timeframe="Projected", last_updated=None, href="#", note="stub"),
+                PersonaTile(key="dso_dpo", title="DSO / DPO", value=None, delta=None, timeframe="Rolling 90d", last_updated=None, href="#", note="stub"),
+            ],
+            table=PersonaTable(title="Finance KPIs by Month", columns=["Month", "Revenue", "GM%", "Burn", "Cash End"], rows=[], href="#", note="stub"),
+            trace_id=trace_id
+        )
+    elif persona == "cro":
+        return PersonaSummaryResponse(
+            persona="cro",
+            tiles=[
+                PersonaTile(key="pipeline_value", title="Pipeline Value", value=None, delta=None, timeframe="Current Quarter", last_updated=None, href="#", note="stub"),
+                PersonaTile(key="win_rate", title="Win Rate", value=None, delta=None, timeframe="Last 90 days", last_updated=None, href="#", note="stub"),
+                PersonaTile(key="quota_attainment", title="Quota Attainment", value=None, delta=None, timeframe="MTD", last_updated=None, href="#", note="stub"),
+            ],
+            table=PersonaTable(title="Top Opportunities", columns=["Opportunity", "Value", "Stage", "Close Date"], rows=[], href="#", note="stub"),
+            trace_id=trace_id
+        )
+    else:  # cto
+        return PersonaSummaryResponse(
+            persona="cto",
+            tiles=[
+                PersonaTile(key="services_healthy", title="Services Healthy", value=None, delta=None, timeframe="Last 24h", last_updated=None, href="#", note="stub"),
+                PersonaTile(key="connectors_drifted", title="Connectors Drifted", value=None, delta=None, timeframe="Current", last_updated=None, href="#", note="stub"),
+                PersonaTile(key="incidents_open", title="Open Incidents", value=None, delta=None, timeframe="Current", last_updated=None, href="#", note="stub"),
+            ],
+            table=PersonaTable(title="Service Health", columns=["Service", "Status", "Latency", "Error Rate"], rows=[], href="#", note="stub"),
+            trace_id=trace_id
+        )

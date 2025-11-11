@@ -15,7 +15,8 @@ from .api import (
     aam_router,
     kb_search_router,
     kb_ingest_router,
-    feedback_router
+    feedback_router,
+    persona_router
 )
 
 logger = get_logger(__name__)
@@ -112,6 +113,7 @@ app.include_router(aam_router)
 app.include_router(kb_search_router)
 app.include_router(kb_ingest_router)
 app.include_router(feedback_router)
+app.include_router(persona_router)
 
 
 @app.exception_handler(Exception)
