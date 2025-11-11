@@ -13,15 +13,6 @@ export default function AgentsPage() {
 
       {/* Live Agent Demos */}
       <div className="bg-slate-800/40 rounded-xl border border-cyan-500/30 p-6">
-        <div className="mb-6">
-          <h3 className="text-2xl font-medium text-cyan-400 mb-2">
-            Agent Demos
-          </h3>
-          <p className="text-sm text-gray-400">
-            Interactive demonstrations of specialized agents in production
-          </p>
-        </div>
-        
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* FinOps Agent */}
           <div className="bg-slate-800/60 rounded-xl border border-slate-700 overflow-hidden">
