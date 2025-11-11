@@ -708,6 +708,43 @@ async def _get_connectors_async(tenant_id: str) -> Dict[str, Any]:
         }
 
 
+def _healthz_sync() -> Dict[str, bool]:
+    """Sync health check using psycopg2 (PgBouncer-safe)"""
+    from app.database import SessionLocal
+    with SessionLocal() as db:
+        db.execute(text("SELECT 1"))
+        return {"ok": True}
+
+
+async def _healthz_async() -> Dict[str, bool]:
+    """Async health check using asyncpg"""
+    async with AsyncSessionLocal() as db:
+        await db.execute(text("SELECT 1"))
+        return {"ok": True}
+
+
+@router.get("/healthz")
+async def healthz_aam():
+    """
+    Lightweight AAM health check
+    
+    Respects AAM_CONNECTORS_SYNC feature flag to test the same DB path
+    used by /aam/connectors endpoint
+    """
+    try:
+        if AAM_CONNECTORS_SYNC:
+            result = _healthz_sync()
+        else:
+            result = await _healthz_async()
+        return result
+    except Exception as e:
+        logger.error(f"AAM healthz failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"AAM health check failed: {str(e)}"
+        )
+
+
 @router.get("/connectors")
 async def get_connectors(request: Request):
     """
@@ -735,6 +772,9 @@ async def get_connectors(request: Request):
     logger.info(f"AAM list: tenant_id={tenant_id}, mode={'sync' if AAM_CONNECTORS_SYNC else 'async'}")
     
     try:
+        import time
+        start_ms = time.time() * 1000
+        
         if AAM_CONNECTORS_SYNC:
             # Sync path: psycopg2 (PgBouncer-safe)
             result = _get_connectors_sync(tenant_id)
@@ -742,7 +782,8 @@ async def get_connectors(request: Request):
             # Async path: asyncpg (may have PgBouncer issues)
             result = await _get_connectors_async(tenant_id)
         
-        logger.info(f"AAM list: tenant_id={tenant_id}, count={result['total']}")
+        latency_ms = int(time.time() * 1000 - start_ms)
+        logger.info(f"AAM connectors list: tenant_id={tenant_id}, count={result['total']}, latency_ms={latency_ms}")
         return result
     
     except Exception as e:
