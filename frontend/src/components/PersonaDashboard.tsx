@@ -63,6 +63,7 @@ export default function PersonaDashboard({ persona }: PersonaDashboardProps) {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {data.tiles.map((tile) => {
             const isStub = tile.note === 'stub';
+            const isMock = tile.mock === true;
             const TileTag = isStub ? 'div' : 'a';
             
             return (
@@ -74,10 +75,17 @@ export default function PersonaDashboard({ persona }: PersonaDashboardProps) {
                     ? 'bg-gray-900 border-gray-700 opacity-60 cursor-not-allowed'
                     : 'bg-gray-900 border-gray-700 hover:border-gray-600 hover:shadow-lg'
                 }`}
-                title={isStub ? 'Data source not connected yet' : tile.title}
+                title={isStub ? 'Data source not connected yet' : isMock ? 'Demo data (connect sources to replace)' : tile.title}
               >
                 <div className="flex items-start justify-between mb-2">
-                  <h3 className="text-sm font-medium text-gray-400">{tile.title}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-medium text-gray-400">{tile.title}</h3>
+                    {isMock && (
+                      <span className="text-xs px-1.5 py-0.5 bg-amber-900 bg-opacity-40 text-amber-400 border border-amber-700 rounded">
+                        Demo
+                      </span>
+                    )}
+                  </div>
                   {tile.delta && !isStub && (
                     <span className={`text-xs flex items-center gap-1 ${
                       tile.delta.startsWith('+') ? 'text-green-400' : 'text-red-400'
@@ -94,7 +102,7 @@ export default function PersonaDashboard({ persona }: PersonaDashboardProps) {
                 {isStub && (
                   <div className="mt-2 text-xs text-amber-600 italic">Coming soon</div>
                 )}
-                {!isStub && tile.value === null && (
+                {!isStub && !isMock && tile.value === null && (
                   <div className="mt-2 text-xs text-blue-400 italic">Connecting...</div>
                 )}
               </TileTag>

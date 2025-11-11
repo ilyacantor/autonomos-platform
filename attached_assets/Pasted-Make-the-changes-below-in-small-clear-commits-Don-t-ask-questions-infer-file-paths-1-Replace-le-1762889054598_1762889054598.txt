@@ -1,0 +1,202 @@
+Make the changes below in small, clear commits. Don’t ask questions; infer file paths.
+1) Replace legacy domain tabs inside the NLP Gateway
+Goal: No more “Knowledge Base / FinOps / RevOps / Discovery / Connectors” tabs. Show persona routing instead.
+Tasks
+
+
+In the NLP Gateway header component, remove the legacy domain tab group.
+
+
+Add a small right-aligned Routing strip:
+
+
+Badge: Resolved: <PERSONA> (Auto shows Resolved: <PERSONA from classifier> (Auto)).
+
+
+“Why?” tooltip/popover with top 3 matched keywords from classifier if available.
+
+
+Optional small readonly chips for the active tag set (e.g., kb:persona:coo, kb:global) for transparency.
+
+
+
+
+Update the starter prompts under the input to be persona-aware. Provide 4 prompts per persona:
+
+
+CTO: “Any connector drift today?”, “Show dependencies for checkout-service”, “List degraded connectors”, “What apps are missing owners?”
+
+
+CRO: “Show this quarter’s pipeline by stage”, “What’s win rate vs last quarter?”, “Which deals are slipping?”, “Top 10 opportunities by value”
+
+
+COO (FinOps): “Cloud spend MTD vs budget”, “Renewals due in 30 days”, “Top cost centers MTD”, “Vendors > $50k last 30d”
+
+
+CFO: “Revenue MTD / QTD / YTD”, “Gross margin trend”, “Cash, burn, runway”, “DSO / DPO last 90d”
+
+
+
+
+Acceptance
+
+
+No domain tabs visible.
+
+
+“Resolved: <persona>” appears and updates when persona chip changes or when Auto routes.
+
+
+Persona-specific prompts render correctly.
+
+
+Commit
+
+
+feat(ui): replace legacy NLP tabs with persona routing strip and persona-specific prompts
+
+
+
+2) Add DEMO_MODE with deterministic mock data for persona dashboards
+Goal: Dashboards show realistic numbers when live sources aren’t connected, while automatically preferring real data.
+Backend
+
+
+Add env flag AOS_DEMO_MODE=true|false (default false).
+
+
+In /nlp/v1/persona/summary, after attempting real fetches, if a tile value is None/empty and AOS_DEMO_MODE=true, fill with seeded demo values and set mock:true on that tile/table.
+
+
+Use a deterministic generator (fixed seed) so values are stable across reloads.
+
+
+Suggested demo values (use these unless live data exists):
+
+
+CTO
+
+
+connectors_healthy: 97, drift_open: 3, discovery_apps: 312, agents_running: 14
+
+
+Table: Salesforce 2.1% 2025-11-10T18:22Z, NetSuite 1.6% …, Zendesk 1.3% …
+
+
+CRO
+
+
+pipeline_qtr: "$12.4M", forecast_commit: "$10.8M", win_rate: "27%", new_opps_7d: 23
+
+
+Table: top 5 deals with names + values (seeded)
+
+
+COO (FinOps)
+
+
+cloud_spend_mtd: "$184k", variance_mtd: "+6.2%", vendors_over_50k: 7, renewals_30d: 4
+
+
+Table: top 10 cost centers (Eng, Data, GTM, Support, etc.) with MTD and Δ
+
+
+CFO
+
+
+revenue_mtd: "$2.4M", gross_margin_pct: "62%", cash_balance: "$18.3M", burn_rate: "-$0.9M/mo", runway_months: 20, dso_dpo: "44 / 36"
+
+
+Table: last 6 months with Revenue, GM%, Burn, Cash End
+
+
+Frontend
+
+
+If a tile has mock:true, show a small “Demo” badge/tooltip: “Demo data (connect sources to replace).”
+
+
+Keep existing “Coming soon” for true stubs when DEMO_MODE is off.
+
+
+Acceptance
+
+
+With AOS_DEMO_MODE=true, all four dashboards display the numbers above immediately.
+
+
+If a live endpoint starts returning data, it overrides the demo value (no double counting).
+
+
+With AOS_DEMO_MODE=false, tiles fall back to stubs/null as before.
+
+
+Commits
+
+
+feat(api): DEMO_MODE for persona summaries with deterministic mock values
+
+
+feat(ui): demo badge for mock tiles and tables
+
+
+
+3) Wire real sources when available (non-breaking)
+Tasks
+
+
+For CTO dashboard, prefer these (if present):
+/aam/connectors/health, /aam/drift/open, /aod/coverage, /agents/status
+
+
+CRO: /revops/pipeline/summary, /revops/forecast/summary, /revops/opps/top
+
+
+COO: /finops/spend/summary, /finops/cost-centers/top, /finops/vendors/top, /finops/renewals/upcoming
+
+
+CFO: none yet; leave as demo/stub.
+
+
+Acceptance
+
+
+If an endpoint returns valid data, tile shows live value and no mock:true.
+
+
+Commit
+
+
+feat(api): prefer live endpoints for persona summaries with graceful fallback
+
+
+
+4) Quick tests
+
+
+Expand summary API schema tests to assert mock key may exist and is boolean.
+
+
+Add one test that toggles AOS_DEMO_MODE=true and verifies non-null demo values.
+
+
+Commit
+
+
+test(api): demo mode coverage and schema updates
+
+
+
+Done =
+
+
+NLP Gateway reflects personas (old domain tabs gone).
+
+
+Dashboards show deterministic demo values when DEMO_MODE is on; otherwise stubs.
+
+
+Real data automatically overrides demo when available.
+
+
+If you want, I can also provide a tiny “Connect data” modal copy next (lists sources/permissions for each persona) so the Demo→Live path is obvious.

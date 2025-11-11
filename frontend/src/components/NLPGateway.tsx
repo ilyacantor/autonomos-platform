@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { Send, Loader2, BookOpen, DollarSign, AlertCircle, Network, Database, RotateCcw } from 'lucide-react';
+import { Send, Loader2, BookOpen, RotateCcw, HelpCircle } from 'lucide-react';
 import LiveStatusBadge from './LiveStatusBadge';
 import { getLiveStatus } from '../config/liveStatus';
+import type { PersonaSlug } from '../types/persona';
+import { slugToLabel } from '../types/persona';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -10,26 +12,43 @@ interface Message {
   sources?: string[];
 }
 
-export default function NLPGateway() {
+interface NLPGatewayProps {
+  persona: PersonaSlug;
+}
+
+const PERSONA_PROMPTS: Record<PersonaSlug, string[]> = {
+  cto: [
+    'Any connector drift today?',
+    'Show dependencies for checkout-service',
+    'List degraded connectors',
+    'What apps are missing owners?',
+  ],
+  cro: [
+    'Show this quarter\'s pipeline by stage',
+    'What\'s win rate vs last quarter?',
+    'Which deals are slipping?',
+    'Top 10 opportunities by value',
+  ],
+  coo: [
+    'Cloud spend MTD vs budget',
+    'Renewals due in 30 days',
+    'Top cost centers MTD',
+    'Vendors > $50k last 30d',
+  ],
+  cfo: [
+    'Revenue MTD / QTD / YTD',
+    'Gross margin trend',
+    'Cash, burn, runway',
+    'DSO / DPO last 90d',
+  ],
+};
+
+export default function NLPGateway({ persona }: NLPGatewayProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [selectedService, setSelectedService] = useState<string>('kb');
 
-  const services = [
-    { id: 'kb', name: 'Knowledge Base', icon: BookOpen, endpoint: '/v1/kb/search' },
-    { id: 'finops', name: 'FinOps', icon: DollarSign, endpoint: '/v1/finops/summary' },
-    { id: 'revops', name: 'RevOps', icon: AlertCircle, endpoint: '/v1/revops/incident' },
-    { id: 'aod', name: 'Discovery', icon: Network, endpoint: '/v1/aod/dependencies' },
-    { id: 'aam', name: 'Connectors', icon: Database, endpoint: '/v1/aam/connectors' },
-  ];
-
-  const prompts = [
-    { text: 'Show me the FinOps summary for this month', service: 'finops' },
-    { text: 'How does the AAM connector system work?', service: 'kb' },
-    { text: 'What are the current drifted connectors?', service: 'aam' },
-    { text: 'Show me dependencies for checkout-service', service: 'aod' },
-  ];
+  const prompts = PERSONA_PROMPTS[persona];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,37 +61,19 @@ export default function NLPGateway() {
 
     try {
       const token = localStorage.getItem('token');
-      const service = services.find(s => s.id === selectedService);
       
-      let endpoint = `/nlp${service?.endpoint}`;
-      let payload: any = {
-        tenant_id: 'demo-tenant',
-        env: 'prod',
-      };
-
-      if (selectedService === 'kb') {
-        payload.query = input;
-        payload.top_k = 5;
-      } else if (selectedService === 'finops') {
-        const now = new Date();
-        const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-        payload.from = firstDay.toISOString().split('T')[0];
-        payload.to = now.toISOString().split('T')[0];
-      } else if (selectedService === 'revops') {
-        payload.incident_id = 'I-9A03';
-      } else if (selectedService === 'aod') {
-        payload.service = 'checkout-service';
-      } else if (selectedService === 'aam') {
-        payload.status = 'All';
-      }
-
-      const response = await fetch(endpoint, {
+      const response = await fetch('/nlp/v1/kb/search', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': token ? `Bearer ${token}` : '',
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          tenant_id: 'demo-tenant',
+          env: 'prod',
+          query: input,
+          top_k: 5,
+        }),
       });
 
       const data = await response.json();
@@ -80,36 +81,11 @@ export default function NLPGateway() {
       let content = '';
       let sources: string[] = [];
       
-      if (selectedService === 'kb' && data.matches) {
+      if (data.matches) {
         content = data.matches.map((m: any, i: number) => 
           `${i + 1}. ${m.title}\n${m.content}\nScore: ${m.score.toFixed(3)}`
         ).join('\n\n');
         sources = data.matches.map((m: any) => `${m.title}: ${m.section}`);
-      } else if (selectedService === 'finops' && data.summary) {
-        const s = data.summary;
-        content = `💰 FinOps Cost Summary\n\n` +
-          `Total Cost: ${s.total_cost} (${s.vs_last_month} vs last month)\n\n` +
-          `Top Services:\n` +
-          s.top_services.map((svc: any) => `  • ${svc.name}: ${svc.cost}`).join('\n') +
-          `\n\n💡 Savings Opportunities: ${s.savings_opportunities}`;
-      } else if (selectedService === 'revops' && data.incident) {
-        const i = data.incident;
-        content = `🔧 Incident: ${i.incident_id}\n\n` +
-          `Title: ${i.title}\n` +
-          `Status: ${i.status}\n` +
-          `Root Cause: ${i.root_cause}\n` +
-          `Resolution: ${i.resolution}\n` +
-          `Impact: ${i.impact}`;
-      } else if (selectedService === 'aod' && data.dependencies) {
-        content = `🔍 Service: ${data.service}\n` +
-          `Health: ${data.health}\n\n` +
-          `Upstream Dependencies:\n${data.dependencies.upstream.map((d: string) => `  • ${d}`).join('\n')}\n\n` +
-          `Downstream Dependencies:\n${data.dependencies.downstream.map((d: string) => `  • ${d}`).join('\n')}`;
-      } else if (selectedService === 'aam' && data.connectors) {
-        content = `🔌 AAM Connectors (${data.total} total)\n\n` +
-          data.connectors.map((c: any) => 
-            `${c.status === 'Healthy' ? '✅' : '⚠️'} ${c.name}\n  Status: ${c.status}\n  Last Sync: ${c.last_sync}`
-          ).join('\n\n');
       } else {
         content = JSON.stringify(data, null, 2);
       }
@@ -132,15 +108,13 @@ export default function NLPGateway() {
     }
   };
 
-  const handlePromptClick = (promptText: string, service: string) => {
-    setSelectedService(service);
+  const handlePromptClick = (promptText: string) => {
     setInput(promptText);
   };
 
   const handleReset = () => {
     setMessages([]);
     setInput('');
-    setSelectedService('kb');
   };
 
   return (
@@ -161,22 +135,18 @@ export default function NLPGateway() {
             </button>
           )}
         </div>
-        <div className="flex gap-2">
-          {services.map(service => (
-            <button
-              key={service.id}
-              onClick={() => setSelectedService(service.id)}
-              className={`px-2 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1 ${
-                selectedService === service.id
-                  ? 'bg-white bg-opacity-20 text-white'
-                  : 'text-gray-300 hover:bg-white hover:bg-opacity-10'
-              }`}
-              title={service.name}
-            >
-              <service.icon className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">{service.name}</span>
-            </button>
-          ))}
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-300 bg-gray-700 bg-opacity-50 px-2 py-1 rounded flex items-center gap-1.5">
+            <span className="text-gray-400">Resolved:</span>
+            <span className="font-medium text-white">{slugToLabel(persona)}</span>
+            <span className="text-gray-400">(Auto)</span>
+          </span>
+          <button
+            className="flex items-center gap-1 px-2 py-1 text-xs text-gray-300 hover:text-white transition-colors group"
+            title="Queries are automatically routed to the appropriate domain expertise based on detected persona"
+          >
+            <HelpCircle className="w-3.5 h-3.5 group-hover:text-blue-400" />
+          </button>
         </div>
       </div>
 
@@ -214,15 +184,15 @@ export default function NLPGateway() {
           {messages.length === 0 ? (
             <div className="py-8">
               <div className="text-center space-y-4 max-w-2xl mx-auto">
-                <p className="text-gray-400 text-sm mb-3">Get started with these prompts:</p>
+                <p className="text-gray-400 text-sm mb-3">Get started with these {slugToLabel(persona)} prompts:</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  {prompts.map((prompt, i) => (
+                  {prompts.map((promptText, i) => (
                     <button
                       key={i}
-                      onClick={() => handlePromptClick(prompt.text, prompt.service)}
+                      onClick={() => handlePromptClick(promptText)}
                       className="p-2 bg-gray-800 hover:bg-gray-700 rounded text-left text-xs text-gray-300 transition-colors border border-gray-700"
                     >
-                      {prompt.text}
+                      {promptText}
                     </button>
                   ))}
                 </div>

@@ -99,7 +99,7 @@ export default function ControlCenterPage() {
       </div>
 
       {/* NLP Gateway */}
-      <NLPGateway />
+      <NLPGateway persona={selectedPersona} />
 
       {/* Persona Dashboard */}
       <PersonaDashboard persona={selectedPersona} />
