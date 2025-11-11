@@ -14,6 +14,10 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+# Feature flag: Use sync code path for connectors endpoint (default: true)
+# Set AAM_CONNECTORS_SYNC=false to use async code path
+AAM_CONNECTORS_SYNC = os.getenv("AAM_CONNECTORS_SYNC", "true").lower() in ("true", "1", "yes")
+
 # Import AAM models - with fallback
 AAM_MODELS_AVAILABLE = False
 try:
@@ -635,13 +639,83 @@ async def get_repair_metrics(request: Request, db: AsyncSession = Depends(get_as
         return {"avg_confidence": 0.0, "test_pass_rate": 0.0}
 
 
-@router.get("/connectors")
-def get_connectors(request: Request):
-    """
-    Get all AAM connectors for the tenant, regardless of mapping presence
-    Returns list of all connectors with their status
+def _serialize_connector(conn, mapping_count: int) -> Dict[str, Any]:
+    """Shared serialization logic for connector objects"""
+    return {
+        "id": str(conn.id),
+        "name": conn.name,
+        "type": conn.source_type,
+        "status": conn.status.value if hasattr(conn.status, 'value') else conn.status,
+        "last_discovery_at": conn.updated_at.isoformat() if conn.updated_at else None,
+        "mapping_count": mapping_count
+    }
+
+
+def _get_connectors_sync(tenant_id: str) -> Dict[str, Any]:
+    """Sync implementation using psycopg2 (PgBouncer-safe)"""
+    from app.models import MappingRegistry
+    from app.database import SessionLocal
+    from sqlalchemy import func
     
-    Note: Using sync session with explicit context manager to avoid PgBouncer prepared statement conflicts
+    with SessionLocal() as db:
+        connections = db.query(Connection).order_by(Connection.name).all()  # type: ignore
+        
+        connectors_list = []
+        for conn in connections:
+            mapping_count = db.query(func.count(MappingRegistry.id)).filter(
+                and_(
+                    MappingRegistry.tenant_id == tenant_id,
+                    MappingRegistry.vendor == conn.source_type
+                )
+            ).scalar() or 0
+            
+            connectors_list.append(_serialize_connector(conn, mapping_count))
+        
+        return {
+            "connectors": connectors_list,
+            "total": len(connectors_list)
+        }
+
+
+async def _get_connectors_async(tenant_id: str) -> Dict[str, Any]:
+    """Async implementation using asyncpg"""
+    from app.models import MappingRegistry
+    
+    async with AsyncSessionLocal() as db:
+        conn_result = await db.execute(
+            select(Connection).order_by(Connection.name)  # type: ignore
+        )
+        connections = conn_result.scalars().all()
+        
+        connectors_list = []
+        for conn in connections:
+            mapping_count_result = await db.execute(
+                select(func.count(MappingRegistry.id))
+                .where(
+                    and_(
+                        MappingRegistry.tenant_id == tenant_id,
+                        MappingRegistry.vendor == conn.source_type
+                    )
+                )
+            )
+            mapping_count = mapping_count_result.scalar() or 0
+            
+            connectors_list.append(_serialize_connector(conn, mapping_count))
+        
+        return {
+            "connectors": connectors_list,
+            "total": len(connectors_list)
+        }
+
+
+@router.get("/connectors")
+async def get_connectors(request: Request):
+    """
+    Get all AAM connectors for the tenant with mapping counts
+    
+    Feature flag AAM_CONNECTORS_SYNC controls sync vs async implementation:
+    - true (default): Use sync psycopg2 (PgBouncer-safe)
+    - false: Use async asyncpg (may conflict with PgBouncer transaction mode)
     """
     if not AAM_MODELS_AVAILABLE:
         logger.error("AAM: AAM models not available")
@@ -658,44 +732,18 @@ def get_connectors(request: Request):
             detail="missing tenant_id"
         )
     
-    logger.info(f"AAM list: tenant_id={tenant_id}")
+    logger.info(f"AAM list: tenant_id={tenant_id}, mode={'sync' if AAM_CONNECTORS_SYNC else 'async'}")
     
     try:
-        from app.models import MappingRegistry
-        from app.database import SessionLocal
-        from sqlalchemy import func
+        if AAM_CONNECTORS_SYNC:
+            # Sync path: psycopg2 (PgBouncer-safe)
+            result = _get_connectors_sync(tenant_id)
+        else:
+            # Async path: asyncpg (may have PgBouncer issues)
+            result = await _get_connectors_async(tenant_id)
         
-        # Use explicit context manager to ensure proper session cleanup
-        with SessionLocal() as db:
-            # Get all connections (connections table doesn't have tenant_id yet)
-            connections = db.query(Connection).order_by(Connection.name).all()  # type: ignore
-            
-            # Then get mapping counts for each connector
-            connectors_list = []
-            for conn in connections:
-                # Count mappings for this connector
-                mapping_count = db.query(func.count(MappingRegistry.id)).filter(
-                    and_(
-                        MappingRegistry.tenant_id == tenant_id,
-                        MappingRegistry.vendor == conn.source_type
-                    )
-                ).scalar() or 0
-                
-                connectors_list.append({
-                    "id": str(conn.id),
-                    "name": conn.name,
-                    "type": conn.source_type,
-                    "status": conn.status.value if hasattr(conn.status, 'value') else conn.status,
-                    "last_discovery_at": conn.updated_at.isoformat() if conn.updated_at else None,
-                    "mapping_count": mapping_count
-                })
-            
-            logger.info(f"AAM list: tenant_id={tenant_id}, count={len(connectors_list)}")
-            
-            return {
-                "connectors": connectors_list,
-                "total": len(connectors_list)
-            }
+        logger.info(f"AAM list: tenant_id={tenant_id}, count={result['total']}")
+        return result
     
     except Exception as e:
         logger.error(f"Error fetching connectors: {e}")

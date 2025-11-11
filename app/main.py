@@ -128,11 +128,15 @@ async def startup_event():
     # Initialize AAM database (create tables and enums)
     try:
         import sys
+        import asyncio
         # Insert 'aam_hybrid' directory into sys.path to allow importing from it
         sys.path.insert(0, 'aam_hybrid')
         from shared.database import init_db
-        await init_db()
+        # Timeout after 5 seconds to avoid hanging on PgBouncer prepared statement issues
+        await asyncio.wait_for(init_db(), timeout=5.0)
         logger.info("✅ AAM database initialized successfully")
+    except asyncio.TimeoutError:
+        logger.warning(f"⚠️ AAM database initialization timed out (PgBouncer conflict). Some AAM features may not work.")
     except Exception as e:
         logger.warning(f"⚠️ AAM database initialization failed: {e}. Some AAM features may not work.")
 

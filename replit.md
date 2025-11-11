@@ -30,6 +30,19 @@ The platform employs a "Strangler Fig" pattern with feature flags for zero downt
 *   **PgBouncer Prepared Statement Conflict:** Supabase PgBouncer runs in transaction mode which conflicts with asyncpg's prepared statement caching. The `/api/v1/aam/connectors` endpoint uses synchronous SQLAlchemy (psycopg2) with explicit `with SessionLocal() as db:` context manager to ensure proper connection cleanup and avoid pool exhaustion. This is a controlled workaround until either (a) asyncpg's `prepare_threshold=0` configuration is tested, or (b) a dedicated session-mode PgBouncer pool is configured.
 *   **Async Engine Settings:** All async engines are configured with `statement_cache_size: 0` and `prepared_statement_cache_size: 0` to minimize PgBouncer conflicts for remaining async endpoints.
 
+**Feature Flags:**
+*   **AAM_CONNECTORS_SYNC** (default: `true`): Controls database access pattern for `/api/v1/aam/connectors` endpoint. When `true`, uses synchronous psycopg2 (PgBouncer-safe). When `false`, uses async asyncpg (may conflict with PgBouncer transaction mode). Requires server restart to take effect.
+
+**Data Ingestion:**
+*   **FilesSource CSV Ingest:** Use `scripts/filesource_ingest.py` to populate `mapping_registry` from CSV files in `mock_sources/`. This enables field-level mapping visibility for FilesSource connections in the Connections tab.
+    ```bash
+    # Ingest FilesSource CSV data (idempotent)
+    python scripts/filesource_ingest.py --connection-id 10ca3a88-5105-4e24-b984-6e350a5fa443 --namespace demo
+    
+    # Verify mapping count
+    # SQL: SELECT COUNT(*) FROM mapping_registry WHERE vendor='filesource' AND tenant_id='<demo_tenant_id>';
+    ```
+
 ## External Dependencies
 *   **FastAPI:** Web framework.
 *   **uvicorn:** ASGI server.
