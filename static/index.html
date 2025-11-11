@@ -4,22 +4,15 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
     <title>AOS Platform</title>
-    <script type="module" crossorigin src="/assets/index-CQFBH9KD.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-GY46k9aI.css">
+    <script type="module" crossorigin src="/assets/index-CbO-6afW.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/react-vendor-BdZgHC1P.js">
+    <link rel="stylesheet" crossorigin href="/assets/index-DWUeRoyM.css">
   </head>
   <body>
-    <div id="ENV_BEACON" style="position:fixed;top:0;left:0;right:0;z-index:99999;padding:6px 10px;font:12px/1.2 monospace;background:#111;border-bottom:1px solid #333;color:#0f0;">
-      HOST:<span id="b_host"></span> • BUILD:<span id="b_build"></span> • STATIC:<span id="b_static"></span>
-    </div>
-    <div style="height:28px"></div>
-    <script>
-      setTimeout(function() {
-        document.getElementById('b_build').textContent = (window.__BUILD_ID__ || 'unknown');
-        document.getElementById('b_static').textContent = '/home/runner/workspace/static';
-        document.getElementById('b_host').textContent = location.host;
-      }, 100);
-    </script>
     <div id="root"></div>
   </body>
 </html>
