@@ -393,7 +393,16 @@ export default function ConnectPage() {
   const fetchConnectorDetails = async () => {
     setDetailsLoading(true);
     try {
-      const response = await fetch(API_CONFIG.buildApiUrl('/aam/connector_details'));
+      const response = await fetch(API_CONFIG.buildApiUrl('/aam/connector_details'), {
+        headers: getAuthHeaders()
+      });
+      
+      if (response.status === 401) {
+        console.log('No tenant context — sign in or select tenant.');
+        setConnectorDetails([]);
+        return;
+      }
+      
       if (!response.ok) throw new Error('Failed to fetch connector details');
       const data = await response.json();
       setConnectorDetails(data.connectors || []);
