@@ -1,4 +1,4 @@
-import { TrendingUp, TrendingDown, AlertCircle, Loader2 } from 'lucide-react';
+import { TrendingUp, TrendingDown, AlertCircle, Loader2, BarChart3, Cable } from 'lucide-react';
 import { usePersonaSummary } from '../hooks/usePersonaSummary';
 import type { PersonaSlug } from '../types/persona';
 import { slugToLabel, getPersonaIcon, getPersonaColor } from '../types/persona';
@@ -45,11 +45,13 @@ export default function PersonaDashboard({ persona }: PersonaDashboardProps) {
 
   const bgGradient = colorClasses[getPersonaColor(persona) as keyof typeof colorClasses] || colorClasses.blue;
 
+  const IconComponent = getPersonaIcon(persona);
+
   return (
     <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
       <div className={`bg-gradient-to-r ${bgGradient} px-6 py-4 border-b border-gray-700`}>
         <div className="flex items-center gap-3">
-          <span className="text-3xl">{getPersonaIcon(persona)}</span>
+          <IconComponent className="w-8 h-8 text-white" />
           <div>
             <h2 className="text-xl font-semibold text-white">{slugToLabel(persona)} Dashboard</h2>
             <p className="text-sm text-gray-300">Role-specific KPIs and insights</p>
@@ -110,13 +112,15 @@ export default function PersonaDashboard({ persona }: PersonaDashboardProps) {
           {data.table.rows.length === 0 ? (
             <div className="text-center py-8">
               {data.table.note === 'stub' ? (
-                <div className="text-gray-500">
-                  <p className="text-lg mb-2">📊 Coming Soon</p>
+                <div className="text-gray-500 flex flex-col items-center gap-2">
+                  <BarChart3 className="w-12 h-12 text-gray-600" />
+                  <p className="text-lg mb-2">Coming Soon</p>
                   <p className="text-sm text-gray-600">This data source will be available in a future release</p>
                 </div>
               ) : (
-                <div className="text-gray-500">
-                  <p className="text-lg mb-2">🔌 No data yet</p>
+                <div className="text-gray-500 flex flex-col items-center gap-2">
+                  <Cable className="w-12 h-12 text-blue-600" />
+                  <p className="text-lg mb-2">No data yet</p>
                   <p className="text-sm text-blue-400">Connect your data source to see insights here</p>
                 </div>
               )}

@@ -1,6 +1,8 @@
+import { Cpu, TrendingUp, Wallet, Banknote, type LucideIcon } from 'lucide-react';
+
 export type PersonaSlug = 'cto' | 'cro' | 'coo' | 'cfo';
 
-export type PersonaDisplay = 'Data Engineer' | 'RevOps' | 'FinOps' | 'Finance';
+export type PersonaDisplay = 'CTO' | 'CRO' | 'COO' | 'CFO';
 
 export interface PersonaTile {
   key: string;
@@ -29,17 +31,17 @@ export interface PersonaSummaryResponse {
 }
 
 export const PERSONA_LABELS: Record<PersonaSlug, PersonaDisplay> = {
-  cto: 'Data Engineer',
-  cro: 'RevOps',
-  coo: 'FinOps',
-  cfo: 'Finance'
+  cto: 'CTO',
+  cro: 'CRO',
+  coo: 'COO',
+  cfo: 'CFO'
 };
 
-export const PERSONA_ICONS: Record<PersonaSlug, string> = {
-  cto: '🔧',
-  cro: '📊',
-  coo: '💰',
-  cfo: '💼'
+export const PERSONA_ICON_MAP: Record<PersonaSlug, LucideIcon> = {
+  cto: Cpu,
+  cro: TrendingUp,
+  coo: Wallet,
+  cfo: Banknote
 };
 
 export const PERSONA_COLORS: Record<PersonaSlug, string> = {
@@ -53,8 +55,8 @@ export function slugToLabel(slug: PersonaSlug): PersonaDisplay {
   return PERSONA_LABELS[slug];
 }
 
-export function getPersonaIcon(slug: PersonaSlug): string {
-  return PERSONA_ICONS[slug];
+export function getPersonaIcon(slug: PersonaSlug): LucideIcon {
+  return PERSONA_ICON_MAP[slug];
 }
 
 export function getPersonaColor(slug: PersonaSlug): string {
