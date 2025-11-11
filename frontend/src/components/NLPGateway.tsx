@@ -47,14 +47,17 @@ export default function NLPGateway({ persona }: NLPGatewayProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resolvedPersona, setResolvedPersona] = useState<string | null>(null);
 
   const prompts = PERSONA_PROMPTS[persona];
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || loading) return;
+  const handleSubmit = async (e?: React.FormEvent, queryText?: string) => {
+    if (e) e.preventDefault();
+    
+    const queryToSend = queryText || input;
+    if (!queryToSend.trim() || loading) return;
 
-    const userMessage: Message = { role: 'user', content: input };
+    const userMessage: Message = { role: 'user', content: queryToSend };
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setLoading(true);
@@ -62,21 +65,24 @@ export default function NLPGateway({ persona }: NLPGatewayProps) {
     try {
       const token = localStorage.getItem('token');
       
-      const response = await fetch('/nlp/v1/kb/search', {
+      const response = await fetch('/nlp/v1/query', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': token ? `Bearer ${token}` : '',
         },
         body: JSON.stringify({
-          tenant_id: 'demo-tenant',
-          env: 'prod',
-          query: input,
-          top_k: 5,
+          query: queryToSend,
+          persona: persona,
         }),
       });
 
       const data = await response.json();
+      
+      // Update resolved persona if available
+      if (data.resolved_persona) {
+        setResolvedPersona(data.resolved_persona);
+      }
       
       let content = '';
       let sources: string[] = [];
@@ -86,6 +92,8 @@ export default function NLPGateway({ persona }: NLPGatewayProps) {
           `${i + 1}. ${m.title}\n${m.content}\nScore: ${m.score.toFixed(3)}`
         ).join('\n\n');
         sources = data.matches.map((m: any) => `${m.title}: ${m.section}`);
+      } else if (data.response) {
+        content = data.response;
       } else {
         content = JSON.stringify(data, null, 2);
       }
@@ -110,6 +118,7 @@ export default function NLPGateway({ persona }: NLPGatewayProps) {
 
   const handlePromptClick = (promptText: string) => {
     setInput(promptText);
+    handleSubmit(undefined, promptText);
   };
 
   const handleReset = () => {
@@ -138,7 +147,9 @@ export default function NLPGateway({ persona }: NLPGatewayProps) {
         <div className="flex items-center gap-2">
           <span className="text-xs text-gray-300 bg-gray-700 bg-opacity-50 px-2 py-1 rounded flex items-center gap-1.5">
             <span className="text-gray-400">Resolved:</span>
-            <span className="font-medium text-white">{slugToLabel(persona)}</span>
+            <span className="font-medium text-white">
+              {resolvedPersona ? slugToLabel(resolvedPersona as PersonaSlug) : slugToLabel(persona)}
+            </span>
             <span className="text-gray-400">(Auto)</span>
           </span>
           <button

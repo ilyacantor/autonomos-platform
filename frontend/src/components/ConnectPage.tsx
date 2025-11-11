@@ -57,6 +57,7 @@ interface AAMConnection {
   created_at: string;
   updated_at: string;
   last_health_check?: string;
+  mapping_count?: number;
 }
 
 interface AAMEvent {
@@ -202,14 +203,21 @@ export default function ConnectPage() {
 
   const fetchAAMConnections = async () => {
     try {
-      const response = await fetch(API_CONFIG.buildApiUrl('/aam/connections'), {
+      const response = await fetch(API_CONFIG.buildApiUrl('/aam/connectors'), {
         headers: getAuthHeaders()
       });
-      if (!response.ok) throw new Error('Failed to fetch AAM connections');
+      
+      if (response.status === 401) {
+        console.log('No tenant context — sign in or select tenant.');
+        setConnections([]);
+        return;
+      }
+      
+      if (!response.ok) throw new Error('Failed to fetch AAM connectors');
       const data = await response.json();
-      setConnections(data.connections || []);
+      setConnections(data.connectors || []);
     } catch (err) {
-      console.error('Error fetching AAM connections:', err);
+      console.error('Error fetching AAM connectors:', err);
     }
   };
 
@@ -323,6 +331,38 @@ export default function ConnectPage() {
       }));
     } finally {
       setOperationLoading(prev => ({ ...prev, [`delete_${connectionId}`]: false }));
+    }
+  };
+
+  const handleRunDiscovery = async (connectionId: string) => {
+    setOperationLoading(prev => ({ ...prev, [`discover_${connectionId}`]: true }));
+    setOperationError(prev => ({ ...prev, [`discover_${connectionId}`]: '' }));
+
+    try {
+      const response = await fetch(
+        API_CONFIG.buildApiUrl(`/aam/connectors/${connectionId}/discover`),
+        {
+          method: 'POST',
+          headers: getAuthHeaders()
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Discovery failed');
+      }
+
+      console.log('Discovery queued');
+      await fetchAAMConnections();
+      await fetchAAMMetrics();
+    } catch (err: any) {
+      console.error('Error running discovery:', err);
+      setOperationError(prev => ({ 
+        ...prev, 
+        [`discover_${connectionId}`]: err.message || 'Discovery failed' 
+      }));
+    } finally {
+      setOperationLoading(prev => ({ ...prev, [`discover_${connectionId}`]: false }));
     }
   };
 
@@ -947,12 +987,12 @@ export default function ConnectPage() {
                 {connections.length === 0 ? (
                   <div className="text-center py-12">
                     <Database className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-                    <p className="text-gray-500">No connections registered</p>
+                    <p className="text-gray-500">No connectors found for this tenant.</p>
                     <button
                       onClick={() => setShowRegisterModal(true)}
                       className="mt-4 text-blue-400 hover:text-blue-300 text-sm"
                     >
-                      Register your first connection
+                      Register Connection
                     </button>
                   </div>
                 ) : (
@@ -973,14 +1013,47 @@ export default function ConnectPage() {
                             {conn.last_health_check && (
                               <div>Last Health Check: {formatTimestamp(conn.last_health_check)}</div>
                             )}
+                            {conn.mapping_count !== undefined && (
+                              <div className="flex items-center gap-2">
+                                <span>Mappings: {conn.mapping_count}</span>
+                                {conn.mapping_count === 0 && (
+                                  <span className="text-yellow-400 text-xs">No mappings yet — Run Discovery</span>
+                                )}
+                              </div>
+                            )}
                           </div>
                           {operationError[conn.id] && (
                             <div className="mt-2 text-sm text-red-400">
                               {operationError[conn.id]}
                             </div>
                           )}
+                          {operationError[`discover_${conn.id}`] && (
+                            <div className="mt-2 text-sm text-red-400">
+                              {operationError[`discover_${conn.id}`]}
+                            </div>
+                          )}
                         </div>
                         <div className="flex items-center gap-2">
+                          {conn.mapping_count === 0 && (
+                            <button
+                              onClick={() => handleRunDiscovery(conn.id)}
+                              disabled={conn.status !== 'ACTIVE' || operationLoading[`discover_${conn.id}`]}
+                              className="flex items-center gap-2 px-3 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-lg transition-colors text-sm"
+                              title={conn.status !== 'ACTIVE' ? 'Connector must be ACTIVE to run discovery' : 'Run Discovery'}
+                            >
+                              {operationLoading[`discover_${conn.id}`] ? (
+                                <>
+                                  <Activity className="w-4 h-4 animate-spin" />
+                                  Discovering...
+                                </>
+                              ) : (
+                                <>
+                                  <Eye className="w-4 h-4" />
+                                  Run Discovery
+                                </>
+                              )}
+                            </button>
+                          )}
                           <button
                             onClick={() => handleHealthCheck(conn.id)}
                             disabled={operationLoading[conn.id]}

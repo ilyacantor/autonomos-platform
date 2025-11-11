@@ -1,0 +1,266 @@
+Replit Agent 3 (MAX) — Fix Connections rendering + NLP prompt wiring
+You are Replit Agent 3 in MAX mode. Make the following changes. Keep commits atomic with clear messages. Infer file paths if they differ.
+0) Assumptions
+
+
+Backend FastAPI has (or will have) tenant-scoped endpoints:
+
+
+GET /api/v1/aam/connectors
+
+
+GET /api/v1/aam/connector_details?id=<id>
+
+
+
+
+Requests must include a JWT with tenant_id claim. No tenant → 401.
+
+
+Frontend has an auth context with accessToken and current persona.
+
+
+
+1) Frontend — Connections list must call the tenant endpoint with auth
+Task
+
+
+In the Connections page, replace any local/mock source with a real fetch:
+
+
+GET /api/v1/aam/connectors (no query params)
+
+
+Headers: Authorization: Bearer <token>
+
+
+
+
+If response is 401 and message contains “missing tenant_id”, show toast:
+
+
+“No tenant context — sign in or select tenant.”
+
+
+
+
+Map the response into the list; do not hide connectors with zero mappings.
+
+
+Bind Manual Refresh to re-call the same endpoint.
+
+
+Acceptance
+
+
+The “Active Connections” list shows every connector row in DB for the tenant (even with 0 mappings).
+
+
+Network tab shows a single call to /api/v1/aam/connectors with Authorization header.
+
+
+Commit
+fix(ui/aam): load connectors from tenant endpoint with auth; remove any mock source
+
+2) Backend — ensure list/details endpoints exist and are tenant-scoped
+Task
+
+
+Add/confirm:
+
+
+GET /api/v1/aam/connectors
+
+
+Returns [{id,name,type,status,last_discovery_at}] filtered by tenant_id.
+
+
+
+
+GET /api/v1/aam/connector_details?id=<id>
+
+
+Returns {...,"mapping_count", "sample_mappings":[]}; no mock if none.
+
+
+
+
+
+
+Middleware extracts tenant_id from JWT; reject if absent (401).
+
+
+Acceptance
+
+
+Hitting both endpoints with a valid JWT returns DB data; without → 401.
+
+
+Commit
+feat(api/aam): connectors list + details tenant endpoints (no mock fallbacks)
+
+3) Frontend — empty/error states for Connections
+Task
+
+
+If list returns [], show empty state:
+
+
+“No connectors found for this tenant.”
+
+
+Primary CTA: Register Connection (existing flow).
+
+
+
+
+If details return mapping_count=0, show “No mappings yet — Run Discovery.”
+
+
+Add a Run Discovery button (disabled unless status==="ACTIVE"); on click call POST /api/v1/aam/connectors/{id}/discover (if present) else show tooltip “Discovery not implemented”.
+
+
+Commit
+feat(ui/aam): proper empty/error states and Run Discovery CTA
+
+4) Frontend — make the NLP starter prompts actually send
+Problem
+Clicking a suggestion isn’t using the same send path (or doesn’t include persona).
+Task
+
+
+In the NLP Gateway component:
+
+
+Implement handlePromptClick(prompt: string):
+
+
+Set input value to prompt.
+
+
+Immediately call the same handleSend() used by the Send button.
+
+
+
+
+Ensure handleSend() includes:
+POST /nlp/v1/query
+body: { query: inputValue, persona: currentPersonaSlug } // auto|cto|cro|coo|cfo
+headers: { Authorization: Bearer <token> }
+
+
+
+On response, if resolved_persona exists, show it in the “Resolved: …” badge.
+
+
+
+
+Acceptance
+
+
+Clicking any persona starter prompt produces a response.
+
+
+Network tab shows a POST with persona=<slug> and Authorization header.
+
+
+Commit
+fix(ui/nlp): wire starter prompts to call handleSend with persona + auth
+
+5) Backend — enforce persona-aware retrieval (guardrail)
+Task
+
+
+In POST /nlp/v1/query, if persona="auto", run the classifier; set resolved_persona.
+
+
+Build tags:
+
+
+cto → ["kb:persona:cto","kb:global"]
+
+
+cro → ["kb:persona:cro","kb:global"]
+
+
+coo → ["kb:persona:coo","kb:finops","kb:global"]
+
+
+cfo → ["kb:persona:cfo","kb:global"]
+
+
+
+
+Query with persona tags; if unsupported, interleave persona/global 3:1.
+
+
+Return {resolved_persona, routing:{tags}} in response.
+
+
+Commit
+feat(nlp): persona-tagged retrieval with explicit routing in response
+
+6) Quick diagnostics (temporary)
+Task
+
+
+Log one line per request:
+
+
+AAM list/details: tenant_id, count/connector_id.
+
+
+NLP query: persona_selected, resolved_persona, matched keywords.
+
+
+
+
+Add a debug route:
+
+
+GET /api/v1/aam/debug/state → {connections:[...], mappings_by_connector:{}} (tenant-scoped, read-only).
+
+
+GET /nlp/v1/debug/persona-routing?query=...
+
+
+
+
+Commit
+chore(obs): add debug logs for AAM and NLP persona routing
+
+7) Smoke tests
+Task
+
+
+Add tests:
+
+
+test_aam_connectors_list_requires_tenant(): 401 without JWT; 200 with JWT.
+
+
+test_aam_connectors_list_returns_rows(): returns at least existing rows for the seeded tenant.
+
+
+test_nlp_prompt_sends_persona(): POST with persona=coo returns resolved_persona="coo".
+
+
+
+
+Commit
+test(aam+nlp): tenant guard, connectors list, persona routing
+
+Manual QA (1 minute)
+
+
+Open Connections: see rows for all connectors present in DB. If none, see “No connectors found…” + Register CTA.
+
+
+Click a connector with zero mappings → see “No mappings yet — Run Discovery”.
+
+
+In Control Center, click a COO prompt “Cloud spend MTD vs budget” → response arrives; “Resolved: COO (Auto)” if Auto is selected; otherwise “Resolved: COO”.
+
+
+
+If you want the assistant to also re-add MongoDB/FileSource rows to the connections table (they were never inserted), say the word and I’ll produce a safe SQL migration + UI “Add connector” flow script.
