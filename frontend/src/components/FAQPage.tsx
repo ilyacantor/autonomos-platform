@@ -6,11 +6,13 @@ interface FAQItem {
   question: string;
   answer: string | JSX.Element;
   category: string;
+  searchableText?: string; // Plain text version for searching JSX answers
 }
 
 export default function FAQPage() {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   useEffect(() => {
     const handleHashChange = () => {
@@ -47,6 +49,7 @@ export default function FAQPage() {
       id: "what-is-autonomos",
       category: "Platform Overview",
       question: "What is AutonomOS?",
+      searchableText: "AutonomOS is an AI-native enterprise-grade platform that turns your scattered company data into action. It autonomously connects to all your apps, databases, and files, learning how they fit together to create a single unified enterprise ontology. This allows our specialized AI agents to reason, act, and get work done. The Problem: Most companies are data-rich but action-poor. They can't bridge the Insight-to-Action Gap between their data and their business goals, leading to inefficiency and inaction. Our Solution: AutonomOS bridges this gap. It not only unifies your data but empowers pre-built AI agents to execute complex workflows. You remain in control with Human-in-the-Loop HITL guardrails. We deliver a complete secure and scalable solution combining technology with domain expertise to ensure you get results not just another proof-of-concept POC.",
       answer: (
         <div className="space-y-4">
           <p className="text-gray-300">
@@ -306,6 +309,7 @@ export default function FAQPage() {
       id: "nlp-queries",
       category: "NLP Gateway",
       question: "What can I ask the NLP Gateway?",
+      searchableText: "Example queries supported: What's my total cloud spending this month FinOps, Show me top revenue opportunities RevOps, Which connectors have drift events AAM, How many entities are mapped in DCL Ontology, What agents are currently running Orchestration, Summarize my platform health Overview",
       answer: (
         <div className="space-y-2">
           <p className="text-gray-300">Example queries supported:</p>
@@ -326,6 +330,7 @@ export default function FAQPage() {
       id: "security-overview",
       category: "Security",
       question: "What are your security standards?",
+      searchableText: "Security Compliance Roadmap. Phase 0 Secure Core Today Implemented: Zero Data Retention Model ephemeral in-memory processing, Robust Multi-Tenant Isolation DB-level tenant-scoped queries, Zero-Trust Infrastructure VPC TLS 1.3 Secrets Management, Secure API Software Lifecycle Pydantic validation CI/CD scans, Immutable Audit Trail metadata-only logging. Phase 1 Enterprise Readiness 0-6 Months: SOC 2 Type I Certification fast-tracked, 3rd-Party Penetration Test, Single Sign-On SSO Okta Azure AD, Private Connectivity AWS PrivateLink, Public Trust Portal Incident Response Plan. Phase 2 Continuous Compliance 6-18 Months: SOC 2 Type II ISO 27001, Bring Your Own Key BYOK, Customer-Managed RBAC, Regional Data Residency Controls, AI-Driven Threat Detection",
       answer: (
         <div className="space-y-6">
           <div>
@@ -473,9 +478,25 @@ export default function FAQPage() {
   ];
 
   const categories = ['all', ...Array.from(new Set(faqItems.map(item => item.category)))];
-  const filteredItems = selectedCategory === 'all' 
-    ? faqItems 
-    : faqItems.filter(item => item.category === selectedCategory);
+  
+  // Filter by category and search query
+  const filteredItems = faqItems.filter(item => {
+    const inSelectedCategory = selectedCategory === 'all' || item.category === selectedCategory;
+    
+    if (searchQuery === '') {
+      return inSelectedCategory;
+    }
+    
+    const query = searchQuery.toLowerCase();
+    const matchesQuestion = item.question.toLowerCase().includes(query);
+    const matchesCategoryText = item.category.toLowerCase().includes(query);
+    const matchesAnswer = typeof item.answer === 'string' 
+      ? item.answer.toLowerCase().includes(query)
+      : (item.searchableText?.toLowerCase().includes(query) ?? false);
+    
+    const matchesSearch = matchesQuestion || matchesCategoryText || matchesAnswer;
+    return inSelectedCategory && matchesSearch;
+  });
 
   // Get the index in the full faqItems array for the filtered item
   const getGlobalIndex = (filteredIndex: number) => {
@@ -492,13 +513,24 @@ export default function FAQPage() {
   return (
     <div className="min-h-screen bg-[#0A1628] py-8 px-4 safe-area">
       <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-12">
+        <div className="text-center mb-8">
           <h1 className="text-4xl font-medium text-white mb-4">
-            User Manual & FAQ
+            Help
           </h1>
           <p className="text-gray-400 text-lg">
             Complete guide to every feature and element in AutonomOS
           </p>
+        </div>
+
+        {/* Search Box */}
+        <div className="mb-6">
+          <input
+            type="text"
+            placeholder="Search help topics..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full px-4 py-3 bg-[#0D2F3F] border border-[#1A4D5E] rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-[#0BCAD9] focus:ring-1 focus:ring-[#0BCAD9]"
+          />
         </div>
 
         {/* Category Filter */}
@@ -518,8 +550,21 @@ export default function FAQPage() {
           ))}
         </div>
 
+        {/* Results count */}
+        {searchQuery && (
+          <div className="mb-4 text-sm text-gray-400">
+            Found {filteredItems.length} result{filteredItems.length !== 1 ? 's' : ''} for "{searchQuery}"
+          </div>
+        )}
+
         <div className="space-y-4">
-          {filteredItems.map((item, filteredIndex) => (
+          {filteredItems.length === 0 ? (
+            <div className="bg-[#0D2F3F] border border-[#1A4D5E] rounded-xl p-12 text-center">
+              <p className="text-gray-400 text-lg">No help topics found matching your search.</p>
+              <p className="text-gray-500 text-sm mt-2">Try a different search term or browse all topics.</p>
+            </div>
+          ) : (
+            filteredItems.map((item, filteredIndex) => (
             <div
               key={item.id}
               id={item.id}
@@ -552,7 +597,8 @@ export default function FAQPage() {
                 </div>
               )}
             </div>
-          ))}
+          ))
+          )}
         </div>
 
         <div className="mt-12 text-center">
