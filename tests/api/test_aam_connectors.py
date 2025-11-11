@@ -163,5 +163,56 @@ def test_mapping_count_after_ingest(demo_tenant_token):
     assert mapping_count > 0, f"Expected mapping_count > 0, got {mapping_count}"
 
 
+def test_mapping_count_scoped_by_connection(demo_tenant_token):
+    """
+    Test that mapping_count is scoped by connection_id, not vendor
+    
+    This test validates that if two FilesSource connections exist in the same tenant,
+    ingesting data for only one of them doesn't inflate the other's mapping_count.
+    
+    Note: Since connections table isn't tenant-scoped, we test that mappings
+    ARE correctly scoped to specific connection_ids.
+    """
+    headers = {"Authorization": f"Bearer {demo_tenant_token}"}
+    response = requests.get(f"{BASE_URL}/api/v1/aam/connectors", headers=headers)
+    
+    assert response.status_code == 200
+    data = response.json()
+    
+    # Find all FilesSource connectors
+    filesource_conns = [c for c in data["connectors"] if c["type"] == "filesource"]
+    
+    # If we only have one FilesSource, this test passes trivially
+    if len(filesource_conns) == 1:
+        print("\n⚠️  Only one FilesSource connection found - test passes trivially")
+        return
+    
+    # With multiple FilesSource connections, verify they have independent mapping counts
+    # (The ingest script only populated one specific connection_id)
+    print(f"\n📊 Found {len(filesource_conns)} FilesSource connections:")
+    for conn in filesource_conns:
+        conn_id = conn.get("id")
+        mapping_count = conn.get("mapping_count", 0)
+        print(f"  - {conn['name']} ({conn_id[:8]}...): {mapping_count} mappings")
+    
+    # At least one should have mappings (the one we ingested)
+    # Others should have 0 (not auto-populated from vendor='filesource')
+    mapping_counts = [c.get("mapping_count", 0) for c in filesource_conns]
+    assert any(count > 0 for count in mapping_counts), "At least one FilesSource should have mappings"
+    assert any(count == 0 for count in mapping_counts), "At least one FilesSource should have 0 mappings (connection-scoped)"
+
+
+def test_healthz_aam_ok():
+    """Test that /healthz/aam endpoint returns 200 with {"ok": true}"""
+    response = requests.get(f"{BASE_URL}/api/v1/aam/healthz")
+    
+    assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+    data = response.json()
+    
+    assert "ok" in data, f"Expected 'ok' field in response: {data}"
+    assert data["ok"] is True, f"Expected ok=true, got {data['ok']}"
+    print("\n✅ AAM healthz endpoint OK")
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "-s"])
