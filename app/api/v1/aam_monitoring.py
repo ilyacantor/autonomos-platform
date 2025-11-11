@@ -665,7 +665,7 @@ def _get_connectors_sync(tenant_id: str) -> Dict[str, Any]:
             mapping_count = db.query(func.count(MappingRegistry.id)).filter(
                 and_(
                     MappingRegistry.tenant_id == tenant_id,
-                    MappingRegistry.vendor == conn.source_type
+                    MappingRegistry.connection_id == conn.id
                 )
             ).scalar() or 0
             
@@ -694,7 +694,7 @@ async def _get_connectors_async(tenant_id: str) -> Dict[str, Any]:
                 .where(
                     and_(
                         MappingRegistry.tenant_id == tenant_id,
-                        MappingRegistry.vendor == conn.source_type
+                        MappingRegistry.connection_id == conn.id
                     )
                 )
             )
