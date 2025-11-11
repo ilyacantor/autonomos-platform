@@ -36,11 +36,6 @@ export default function AgentPerformanceMonitor({ agents }: AgentPerformanceMoni
         >
           Active Agent Performance
         </h2>
-        <img 
-          src="/robot-agents.png" 
-          alt="AI Agents" 
-          className="h-12 object-contain opacity-80 hover:opacity-100 transition-opacity"
-        />
       </div>
 
       <div className="flex-1 overflow-auto">

@@ -46,9 +46,8 @@ export default function AgenticOrchestrationContainer({ agents }: AgenticOrchest
     <div className="bg-black border-t border-b border-cyan-500/30 py-12 -mx-6 px-6">
       {/* Content */}
       <div className="space-y-6">
-        {/* AOA Status and Agent Performance */}
-        <div id="agent-performance-monitor" className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6">
-          <AOAStatusCard />
+        {/* Agent Performance Monitor */}
+        <div id="agent-performance-monitor">
           <AgentPerformanceMonitor agents={agents} />
         </div>
         
