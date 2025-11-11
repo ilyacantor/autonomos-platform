@@ -15,18 +15,18 @@ export default function AgenticOrchestrationContainer({ agents }: AgenticOrchest
 
   const getMetricTooltip = (id: string): string => {
     const tooltips: Record<string, string> = {
-      cross_discovery: 'Shows the total number of active API endpoints discovered across federated enterprises.',
-      federation_health: 'Represents the synchronization and uptime status of federated orchestrations.',
-      trust_score: 'Quantifies the inter-enterprise trust, reliability, and data fidelity score of cross-domain exchanges.',
-      data_sovereignty: 'Measures compliance with regional data residency and sovereignty requirements.',
-      cost_allocation: 'Displays the distribution of compute and resource costs across federated orchestration domains.',
-      sla_compliance: 'Tracks the service-level adherence of each orchestrated component relative to enterprise SLAs.',
-      security_posture: 'Federated security assessment score across all connected systems.',
-      consensus_rate: 'Multi-party agreement rate on orchestration decisions.',
-      latency_p95: '95th percentile latency for cross-enterprise federated operations.',
-      shared_agents: 'Number of agents operating across enterprise boundaries.',
-      interop_score: 'System compatibility and integration health score.',
-      dispute_resolution: 'Average time to resolve orchestration conflicts between systems.',
+      cross_discovery: 'Total number of active API endpoints discovered across all orchestrated agents (internal and 3rd party).',
+      federation_health: 'Synchronization and uptime status of all orchestrated agents.',
+      trust_score: 'Trust, reliability, and data fidelity score of agent interactions.',
+      data_sovereignty: 'Compliance with regional data residency and sovereignty requirements.',
+      cost_allocation: 'Distribution of compute and resource costs across orchestrated agents.',
+      sla_compliance: 'Service-level adherence of each orchestrated agent relative to SLAs.',
+      security_posture: 'Security assessment score across all orchestrated agents.',
+      consensus_rate: 'Agreement rate on orchestration decisions across agents.',
+      latency_p95: '95th percentile latency for cross-agent operations.',
+      shared_agents: 'Number of agents operating across multiple domains.',
+      interop_score: 'System compatibility and integration health score for all agents.',
+      dispute_resolution: 'Average time to resolve orchestration conflicts between agents.',
     };
     return tooltips[id] || '';
   };
@@ -60,12 +60,12 @@ export default function AgenticOrchestrationContainer({ agents }: AgenticOrchest
           <div className="mb-4">
             <h3 
               className="text-2xl font-medium text-cyan-400 mb-2 cursor-help" 
-              title="Cross-Agentic Orchestration (xAO) coordinates multiple autonomOS instances across federated domains."
+              title="Cross-Agentic Orchestration (xAO) orchestrates all agents—our own internal agents and 3rd party agents—providing unified coordination and governance."
             >
               xAO Metrics
             </h3>
             <p className="text-sm text-gray-400">
-              Cross-agentic orchestration metrics and coordination details
+              Orchestration metrics for all agents (internal + 3rd party)
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

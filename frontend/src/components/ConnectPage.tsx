@@ -719,42 +719,42 @@ export default function ConnectPage() {
         </div>
 
         {/* Intelligence Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <Map className="w-5 h-5 text-purple-400" />
-                    <h3 className="text-sm font-medium text-gray-400">Mappings</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="bg-gray-900 rounded-lg border border-gray-800 p-3">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-1.5">
+                    <Map className="w-4 h-4 text-purple-400" />
+                    <h3 className="text-xs font-medium text-gray-400">Mappings</h3>
                   </div>
-                  {intelligenceLoading && <Activity className="w-4 h-4 text-gray-400 animate-spin" />}
+                  {intelligenceLoading && <Activity className="w-3 h-3 text-gray-400 animate-spin" />}
                 </div>
-                <div className="text-3xl font-bold text-white">
+                <div className="text-2xl font-bold text-white">
                   {intelligenceLoading ? '...' : mappingsData?.total ?? 0}
                 </div>
-                <div className="text-sm text-gray-500 mt-2 space-y-1">
+                <div className="text-xs text-gray-500 mt-1 space-y-0.5">
                   <div>Autofix: {intelligenceLoading ? '...' : `${mappingsData?.autofix_pct ?? 0}%`}</div>
                   <div>HITL: {intelligenceLoading ? '...' : `${mappingsData?.hitl_pct ?? 0}%`}</div>
                 </div>
                 {intelligenceError && (
-                  <div className="text-xs text-red-400 mt-2">{intelligenceError}</div>
+                  <div className="text-xs text-red-400 mt-1">{intelligenceError}</div>
                 )}
               </div>
 
-              <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle className="w-5 h-5 text-orange-400" />
-                    <h3 className="text-sm font-medium text-gray-400">Drift Events (24h)</h3>
+              <div className="bg-gray-900 rounded-lg border border-gray-800 p-3">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-1.5">
+                    <AlertTriangle className="w-4 h-4 text-orange-400" />
+                    <h3 className="text-xs font-medium text-gray-400">Drift Events (24h)</h3>
                   </div>
-                  {intelligenceLoading && <Activity className="w-4 h-4 text-gray-400 animate-spin" />}
+                  {intelligenceLoading && <Activity className="w-3 h-3 text-gray-400 animate-spin" />}
                 </div>
-                <div className="text-3xl font-bold text-white">
+                <div className="text-2xl font-bold text-white">
                   {intelligenceLoading ? '...' : driftData?.total ?? 0}
                 </div>
-                <div className="text-sm text-gray-500 mt-2">
+                <div className="text-xs text-gray-500 mt-1">
                   {intelligenceLoading ? 'Loading...' : (
                     driftData && Object.keys(driftData.by_source).length > 0 ? (
-                      <div className="space-y-1">
+                      <div className="space-y-0.5">
                         {Object.entries(driftData.by_source).map(([source, count]) => (
                           <div key={source}>{source}: {count}</div>
                         ))}
@@ -763,22 +763,22 @@ export default function ConnectPage() {
                   )}
                 </div>
                 {intelligenceError && (
-                  <div className="text-xs text-red-400 mt-2">{intelligenceError}</div>
+                  <div className="text-xs text-red-400 mt-1">{intelligenceError}</div>
                 )}
               </div>
 
-              <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <Brain className="w-5 h-5 text-cyan-400" />
-                    <h3 className="text-sm font-medium text-gray-400">RAG Suggestions</h3>
+              <div className="bg-gray-900 rounded-lg border border-gray-800 p-3">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-1.5">
+                    <Brain className="w-4 h-4 text-cyan-400" />
+                    <h3 className="text-xs font-medium text-gray-400">RAG Suggestions</h3>
                   </div>
-                  {intelligenceLoading && <Activity className="w-4 h-4 text-gray-400 animate-spin" />}
+                  {intelligenceLoading && <Activity className="w-3 h-3 text-gray-400 animate-spin" />}
                 </div>
-                <div className="text-3xl font-bold text-white">
+                <div className="text-2xl font-bold text-white">
                   {intelligenceLoading ? '...' : ragData?.pending ?? 0}
                 </div>
-                <div className="text-sm text-gray-500 mt-2 space-y-1">
+                <div className="text-xs text-gray-500 mt-1 space-y-0.5">
                   <div>Pending: {intelligenceLoading ? '...' : ragData?.pending ?? 0}</div>
                   <div>
                     Accepted: {intelligenceLoading ? '...' : ragData?.accepted ?? 0} | 
@@ -786,102 +786,102 @@ export default function ConnectPage() {
                   </div>
                 </div>
                 {intelligenceError && (
-                  <div className="text-xs text-red-400 mt-2">{intelligenceError}</div>
+                  <div className="text-xs text-red-400 mt-1">{intelligenceError}</div>
                 )}
               </div>
 
-              <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <Target className="w-5 h-5 text-green-400" />
-                    <h3 className="text-sm font-medium text-gray-400">Repair Confidence</h3>
+              <div className="bg-gray-900 rounded-lg border border-gray-800 p-3">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-1.5">
+                    <Target className="w-4 h-4 text-green-400" />
+                    <h3 className="text-xs font-medium text-gray-400">Repair Confidence</h3>
                   </div>
-                  {intelligenceLoading && <Activity className="w-4 h-4 text-gray-400 animate-spin" />}
+                  {intelligenceLoading && <Activity className="w-3 h-3 text-gray-400 animate-spin" />}
                 </div>
-                <div className="text-3xl font-bold text-white">
+                <div className="text-2xl font-bold text-white">
                   {intelligenceLoading ? '...' : `${((repairData?.avg_confidence ?? 0) * 100).toFixed(0)}%`}
                 </div>
-                <div className="text-sm text-gray-500 mt-2">
+                <div className="text-xs text-gray-500 mt-1">
                   Test Pass Rate: {intelligenceLoading ? '...' : `${((repairData?.test_pass_rate ?? 0) * 100).toFixed(0)}%`}
                 </div>
                 {intelligenceError && (
-                  <div className="text-xs text-red-400 mt-2">{intelligenceError}</div>
+                  <div className="text-xs text-red-400 mt-1">{intelligenceError}</div>
                 )}
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <Database className="w-5 h-5 text-blue-400" />
-                    <h3 className="text-sm font-medium text-gray-400">Total Connections</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              <div className="bg-gray-900 rounded-lg border border-gray-800 p-3">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-1.5">
+                    <Database className="w-4 h-4 text-blue-400" />
+                    <h3 className="text-xs font-medium text-gray-400">Total Connections</h3>
                   </div>
                 </div>
-                <div className="text-3xl font-bold text-white">{metrics?.total_connections ?? 0}</div>
+                <div className="text-2xl font-bold text-white">{metrics?.total_connections ?? 0}</div>
                 {metrics?.active_connections !== undefined && (
-                  <div className="text-sm text-gray-500 mt-1">
+                  <div className="text-xs text-gray-500 mt-1">
                     {metrics.active_connections} active
                   </div>
                 )}
               </div>
 
-              <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle className="w-5 h-5 text-yellow-400" />
-                    <h3 className="text-sm font-medium text-gray-400">Drift Detections (24h)</h3>
+              <div className="bg-gray-900 rounded-lg border border-gray-800 p-3">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-1.5">
+                    <AlertTriangle className="w-4 h-4 text-yellow-400" />
+                    <h3 className="text-xs font-medium text-gray-400">Drift Detections (24h)</h3>
                   </div>
                 </div>
-                <div className="text-3xl font-bold text-white">
+                <div className="text-2xl font-bold text-white">
                   {metrics?.active_drift_detections_24h ?? 0}
                 </div>
               </div>
 
-              <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="w-5 h-5 text-green-400" />
-                    <h3 className="text-sm font-medium text-gray-400">Successful Repairs (24h)</h3>
+              <div className="bg-gray-900 rounded-lg border border-gray-800 p-3">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle className="w-4 h-4 text-green-400" />
+                    <h3 className="text-xs font-medium text-gray-400">Successful Repairs (24h)</h3>
                   </div>
                 </div>
-                <div className="text-3xl font-bold text-white">
+                <div className="text-2xl font-bold text-white">
                   {metrics?.successful_repairs_24h ?? 0}
                 </div>
               </div>
 
-              <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <Eye className="w-5 h-5 text-orange-400" />
-                    <h3 className="text-sm font-medium text-gray-400">Manual Reviews (24h)</h3>
+              <div className="bg-gray-900 rounded-lg border border-gray-800 p-3">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-1.5">
+                    <Eye className="w-4 h-4 text-orange-400" />
+                    <h3 className="text-xs font-medium text-gray-400">Manual Reviews (24h)</h3>
                   </div>
                 </div>
-                <div className="text-3xl font-bold text-white">
+                <div className="text-2xl font-bold text-white">
                   {metrics?.manual_reviews_required_24h ?? 0}
                 </div>
               </div>
 
-              <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="w-5 h-5 text-cyan-400" />
-                    <h3 className="text-sm font-medium text-gray-400">Avg Confidence</h3>
+              <div className="bg-gray-900 rounded-lg border border-gray-800 p-3">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-1.5">
+                    <TrendingUp className="w-4 h-4 text-cyan-400" />
+                    <h3 className="text-xs font-medium text-gray-400">Avg Confidence</h3>
                   </div>
                 </div>
-                <div className="text-3xl font-bold text-white">
+                <div className="text-2xl font-bold text-white">
                   {((metrics?.average_confidence_score ?? 0) * 100).toFixed(1)}%
                 </div>
               </div>
 
-              <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-5 h-5 text-purple-400" />
-                    <h3 className="text-sm font-medium text-gray-400">Avg Repair Time</h3>
+              <div className="bg-gray-900 rounded-lg border border-gray-800 p-3">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-1.5">
+                    <Clock className="w-4 h-4 text-purple-400" />
+                    <h3 className="text-xs font-medium text-gray-400">Avg Repair Time</h3>
                   </div>
                 </div>
-                <div className="text-3xl font-bold text-white">
+                <div className="text-2xl font-bold text-white">
                   {formatTime(metrics?.average_repair_time_seconds ?? 0)}
                 </div>
               </div>
