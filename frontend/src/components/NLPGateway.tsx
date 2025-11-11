@@ -210,10 +210,10 @@ export default function NLPGateway() {
           </button>
         </form>
 
-        <div className="space-y-3 min-h-[400px] max-h-[500px] overflow-y-auto bg-gray-900 bg-opacity-50 rounded-lg p-4 border border-gray-700">
+        <div className="space-y-3 bg-gray-900 bg-opacity-50 rounded-lg p-4 border border-gray-700">
           {messages.length === 0 ? (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center space-y-4 max-w-2xl">
+            <div className="py-8">
+              <div className="text-center space-y-4 max-w-2xl mx-auto">
                 <p className="text-gray-400 text-sm mb-3">Get started with these prompts:</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   {prompts.map((prompt, i) => (
