@@ -484,7 +484,7 @@ export default function ConnectPage() {
     <div className="space-y-4 px-4 sm:px-6 py-6">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-4xl font-bold text-white mb-4">Connections</h1>
+        <h1 className="text-4xl font-bold text-white mb-4">Adaptive API Mesh</h1>
         <p className="text-lg text-gray-300 max-w-4xl leading-relaxed">
           Self-healing data connectivity layer. Automatically detects schema drift, repairs field mappings with AI-powered confidence scoring, and maintains canonical event schemas across all your data sources.
         </p>
@@ -492,18 +492,8 @@ export default function ConnectPage() {
 
       {/* AAM Overview & Connector Details */}
       <div className="space-y-6 pb-8">
-        <div className="flex items-center justify-between">
-          <div className="flex-1">
-            <div className="flex items-center gap-3 mb-2">
-              <h2 className="text-2xl font-bold text-white">AAM Monitor</h2>
-              <LiveStatusBadge {...getLiveStatus('aam-monitor')!} />
-            </div>
-            <p className="text-gray-400">
-              Adaptive API Mesh intelligence metrics and connection health
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
+        <div className="flex items-center justify-end gap-3 mb-6">
+          <button
               onClick={fetchAllData}
               disabled={loading}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 text-white rounded-lg transition-colors"
