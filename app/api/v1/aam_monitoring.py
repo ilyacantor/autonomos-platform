@@ -636,10 +636,12 @@ async def get_repair_metrics(request: Request, db: AsyncSession = Depends(get_as
 
 
 @router.get("/connectors")
-async def get_connectors(request: Request):
+def get_connectors(request: Request):
     """
     Get all AAM connectors for the tenant, regardless of mapping presence
     Returns list of all connectors with their status
+    
+    Note: Using sync session with explicit context manager to avoid PgBouncer prepared statement conflicts
     """
     if not AAM_MODELS_AVAILABLE:
         logger.error("AAM: AAM models not available")
@@ -659,31 +661,25 @@ async def get_connectors(request: Request):
     logger.info(f"AAM list: tenant_id={tenant_id}")
     
     try:
-        async with AsyncSessionLocal() as db:
-            # Get all connections for this tenant
-            from app.models import MappingRegistry
-            from sqlalchemy import func
-            
+        from app.models import MappingRegistry
+        from app.database import SessionLocal
+        from sqlalchemy import func
+        
+        # Use explicit context manager to ensure proper session cleanup
+        with SessionLocal() as db:
             # Get all connections (connections table doesn't have tenant_id yet)
-            conn_result = await db.execute(
-                select(Connection).order_by(Connection.name)  # type: ignore
-            )
-            connections = conn_result.scalars().all()
+            connections = db.query(Connection).order_by(Connection.name).all()  # type: ignore
             
             # Then get mapping counts for each connector
             connectors_list = []
             for conn in connections:
                 # Count mappings for this connector
-                mapping_count_result = await db.execute(
-                    select(func.count(MappingRegistry.id))
-                    .where(
-                        and_(
-                            MappingRegistry.tenant_id == tenant_id,
-                            MappingRegistry.vendor == conn.source_type
-                        )
+                mapping_count = db.query(func.count(MappingRegistry.id)).filter(
+                    and_(
+                        MappingRegistry.tenant_id == tenant_id,
+                        MappingRegistry.vendor == conn.source_type
                     )
-                )
-                mapping_count = mapping_count_result.scalar() or 0
+                ).scalar() or 0
                 
                 connectors_list.append({
                     "id": str(conn.id),
