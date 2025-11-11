@@ -5,45 +5,14 @@ from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, status, Request, Depends
 from sqlalchemy import select, func, and_, case
 from sqlalchemy.orm import Session
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 import os
 from app.models import DriftEvent as SyncDriftEvent
-from app.database import get_async_db
+from app.database import get_async_db, AsyncSessionLocal
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-# Create async engine for Supabase connection
-DATABASE_URL = os.getenv("DATABASE_URL", "")
-if DATABASE_URL:
-    # Convert to asyncpg URL
-    async_db_url = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
-    try:
-        async_engine = create_async_engine(
-            async_db_url,
-            echo=False,
-            pool_pre_ping=True,
-            pool_size=5,
-            max_overflow=10,
-            connect_args={"statement_cache_size": 0}
-        )
-        AsyncSessionLocal = async_sessionmaker(
-            async_engine,
-            class_=AsyncSession,
-            expire_on_commit=False,
-            autocommit=False,
-            autoflush=False
-        )
-        logger.info("✅ AAM Monitoring: Async database engine created")
-    except Exception as e:
-        logger.error(f"Failed to create async engine: {e}")
-        async_engine = None
-        AsyncSessionLocal = None
-else:
-    async_engine = None
-    AsyncSessionLocal = None
-    logger.warning("DATABASE_URL not set - AAM monitoring endpoints will return mock data")
 
 # Import AAM models - with fallback
 AAM_MODELS_AVAILABLE = False
@@ -123,8 +92,8 @@ async def get_aam_metrics():
     - suggestions: pending, accepted, rejected suggestions
     - repair: test pass percentage and average confidence
     """
-    if not AsyncSessionLocal or not AAM_MODELS_AVAILABLE:
-        # Return mock data if database not available
+    if not AAM_MODELS_AVAILABLE:
+        # Return mock data if AAM models not available
         return {
             "total_connections": 8,
             "active_drift_detections_24h": 3,
@@ -273,7 +242,7 @@ async def get_aam_events(limit: int = 50):
     Get recent AAM events from job_history
     Returns the most recent job history events
     """
-    if not AsyncSessionLocal or not AAM_MODELS_AVAILABLE:
+    if not AAM_MODELS_AVAILABLE:
         # Return mock data
         mock_events = [
             {
@@ -360,7 +329,7 @@ async def get_aam_connections():
     Get all AAM connections with their current status
     Returns list of all connections being monitored by AAM
     """
-    if not AsyncSessionLocal or not AAM_MODELS_AVAILABLE:
+    if not AAM_MODELS_AVAILABLE:
         # Return mock data
         mock_connections = [
             {
@@ -672,11 +641,11 @@ async def get_connectors(request: Request):
     Get all AAM connectors for the tenant, regardless of mapping presence
     Returns list of all connectors with their status
     """
-    if not AsyncSessionLocal or not AAM_MODELS_AVAILABLE:
-        logger.error("AAM: Database or models not available")
+    if not AAM_MODELS_AVAILABLE:
+        logger.error("AAM: AAM models not available")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="AAM database not configured"
+            detail="AAM models not configured"
         )
     
     tenant_id = getattr(request.state, "tenant_id", None)
@@ -870,9 +839,9 @@ async def get_debug_state(request: Request):
             detail="missing tenant_id"
         )
     
-    if not AsyncSessionLocal or not AAM_MODELS_AVAILABLE:
+    if not AAM_MODELS_AVAILABLE:
         return {
-            "error": "AAM database not configured",
+            "error": "AAM models not configured",
             "connections": [],
             "mappings_by_connector": {}
         }

@@ -58,8 +58,11 @@ async def tenant_auth_middleware(request: Request, call_next: Callable):
     if request.url.path == "/":
         return await call_next(request)
     
-    # Check if path starts with any public path or static prefix
-    if any(request.url.path.startswith(path) for path in public_paths + static_prefixes):
+    # Normalize path by stripping trailing slashes for comparison
+    normalized_path = request.url.path.rstrip('/')
+    
+    # Check if normalized path starts with any public path or static prefix
+    if any(normalized_path.startswith(path.rstrip('/')) for path in public_paths + static_prefixes):
         return await call_next(request)
     
     # Special handling for SSE endpoint - authenticate via query token

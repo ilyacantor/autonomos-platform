@@ -1,5 +1,6 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import declarative_base
+from sqlalchemy.pool import NullPool
 from .config import settings
 import logging
 
@@ -30,11 +31,12 @@ engine = create_async_engine(
     get_database_url(),
     echo=False,
     future=True,
+    poolclass=NullPool,
     pool_pre_ping=True,
-    pool_size=2,
-    max_overflow=2,
-    pool_recycle=300,
-    connect_args={"statement_cache_size": 0}
+    connect_args={
+        "statement_cache_size": 0,
+        "prepared_statement_cache_size": 0
+    }
 )
 
 
