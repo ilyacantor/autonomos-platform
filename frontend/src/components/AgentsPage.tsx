@@ -15,7 +15,7 @@ export default function AgentsPage() {
       <div className="bg-slate-800/40 rounded-xl border border-cyan-500/30 p-6">
         <div className="mb-6">
           <h3 className="text-2xl font-medium text-cyan-400 mb-2">
-            Live Agent Demos
+            Agent Demos
           </h3>
           <p className="text-sm text-gray-400">
             Interactive demonstrations of specialized agents in production

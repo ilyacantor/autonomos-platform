@@ -4,7 +4,7 @@ export default function DCLSankeyPlaceholder() {
       <div className="relative w-full h-full mx-auto" style={{ minHeight: '500px' }}>
         <div className="absolute top-2 left-2 z-10">
           <span className="text-xs text-gray-400 tracking-wider">
-            Live DCL Connectivity Graph
+            DCL Connectivity Graph
           </span>
         </div>
 
