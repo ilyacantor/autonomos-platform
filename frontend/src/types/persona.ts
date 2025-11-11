@@ -13,6 +13,7 @@ export interface PersonaTile {
   last_updated: string | null;
   href: string;
   note?: string;
+  mock?: boolean;
 }
 
 export interface PersonaTable {
@@ -21,6 +22,7 @@ export interface PersonaTable {
   rows: string[][];
   href: string;
   note?: string;
+  mock?: boolean;
 }
 
 export interface PersonaSummaryResponse {
