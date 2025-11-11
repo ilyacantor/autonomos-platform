@@ -666,6 +666,76 @@ async def get_repair_metrics(request: Request, db: AsyncSession = Depends(get_as
         return {"avg_confidence": 0.0, "test_pass_rate": 0.0}
 
 
+@router.get("/connectors")
+async def get_connectors(request: Request):
+    """
+    Get all AAM connectors for the tenant, regardless of mapping presence
+    Returns list of all connectors with their status
+    """
+    if not AsyncSessionLocal or not AAM_MODELS_AVAILABLE:
+        logger.error("AAM: Database or models not available")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="AAM database not configured"
+        )
+    
+    tenant_id = getattr(request.state, "tenant_id", None)
+    if not tenant_id:
+        logger.warning("AAM: missing tenant_id")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="missing tenant_id"
+        )
+    
+    try:
+        async with AsyncSessionLocal() as db:
+            # Get all connections for this tenant
+            from app.models import MappingRegistry
+            from sqlalchemy import func
+            
+            # Get all connections (connections table doesn't have tenant_id yet)
+            conn_result = await db.execute(
+                select(Connection).order_by(Connection.name)  # type: ignore
+            )
+            connections = conn_result.scalars().all()
+            
+            # Then get mapping counts for each connector
+            connectors_list = []
+            for conn in connections:
+                # Count mappings for this connector
+                mapping_count_result = await db.execute(
+                    select(func.count(MappingRegistry.id))
+                    .where(
+                        and_(
+                            MappingRegistry.tenant_id == tenant_id,
+                            MappingRegistry.vendor == conn.source_type
+                        )
+                    )
+                )
+                mapping_count = mapping_count_result.scalar() or 0
+                
+                connectors_list.append({
+                    "id": str(conn.id),
+                    "name": conn.name,
+                    "type": conn.source_type,
+                    "status": conn.status.value if hasattr(conn.status, 'value') else conn.status,
+                    "last_discovery_at": conn.updated_at.isoformat() if conn.updated_at else None,
+                    "mapping_count": mapping_count
+                })
+            
+            return {
+                "connectors": connectors_list,
+                "total": len(connectors_list)
+            }
+    
+    except Exception as e:
+        logger.error(f"Error fetching connectors: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch connectors: {str(e)}"
+        )
+
+
 @router.get("/connector_details")
 async def get_connector_details(request: Request, db: Session = Depends(lambda: next(__import__('app.database').database.get_db()))):
     """
@@ -677,67 +747,11 @@ async def get_connector_details(request: Request, db: Session = Depends(lambda: 
     try:
         tenant_id = getattr(request.state, "tenant_id", None)
         if not tenant_id:
-            # No tenant context - return mock data
-            return {
-                "connectors": [
-                    {
-                        "vendor": "salesforce",
-                        "status": "ACTIVE",
-                        "total_mappings": 47,
-                        "high_confidence_mappings": 44,
-                        "field_mappings": [
-                            {"source_field": "AccountId", "canonical_field": "account_id", "confidence": 0.98, "transform": "direct"},
-                            {"source_field": "OpportunityName", "canonical_field": "opportunity_name", "confidence": 0.95, "transform": "trim_lower"},
-                            {"source_field": "CloseDate", "canonical_field": "close_date", "confidence": 0.92, "transform": "parse_date"}
-                        ],
-                        "recent_drift_events": [],
-                        "repair_history": []
-                    },
-                    {
-                        "vendor": "supabase",
-                        "status": "ACTIVE",
-                        "total_mappings": 32,
-                        "high_confidence_mappings": 30,
-                        "field_mappings": [
-                            {"source_field": "account_id", "canonical_field": "account_id", "confidence": 1.0, "transform": "direct"},
-                            {"source_field": "company_name", "canonical_field": "account_name", "confidence": 0.88, "transform": "trim"}
-                        ],
-                        "recent_drift_events": [
-                            {"event_type": "field_renamed", "field": "account_owner", "new_name": "owner_id", "detected_at": "2025-11-03T10:30:00Z", "status": "auto_repaired"}
-                        ],
-                        "repair_history": [
-                            {"action": "field_rename_mapping", "confidence": 0.94, "applied_at": "2025-11-03T10:31:00Z"}
-                        ]
-                    },
-                    {
-                        "vendor": "mongodb",
-                        "status": "ACTIVE",
-                        "total_mappings": 28,
-                        "high_confidence_mappings": 26,
-                        "field_mappings": [
-                            {"source_field": "_id", "canonical_field": "record_id", "confidence": 0.96, "transform": "objectid_to_string"},
-                            {"source_field": "userId", "canonical_field": "user_id", "confidence": 0.94, "transform": "direct"},
-                            {"source_field": "createdAt", "canonical_field": "created_at", "confidence": 0.91, "transform": "parse_date"}
-                        ],
-                        "recent_drift_events": [],
-                        "repair_history": []
-                    },
-                    {
-                        "vendor": "filesource",
-                        "status": "ACTIVE",
-                        "total_mappings": 15,
-                        "high_confidence_mappings": 12,
-                        "field_mappings": [
-                            {"source_field": "customer_id", "canonical_field": "customer_id", "confidence": 0.99, "transform": "direct"},
-                            {"source_field": "order_date", "canonical_field": "order_date", "confidence": 0.87, "transform": "parse_date"},
-                            {"source_field": "total_amount", "canonical_field": "amount", "confidence": 0.85, "transform": "parse_decimal"}
-                        ],
-                        "recent_drift_events": [],
-                        "repair_history": []
-                    }
-                ],
-                "data_source": "mock"
-            }
+            logger.warning("AAM: missing tenant_id")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="missing tenant_id"
+            )
         
         # Query MappingRegistry grouped by vendor
         mappings = db.query(MappingRegistry).filter(MappingRegistry.tenant_id == tenant_id).all()
@@ -826,26 +840,134 @@ async def get_connector_details(request: Request, db: Session = Depends(lambda: 
             "data_source": "database"
         }
     
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error in connector_details endpoint: {e}")
-        # Return mock data on error
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch connector details: {str(e)}"
+        )
+
+
+@router.get("/debug/state")
+async def get_debug_state(request: Request):
+    """
+    Read-only debug endpoint to verify AAM state without changing data
+    Returns connections and mapping counts per connector (tenant-scoped)
+    """
+    tenant_id = getattr(request.state, "tenant_id", None)
+    if not tenant_id:
+        logger.warning("AAM: missing tenant_id")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="missing tenant_id"
+        )
+    
+    if not AsyncSessionLocal or not AAM_MODELS_AVAILABLE:
         return {
-            "connectors": [
-                {
-                    "vendor": "salesforce",
-                    "status": "ACTIVE",
-                    "total_mappings": 47,
-                    "high_confidence_mappings": 44,
-                    "field_mappings": [
-                        {"source_field": "AccountId", "canonical_field": "account_id", "confidence": 0.98, "transform": "direct"},
-                        {"source_field": "OpportunityName", "canonical_field": "opportunity_name", "confidence": 0.95, "transform": "trim_lower"}
-                    ],
-                    "recent_drift_events": [],
-                    "repair_history": []
-                }
-            ],
-            "data_source": "mock_fallback"
+            "error": "AAM database not configured",
+            "connections": [],
+            "mappings_by_connector": {}
         }
+    
+    try:
+        async with AsyncSessionLocal() as db:
+            from app.models import MappingRegistry
+            from sqlalchemy import func
+            
+            # Get all connections (no tenant filter on connections table)
+            conn_result = await db.execute(select(Connection))  # type: ignore
+            connections = conn_result.scalars().all()
+            
+            conn_list = [
+                {
+                    "id": str(c.id),
+                    "name": c.name,
+                    "type": c.source_type,
+                    "status": c.status.value if hasattr(c.status, 'value') else c.status,
+                    "created_at": c.created_at.isoformat() if c.created_at else None
+                }
+                for c in connections
+            ]
+            
+            # Get mapping counts by connector (tenant-scoped)
+            mapping_result = await db.execute(
+                select(
+                    MappingRegistry.vendor,
+                    func.count(MappingRegistry.id).label('count')
+                )
+                .where(MappingRegistry.tenant_id == tenant_id)
+                .group_by(MappingRegistry.vendor)
+            )
+            
+            mappings_by_connector = {row.vendor: row.count for row in mapping_result}
+            
+            return {
+                "connections": conn_list,
+                "mappings_by_connector": mappings_by_connector,
+                "tenant_id": tenant_id
+            }
+    
+    except Exception as e:
+        logger.error(f"Error in debug/state endpoint: {e}")
+        return {
+            "error": str(e),
+            "connections": [],
+            "mappings_by_connector": {}
+        }
+
+
+@router.post("/connectors/{connector_id}/discover")
+async def trigger_discovery(connector_id: str, request: Request):
+    """
+    Trigger schema discovery for a specific connector
+    Returns job_id for tracking progress
+    """
+    tenant_id = getattr(request.state, "tenant_id", None)
+    if not tenant_id:
+        logger.warning("AAM: missing tenant_id")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="missing tenant_id"
+        )
+    
+    # TODO: Implement actual discovery job queue
+    # For now, return a stub job_id
+    import uuid
+    job_id = str(uuid.uuid4())
+    
+    logger.info(f"AAM: Discovery triggered for connector {connector_id} (tenant: {tenant_id})")
+    
+    return {
+        "job_id": job_id,
+        "connector_id": connector_id,
+        "status": "queued",
+        "message": "Discovery job queued (stub implementation)"
+    }
+
+
+@router.get("/discovery/jobs/{job_id}")
+async def get_discovery_job(job_id: str, request: Request):
+    """
+    Get status of a discovery job
+    Returns job status: queued|running|done|error
+    """
+    tenant_id = getattr(request.state, "tenant_id", None)
+    if not tenant_id:
+        logger.warning("AAM: missing tenant_id")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="missing tenant_id"
+        )
+    
+    # TODO: Implement actual job tracking
+    # For now, return stub status
+    return {
+        "job_id": job_id,
+        "status": "done",
+        "message": "Discovery job completed (stub implementation)"
+    }
 
 
 @router.get("/health")
