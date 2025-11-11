@@ -27,7 +27,7 @@ export default function TopBar({ onAuthOpen, currentPage, onNavigate }: TopBarPr
     { id: 'ontology', label: 'Ontology', icon: <Network className="w-5 h-5" /> },
     { id: 'orchestration', label: 'Orchestration', icon: <Activity className="w-5 h-5" /> },
     { id: 'agents', label: 'Agents', icon: <Activity className="w-5 h-5" /> },
-    { id: 'faq', label: 'FAQ', icon: <HelpCircle className="w-5 h-5" /> },
+    { id: 'faq', label: 'Help', icon: <HelpCircle className="w-5 h-5" /> },
   ];
 
   return (
