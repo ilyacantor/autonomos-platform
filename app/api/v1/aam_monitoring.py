@@ -687,6 +687,8 @@ async def get_connectors(request: Request):
             detail="missing tenant_id"
         )
     
+    logger.info(f"AAM list: tenant_id={tenant_id}")
+    
     try:
         async with AsyncSessionLocal() as db:
             # Get all connections for this tenant
@@ -723,6 +725,8 @@ async def get_connectors(request: Request):
                     "mapping_count": mapping_count
                 })
             
+            logger.info(f"AAM list: tenant_id={tenant_id}, count={len(connectors_list)}")
+            
             return {
                 "connectors": connectors_list,
                 "total": len(connectors_list)
@@ -752,6 +756,8 @@ async def get_connector_details(request: Request, db: Session = Depends(lambda: 
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="missing tenant_id"
             )
+        
+        logger.info(f"AAM details: tenant_id={tenant_id}")
         
         # Query MappingRegistry grouped by vendor
         mappings = db.query(MappingRegistry).filter(MappingRegistry.tenant_id == tenant_id).all()

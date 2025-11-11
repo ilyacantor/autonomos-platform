@@ -38,7 +38,9 @@ async def tenant_auth_middleware(request: Request, call_next: Callable):
         "/dcl/ontology_schema",      # DCL ontology schema (for Ontology tab)
         "/dcl/feature_flags",        # DCL feature flags (for source mode toggle)
         "/dcl/feature_flags/toggle", # DCL feature flag toggle (for source mode switching)
-        "/api/v1/aam/",              # All AAM endpoints (for Monitor dashboard)
+        "/api/v1/aam/metrics",       # AAM metrics endpoint (for Monitor dashboard)
+        "/api/v1/aam/intelligence/",  # AAM intelligence endpoints (for Monitor dashboard)
+        "/api/v1/aam/health",        # AAM health endpoint
         "/api/v1/debug/",            # Debug endpoints (dev-only, feature-flagged)
         "/api/v1/mesh/test/",        # Mesh test endpoints (dev-only, for drift demos)
         "/api/v1/events/stream",     # SSE endpoint for Live Flow (uses query-token auth)

@@ -191,6 +191,119 @@ async def aam_connectors(request: AAMRequest):
     }
 
 
+class QueryRequest(BaseModel):
+    query: str
+    persona: str = "auto"  # auto|cto|cro|coo|cfo
+    tenant_id: str = "demo-tenant"
+
+
+class QueryResponse(BaseModel):
+    response: str
+    resolved_persona: PersonaSlug
+    routing: dict
+    trace_id: str
+    timestamp: str
+
+
+@router.post("/query", response_model=QueryResponse)
+async def nlp_query(request: QueryRequest):
+    """
+    Process NLP query with persona-aware routing and retrieval.
+    If persona='auto', classifies the query to determine the persona.
+    Returns response with resolved_persona and routing metadata.
+    """
+    import logging
+    logger = logging.getLogger("nlp_simple")
+    
+    trace_id = f"nlp_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{str(uuid.uuid4())[:8]}"
+    query_lower = request.query.lower()
+    
+    # Step 1: Resolve persona
+    if request.persona == "auto":
+        # Use keyword-based classifier
+        coo_keywords = ["spend", "budget", "vendor", "renewal", "finops", "cost", "cloud"]
+        cfo_keywords = ["revenue", "ebitda", "cash", "burn", "runway", "margin"]
+        cro_keywords = ["pipeline", "win rate", "quota", "sales", "deal"]
+        cto_keywords = ["connector", "drift", "schema", "api", "service", "incident"]
+        
+        scores = {
+            "coo": sum(1 for kw in coo_keywords if kw in query_lower),
+            "cfo": sum(1 for kw in cfo_keywords if kw in query_lower),
+            "cro": sum(1 for kw in cro_keywords if kw in query_lower),
+            "cto": sum(1 for kw in cto_keywords if kw in query_lower),
+        }
+        
+        matched_keywords = [kw for kw in (coo_keywords + cfo_keywords + cro_keywords + cto_keywords) if kw in query_lower]
+        
+        # Only classify if at least one keyword matched
+        max_score = max(scores.values())
+        if max_score > 0:
+            resolved_persona = max(scores, key=scores.get)  # type: ignore
+            # Calculate confidence based on keyword matches (more matches = higher confidence)
+            classification_confidence = min(0.95, 0.60 + (max_score * 0.10))
+        else:
+            # No keywords matched - fall back to CTO as default
+            resolved_persona = "cto"  # type: ignore
+            classification_confidence = 0.0
+        
+        logger.info(f"NLP query: persona_selected=auto, resolved_persona={resolved_persona}, matched_keywords={matched_keywords[:5]}, confidence={classification_confidence:.2f}")
+    else:
+        resolved_persona = request.persona  # type: ignore
+        matched_keywords = []
+        classification_confidence = 1.0
+        logger.info(f"NLP query: persona_selected={request.persona}, resolved_persona={resolved_persona}")
+    
+    # Step 2: Build persona tags
+    persona_tags_map = {
+        "cto": ["kb:persona:cto", "kb:global"],
+        "cro": ["kb:persona:cro", "kb:global"],
+        "coo": ["kb:persona:coo", "kb:finops", "kb:global"],
+        "cfo": ["kb:persona:cfo", "kb:global"],
+    }
+    
+    tags = persona_tags_map.get(resolved_persona, ["kb:global"])
+    
+    # Step 3: Generate response based on query and persona
+    response_text = f"Analyzing your request from the {resolved_persona.upper()} perspective..."
+    
+    if "connector" in query_lower or "aam" in query_lower:
+        if resolved_persona == "cto":
+            response_text = "AAM connectors are operating normally. Salesforce has 47 mappings with 93% high confidence. MongoDB has 38 mappings with 89% high confidence."
+        else:
+            response_text = "AAM integration status: 4 active connectors with automated drift detection and repair."
+    
+    elif "spend" in query_lower or "budget" in query_lower or "cost" in query_lower:
+        if resolved_persona == "coo" or resolved_persona == "cfo":
+            response_text = "Current cloud spend MTD is $184k, which is +6.2% vs budget. Top 3 cost centers: Engineering ($68k), Data Platform ($42k), GTM ($31k)."
+        else:
+            response_text = "Operational spend tracking is available in the FinOps dashboard."
+    
+    elif "pipeline" in query_lower or "sales" in query_lower:
+        if resolved_persona == "cro":
+            response_text = "Current pipeline value is $12.4M with $10.8M in committed forecast. Win rate over last 90 days is 27%."
+        else:
+            response_text = "Sales pipeline metrics are available in the RevOps dashboard."
+    
+    elif "revenue" in query_lower or "cash" in query_lower:
+        if resolved_persona == "cfo":
+            response_text = "MTD revenue is $2.4M with 62% gross margin. Cash balance is $18.3M with 20 months runway at current burn rate."
+        else:
+            response_text = "Financial metrics are available in the CFO dashboard."
+    
+    return QueryResponse(
+        response=response_text,
+        resolved_persona=resolved_persona,  # type: ignore
+        routing={
+            "tags": tags,
+            "persona_input": request.persona,
+            "classification_confidence": classification_confidence,
+            "matched_keywords": matched_keywords[:5] if request.persona == "auto" else []
+        },
+        trace_id=trace_id,
+        timestamp=datetime.utcnow().isoformat()
+    )
+
+
 @router.get("/health")
 async def nlp_health():
     """NLP Gateway health check."""
