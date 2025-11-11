@@ -481,7 +481,15 @@ export default function ConnectPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 sm:px-6 py-6">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-4xl font-bold text-white mb-4">Connections</h1>
+        <p className="text-lg text-gray-300 max-w-4xl leading-relaxed">
+          Self-healing data connectivity layer. Automatically detects schema drift, repairs field mappings with AI-powered confidence scoring, and maintains canonical event schemas across all your data sources.
+        </p>
+      </div>
+
       {/* AAM Overview & Connector Details */}
       <div className="space-y-6 pb-8">
         <div className="flex items-center justify-between">

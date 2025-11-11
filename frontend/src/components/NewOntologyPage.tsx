@@ -192,14 +192,22 @@ export default function NewOntologyPage() {
     : [];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 px-4 sm:px-6 py-6">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-4xl font-bold text-white mb-4">Ontology</h1>
+        <p className="text-lg text-gray-300 max-w-4xl leading-relaxed">
+          AI-driven unified data model. Automatically maps disparate data sources into a canonical ontology, creating cross-system entity relationships and powering intelligent agents with a single source of truth.
+        </p>
+      </div>
+
       {/* Base: DCL Graph Container */}
       <DCLGraphContainer />
 
       {/* Section 1: Data Connection Section */}
       <div id="data-sources-section" className="space-y-4 sm:space-y-6">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">Data Connection Layer (DCL)</h1>
+          <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2">Data Connection Layer (DCL)</h2>
           <p className="text-sm sm:text-base text-gray-400">
             Select data sources and agents to create unified entity mappings
           </p>
