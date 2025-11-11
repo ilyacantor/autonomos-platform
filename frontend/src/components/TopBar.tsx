@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { LayoutDashboard, Cable, Network, Bell, Menu, X, LogIn, UserPlus, HelpCircle, Activity, Search } from 'lucide-react';
-import AutonomyModeToggle from './AutonomyModeToggle';
 import type { PersonaType } from '../types';
 import autonomosLogo from '../assets/autonomos-logo.png';
 
@@ -74,13 +73,8 @@ export default function TopBar({ onAuthOpen, currentPage, onNavigate }: TopBarPr
         {/* Mobile Spacer */}
         <div className="flex-1 sm:hidden"></div>
 
-        {/* Right Side: Autonomy Toggle, Notifications, Profile */}
+        {/* Right Side: Notifications, Profile */}
         <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-          {/* Autonomy Toggle - Hidden on Mobile */}
-          <div className="hidden sm:block">
-            <AutonomyModeToggle />
-          </div>
-
           {/* Notifications */}
           <div className="relative">
             <button className="p-2 hover:bg-gray-800 rounded-lg transition-colors relative touch-target mobile-tap-highlight">
@@ -159,12 +153,6 @@ export default function TopBar({ onAuthOpen, currentPage, onNavigate }: TopBarPr
                   </button>
                 ))}
               </nav>
-
-              {/* Autonomy Mode Toggle */}
-              <div className="border-t border-gray-800 pt-4 mb-4">
-                <div className="text-xs text-gray-500 mb-2 px-2">Autonomy Mode</div>
-                <AutonomyModeToggle />
-              </div>
 
               {/* Auth Buttons for Mobile */}
               <div className="border-t border-gray-800 pt-4 mt-auto">
