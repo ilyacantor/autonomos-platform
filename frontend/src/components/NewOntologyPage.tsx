@@ -110,15 +110,13 @@ export default function NewOntologyPage() {
 
   // Save selections to localStorage whenever they change
   useEffect(() => {
-    if (selectedSources.length > 0) {
-      localStorage.setItem('aos.selectedSources', JSON.stringify(selectedSources));
-    }
+    // Always save selections, even if empty (preserves user's choice)
+    localStorage.setItem('aos.selectedSources', JSON.stringify(selectedSources));
   }, [selectedSources]);
 
   useEffect(() => {
-    if (selectedAgents.length > 0) {
-      localStorage.setItem('aos.selectedAgents', JSON.stringify(selectedAgents));
-    }
+    // Always save selections, even if empty (preserves user's choice)
+    localStorage.setItem('aos.selectedAgents', JSON.stringify(selectedAgents));
   }, [selectedAgents]);
 
   // Fetch ontology on mount

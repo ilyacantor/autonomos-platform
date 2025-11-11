@@ -130,14 +130,15 @@ export const initializeDCLDefaults = (): void => {
 /**
  * Get default source selections from localStorage or fallback to all
  * Returns all sources if saved selection is empty or invalid
+ * IMPORTANT: Returns saved selections AS-IS to preserve FileSource and other AAM-specific sources
  */
 export const getDefaultSources = (): string[] => {
   try {
     const saved = localStorage.getItem('aos.selectedSources');
     if (saved) {
       const parsed = JSON.parse(saved);
-      // Return all sources if saved selection is empty array
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      // Return saved selection even if it's empty array (user might have unchecked everything)
+      if (Array.isArray(parsed)) {
         return parsed;
       }
     }
