@@ -708,6 +708,32 @@ async def get_connector_details(request: Request, db: Session = Depends(lambda: 
                         "repair_history": [
                             {"action": "field_rename_mapping", "confidence": 0.94, "applied_at": "2025-11-03T10:31:00Z"}
                         ]
+                    },
+                    {
+                        "vendor": "mongodb",
+                        "status": "ACTIVE",
+                        "total_mappings": 28,
+                        "high_confidence_mappings": 26,
+                        "field_mappings": [
+                            {"source_field": "_id", "canonical_field": "record_id", "confidence": 0.96, "transform": "objectid_to_string"},
+                            {"source_field": "userId", "canonical_field": "user_id", "confidence": 0.94, "transform": "direct"},
+                            {"source_field": "createdAt", "canonical_field": "created_at", "confidence": 0.91, "transform": "parse_date"}
+                        ],
+                        "recent_drift_events": [],
+                        "repair_history": []
+                    },
+                    {
+                        "vendor": "filesource",
+                        "status": "ACTIVE",
+                        "total_mappings": 15,
+                        "high_confidence_mappings": 12,
+                        "field_mappings": [
+                            {"source_field": "customer_id", "canonical_field": "customer_id", "confidence": 0.99, "transform": "direct"},
+                            {"source_field": "order_date", "canonical_field": "order_date", "confidence": 0.87, "transform": "parse_date"},
+                            {"source_field": "total_amount", "canonical_field": "amount", "confidence": 0.85, "transform": "parse_decimal"}
+                        ],
+                        "recent_drift_events": [],
+                        "repair_history": []
                     }
                 ],
                 "data_source": "mock"
