@@ -61,14 +61,20 @@ class SchemaObserver:
         self.use_oss = settings.AIRBYTE_USE_OSS
     
     async def _get_access_token(self) -> str:
-        """Get Airbyte API access token"""
+        """Get Airbyte API access token (Airbyte Cloud only)"""
         if self.access_token:
             return self.access_token
         
         try:
+            # Airbyte Cloud OAuth endpoint
+            # API URL is like: https://api.airbyte.com/v1
+            # OAuth endpoint is: https://api.airbyte.com/v1/applications/token
+            base_url = self.airbyte_base_url.rstrip('/')
+            oauth_url = f"{base_url}/applications/token"
+            
             async with httpx.AsyncClient() as client:
                 response = await client.post(
-                    f"{self.airbyte_base_url.replace('/api/public/v1', '')}/api/public/v1/applications/token",
+                    oauth_url,
                     json={
                         "client_id": self.client_id,
                         "client_secret": self.client_secret
@@ -77,6 +83,7 @@ class SchemaObserver:
                 response.raise_for_status()
                 data = response.json()
                 self.access_token = data["access_token"]
+                logger.info("✅ Airbyte Cloud OAuth token obtained successfully")
                 return self.access_token
         except Exception as e:
             logger.error(f"Failed to get Airbyte access token: {e}")
