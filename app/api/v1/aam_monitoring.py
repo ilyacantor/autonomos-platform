@@ -673,21 +673,28 @@ async def get_repair_metrics(request: Request, db: AsyncSession = Depends(get_as
         return {"avg_confidence": 0.0, "test_pass_rate": 0.0}
 
 
-def _serialize_connector(conn, mapping_count: int) -> Dict[str, Any]:
-    """Shared serialization logic for connector objects"""
+def _serialize_connector(
+    conn, 
+    mapping_count: int,
+    drift_info: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
+    """Shared serialization logic for connector objects with drift metadata"""
     return {
         "id": str(conn.id),
         "name": conn.name,
         "source_type": conn.source_type,
         "status": conn.status.value if hasattr(conn.status, 'value') else conn.status,
         "last_discovery_at": conn.updated_at.isoformat() if conn.updated_at else None,
-        "mapping_count": mapping_count
+        "mapping_count": mapping_count,
+        "last_event_type": drift_info.get("event_type") if drift_info else None,
+        "last_event_at": drift_info.get("created_at").isoformat() if drift_info and drift_info.get("created_at") else None,
+        "has_drift": bool(drift_info) if drift_info else False
     }
 
 
 def _get_connectors_sync(tenant_id: str) -> Dict[str, Any]:
     """Sync implementation using psycopg2 (PgBouncer-safe)"""
-    from app.models import MappingRegistry
+    from app.models import MappingRegistry, DriftEvent
     from app.database import SessionLocal
     from sqlalchemy import func
     
@@ -696,6 +703,36 @@ def _get_connectors_sync(tenant_id: str) -> Dict[str, Any]:
         db.execute(text("SET LOCAL statement_timeout='3s'"))
         
         connections = db.query(Connection).order_by(Connection.name).all()  # type: ignore
+        
+        if not connections:
+            return {"connectors": [], "total": 0}
+        
+        connection_ids = [str(conn.id) for conn in connections]
+        
+        # Batched drift query: get latest drift event per connection using window function
+        # Use raw SQL for window function compatibility across dialects
+        drift_query = text("""
+            SELECT DISTINCT ON (connection_id) 
+                connection_id, event_type, created_at
+            FROM drift_events
+            WHERE tenant_id = :tenant_id 
+                AND connection_id = ANY(:connection_ids)
+            ORDER BY connection_id, created_at DESC
+        """)
+        
+        drift_results = db.execute(
+            drift_query, 
+            {"tenant_id": tenant_id, "connection_ids": connection_ids}
+        ).fetchall()
+        
+        # Build drift lookup map
+        drift_map = {
+            str(row.connection_id): {
+                "event_type": row.event_type,
+                "created_at": row.created_at
+            }
+            for row in drift_results
+        }
         
         connectors_list = []
         for conn in connections:
@@ -706,7 +743,8 @@ def _get_connectors_sync(tenant_id: str) -> Dict[str, Any]:
                 )
             ).scalar() or 0
             
-            connectors_list.append(_serialize_connector(conn, mapping_count))
+            drift_info = drift_map.get(str(conn.id))
+            connectors_list.append(_serialize_connector(conn, mapping_count, drift_info))
         
         return {
             "connectors": connectors_list,
@@ -716,13 +754,43 @@ def _get_connectors_sync(tenant_id: str) -> Dict[str, Any]:
 
 async def _get_connectors_async(tenant_id: str) -> Dict[str, Any]:
     """Async implementation using asyncpg"""
-    from app.models import MappingRegistry
+    from app.models import MappingRegistry, DriftEvent
     
     async with AsyncSessionLocal() as db:
         conn_result = await db.execute(
             select(Connection).order_by(Connection.name)  # type: ignore
         )
         connections = conn_result.scalars().all()
+        
+        if not connections:
+            return {"connectors": [], "total": 0}
+        
+        connection_ids = [str(conn.id) for conn in connections]
+        
+        # Batched drift query: get latest drift event per connection
+        drift_query = text("""
+            SELECT DISTINCT ON (connection_id) 
+                connection_id, event_type, created_at
+            FROM drift_events
+            WHERE tenant_id = :tenant_id 
+                AND connection_id = ANY(:connection_ids)
+            ORDER BY connection_id, created_at DESC
+        """)
+        
+        drift_results = await db.execute(
+            drift_query, 
+            {"tenant_id": tenant_id, "connection_ids": connection_ids}
+        )
+        drift_rows = drift_results.fetchall()
+        
+        # Build drift lookup map
+        drift_map = {
+            str(row.connection_id): {
+                "event_type": row.event_type,
+                "created_at": row.created_at
+            }
+            for row in drift_rows
+        }
         
         connectors_list = []
         for conn in connections:
@@ -737,7 +805,8 @@ async def _get_connectors_async(tenant_id: str) -> Dict[str, Any]:
             )
             mapping_count = mapping_count_result.scalar() or 0
             
-            connectors_list.append(_serialize_connector(conn, mapping_count))
+            drift_info = drift_map.get(str(conn.id))
+            connectors_list.append(_serialize_connector(conn, mapping_count, drift_info))
         
         return {
             "connectors": connectors_list,
@@ -782,14 +851,17 @@ async def healthz_aam():
         )
 
 
-@router.get("/connectors")
+@router.get("/connectors", response_model=ConnectorsResponse)
 async def get_connectors(request: Request):
     """
-    Get all AAM connectors for the tenant with mapping counts
+    Get all AAM connectors for the tenant with mapping counts and drift metadata
     
     Feature flag AAM_CONNECTORS_SYNC controls sync vs async implementation:
     - true (default): Use sync psycopg2 (PgBouncer-safe)
     - false: Use async asyncpg (may conflict with PgBouncer transaction mode)
+    
+    Returns:
+        ConnectorsResponse: List of connectors with drift metadata
     """
     if not AAM_MODELS_AVAILABLE:
         logger.error("AAM: AAM models not available")
