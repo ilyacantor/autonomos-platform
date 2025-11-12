@@ -58,6 +58,7 @@ class SchemaObserver:
         self.client_id = settings.AIRBYTE_CLIENT_ID
         self.client_secret = settings.AIRBYTE_CLIENT_SECRET
         self.access_token: Optional[str] = None
+        self.use_oss = settings.AIRBYTE_USE_OSS
     
     async def _get_access_token(self) -> str:
         """Get Airbyte API access token"""
@@ -82,12 +83,14 @@ class SchemaObserver:
             raise
     
     async def _airbyte_request(self, method: str, endpoint: str, **kwargs):
-        """Make authenticated request to Airbyte API"""
-        token = await self._get_access_token()
-        
+        """Make authenticated request to Airbyte API (supports both Cloud and OSS)"""
         headers = kwargs.pop("headers", {})
-        headers["Authorization"] = f"Bearer {token}"
         headers["Content-Type"] = "application/json"
+        
+        # Only use OAuth for Airbyte Cloud
+        if not self.use_oss:
+            token = await self._get_access_token()
+            headers["Authorization"] = f"Bearer {token}"
         
         url = f"{self.airbyte_base_url}/{endpoint.lstrip('/')}"
         
@@ -340,7 +343,9 @@ class SchemaObserver:
     
     async def start(self):
         """Start the schema observer"""
-        logger.info("Starting Schema Observer...")
+        mode = "OSS" if self.use_oss else "Cloud"
+        logger.info(f"Starting Schema Observer in {mode} mode...")
+        logger.info(f"API URL: {self.airbyte_base_url}")
         
         # Connect to event bus
         await event_bus.connect()

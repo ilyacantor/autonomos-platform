@@ -9,11 +9,12 @@ class Settings(BaseSettings):
     Manages environment variables for Airbyte, Supabase, and Redis integration
     """
     
-    AIRBYTE_API_URL: str = "http://localhost:8000/api/public/v1"
+    AIRBYTE_API_URL: str = os.getenv("AIRBYTE_API_URL", "http://localhost:8000/api/public/v1")
     AIRBYTE_CLIENT_ID: Optional[str] = None
     AIRBYTE_CLIENT_SECRET: Optional[str] = None
     AIRBYTE_WORKSPACE_ID: Optional[str] = None
     AIRBYTE_DESTINATION_ID: Optional[str] = None
+    AIRBYTE_USE_OSS: bool = os.getenv("AIRBYTE_USE_OSS", "false").lower() == "true"
     
     # Use the shared PostgreSQL database from Replit
     SUPABASE_DB_URL: str = os.getenv("DATABASE_URL", "postgresql://user:pass@localhost:5432/aam_registry")
