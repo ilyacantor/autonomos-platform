@@ -246,7 +246,7 @@ def test_drift_detected_increments_mapping_count(demo_tenant_token):
             sys.executable,
             str(drift_script),
             "--connection-id", "10ca3a88-5105-4e24-b984-6e350a5fa443",
-            "--namespace", "demo"
+            "--namespace", "AOS Test Tenant"  # Match test user's tenant
         ],
         capture_output=True,
         text=True

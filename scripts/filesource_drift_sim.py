@@ -62,7 +62,7 @@ def get_mapping_count(session, connection_id):
 
 
 def create_drift_event(session, connection_id, namespace, new_field):
-    """Insert DRIFT_DETECTED event into aam_events"""
+    """Insert DRIFT_DETECTED event into drift_events"""
     # Get tenant_id for namespace
     tenant_result = session.execute(
         text("SELECT id FROM tenants WHERE name = :namespace LIMIT 1"),
@@ -78,17 +78,19 @@ def create_drift_event(session, connection_id, namespace, new_field):
     
     session.execute(
         text("""
-            INSERT INTO aam_events 
-            (id, tenant_id, connection_id, event_type, details, created_at)
+            INSERT INTO drift_events 
+            (id, tenant_id, connection_id, event_type, new_schema, confidence, status, created_at)
             VALUES 
-            (:id, :tenant_id, :connection_id, :event_type, :details, :created_at)
+            (:id, :tenant_id, :connection_id, :event_type, :new_schema, :confidence, :status, :created_at)
         """),
         {
             "id": event_id,
             "tenant_id": str(tenant_id),
             "connection_id": connection_id,
             "event_type": "DRIFT_DETECTED",
-            "details": f'{{"field": "{new_field}"}}',
+            "new_schema": f'{{"added_field": "{new_field}"}}',
+            "confidence": 1.0,
+            "status": "DETECTED",
             "created_at": datetime.utcnow()
         }
     )
