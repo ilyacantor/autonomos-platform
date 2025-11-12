@@ -40,8 +40,15 @@ The platform employs a "Strangler Fig" pattern with feature flags for zero downt
     python scripts/filesource_ingest.py --connection-id 10ca3a88-5105-4e24-b984-6e350a5fa443 --namespace demo
     
     # Verify mapping count
-    # SQL: SELECT COUNT(*) FROM mapping_registry WHERE vendor='filesource' AND tenant_id='<demo_tenant_id>';
+    # SQL: SELECT COUNT(*) FROM mapping_registry WHERE connection_id='<connection_uuid>' AND tenant_id='<tenant_id>';
     ```
+
+**AAM Performance Notes:**
+*   **Mapping Registry Schema:** Database migration `789c8385e9b1` added `connection_id UUID` column to `mapping_registry` table with index `ix_mapping_registry_connection_id` for connection-scoped mapping counts (Nov 2025).
+*   **Connection-Scoped Mapping Counts:** `/api/v1/aam/connectors` endpoint filters `mapping_registry` by `connection_id` (not `vendor`) to prevent overcounting when multiple connections of the same type exist in a tenant.
+*   **Backward Compatibility:** `vendor` column retained for transition period; both `vendor` and `connection_id` populated by ingest scripts.
+*   **Performance Monitoring:** Endpoint logs latency (`latency_ms`) and total connector count for observability.
+*   **Health Check:** `GET /api/v1/aam/healthz` provides lightweight DB connectivity test respecting `AAM_CONNECTORS_SYNC` feature flag.
 
 ## External Dependencies
 *   **FastAPI:** Web framework.

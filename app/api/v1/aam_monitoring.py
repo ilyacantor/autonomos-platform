@@ -3,7 +3,7 @@ import httpx
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, status, Request, Depends
-from sqlalchemy import select, func, and_, case
+from sqlalchemy import select, func, and_, case, text
 from sqlalchemy.orm import Session
 from sqlalchemy.ext.asyncio import AsyncSession
 import os

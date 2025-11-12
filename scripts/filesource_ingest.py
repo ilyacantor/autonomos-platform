@@ -76,15 +76,15 @@ def process_csv(file_path, connection_id, tenant_id, vendor, session, sample_siz
             dtype = infer_dtype(sample_values)
             
             # Upsert mapping (idempotent)
-            # Check if mapping exists
+            # Check if mapping exists for THIS connection
             existing = session.execute(
                 text("""
                     SELECT id FROM mapping_registry 
                     WHERE tenant_id = :tenant_id 
-                    AND vendor = :vendor 
+                    AND connection_id = :connection_id
                     AND vendor_field = :vendor_field
                 """),
-                {"tenant_id": str(tenant_id), "vendor": vendor, "vendor_field": field}
+                {"tenant_id": str(tenant_id), "connection_id": connection_id, "vendor_field": field}
             ).fetchone()
             
             if existing:
@@ -92,7 +92,8 @@ def process_csv(file_path, connection_id, tenant_id, vendor, session, sample_siz
                 session.execute(
                     text("""
                         UPDATE mapping_registry 
-                        SET canonical_field = :canonical_field,
+                        SET connection_id = :connection_id,
+                            canonical_field = :canonical_field,
                             coercion = :dtype,
                             confidence = :confidence,
                             version = version + 1
@@ -100,6 +101,7 @@ def process_csv(file_path, connection_id, tenant_id, vendor, session, sample_siz
                     """),
                     {
                         "id": existing[0],
+                        "connection_id": connection_id,
                         "canonical_field": field,  # Default: same as source
                         "dtype": dtype,
                         "confidence": 0.80
@@ -111,13 +113,14 @@ def process_csv(file_path, connection_id, tenant_id, vendor, session, sample_siz
                 session.execute(
                     text("""
                         INSERT INTO mapping_registry 
-                        (id, tenant_id, vendor, vendor_field, canonical_field, coercion, confidence, version, created_at)
+                        (id, tenant_id, connection_id, vendor, vendor_field, canonical_field, coercion, confidence, version, created_at)
                         VALUES 
-                        (:id, :tenant_id, :vendor, :vendor_field, :canonical_field, :dtype, :confidence, 1, :created_at)
+                        (:id, :tenant_id, :connection_id, :vendor, :vendor_field, :canonical_field, :dtype, :confidence, 1, :created_at)
                     """),
                     {
                         "id": str(uuid4()),
                         "tenant_id": str(tenant_id),
+                        "connection_id": connection_id,
                         "vendor": vendor,
                         "vendor_field": field,
                         "canonical_field": field,  # Default: same as source
