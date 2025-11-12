@@ -644,7 +644,7 @@ def _serialize_connector(conn, mapping_count: int) -> Dict[str, Any]:
     return {
         "id": str(conn.id),
         "name": conn.name,
-        "type": conn.source_type,
+        "source_type": conn.source_type,
         "status": conn.status.value if hasattr(conn.status, 'value') else conn.status,
         "last_discovery_at": conn.updated_at.isoformat() if conn.updated_at else None,
         "mapping_count": mapping_count
