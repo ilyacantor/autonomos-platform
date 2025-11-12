@@ -136,6 +136,10 @@ export default function ConnectPage() {
   const [connections, setConnections] = useState<AAMConnection[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // V2 hook with drift metadata (always called, conditionally used)
+  const v2Result = useConnectorsV2();
+  const effectiveConnections = CONNECTIONS_V2 ? v2Result.connectors : connections;
 
   const [mappingsData, setMappingsData] = useState<IntelligenceMappingsData | null>(null);
   const [driftData, setDriftData] = useState<IntelligenceDriftData | null>(null);
@@ -997,7 +1001,7 @@ export default function ConnectPage() {
               </div>
 
               <div className="p-6">
-                {connections.length === 0 ? (
+                {effectiveConnections.length === 0 ? (
                   <div className="text-center py-12">
                     <Database className="w-12 h-12 text-gray-600 mx-auto mb-3" />
                     <p className="text-gray-500">No connectors found for this tenant.</p>
@@ -1010,7 +1014,7 @@ export default function ConnectPage() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {connections.map(conn => (
+                    {effectiveConnections.map(conn => (
                       <div
                         key={conn.id}
                         className="flex items-center justify-between p-4 bg-gray-800/50 border border-gray-700 rounded-lg hover:border-gray-600 transition-colors"

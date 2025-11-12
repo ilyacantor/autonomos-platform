@@ -275,5 +275,91 @@ def test_drift_detected_increments_mapping_count(demo_tenant_token):
     print(f"✅ Mapping count increased by 1 (drift detected)")
 
 
+def test_connector_dto_contract(demo_tenant_token):
+    """
+    Validate that GET /api/v1/aam/connectors returns data matching ConnectorDTO schema
+    
+    Expected schema (OpenAPI contract):
+    - id: string (UUID)
+    - name: string
+    - source_type: string
+    - status: string
+    - mapping_count: int
+    - last_event_type: string | null
+    - last_event_at: string (ISO timestamp) | null
+    - has_drift: bool
+    """
+    headers = {"Authorization": f"Bearer {demo_tenant_token}"}
+    response = requests.get(f"{BASE_URL}/api/v1/aam/connectors", headers=headers)
+    
+    assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+    data = response.json()
+    
+    # Validate top-level response structure
+    assert "connectors" in data, "Response must include 'connectors' field"
+    assert "total" in data, "Response must include 'total' field"
+    assert isinstance(data["connectors"], list), "'connectors' must be a list"
+    assert isinstance(data["total"], int), "'total' must be an integer"
+    
+    # If connectors exist, validate each one matches ConnectorDTO
+    if data["total"] > 0:
+        connector = data["connectors"][0]
+        
+        # Required fields
+        required_fields = ["id", "name", "source_type", "status", "mapping_count", "has_drift"]
+        for field in required_fields:
+            assert field in connector, f"Connector must have '{field}'"
+        
+        # Type validation
+        assert isinstance(connector["id"], str), "'id' must be string"
+        assert isinstance(connector["name"], str), "'name' must be string"
+        assert isinstance(connector["source_type"], str), "'source_type' must be string"
+        assert isinstance(connector["status"], str), "'status' must be string"
+        assert isinstance(connector["mapping_count"], int), "'mapping_count' must be int"
+        assert isinstance(connector["has_drift"], bool), "'has_drift' must be bool"
+        
+        # Optional drift fields (can be null)
+        if "last_event_type" in connector and connector["last_event_type"] is not None:
+            assert isinstance(connector["last_event_type"], str), "'last_event_type' must be string or null"
+        
+        if "last_event_at" in connector and connector["last_event_at"] is not None:
+            assert isinstance(connector["last_event_at"], str), "'last_event_at' must be string or null"
+        
+        print(f"\n✅ Connector DTO contract validated: {connector['name']}")
+        print(f"   - has_drift: {connector['has_drift']}")
+        print(f"   - last_event_type: {connector.get('last_event_type', 'None')}")
+
+
+def test_openapi_spec_includes_drift_fields():
+    """
+    Verify that OpenAPI spec includes ConnectorDTO schema with drift fields
+    """
+    response = requests.get(f"{BASE_URL}/openapi.json")
+    assert response.status_code == 200, "OpenAPI spec should be accessible"
+    
+    spec = response.json()
+    schemas = spec.get("components", {}).get("schemas", {})
+    
+    # Validate ConnectorDTO exists in schema
+    assert "ConnectorDTO" in schemas, "OpenAPI spec must include ConnectorDTO schema"
+    
+    dto_schema = schemas["ConnectorDTO"]
+    properties = dto_schema.get("properties", {})
+    
+    # Validate required drift fields are in schema
+    required_fields = ["id", "name", "source_type", "status", "mapping_count", "has_drift"]
+    for field in required_fields:
+        assert field in properties, f"ConnectorDTO must include '{field}' field"
+    
+    # Validate optional drift fields
+    assert "last_event_type" in properties, "ConnectorDTO must include 'last_event_type' field"
+    assert "last_event_at" in properties, "ConnectorDTO must include 'last_event_at' field"
+    
+    # Validate has_drift is boolean
+    assert properties["has_drift"]["type"] == "boolean", "'has_drift' must be boolean type"
+    
+    print("\n✅ OpenAPI spec validated with drift fields")
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "-s"])
