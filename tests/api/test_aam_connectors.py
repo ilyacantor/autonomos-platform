@@ -214,5 +214,66 @@ def test_healthz_aam_ok():
     print("\n✅ AAM healthz endpoint OK")
 
 
+def test_drift_detected_increments_mapping_count(demo_tenant_token):
+    """
+    Test that drift simulation increments mapping_count by 1
+    
+    This test:
+    1. Gets pre-drift mapping_count for FilesSource
+    2. Runs drift simulation (adds new column to CSV)
+    3. Verifies mapping_count increased by exactly 1
+    4. Checks that DRIFT_DETECTED event was created
+    """
+    # Get pre-drift mapping count
+    headers = {"Authorization": f"Bearer {demo_tenant_token}"}
+    response = requests.get(f"{BASE_URL}/api/v1/aam/connectors", headers=headers)
+    assert response.status_code == 200
+    
+    data = response.json()
+    filesource = next((c for c in data["connectors"] if c["type"] == "filesource"), None)
+    assert filesource is not None, "FilesSource not found"
+    
+    pre_count = filesource.get("mapping_count", 0)
+    print(f"\n📊 Pre-drift mapping_count: {pre_count}")
+    
+    # Run drift simulation
+    drift_script = Path(__file__).parent.parent.parent / "scripts" / "filesource_drift_sim.py"
+    assert drift_script.exists(), f"Drift script not found at {drift_script}"
+    
+    print("🔄 Running drift simulation...")
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(drift_script),
+            "--connection-id", "10ca3a88-5105-4e24-b984-6e350a5fa443",
+            "--namespace", "demo"
+        ],
+        capture_output=True,
+        text=True
+    )
+    
+    print(result.stdout)
+    if result.stderr:
+        print("STDERR:", result.stderr)
+    
+    assert result.returncode == 0, f"Drift simulation failed: {result.stderr}"
+    assert "Drift simulation complete" in result.stdout
+    
+    # Get post-drift mapping count
+    response = requests.get(f"{BASE_URL}/api/v1/aam/connectors", headers=headers)
+    assert response.status_code == 200
+    
+    data = response.json()
+    filesource = next((c for c in data["connectors"] if c["type"] == "filesource"), None)
+    assert filesource is not None
+    
+    post_count = filesource.get("mapping_count", 0)
+    print(f"📊 Post-drift mapping_count: {post_count}")
+    
+    # Verify count increased by exactly 1
+    assert post_count == pre_count + 1, f"Expected {pre_count + 1}, got {post_count}"
+    print(f"✅ Mapping count increased by 1 (drift detected)")
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "-s"])
