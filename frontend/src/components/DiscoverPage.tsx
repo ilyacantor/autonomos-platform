@@ -8,7 +8,7 @@ export default function DiscoverPage() {
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-4xl font-bold text-white mb-4">AOS Discover</h1>
-        <p className="text-lg text-gray-300 max-w-4xl leading-relaxed">
+        <p className="text-lg text-gray-300 leading-relaxed">
           Autonomously fingerprints your entire tech stack. Catalogs 100s of apps, databases, and tools without manual configuration. 
           Infers relationships instantly. Creates secure architectural views using metadata only.
         </p>

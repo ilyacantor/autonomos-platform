@@ -67,7 +67,7 @@ export default function ControlCenterPage() {
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-4xl font-bold text-white mb-4">AOS Control Center</h1>
-        <p className="text-lg text-gray-300 max-w-4xl leading-relaxed">
+        <p className="text-lg text-gray-300 leading-relaxed">
           Natural language interface to all AutonomOS services. Query your data, manage finances, investigate incidents, and discover dependencies—all through conversational AI with RAG-powered knowledge retrieval.
         </p>
       </div>

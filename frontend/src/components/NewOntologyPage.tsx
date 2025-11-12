@@ -194,7 +194,7 @@ export default function NewOntologyPage() {
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-4xl font-bold text-white mb-4">AOS Ontology</h1>
-        <p className="text-lg text-gray-300 max-w-4xl leading-relaxed">
+        <p className="text-lg text-gray-300 leading-relaxed">
           AI-driven unified data model. Automatically maps disparate data sources into a canonical ontology, creating cross-system entity relationships and powering intelligent agents with a single source of truth.
         </p>
       </div>

@@ -512,7 +512,7 @@ export default function FAQPage() {
 
   return (
     <div className="min-h-screen bg-[#0A1628] py-8 px-4 safe-area">
-      <div className="max-w-4xl mx-auto">
+      <div className="w-full">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-medium text-white mb-4">
             Help
