@@ -30,6 +30,7 @@ import LiveFlow from './archive/LiveFlow';
 import LiveStatusBadge from './LiveStatusBadge';
 import { getLiveStatus } from '../config/liveStatus';
 import { useConnectorsV2 } from '../hooks/useConnectorsV2';
+import { useAuth } from '../hooks/useAuth';
 
 // Feature flag: VITE_CONNECTIONS_V2 (default: false)
 const CONNECTIONS_V2 = import.meta.env.VITE_CONNECTIONS_V2 === 'true';
@@ -132,6 +133,7 @@ interface RepairAction {
 }
 
 export default function ConnectPage() {
+  const { isAuthenticated } = useAuth();
   const [metrics, setMetrics] = useState<AAMMetrics | null>(null);
   const [connections, setConnections] = useState<AAMConnection[]>([]);
   const [loading, setLoading] = useState(true);
@@ -442,7 +444,7 @@ export default function ConnectPage() {
 
   useEffect(() => {
     fetchAllData();
-  }, []);
+  }, [isAuthenticated]);
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -1039,8 +1041,10 @@ export default function ConnectPage() {
                           </div>
                           <div className="text-sm text-gray-500 space-y-1">
                             <div>Type: {conn.source_type}</div>
-                            <div>Created: {formatTimestamp(conn.created_at)}</div>
-                            {conn.last_health_check && (
+                            {'created_at' in conn && (
+                              <div>Created: {formatTimestamp(conn.created_at)}</div>
+                            )}
+                            {'last_health_check' in conn && conn.last_health_check && (
                               <div>Last Health Check: {formatTimestamp(conn.last_health_check)}</div>
                             )}
                             {conn.mapping_count !== undefined && (
