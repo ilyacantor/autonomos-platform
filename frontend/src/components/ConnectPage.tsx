@@ -228,6 +228,13 @@ export default function ConnectPage() {
       console.error('Error fetching AAM connectors:', err);
     }
   };
+  
+  const refreshConnectors = async () => {
+    await Promise.all([
+      fetchAAMConnections(),
+      CONNECTIONS_V2 ? v2Result.refetch() : Promise.resolve()
+    ]);
+  };
 
   const handleRegisterConnection = async () => {
     setRegisterLoading(true);
@@ -259,7 +266,7 @@ export default function ConnectPage() {
         throw new Error(error.detail || 'Failed to register connection');
       }
 
-      await fetchAAMConnections();
+      await refreshConnectors();
       await fetchAAMMetrics();
       
       setShowRegisterModal(false);
@@ -294,7 +301,7 @@ export default function ConnectPage() {
         throw new Error(error.detail || 'Health check failed');
       }
 
-      await fetchAAMConnections();
+      await refreshConnectors();
       await fetchAAMMetrics();
     } catch (err: any) {
       console.error('Error running health check:', err);
@@ -329,7 +336,7 @@ export default function ConnectPage() {
         throw new Error(error.detail || 'Failed to delete connection');
       }
 
-      await fetchAAMConnections();
+      await refreshConnectors();
       await fetchAAMMetrics();
     } catch (err: any) {
       console.error('Error deleting connection:', err);
@@ -361,7 +368,7 @@ export default function ConnectPage() {
       }
 
       console.log('Discovery queued');
-      await fetchAAMConnections();
+      await refreshConnectors();
       await fetchAAMMetrics();
     } catch (err: any) {
       console.error('Error running discovery:', err);
@@ -425,7 +432,7 @@ export default function ConnectPage() {
     setLoading(true);
     await Promise.all([
       fetchAAMMetrics(),
-      fetchAAMConnections(),
+      refreshConnectors(),
       fetchIntelligenceData(),
       fetchDataQuality(),
       fetchConnectorDetails()
