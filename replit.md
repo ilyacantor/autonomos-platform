@@ -26,12 +26,14 @@ The frontend, built with React 18 and TypeScript, features a responsive UI/UX de
 **System Design Choices:**
 The platform employs a "Strangler Fig" pattern with feature flags for zero downtime, restructuring towards a unified data flow: Data Sources → AAM → DCL → Agents. A single Supabase PostgreSQL database is used for both development and production, handling DCL and AAM data. Alembic is used for production-ready database schema versioning and migrations, automatically applied on server startup. Deployment safety infrastructure is in place to prevent destructive database operations.
 
-**Database Connection Workarounds:**
-*   **PgBouncer Prepared Statement Conflict:** Supabase PgBouncer runs in transaction mode which conflicts with asyncpg's prepared statement caching. The `/api/v1/aam/connectors` endpoint uses synchronous SQLAlchemy (psycopg2) with explicit `with SessionLocal() as db:` context manager to ensure proper connection cleanup and avoid pool exhaustion. This is a controlled workaround until either (a) asyncpg's `prepare_threshold=0` configuration is tested, or (b) a dedicated session-mode PgBouncer pool is configured.
-*   **Async Engine Settings:** All async engines are configured with `statement_cache_size: 0` and `prepared_statement_cache_size: 0` to minimize PgBouncer conflicts for remaining async endpoints.
+**Database Connection Architecture (Nov 2025):**
+*   **Unified Database Access:** All database operations use centralized session factories from `app/database.py`:
+    *   Sync: `SessionLocal` (psycopg2) for synchronous operations
+    *   Async: `AsyncSessionLocal` (psycopg3) for asynchronous operations
+*   **PgBouncer Compatibility:** Switched from asyncpg to psycopg3's async driver to eliminate prepared statement conflicts with Supabase PgBouncer transaction mode. No more `DuplicatePreparedStatementError`!
+*   **AAM Integration:** `aam_hybrid/shared/database.py` imports and forwards to shared session factories instead of creating duplicate engines, ensuring consistent PgBouncer-safe connections across all AAM operations.
 
 **Feature Flags:**
-*   **AAM_CONNECTORS_SYNC** (default: `true`): Controls database access pattern for `/api/v1/aam/connectors` endpoint. When `true`, uses synchronous psycopg2 (PgBouncer-safe). When `false`, uses async asyncpg (may conflict with PgBouncer transaction mode). Requires server restart to take effect.
 *   **VITE_CONNECTIONS_V2** (default: `false`): Frontend feature flag for typed AAM connectors client with drift metadata. When `true`, ConnectPage uses `useConnectorsV2()` hook with OpenAPI-generated TypeScript types and displays DRIFT badges for connectors with detected schema drift. Set via `.env.local` (frontend).
 
 **Data Ingestion:**
@@ -64,7 +66,8 @@ The platform employs a "Strangler Fig" pattern with feature flags for zero downt
 *   **uvicorn:** ASGI server.
 *   **SQLAlchemy:** ORM.
 *   **Alembic:** Database migration tool.
-*   **psycopg2-binary:** PostgreSQL adapter.
+*   **psycopg2-binary:** PostgreSQL sync adapter.
+*   **psycopg-binary:** PostgreSQL async adapter (PgBouncer-safe).
 *   **redis:** Python client for Redis.
 *   **rq (Redis Queue):** Background job processing.
 *   **pydantic:** Data validation.

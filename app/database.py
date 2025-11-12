@@ -34,7 +34,7 @@ engine = create_engine(
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-async_db_url = get_database_url().replace("postgresql://", "postgresql+asyncpg://")
+async_db_url = get_database_url().replace("postgresql://", "postgresql+psycopg://")
 async_engine = create_async_engine(
     async_db_url,
     echo=False,
@@ -42,13 +42,6 @@ async_engine = create_async_engine(
     pool_size=5,
     max_overflow=10,
     pool_recycle=300,
-    connect_args={
-        "statement_cache_size": 0,
-        "prepared_statement_cache_size": 0,
-        "server_settings": {
-            "jit": "off"
-        }
-    },
     pool_use_lifo=True
 )
 AsyncSessionLocal = async_sessionmaker(
