@@ -57,6 +57,7 @@ class Connection(Base):
     __tablename__ = "connections"
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), nullable=True, index=True)  # Multi-tenant isolation (Nov 2025)
     name = Column(String, nullable=False)
     source_type = Column(String, nullable=False)
     airbyte_source_id = Column(UUID(as_uuid=True), nullable=True)

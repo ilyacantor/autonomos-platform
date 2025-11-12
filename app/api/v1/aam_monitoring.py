@@ -996,7 +996,10 @@ def _get_connectors_sync(tenant_id: str) -> Dict[str, Any]:
         # Set 3s statement timeout for this session
         db.execute(text("SET LOCAL statement_timeout='3s'"))
         
-        connections = db.query(Connection).order_by(Connection.name).all()  # type: ignore
+        # Filter connections by tenant_id for multi-tenant isolation
+        connections = db.query(Connection).filter(
+            Connection.tenant_id == tenant_id
+        ).order_by(Connection.name).all()  # type: ignore
         
         if not connections:
             return {"connectors": [], "total": 0}
@@ -1177,14 +1180,17 @@ async def get_connectors(request: Request):
         )
     
     tenant_id = getattr(request.state, "tenant_id", None)
-    if not tenant_id:
-        logger.warning("AAM: missing tenant_id")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="missing tenant_id"
-        )
     
-    logger.info(f"AAM list: tenant_id={tenant_id}, mode={'sync' if AAM_CONNECTORS_SYNC else 'async'}")
+    # DEMO MODE: Use fallback tenant UUID for unauthenticated/public access
+    demo_mode = False
+    if not tenant_id:
+        from uuid import UUID
+        demo_tenant_uuid = os.getenv("DEMO_TENANT_UUID", "f8ab4417-86a1-4dd2-a049-ea423063850e")
+        tenant_id = UUID(demo_tenant_uuid) if isinstance(demo_tenant_uuid, str) else demo_tenant_uuid
+        demo_mode = True
+        logger.info(f"AAM list: DEMO MODE (unauthenticated), tenant_id={tenant_id}")
+    else:
+        logger.info(f"AAM list: authenticated, tenant_id={tenant_id}, mode={'sync' if AAM_CONNECTORS_SYNC else 'async'}")
     
     try:
         import time
