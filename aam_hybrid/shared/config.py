@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     SERVICE_PORT_SCHEMA_OBSERVER: int = 8004
     SERVICE_PORT_RAG_ENGINE: int = 8005
     
+    OPENAI_API_KEY: Optional[str] = None
+    LLM_MODEL_NAME: str = "gpt-4o-mini"
+    
     class Config:
         env_file = ".env"
         case_sensitive = True

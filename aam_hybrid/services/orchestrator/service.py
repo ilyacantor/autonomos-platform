@@ -3,10 +3,11 @@ import httpx
 import uuid
 import sys
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Set
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from datetime import datetime
+from fastapi import WebSocket
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
@@ -23,6 +24,60 @@ from shared import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+class ConnectionManager:
+    """
+    WebSocket Connection Manager
+    Manages active WebSocket connections and broadcasts status updates
+    """
+    
+    def __init__(self):
+        self.active_connections: Set[WebSocket] = set()
+    
+    async def connect(self, websocket: WebSocket):
+        """Accept and register a new WebSocket connection"""
+        await websocket.accept()
+        self.active_connections.add(websocket)
+        logger.info(f"✅ WebSocket connected. Total connections: {len(self.active_connections)}")
+    
+    def disconnect(self, websocket: WebSocket):
+        """Remove a WebSocket connection"""
+        self.active_connections.discard(websocket)
+        logger.info(f"❌ WebSocket disconnected. Total connections: {len(self.active_connections)}")
+    
+    async def broadcast(self, message: dict):
+        """Broadcast message to all connected WebSocket clients"""
+        disconnected = []
+        for connection in self.active_connections:
+            try:
+                await connection.send_json(message)
+            except Exception as e:
+                logger.warning(f"Failed to send to WebSocket: {e}")
+                disconnected.append(connection)
+        
+        # Clean up disconnected clients
+        for conn in disconnected:
+            self.active_connections.discard(conn)
+
+
+# Global manager instance
+manager = ConnectionManager()
+
+
+async def handle_status_update(event_data: dict):
+    """
+    Handle status update events from event bus
+    Broadcast to all WebSocket clients
+    
+    Args:
+        event_data: StatusUpdate event data
+    """
+    try:
+        logger.info(f"📡 Broadcasting status update: {event_data.get('status')}")
+        await manager.broadcast(event_data)
+    except Exception as e:
+        logger.error(f"Error broadcasting status update: {e}")
 
 
 async def onboard_connection(
