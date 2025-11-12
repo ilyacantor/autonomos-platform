@@ -27,6 +27,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from aam_hybrid.core.connection_manager import connection_manager
 from aam_hybrid.core.funnel_metrics import FunnelMetricsTracker
 from aam_hybrid.shared.models import ConnectionStatus
+from aam_hybrid.shared.constants import DEMO_TENANT_UUID
 from app.schemas.connection_intent import (
     ConnectionIntent,
     OnboardingResult,
@@ -276,6 +277,7 @@ class OnboardingService:
                 connection = await connection_manager.register_connector(
                     name=f"{source_type}-{intent.resource_ids[0] if intent.resource_ids else 'unknown'}",
                     source_type=source_type,
+                    tenant_id=UUID(DEMO_TENANT_UUID),
                     config={
                         'resource_ids': intent.resource_ids,
                         'scopes_mode': intent.scopes_mode,
@@ -338,6 +340,7 @@ class OnboardingService:
             connection = await connection_manager.register_connector(
                 name=f"{source_type}-{intent.resource_ids[0] if intent.resource_ids else 'auto'}",
                 source_type=source_type,
+                tenant_id=UUID(DEMO_TENANT_UUID),
                 config=connector_config
             )
             
