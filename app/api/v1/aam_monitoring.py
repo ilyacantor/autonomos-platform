@@ -658,6 +658,9 @@ def _get_connectors_sync(tenant_id: str) -> Dict[str, Any]:
     from sqlalchemy import func
     
     with SessionLocal() as db:
+        # Set 3s statement timeout for this session
+        db.execute(text("SET LOCAL statement_timeout='3s'"))
+        
         connections = db.query(Connection).order_by(Connection.name).all()  # type: ignore
         
         connectors_list = []
@@ -783,7 +786,13 @@ async def get_connectors(request: Request):
             result = await _get_connectors_async(tenant_id)
         
         latency_ms = int(time.time() * 1000 - start_ms)
-        logger.info(f"AAM connectors list: tenant_id={tenant_id}, count={result['total']}, latency_ms={latency_ms}")
+        
+        # Log WARN if latency exceeds 3s threshold
+        if latency_ms > 3000:
+            logger.warning(f"AAM connectors list SLOW: tenant_id={tenant_id}, count={result['total']}, latency_ms={latency_ms} (threshold: 3000ms)")
+        else:
+            logger.info(f"AAM connectors list: tenant_id={tenant_id}, count={result['total']}, latency_ms={latency_ms}")
+        
         return result
     
     except Exception as e:
