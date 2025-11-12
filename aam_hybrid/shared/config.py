@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     # Use the shared PostgreSQL database from Replit
     SUPABASE_DB_URL: str = os.getenv("DATABASE_URL", "postgresql://user:pass@localhost:5432/aam_registry")
     
-    REDIS_URL: str = "redis://localhost:6379"
+    REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379")
     
     SECRET_KEY: str = "your-secret-key-change-in-production"
     

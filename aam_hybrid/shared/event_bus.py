@@ -40,8 +40,14 @@ class EventBus:
             logger.debug("Event Bus already connected, skipping reconnect")
             return
         
+        # Handle TLS for Upstash Redis (same as main app)
+        redis_url = settings.REDIS_URL
+        if redis_url and redis_url.startswith("redis://"):
+            redis_url = "rediss://" + redis_url[8:]
+            logger.debug("🔒 Using TLS/SSL for Event Bus Redis connection")
+        
         self.redis_client = redis.from_url(
-            settings.REDIS_URL,
+            redis_url,
             encoding="utf-8",
             decode_responses=True
         )
