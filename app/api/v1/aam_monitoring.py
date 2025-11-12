@@ -170,7 +170,18 @@ def _get_airbyte_sync_activity(airbyte_connection_id: Optional[str]) -> Dict[str
             key=lambda j: j.get('startTime') or j.get('createdAt') or '', 
             reverse=True
         )
-        latest_job = sorted_jobs[0]
+        
+        # Prefer the most recent job WITH data, fall back to absolute most recent
+        latest_job_with_data = None
+        for job in sorted_jobs:
+            records = job.get('recordsCommitted') or job.get('recordsEmitted') or job.get('rowsSynced') or 0
+            bytes_val = job.get('bytesCommitted') or job.get('bytesEmitted') or job.get('bytesSynced') or 0
+            if records > 0 or bytes_val > 0:
+                latest_job_with_data = job
+                break
+        
+        # Use job with data if available, otherwise use most recent (even if empty)
+        latest_job = latest_job_with_data if latest_job_with_data else sorted_jobs[0]
         
         # Extract status
         status = latest_job.get("status", "").lower()
@@ -284,7 +295,18 @@ async def _get_airbyte_sync_activity_async(airbyte_connection_id: Optional[str])
             key=lambda j: j.get('startTime') or j.get('createdAt') or '', 
             reverse=True
         )
-        latest_job = sorted_jobs[0]
+        
+        # Prefer the most recent job WITH data, fall back to absolute most recent
+        latest_job_with_data = None
+        for job in sorted_jobs:
+            records = job.get('recordsCommitted') or job.get('recordsEmitted') or job.get('rowsSynced') or 0
+            bytes_val = job.get('bytesCommitted') or job.get('bytesEmitted') or job.get('bytesSynced') or 0
+            if records > 0 or bytes_val > 0:
+                latest_job_with_data = job
+                break
+        
+        # Use job with data if available, otherwise use most recent (even if empty)
+        latest_job = latest_job_with_data if latest_job_with_data else sorted_jobs[0]
         
         # Extract status
         status = latest_job.get("status", "").lower()
