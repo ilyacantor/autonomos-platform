@@ -9,7 +9,7 @@ from fastapi import FastAPI, Depends, HTTPException, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
-from fastapi.security import OAuth2PasswordRequestForm
+# OAUTH DISABLED - from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from redis import Redis
 from rq import Queue, Retry
@@ -182,6 +182,17 @@ app = FastAPI(
     version="2.0.0",
     lifespan=lifespan
 )
+
+# PRODUCTION FIX: Global exception handler to ensure JSON responses in production
+# Without this, Replit's production proxy returns plain text "Internal Server Error"
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Catch all unhandled exceptions and return JSON (not plain text)"""
+    logger.error(f"Unhandled exception on {request.url}: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error", "error": str(exc), "path": str(request.url.path)}
+    )
 
 # Configure CORS to allow both dev and production origins
 allowed_origins = [
@@ -481,27 +492,28 @@ def register_user(user_data: schemas.UserRegister, db: Session = Depends(get_db)
 
     return user
 
-@app.post("/token", response_model=schemas.Token)
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    """
-    Login endpoint to get a JWT access token.
-    Use email as username and provide password.
-    """
-    user = authenticate_user(db, form_data.username, form_data.password)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"user_id": str(user.id), "tenant_id": str(user.tenant_id)},
-        expires_delta=access_token_expires
-    )
-
-    return {"access_token": access_token, "token_type": "bearer"}
+# OAUTH ENDPOINT DISABLED PER USER REQUEST
+# @app.post("/token", response_model=schemas.Token)
+# def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+#     """
+#     Login endpoint to get a JWT access token.
+#     Use email as username and provide password.
+#     """
+#     user = authenticate_user(db, form_data.username, form_data.password)
+#     if not user:
+#         raise HTTPException(
+#             status_code=status.HTTP_401_UNAUTHORIZED,
+#             detail="Incorrect email or password",
+#             headers={"WWW-Authenticate": "Bearer"},
+#         )
+# 
+#     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+#     access_token = create_access_token(
+#         data={"user_id": str(user.id), "tenant_id": str(user.tenant_id)},
+#         expires_delta=access_token_expires
+#     )
+# 
+#     return {"access_token": access_token, "token_type": "bearer"}
 
 @app.get("/users/me", response_model=schemas.User)
 def get_current_user_info(current_user: models.User = Depends(get_current_user)):
