@@ -32,6 +32,7 @@ The platform employs a "Strangler Fig" pattern with feature flags for zero downt
 
 **Feature Flags:**
 *   **AAM_CONNECTORS_SYNC** (default: `true`): Controls database access pattern for `/api/v1/aam/connectors` endpoint. When `true`, uses synchronous psycopg2 (PgBouncer-safe). When `false`, uses async asyncpg (may conflict with PgBouncer transaction mode). Requires server restart to take effect.
+*   **VITE_CONNECTIONS_V2** (default: `false`): Frontend feature flag for typed AAM connectors client with drift metadata. When `true`, ConnectPage uses `useConnectorsV2()` hook with OpenAPI-generated TypeScript types and displays DRIFT badges for connectors with detected schema drift. Set via `.env.local` (frontend).
 
 **Data Ingestion:**
 *   **FilesSource CSV Ingest:** Use `scripts/filesource_ingest.py` to populate `mapping_registry` from CSV files in `mock_sources/`. This enables field-level mapping visibility for FilesSource connections in the Connections tab.
@@ -41,6 +42,12 @@ The platform employs a "Strangler Fig" pattern with feature flags for zero downt
     
     # Verify mapping count
     # SQL: SELECT COUNT(*) FROM mapping_registry WHERE connection_id='<connection_uuid>' AND tenant_id='<tenant_id>';
+    
+    # Fetch connectors with drift metadata (requires JWT)
+    curl -H "Authorization: Bearer $JWT" http://localhost:5000/api/v1/aam/connectors
+    # Returns: {"connectors": [{"id": "...", "name": "...", "source_type": "...", "status": "...", 
+    #                            "mapping_count": 0, "has_drift": false, "last_event_type": null, 
+    #                            "last_event_at": null}], "total": 1}
     ```
 
 **AAM Performance Notes:**
@@ -49,6 +56,8 @@ The platform employs a "Strangler Fig" pattern with feature flags for zero downt
 *   **Backward Compatibility:** `vendor` column retained for transition period; both `vendor` and `connection_id` populated by ingest scripts.
 *   **Performance Monitoring:** Endpoint logs latency (`latency_ms`) and total connector count for observability.
 *   **Health Check:** `GET /api/v1/aam/healthz` provides lightweight DB connectivity test respecting `AAM_CONNECTORS_SYNC` feature flag.
+*   **OpenAPI Contract (Nov 2025):** `/api/v1/aam/connectors` endpoint uses `ConnectorDTO` response model with drift metadata (`has_drift`, `last_event_type`, `last_event_at`). Batched drift query uses `ROW_NUMBER()` window function to avoid N+1 queries.
+*   **TypeScript Client Regeneration:** When ConnectorDTO schema changes, manually update `frontend/src/api/generated/connectors.ts` to match the new schema from `/openapi.json`. Contract tests in `tests/api/test_aam_connectors.py` validate DTO compliance.
 
 ## External Dependencies
 *   **FastAPI:** Web framework.
