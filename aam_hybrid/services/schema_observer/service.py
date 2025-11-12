@@ -122,7 +122,7 @@ class SchemaObserver:
                 "GET",
                 f"/jobs?connectionId={airbyte_connection_id}&limit={limit}"
             )
-            return result.get("jobs", [])
+            return result.get("data", [])
         except Exception as e:
             logger.error(f"Failed to get jobs for connection {airbyte_connection_id}: {e}")
             return []
@@ -197,7 +197,7 @@ class SchemaObserver:
             
             # Check for failed jobs
             for job in jobs:
-                job_id = job.get("jobId")
+                job_id = str(job.get("jobId"))  # Convert to string for database
                 job_status = job.get("status", "").lower()
                 
                 # Skip if not failed
