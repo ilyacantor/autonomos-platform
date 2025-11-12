@@ -146,7 +146,7 @@ def _get_airbyte_sync_activity(airbyte_connection_id: Optional[str]) -> Dict[str
             asyncio.set_event_loop(new_loop)
             try:
                 return new_loop.run_until_complete(
-                    schema_observer.get_connection_jobs(str(airbyte_connection_id), limit=1)
+                    schema_observer.get_connection_jobs(str(airbyte_connection_id), limit=10)
                 )
             finally:
                 new_loop.close()
@@ -163,8 +163,14 @@ def _get_airbyte_sync_activity(airbyte_connection_id: Optional[str]) -> Dict[str
             _airbyte_cache[cache_key] = result_with_cache
             return default
         
-        # Get latest job (already sorted by most recent)
-        latest_job = jobs[0]
+        # Get latest job - Airbyte returns jobs in ASCENDING order, so we need the LAST one
+        # Sort by startTime to ensure we get the most recent
+        sorted_jobs = sorted(
+            jobs, 
+            key=lambda j: j.get('startTime') or j.get('createdAt') or '', 
+            reverse=True
+        )
+        latest_job = sorted_jobs[0]
         
         # Extract status
         status = latest_job.get("status", "").lower()
@@ -262,7 +268,7 @@ async def _get_airbyte_sync_activity_async(airbyte_connection_id: Optional[str])
     # Fetch from Airbyte API
     try:
         # Call async method directly (no event loop needed in async context)
-        jobs = await schema_observer.get_connection_jobs(str(airbyte_connection_id), limit=1)
+        jobs = await schema_observer.get_connection_jobs(str(airbyte_connection_id), limit=10)
         
         if not jobs or len(jobs) == 0:
             # Cache empty result
@@ -271,8 +277,14 @@ async def _get_airbyte_sync_activity_async(airbyte_connection_id: Optional[str])
             _airbyte_cache[cache_key] = result_with_cache
             return default
         
-        # Get latest job (already sorted by most recent)
-        latest_job = jobs[0]
+        # Get latest job - Airbyte returns jobs in ASCENDING order, so we need the LAST one
+        # Sort by startTime to ensure we get the most recent
+        sorted_jobs = sorted(
+            jobs, 
+            key=lambda j: j.get('startTime') or j.get('createdAt') or '', 
+            reverse=True
+        )
+        latest_job = sorted_jobs[0]
         
         # Extract status
         status = latest_job.get("status", "").lower()
