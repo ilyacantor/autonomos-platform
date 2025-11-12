@@ -1,5 +1,7 @@
 import logging
 import httpx
+import time
+import asyncio
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, status, Request, Depends
@@ -18,7 +20,7 @@ router = APIRouter()
 
 # OpenAPI DTOs for /aam/connectors endpoint
 class ConnectorDTO(BaseModel):
-    """Connector data transfer object with drift metadata"""
+    """Connector data transfer object with drift metadata and sync activity"""
     id: str = Field(..., description="Unique connector identifier")
     name: str = Field(..., description="Connector name")
     source_type: str = Field(..., description="Data source type (e.g., salesforce, filesource)")
@@ -27,6 +29,10 @@ class ConnectorDTO(BaseModel):
     last_event_type: Optional[str] = Field(None, description="Type of last drift event (e.g., DRIFT_DETECTED)")
     last_event_at: Optional[datetime] = Field(None, description="Timestamp of last drift event")
     has_drift: bool = Field(..., description="Whether connector has detected drift")
+    last_sync_status: Optional[str] = Field(None, description="Status of most recent Airbyte sync (succeeded, failed, running)")
+    last_sync_records: Optional[int] = Field(None, description="Number of records synced in last job")
+    last_sync_bytes: Optional[int] = Field(None, description="Bytes transferred in last sync")
+    last_sync_at: Optional[datetime] = Field(None, description="Timestamp of last sync job")
 
     class Config:
         json_schema_extra = {
@@ -38,7 +44,11 @@ class ConnectorDTO(BaseModel):
                 "mapping_count": 36,
                 "last_event_type": "DRIFT_DETECTED",
                 "last_event_at": "2025-11-12T00:14:13Z",
-                "has_drift": True
+                "has_drift": True,
+                "last_sync_status": "succeeded",
+                "last_sync_records": 245,
+                "last_sync_bytes": 2177200,
+                "last_sync_at": "2025-11-12T11:48:00Z"
             }
         }
 
@@ -70,6 +80,247 @@ except Exception as e:
     SyncCatalogVersion = None  # type: ignore
     ConnectionStatus = None  # type: ignore
     JobStatus = None  # type: ignore
+
+# Import SchemaObserver singleton at module level
+SCHEMA_OBSERVER_AVAILABLE = False
+try:
+    from aam_hybrid.services.schema_observer.service import schema_observer
+    SCHEMA_OBSERVER_AVAILABLE = True
+    logger.info("✅ SchemaObserver imported successfully")
+except Exception as e:
+    logger.warning(f"Could not import SchemaObserver: {e}")
+    schema_observer = None  # type: ignore
+
+# Cache storage for Airbyte sync activity with TTL
+_airbyte_cache: Dict[str, Dict[str, Any]] = {}
+_cache_ttl = 60  # seconds
+
+
+def _get_airbyte_sync_activity(airbyte_connection_id: Optional[str]) -> Dict[str, Any]:
+    """
+    Get latest Airbyte sync activity for a connection with 60s caching (sync version).
+    
+    Calls SchemaObserver's get_connection_jobs() method and caches results for 60 seconds.
+    
+    Args:
+        airbyte_connection_id: Airbyte connection UUID (can be None)
+        
+    Returns:
+        Dict with keys: status, records, bytes, timestamp (all None if unavailable)
+    """
+    # Default response
+    default = {
+        "status": None,
+        "records": None,
+        "bytes": None,
+        "timestamp": None
+    }
+    
+    # Handle missing connection ID
+    if not airbyte_connection_id:
+        return default
+    
+    # Check if SchemaObserver is available
+    if not SCHEMA_OBSERVER_AVAILABLE or not schema_observer:
+        return default
+    
+    # Convert to string for cache key
+    cache_key = str(airbyte_connection_id)
+    
+    # Check cache with TTL
+    current_time = time.time()
+    if cache_key in _airbyte_cache:
+        cached_entry = _airbyte_cache[cache_key]
+        if current_time - cached_entry.get("_cached_at", 0) < _cache_ttl:
+            # Return cached data (excluding _cached_at)
+            return {k: v for k, v in cached_entry.items() if k != "_cached_at"}
+    
+    # Fetch from Airbyte API
+    try:
+        # Get or create event loop for calling async method from sync context
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        
+        # Call async method
+        jobs = loop.run_until_complete(
+            schema_observer.get_connection_jobs(str(airbyte_connection_id), limit=1)
+        )
+        
+        if not jobs or len(jobs) == 0:
+            # Cache empty result
+            result_with_cache = default.copy()
+            result_with_cache["_cached_at"] = current_time  # type: ignore
+            _airbyte_cache[cache_key] = result_with_cache
+            return default
+        
+        # Get latest job (already sorted by most recent)
+        latest_job = jobs[0]
+        
+        # Extract status
+        status = latest_job.get("status", "").lower()
+        
+        # Parse records and bytes from job - try multiple field names
+        records = (
+            latest_job.get("recordsCommitted") or 
+            latest_job.get("recordsEmitted") or 
+            latest_job.get("rowsSynced") or 
+            0
+        )
+        bytes_transferred = (
+            latest_job.get("bytesCommitted") or 
+            latest_job.get("bytesEmitted") or 
+            latest_job.get("bytesSynced") or 
+            0
+        )
+        
+        # Parse timestamp - Airbyte uses "createdAt" field
+        created_at_str = latest_job.get("createdAt") or latest_job.get("startTime")
+        timestamp = None
+        if created_at_str:
+            try:
+                # Parse ISO format timestamp, handle both with and without Z
+                if isinstance(created_at_str, str):
+                    timestamp = datetime.fromisoformat(created_at_str.replace('Z', '+00:00'))
+                elif isinstance(created_at_str, datetime):
+                    timestamp = created_at_str
+            except Exception as e:
+                logger.debug(f"Failed to parse timestamp {created_at_str}: {e}")
+        
+        result = {
+            "status": status,
+            "records": int(records) if records else None,
+            "bytes": int(bytes_transferred) if bytes_transferred else None,
+            "timestamp": timestamp,
+            "_cached_at": current_time
+        }
+        
+        # Store in cache
+        _airbyte_cache[cache_key] = result
+        
+        # Return without _cached_at
+        return {k: v for k, v in result.items() if k != "_cached_at"}
+        
+    except Exception as e:
+        logger.error(f"Failed to get Airbyte sync activity for {airbyte_connection_id}: {e}")
+        # Cache the error to avoid hammering the API
+        result_with_cache = default.copy()
+        result_with_cache["_cached_at"] = current_time  # type: ignore
+        _airbyte_cache[cache_key] = result_with_cache
+        return default
+
+
+async def _get_airbyte_sync_activity_async(airbyte_connection_id: Optional[str]) -> Dict[str, Any]:
+    """
+    Get latest Airbyte sync activity for a connection with 60s caching (async version).
+    
+    Calls SchemaObserver's get_connection_jobs() method and caches results for 60 seconds.
+    Shares the same cache dictionary as the sync version for consistency.
+    
+    Args:
+        airbyte_connection_id: Airbyte connection UUID (can be None)
+        
+    Returns:
+        Dict with keys: status, records, bytes, timestamp (all None if unavailable)
+    """
+    # Default response
+    default = {
+        "status": None,
+        "records": None,
+        "bytes": None,
+        "timestamp": None
+    }
+    
+    # Handle missing connection ID
+    if not airbyte_connection_id:
+        return default
+    
+    # Check if SchemaObserver is available
+    if not SCHEMA_OBSERVER_AVAILABLE or not schema_observer:
+        return default
+    
+    # Convert to string for cache key
+    cache_key = str(airbyte_connection_id)
+    
+    # Check cache with TTL
+    current_time = time.time()
+    if cache_key in _airbyte_cache:
+        cached_entry = _airbyte_cache[cache_key]
+        if current_time - cached_entry.get("_cached_at", 0) < _cache_ttl:
+            # Return cached data (excluding _cached_at)
+            return {k: v for k, v in cached_entry.items() if k != "_cached_at"}
+    
+    # Fetch from Airbyte API
+    try:
+        # Call async method directly (no event loop needed in async context)
+        jobs = await schema_observer.get_connection_jobs(str(airbyte_connection_id), limit=1)
+        
+        if not jobs or len(jobs) == 0:
+            # Cache empty result
+            result_with_cache = default.copy()
+            result_with_cache["_cached_at"] = current_time  # type: ignore
+            _airbyte_cache[cache_key] = result_with_cache
+            return default
+        
+        # Get latest job (already sorted by most recent)
+        latest_job = jobs[0]
+        
+        # Extract status
+        status = latest_job.get("status", "").lower()
+        
+        # Parse records and bytes from job - try multiple field names
+        records = (
+            latest_job.get("recordsCommitted") or 
+            latest_job.get("recordsEmitted") or 
+            latest_job.get("rowsSynced") or 
+            0
+        )
+        bytes_transferred = (
+            latest_job.get("bytesCommitted") or 
+            latest_job.get("bytesEmitted") or 
+            latest_job.get("bytesSynced") or 
+            0
+        )
+        
+        # Parse timestamp - Airbyte uses "createdAt" field
+        created_at_str = latest_job.get("createdAt") or latest_job.get("startTime")
+        timestamp = None
+        if created_at_str:
+            try:
+                # Parse ISO format timestamp, handle both with and without Z
+                if isinstance(created_at_str, str):
+                    timestamp = datetime.fromisoformat(created_at_str.replace('Z', '+00:00'))
+                elif isinstance(created_at_str, datetime):
+                    timestamp = created_at_str
+            except Exception as e:
+                logger.debug(f"Failed to parse timestamp {created_at_str}: {e}")
+        
+        result = {
+            "status": status,
+            "records": int(records) if records else None,
+            "bytes": int(bytes_transferred) if bytes_transferred else None,
+            "timestamp": timestamp,
+            "_cached_at": current_time
+        }
+        
+        # Store in cache
+        _airbyte_cache[cache_key] = result
+        
+        # Return without _cached_at
+        return {k: v for k, v in result.items() if k != "_cached_at"}
+        
+    except Exception as e:
+        logger.error(f"Failed to get Airbyte sync activity for {airbyte_connection_id}: {e}")
+        # Cache the error to avoid hammering the API
+        result_with_cache = default.copy()
+        result_with_cache["_cached_at"] = current_time  # type: ignore
+        _airbyte_cache[cache_key] = result_with_cache
+        return default
 
 
 @router.get("/status")
@@ -676,9 +927,10 @@ async def get_repair_metrics(request: Request, db: AsyncSession = Depends(get_as
 def _serialize_connector(
     conn, 
     mapping_count: int,
-    drift_info: Optional[Dict[str, Any]] = None
+    drift_info: Optional[Dict[str, Any]] = None,
+    sync_activity: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
-    """Shared serialization logic for connector objects with drift metadata"""
+    """Shared serialization logic for connector objects with drift metadata and sync activity"""
     return {
         "id": str(conn.id),
         "name": conn.name,
@@ -687,8 +939,12 @@ def _serialize_connector(
         "last_discovery_at": conn.updated_at.isoformat() if conn.updated_at else None,
         "mapping_count": mapping_count,
         "last_event_type": drift_info.get("event_type") if drift_info else None,
-        "last_event_at": drift_info.get("created_at").isoformat() if drift_info and drift_info.get("created_at") else None,
-        "has_drift": bool(drift_info) if drift_info else False
+        "last_event_at": drift_info["created_at"].isoformat() if drift_info and drift_info.get("created_at") else None,
+        "has_drift": bool(drift_info) if drift_info else False,
+        "last_sync_status": sync_activity.get("status") if sync_activity else None,
+        "last_sync_records": sync_activity.get("records") if sync_activity else None,
+        "last_sync_bytes": sync_activity.get("bytes") if sync_activity else None,
+        "last_sync_at": sync_activity["timestamp"].isoformat() if sync_activity and sync_activity.get("timestamp") else None
     }
 
 
@@ -744,7 +1000,13 @@ def _get_connectors_sync(tenant_id: str) -> Dict[str, Any]:
             ).scalar() or 0
             
             drift_info = drift_map.get(str(conn.id))
-            connectors_list.append(_serialize_connector(conn, mapping_count, drift_info))
+            
+            # Get Airbyte sync activity if connection has airbyte_connection_id
+            sync_activity = None
+            if hasattr(conn, 'airbyte_connection_id') and conn.airbyte_connection_id:
+                sync_activity = _get_airbyte_sync_activity(conn.airbyte_connection_id)
+            
+            connectors_list.append(_serialize_connector(conn, mapping_count, drift_info, sync_activity))
         
         return {
             "connectors": connectors_list,
@@ -806,7 +1068,13 @@ async def _get_connectors_async(tenant_id: str) -> Dict[str, Any]:
             mapping_count = mapping_count_result.scalar() or 0
             
             drift_info = drift_map.get(str(conn.id))
-            connectors_list.append(_serialize_connector(conn, mapping_count, drift_info))
+            
+            # Get Airbyte sync activity if connection has airbyte_connection_id
+            sync_activity = None
+            if hasattr(conn, 'airbyte_connection_id') and conn.airbyte_connection_id:
+                sync_activity = await _get_airbyte_sync_activity_async(conn.airbyte_connection_id)
+            
+            connectors_list.append(_serialize_connector(conn, mapping_count, drift_info, sync_activity))
         
         return {
             "connectors": connectors_list,

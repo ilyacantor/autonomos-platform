@@ -19,6 +19,10 @@ interface Connector {
   has_drift: boolean;
   last_event_type: string | null;
   last_event_at: string | null;
+  last_sync_status: string | null;
+  last_sync_records: number | null;
+  last_sync_bytes: number | null;
+  last_sync_at: string | null;
 }
 
 export default function ConnectPage() {
@@ -60,7 +64,16 @@ export default function ConnectPage() {
 
   useEffect(() => {
     fetchConnectors();
-  }, [isAuthenticated]);
+    
+    // Auto-refresh every 30 seconds when a connector is expanded
+    const interval = setInterval(() => {
+      if (expandedConnector) {
+        fetchConnectors();
+      }
+    }, 30000);
+    
+    return () => clearInterval(interval);
+  }, [isAuthenticated, expandedConnector]);
 
   const toggleConnectorExpansion = (id: string) => {
     setExpandedConnector(expandedConnector === id ? null : id);
@@ -96,6 +109,33 @@ export default function ConnectPage() {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  const formatBytes = (bytes: number | null) => {
+    if (!bytes || bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+  };
+
+  const getSyncStatusBadge = (status: string | null) => {
+    if (!status) return <span className="text-xs text-gray-500">No sync data</span>;
+    
+    const colors = {
+      succeeded: 'bg-green-500/10 text-green-500 border-green-500/20',
+      running: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
+      failed: 'bg-red-500/10 text-red-500 border-red-500/20',
+      pending: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
+    };
+
+    const colorClass = colors[status.toLowerCase() as keyof typeof colors] || 'bg-gray-500/10 text-gray-500 border-gray-500/20';
+
+    return (
+      <span className={`px-2 py-1 rounded-md text-xs font-medium border ${colorClass}`}>
+        {status.toUpperCase()}
+      </span>
+    );
   };
 
   return (
@@ -209,42 +249,75 @@ export default function ConnectPage() {
                       {isExpanded && (
                         <tr>
                           <td colSpan={6} className="px-6 py-4 bg-gray-950/50">
-                            <div className="grid grid-cols-2 gap-4 text-sm">
-                              <div>
-                                <div className="text-gray-400 mb-1">Connection ID</div>
-                                <code className="text-gray-300 bg-gray-800 px-2 py-1 rounded text-xs">
-                                  {connector.id}
-                                </code>
-                              </div>
-                              <div>
-                                <div className="text-gray-400 mb-1">Source Type</div>
-                                <div className="text-white">{connector.source_type}</div>
-                              </div>
-                              <div>
-                                <div className="text-gray-400 mb-1">Mapping Count</div>
-                                <div className="text-white">{connector.mapping_count} field mappings</div>
-                              </div>
-                              <div>
-                                <div className="text-gray-400 mb-1">Drift Status</div>
-                                <div className="text-white">
-                                  {connector.has_drift ? (
-                                    <span className="text-orange-400">Drift Detected</span>
-                                  ) : (
-                                    <span className="text-green-400">No Drift</span>
-                                  )}
+                            <div className="space-y-6">
+                              <div className="grid grid-cols-2 gap-4 text-sm">
+                                <div>
+                                  <div className="text-gray-400 mb-1">Connection ID</div>
+                                  <code className="text-gray-300 bg-gray-800 px-2 py-1 rounded text-xs">
+                                    {connector.id}
+                                  </code>
                                 </div>
+                                <div>
+                                  <div className="text-gray-400 mb-1">Source Type</div>
+                                  <div className="text-white">{connector.source_type}</div>
+                                </div>
+                                <div>
+                                  <div className="text-gray-400 mb-1">Mapping Count</div>
+                                  <div className="text-white">{connector.mapping_count} field mappings</div>
+                                </div>
+                                <div>
+                                  <div className="text-gray-400 mb-1">Drift Status</div>
+                                  <div className="text-white">
+                                    {connector.has_drift ? (
+                                      <span className="text-orange-400">Drift Detected</span>
+                                    ) : (
+                                      <span className="text-green-400">No Drift</span>
+                                    )}
+                                  </div>
+                                </div>
+                                {connector.last_event_type && (
+                                  <>
+                                    <div>
+                                      <div className="text-gray-400 mb-1">Last Event</div>
+                                      <div className="text-white">{connector.last_event_type}</div>
+                                    </div>
+                                    <div>
+                                      <div className="text-gray-400 mb-1">Event Time</div>
+                                      <div className="text-white">{formatTimestamp(connector.last_event_at)}</div>
+                                    </div>
+                                  </>
+                                )}
                               </div>
-                              {connector.last_event_type && (
-                                <>
-                                  <div>
-                                    <div className="text-gray-400 mb-1">Last Event</div>
-                                    <div className="text-white">{connector.last_event_type}</div>
+
+                              {connector.last_sync_status && (
+                                <div className="border-t border-gray-800 pt-4">
+                                  <h4 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+                                    <Activity className="w-4 h-4 text-blue-400" />
+                                    Last Sync Activity
+                                  </h4>
+                                  <div className="grid grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                      <div className="text-gray-400 mb-1">Sync Status</div>
+                                      <div>{getSyncStatusBadge(connector.last_sync_status)}</div>
+                                    </div>
+                                    <div>
+                                      <div className="text-gray-400 mb-1">Sync Time</div>
+                                      <div className="text-white">{formatTimestamp(connector.last_sync_at)}</div>
+                                    </div>
+                                    <div>
+                                      <div className="text-gray-400 mb-1">Records Synced</div>
+                                      <div className="text-white font-mono">
+                                        {connector.last_sync_records !== null ? connector.last_sync_records.toLocaleString() : 'N/A'}
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <div className="text-gray-400 mb-1">Data Transferred</div>
+                                      <div className="text-white font-mono">
+                                        {formatBytes(connector.last_sync_bytes)}
+                                      </div>
+                                    </div>
                                   </div>
-                                  <div>
-                                    <div className="text-gray-400 mb-1">Event Time</div>
-                                    <div className="text-white">{formatTimestamp(connector.last_event_at)}</div>
-                                  </div>
-                                </>
+                                </div>
                               )}
                             </div>
                           </td>
