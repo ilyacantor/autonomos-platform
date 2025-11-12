@@ -137,20 +137,24 @@ def _get_airbyte_sync_activity(airbyte_connection_id: Optional[str]) -> Dict[str
     
     # Fetch from Airbyte API
     try:
-        # Get or create event loop for calling async method from sync context
-        try:
-            loop = asyncio.get_event_loop()
-            if loop.is_closed():
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+        # Run async SchemaObserver call in thread pool to avoid event loop conflicts
+        import concurrent.futures
         
-        # Call async method
-        jobs = loop.run_until_complete(
-            schema_observer.get_connection_jobs(str(airbyte_connection_id), limit=1)
-        )
+        def _fetch_jobs():
+            """Helper to run async code in a new event loop"""
+            new_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(new_loop)
+            try:
+                return new_loop.run_until_complete(
+                    schema_observer.get_connection_jobs(str(airbyte_connection_id), limit=1)
+                )
+            finally:
+                new_loop.close()
+        
+        # Execute in thread pool to avoid "event loop already running" error
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(_fetch_jobs)
+            jobs = future.result(timeout=10)  # 10 second timeout
         
         if not jobs or len(jobs) == 0:
             # Cache empty result
