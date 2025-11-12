@@ -60,9 +60,9 @@ class SchemaObserver:
         self.access_token: Optional[str] = None
         self.use_oss = settings.AIRBYTE_USE_OSS
     
-    async def _get_access_token(self) -> str:
+    async def _get_access_token(self, force_refresh: bool = False) -> str:
         """Get Airbyte API access token (Airbyte Cloud only)"""
-        if self.access_token:
+        if self.access_token and not force_refresh:
             return self.access_token
         
         try:
@@ -83,14 +83,14 @@ class SchemaObserver:
                 response.raise_for_status()
                 data = response.json()
                 self.access_token = data["access_token"]
-                logger.info("✅ Airbyte Cloud OAuth token obtained successfully")
+                logger.info("✅ Airbyte Cloud OAuth token refreshed successfully")
                 return self.access_token
         except Exception as e:
             logger.error(f"Failed to get Airbyte access token: {e}")
             raise
     
     async def _airbyte_request(self, method: str, endpoint: str, **kwargs):
-        """Make authenticated request to Airbyte API (supports both Cloud and OSS)"""
+        """Make authenticated request to Airbyte API with auto-retry on 401"""
         headers = kwargs.pop("headers", {})
         headers["Content-Type"] = "application/json"
         
@@ -103,6 +103,14 @@ class SchemaObserver:
         
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.request(method, url, headers=headers, **kwargs)
+            
+            # If 401, refresh token and retry once
+            if response.status_code == 401 and not self.use_oss:
+                logger.warning("Access token expired, refreshing...")
+                token = await self._get_access_token(force_refresh=True)
+                headers["Authorization"] = f"Bearer {token}"
+                response = await client.request(method, url, headers=headers, **kwargs)
+            
             response.raise_for_status()
             return response.json()
     
