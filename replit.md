@@ -14,7 +14,7 @@ The frontend, built with React 18 and TypeScript, features a responsive UI/UX de
 
 **Technical Implementations:**
 *   **Task Orchestration:** Utilizes Python RQ and Redis Queue for asynchronous background job processing with full lifecycle management.
-*   **Authentication & Security:** Implements JWT-based authentication with Argon2 password hashing.
+*   **Authentication & Security:** Implements JWT-based authentication with Argon2 password hashing. JWT token expiry configured to 8 hours (480 minutes) for development convenience via `JWT_EXPIRE_MINUTES` environment variable.
 *   **AOA (Agentic Orchestration Architecture):** High-level orchestration layer managing DCL engine operations.
 *   **DCL Engine (Data Connection Layer):** An AI-driven, in-process engine for data orchestration, leveraging DuckDB for materialized views and Redis for concurrent access control. Supports multiple connectors, AI-powered entity mapping, graph generation, and idempotent operations. LLM Telemetry tracks cumulative LLM calls and token usage via Redis.
 *   **Adaptive API Mesh (AAM):** Provides self-healing data connectivity with production connectors (Salesforce, FileSource, Supabase, MongoDB). Features include canonical event normalization (Pydantic), schema fingerprinting for drift detection, an auto-repair agent with LLM-powered field mapping, and RAG intelligence for semantic matching. AAM integrates with DCL via Redis Streams. Includes an auto-onboarding system for data sources with Safe Mode guardrails.
@@ -32,6 +32,14 @@ The platform employs a "Strangler Fig" pattern with feature flags for zero downt
     *   Async: `AsyncSessionLocal` (psycopg3) for asynchronous operations
 *   **PgBouncer Compatibility:** Switched from asyncpg to psycopg3's async driver to eliminate prepared statement conflicts with Supabase PgBouncer transaction mode. No more `DuplicatePreparedStatementError`!
 *   **AAM Integration:** `aam_hybrid/shared/database.py` imports and forwards to shared session factories instead of creating duplicate engines, ensuring consistent PgBouncer-safe connections across all AAM operations.
+
+**AAM Production Connections (Nov 2025):**
+Platform includes 3 configured AAM connectors using real external credentials stored in Replit Secrets:
+*   **Salesforce Production:** Connects to real Salesforce.com org (`orgfarm-2c8d7db716-dev-ed.develop.my.salesforce.com`) via `SALESFORCE_ACCESS_TOKEN` and `SALESFORCE_INSTANCE_URL` environment secrets. OAuth tokens require periodic refresh.
+*   **MongoDB Production:** Connects to real MongoDB Atlas cluster via `MONGODB_URI` environment secret. Fully operational for live data ingestion.
+*   **FilesSource Demo:** Local CSV file connector reading from `mock_sources/` directory with connection-scoped mapping registry and drift detection enabled.
+
+All connection credentials use `env_ref` type in `connector_config` for secure secret management. Connection endpoint: `POST /api/v1/aam/connections` (requires JWT authentication).
 
 **Feature Flags:**
 *   **VITE_CONNECTIONS_V2** (default: `false`): Frontend feature flag for typed AAM connectors client with drift metadata. When `true`, ConnectPage uses `useConnectorsV2()` hook with OpenAPI-generated TypeScript types and displays DRIFT badges for connectors with detected schema drift. Set via `.env.local` (frontend).
