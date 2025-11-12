@@ -716,7 +716,7 @@ def _get_connectors_sync(tenant_id: str) -> Dict[str, Any]:
                 connection_id, event_type, created_at
             FROM drift_events
             WHERE tenant_id = :tenant_id 
-                AND connection_id = ANY(:connection_ids)
+                AND connection_id::text = ANY(:connection_ids)
             ORDER BY connection_id, created_at DESC
         """)
         
@@ -773,7 +773,7 @@ async def _get_connectors_async(tenant_id: str) -> Dict[str, Any]:
                 connection_id, event_type, created_at
             FROM drift_events
             WHERE tenant_id = :tenant_id 
-                AND connection_id = ANY(:connection_ids)
+                AND connection_id::text = ANY(:connection_ids)
             ORDER BY connection_id, created_at DESC
         """)
         
