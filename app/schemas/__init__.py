@@ -62,6 +62,11 @@ class Token(BaseModel):
     access_token: str
     token_type: str
 
+class UserRegisterResponse(BaseModel):
+    user: User
+    access_token: str
+    token_type: str
+
 class TokenData(BaseModel):
     user_id: Optional[str] = None
     tenant_id: Optional[str] = None
@@ -104,6 +109,7 @@ __all__ = [
     'User',
     'LoginRequest',
     'Token',
+    'UserRegisterResponse',
     'TokenData',
     'TaskBase',
     'TaskCreate',

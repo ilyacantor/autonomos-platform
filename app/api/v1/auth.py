@@ -10,11 +10,12 @@ from app.security import authenticate_user, create_access_token, get_current_use
 
 router = APIRouter()
 
-@router.post("/register", response_model=schemas.User, status_code=status.HTTP_201_CREATED)
+@router.post("/register", response_model=schemas.UserRegisterResponse, status_code=status.HTTP_201_CREATED)
 def register_user(user_data: schemas.UserRegister, db: Session = Depends(get_db)):
     """
     Register a new user and create their tenant.
-    This endpoint creates both a tenant and the first user for that tenant.
+    This endpoint creates both a tenant and the first user for that tenant,
+    and returns an access token for immediate authentication.
     """
     existing_user = crud.get_user_by_email(db, user_data.email)
     if existing_user:
@@ -45,7 +46,17 @@ def register_user(user_data: schemas.UserRegister, db: Session = Depends(get_db)
             detail="Unable to create user. Please try again."
         )
     
-    return user
+    access_token_expires = timedelta(minutes=settings.JWT_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"user_id": str(user.id), "tenant_id": str(user.tenant_id)},
+        expires_delta=access_token_expires
+    )
+    
+    return {
+        "user": user,
+        "access_token": access_token,
+        "token_type": "bearer"
+    }
 
 @router.post("/login", response_model=schemas.Token)
 def login(login_data: schemas.LoginRequest, db: Session = Depends(get_db)):

@@ -4,7 +4,7 @@ import { API_CONFIG, AUTH_TOKEN_KEY } from '../config/api';
 import { initializeDCLDefaults } from '../config/dclDefaults';
 
 const TOKEN_EXPIRY_KEY = 'auth_token_expiry';
-const TOKEN_EXPIRY_DURATION = 30 * 60 * 1000; // 30 minutes in milliseconds
+const TOKEN_EXPIRY_DURATION = 480 * 60 * 1000; // 8 hours in milliseconds (matches backend JWT_EXPIRE_MINUTES=480)
 
 interface User {
   email: string;
