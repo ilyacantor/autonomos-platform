@@ -20,6 +20,7 @@ class ConnectionStatus(str, Enum):
     PENDING = "PENDING"
     ACTIVE = "ACTIVE"
     FAILED = "FAILED"
+    DRIFTED = "DRIFTED"  # Schema drift detected
     HEALING = "HEALING"
     INACTIVE = "INACTIVE"
 
