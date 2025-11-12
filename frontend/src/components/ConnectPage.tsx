@@ -29,6 +29,10 @@ import { getDataQualityMetadata, DataQualityMetadata } from '../services/dataQua
 import LiveFlow from './archive/LiveFlow';
 import LiveStatusBadge from './LiveStatusBadge';
 import { getLiveStatus } from '../config/liveStatus';
+import { useConnectorsV2 } from '../hooks/useConnectorsV2';
+
+// Feature flag: VITE_CONNECTIONS_V2 (default: false)
+const CONNECTIONS_V2 = import.meta.env.VITE_CONNECTIONS_V2 === 'true';
 
 interface ServiceStatus {
   name: string;
@@ -1015,6 +1019,12 @@ export default function ConnectPage() {
                           <div className="flex items-center gap-3 mb-2">
                             <h4 className="text-white font-medium">{conn.name}</h4>
                             {getStatusBadge(conn.status)}
+                            {CONNECTIONS_V2 && (conn as any).has_drift && (
+                              <span className="px-2 py-1 bg-orange-500/10 border border-orange-500/30 rounded-md text-xs font-medium text-orange-400 flex items-center gap-1">
+                                <AlertTriangle className="w-3 h-3" />
+                                DRIFT
+                              </span>
+                            )}
                           </div>
                           <div className="text-sm text-gray-500 space-y-1">
                             <div>Type: {conn.source_type}</div>
