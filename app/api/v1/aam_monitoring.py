@@ -7,12 +7,46 @@ from sqlalchemy import select, func, and_, case, text
 from sqlalchemy.orm import Session
 from sqlalchemy.ext.asyncio import AsyncSession
 import os
+from pydantic import BaseModel, Field
 from app.models import DriftEvent as SyncDriftEvent
 from app.database import get_async_db, AsyncSessionLocal
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+# OpenAPI DTOs for /aam/connectors endpoint
+class ConnectorDTO(BaseModel):
+    """Connector data transfer object with drift metadata"""
+    id: str = Field(..., description="Unique connector identifier")
+    name: str = Field(..., description="Connector name")
+    source_type: str = Field(..., description="Data source type (e.g., salesforce, filesource)")
+    status: str = Field(..., description="Connection status (ACTIVE, PENDING, FAILED, etc.)")
+    mapping_count: int = Field(..., description="Number of field mappings for this connector")
+    last_event_type: Optional[str] = Field(None, description="Type of last drift event (e.g., DRIFT_DETECTED)")
+    last_event_at: Optional[datetime] = Field(None, description="Timestamp of last drift event")
+    has_drift: bool = Field(..., description="Whether connector has detected drift")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "id": "10ca3a88-5105-4e24-b984-6e350a5fa443",
+                "name": "FilesSource Demo",
+                "source_type": "filesource",
+                "status": "ACTIVE",
+                "mapping_count": 36,
+                "last_event_type": "DRIFT_DETECTED",
+                "last_event_at": "2025-11-12T00:14:13Z",
+                "has_drift": True
+            }
+        }
+
+
+class ConnectorsResponse(BaseModel):
+    """Response model for GET /aam/connectors"""
+    connectors: List[ConnectorDTO] = Field(..., description="List of connectors")
+    total: int = Field(..., description="Total number of connectors")
 
 # Feature flag: Use sync code path for connectors endpoint (default: true)
 # Set AAM_CONNECTORS_SYNC=false to use async code path
