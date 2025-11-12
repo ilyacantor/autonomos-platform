@@ -10,43 +10,21 @@ import {
 import { API_CONFIG, AUTH_TOKEN_KEY } from '../config/api';
 import { useAuth } from '../hooks/useAuth';
 
-interface ConnectorDetails {
-  vendor: string;
+interface Connector {
+  id: string;
+  name: string;
+  source_type: string;
   status: string;
-  total_mappings: number;
-  high_confidence_mappings: number;
-  field_mappings: FieldMapping[];
-  recent_drift_events: DriftEvent[];
-  repair_history: RepairAction[];
-}
-
-interface FieldMapping {
-  source_field: string;
-  canonical_field: string;
-  confidence: number;
-  transform: string;
-  version?: number;
-}
-
-interface DriftEvent {
-  event_type: string;
-  detected_at: string;
-  status: string;
-  confidence: number;
-  old_schema?: any;
-  new_schema?: any;
-}
-
-interface RepairAction {
-  change_type: string;
-  applied_at: string;
-  details: any;
+  mapping_count: number;
+  has_drift: boolean;
+  last_event_type: string | null;
+  last_event_at: string | null;
 }
 
 export default function ConnectPage() {
   const { isAuthenticated } = useAuth();
-  const [connectorDetails, setConnectorDetails] = useState<ConnectorDetails[]>([]);
-  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [connectors, setConnectors] = useState<Connector[]>([]);
+  const [loading, setLoading] = useState(false);
   const [expandedConnector, setExpandedConnector] = useState<string | null>(null);
 
   const getAuthHeaders = (): HeadersInit => {
@@ -57,35 +35,35 @@ export default function ConnectPage() {
     return {};
   };
 
-  const fetchConnectorDetails = async () => {
-    setDetailsLoading(true);
+  const fetchConnectors = async () => {
+    setLoading(true);
     try {
-      const response = await fetch(API_CONFIG.buildApiUrl('/aam/connector_details'), {
+      const response = await fetch(API_CONFIG.buildApiUrl('/aam/connectors'), {
         headers: getAuthHeaders()
       });
       
       if (response.status === 401) {
         console.log('No tenant context — sign in or select tenant.');
-        setConnectorDetails([]);
+        setConnectors([]);
         return;
       }
       
-      if (!response.ok) throw new Error('Failed to fetch connector details');
+      if (!response.ok) throw new Error('Failed to fetch connectors');
       const data = await response.json();
-      setConnectorDetails(data.connectors || []);
+      setConnectors(data.connectors || []);
     } catch (err) {
-      console.error('Error fetching connector details:', err);
+      console.error('Error fetching connectors:', err);
     } finally {
-      setDetailsLoading(false);
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchConnectorDetails();
+    fetchConnectors();
   }, [isAuthenticated]);
 
-  const toggleConnectorExpansion = (vendor: string) => {
-    setExpandedConnector(expandedConnector === vendor ? null : vendor);
+  const toggleConnectorExpansion = (id: string) => {
+    setExpandedConnector(expandedConnector === id ? null : id);
   };
 
   const getStatusBadge = (status: string) => {
@@ -109,17 +87,8 @@ export default function ConnectPage() {
     );
   };
 
-  const getConfidenceBadge = (confidence: number) => {
-    if (confidence >= 0.9) {
-      return <span className="px-2 py-1 bg-green-500/10 text-green-500 border border-green-500/20 rounded text-xs font-medium">High ({(confidence * 100).toFixed(0)}%)</span>;
-    } else if (confidence >= 0.7) {
-      return <span className="px-2 py-1 bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 rounded text-xs font-medium">Medium ({(confidence * 100).toFixed(0)}%)</span>;
-    } else {
-      return <span className="px-2 py-1 bg-red-500/10 text-red-500 border border-red-500/20 rounded text-xs font-medium">Low ({(confidence * 100).toFixed(0)}%)</span>;
-    }
-  };
-
-  const formatTimestamp = (timestamp: string) => {
+  const formatTimestamp = (timestamp: string | null) => {
+    if (!timestamp) return 'N/A';
     return new Date(timestamp).toLocaleString('en-US', {
       month: 'short',
       day: 'numeric',
@@ -135,7 +104,7 @@ export default function ConnectPage() {
         <div>
           <h1 className="text-3xl font-bold text-white mb-2">AOS Connector Details</h1>
           <p className="text-gray-400">
-            Field mappings, drift events, and repair history per connector
+            Individual connection details with mappings and drift status
           </p>
         </div>
       </div>
@@ -147,18 +116,18 @@ export default function ConnectPage() {
             <h3 className="text-lg font-semibold text-white">Connector Details</h3>
           </div>
           <p className="text-sm text-gray-400 mt-1">
-            Field mappings, drift events, and repair history per connector
+            {connectors.length} connection{connectors.length !== 1 ? 's' : ''} configured
           </p>
         </div>
 
-        {detailsLoading ? (
+        {loading ? (
           <div className="flex items-center justify-center py-12">
             <Activity className="w-8 h-8 text-blue-400 animate-spin" />
           </div>
-        ) : connectorDetails.length === 0 ? (
+        ) : connectors.length === 0 ? (
           <div className="text-center py-12">
             <Database className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-            <p className="text-gray-500">No connector details available</p>
+            <p className="text-gray-500">No connectors found. Please sign in to view your connections.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -166,7 +135,10 @@ export default function ConnectPage() {
               <thead className="bg-gray-800/50 border-b border-gray-700">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                    Connector
+                    Connection Name
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                    Type
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                     Status
@@ -175,7 +147,7 @@ export default function ConnectPage() {
                     Mappings
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                    High Confidence
+                    Drift
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                     Actions
@@ -183,40 +155,51 @@ export default function ConnectPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-800">
-                {connectorDetails.map((connector) => {
-                  const isExpanded = expandedConnector === connector.vendor;
+                {connectors.map((connector) => {
+                  const isExpanded = expandedConnector === connector.id;
                   
                   return (
                     <>
-                      <tr key={connector.vendor} className="hover:bg-gray-800/30 transition-colors">
+                      <tr key={connector.id} className="hover:bg-gray-800/30 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="text-sm font-medium text-white">{connector.name}</div>
+                          <div className="text-xs text-gray-500 mt-1">ID: {connector.id.substring(0, 8)}...</div>
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-white">{connector.vendor}</div>
+                          <span className="px-2 py-1 bg-blue-500/10 border border-blue-500/30 rounded text-xs font-medium text-blue-400">
+                            {connector.source_type}
+                          </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           {getStatusBadge(connector.status)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-white">{connector.total_mappings}</div>
+                          <div className="text-sm text-white">{connector.mapping_count}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-white">
-                            {connector.high_confidence_mappings} / {connector.total_mappings}
-                          </div>
+                          {connector.has_drift ? (
+                            <span className="px-2 py-1 bg-orange-500/10 border border-orange-500/30 rounded text-xs font-medium text-orange-400 flex items-center gap-1 w-fit">
+                              <AlertTriangle className="w-3 h-3" />
+                              DRIFT
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-500">None</span>
+                          )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <button
-                            onClick={() => toggleConnectorExpansion(connector.vendor)}
+                            onClick={() => toggleConnectorExpansion(connector.id)}
                             className="flex items-center gap-2 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors text-sm"
                           >
                             {isExpanded ? (
                               <>
                                 <ChevronDown className="w-4 h-4" />
-                                Hide Details
+                                Hide
                               </>
                             ) : (
                               <>
                                 <ChevronRight className="w-4 h-4" />
-                                Show Details
+                                Details
                               </>
                             )}
                           </button>
@@ -225,98 +208,43 @@ export default function ConnectPage() {
                       
                       {isExpanded && (
                         <tr>
-                          <td colSpan={5} className="px-6 py-4 bg-gray-950/50">
-                            <div className="space-y-6">
-                              {connector.field_mappings && connector.field_mappings.length > 0 && (
-                                <div>
-                                  <h4 className="text-sm font-medium text-gray-400 mb-3 flex items-center gap-2">
-                                    <GitMerge className="w-4 h-4" />
-                                    Field Mappings ({connector.field_mappings.length})
-                                  </h4>
-                                  <div className="space-y-2">
-                                    {connector.field_mappings.map((mapping, idx) => (
-                                      <div
-                                        key={idx}
-                                        className="flex items-center gap-3 p-3 bg-gray-800/50 border border-gray-700 rounded-lg hover:bg-gray-700/30 transition-colors"
-                                      >
-                                        <code className="px-3 py-1.5 bg-gray-800 border border-gray-600 rounded text-sm text-gray-300 font-mono">
-                                          {mapping.source_field}
-                                        </code>
-                                        <span className="text-gray-500 font-bold">→</span>
-                                        <code className="px-3 py-1.5 bg-blue-900/30 border border-blue-500/30 rounded text-sm text-blue-400 font-mono">
-                                          {mapping.canonical_field}
-                                        </code>
-                                        <div className="ml-auto flex items-center gap-2">
-                                          {getConfidenceBadge(mapping.confidence)}
-                                          {mapping.version && (
-                                            <span className="text-xs text-gray-500">v{mapping.version}</span>
-                                          )}
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
+                          <td colSpan={6} className="px-6 py-4 bg-gray-950/50">
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                              <div>
+                                <div className="text-gray-400 mb-1">Connection ID</div>
+                                <code className="text-gray-300 bg-gray-800 px-2 py-1 rounded text-xs">
+                                  {connector.id}
+                                </code>
+                              </div>
+                              <div>
+                                <div className="text-gray-400 mb-1">Source Type</div>
+                                <div className="text-white">{connector.source_type}</div>
+                              </div>
+                              <div>
+                                <div className="text-gray-400 mb-1">Mapping Count</div>
+                                <div className="text-white">{connector.mapping_count} field mappings</div>
+                              </div>
+                              <div>
+                                <div className="text-gray-400 mb-1">Drift Status</div>
+                                <div className="text-white">
+                                  {connector.has_drift ? (
+                                    <span className="text-orange-400">Drift Detected</span>
+                                  ) : (
+                                    <span className="text-green-400">No Drift</span>
+                                  )}
                                 </div>
-                              )}
-
-                              {connector.recent_drift_events && connector.recent_drift_events.length > 0 && (
-                                <div>
-                                  <h4 className="text-sm font-medium text-gray-400 mb-3 flex items-center gap-2">
-                                    <AlertTriangle className="w-4 h-4" />
-                                    Recent Drift Events ({connector.recent_drift_events.length})
-                                  </h4>
-                                  <div className="space-y-2">
-                                    {connector.recent_drift_events.map((event, idx) => (
-                                      <div
-                                        key={idx}
-                                        className="p-3 bg-yellow-500/5 border border-yellow-500/20 rounded-lg"
-                                      >
-                                        <div className="flex items-center justify-between mb-2">
-                                          <span className="text-sm font-medium text-yellow-400">
-                                            {event.event_type}
-                                          </span>
-                                          <span className="text-xs text-gray-500">
-                                            {formatTimestamp(event.detected_at)}
-                                          </span>
-                                        </div>
-                                        <div className="text-xs text-gray-400">
-                                          Status: {event.status} | Confidence: {(event.confidence * 100).toFixed(0)}%
-                                        </div>
-                                        {event.new_schema && (
-                                          <div className="mt-2 text-xs text-gray-500">
-                                            <pre className="bg-gray-900 p-2 rounded overflow-x-auto">
-                                              {JSON.stringify(event.new_schema, null, 2)}
-                                            </pre>
-                                          </div>
-                                        )}
-                                      </div>
-                                    ))}
+                              </div>
+                              {connector.last_event_type && (
+                                <>
+                                  <div>
+                                    <div className="text-gray-400 mb-1">Last Event</div>
+                                    <div className="text-white">{connector.last_event_type}</div>
                                   </div>
-                                </div>
-                              )}
-
-                              {connector.repair_history && connector.repair_history.length > 0 && (
-                                <div>
-                                  <h4 className="text-sm font-medium text-gray-400 mb-3">
-                                    Repair History ({connector.repair_history.length})
-                                  </h4>
-                                  <div className="space-y-2">
-                                    {connector.repair_history.map((repair, idx) => (
-                                      <div
-                                        key={idx}
-                                        className="p-3 bg-green-500/5 border border-green-500/20 rounded-lg"
-                                      >
-                                        <div className="flex items-center justify-between">
-                                          <span className="text-sm font-medium text-green-400">
-                                            {repair.change_type}
-                                          </span>
-                                          <span className="text-xs text-gray-500">
-                                            {formatTimestamp(repair.applied_at)}
-                                          </span>
-                                        </div>
-                                      </div>
-                                    ))}
+                                  <div>
+                                    <div className="text-gray-400 mb-1">Event Time</div>
+                                    <div className="text-white">{formatTimestamp(connector.last_event_at)}</div>
                                   </div>
-                                </div>
+                                </>
                               )}
                             </div>
                           </td>
