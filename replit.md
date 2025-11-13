@@ -1,13 +1,7 @@
 # AutonomOS - Multi-Tenant AI Orchestration Platform
 
 ## Overview
-AutonomOS is a production-ready, multi-tenant SaaS backend system in Python for AI-driven task orchestration. Its core purpose is to enable advanced AI-powered data orchestration, including a Data Connection Layer (DCL) engine for AI-driven data source connection, entity mapping, and unified view creation. The platform ensures complete data isolation, providing secure, scalable, and enterprise-grade task processing with JWT authentication and user management. It features a production-ready Adaptive API Mesh with operational connectors, complete drift detection with schema fingerprinting, autonomous auto-repair with confidence scoring, and canonical event normalization.
-
-## Recent Changes (November 2025)
-*   **Alembic Migration System:** Implemented Alembic for production-ready database schema versioning and migrations. Replaces manual `create_all()` approach with proper migration tracking. Migrations run automatically on server startup via `alembic upgrade head` in `start.sh`. Baseline migration created for existing production database to avoid data loss.
-*   **FileSource → AAM → DCL Integration Complete:** FileSource connector now publishes AWS cost data (aws_resources, cost_reports) to Redis streams using `dcl_output_adapter` with table-based payload format. FinOps Pilot successfully receives and processes 15 records (10 resources + 5 cost reports).
-*   **Heuristic Filtering Fix:** Added "filesource" to FINOPS_SOURCES in heuristic domain filtering logic to ensure correct routing of AWS cost data to FinOps Pilot (previously misrouted to RevOps).
-*   **LLM/RAG Behavior:** Confirmed that LLM/RAG intelligence layer operates identically in both AAM mode and Legacy mode. The `dev_mode` flag controls LLM usage, not the data source type. RAG retrieval always runs in both modes; LLM calls are skipped in Prod Mode (dev_mode=false), falling back to heuristics.
+AutonomOS is a production-ready, multi-tenant SaaS backend system in Python for AI-driven task orchestration. Its core purpose is to enable advanced AI-powered data orchestration, including a Data Connection Layer (DCL) engine for AI-driven data source connection, entity mapping, and unified view creation. The platform ensures complete data isolation, providing secure, scalable, and enterprise-grade task processing with JWT authentication and user management. It features a production-ready Adaptive API Mesh with operational connectors, complete drift detection with schema fingerprinting, autonomous auto-repair with confidence scoring, and canonical event normalization. The platform aims to provide a robust, AI-enhanced data integration and orchestration solution for enterprises.
 
 ## User Preferences
 I prefer clear, concise explanations and direct answers. I value iterative development with frequent, small updates. Please ask for my approval before implementing major architectural changes or significant feature additions. I prefer detailed explanations for complex concepts but require brevity for straightforward ones. Do not make changes to folder `Z` and file `Y`.
@@ -15,84 +9,73 @@ I prefer clear, concise explanations and direct answers. I value iterative devel
 ## System Architecture
 AutonomOS is a full-stack SaaS platform built around a multi-tenant architecture ensuring complete data isolation via UUID-based `tenant_id` scoping and JWT authentication.
 
-**Key Architectural Components & Features:**
+**UI/UX Decisions:**
+The frontend, built with React 18 and TypeScript, features a responsive UI/UX design with Quicksand typography, a distinct color scheme (Green, Blue, Purple), and dark mode support. It includes pages for AOS Control Center (dashboard), Discover (AOD integration), Connections (Adaptive API Mesh/AAM with compact KPI metrics), Ontology (Data Connectivity Layer/DCL with graph visualization), Orchestration (Agentic Orchestration Architecture/AOA with xAO metrics for all agents—internal + 3rd party), Agents (embedded FinOps and RevOps agent demos), and FAQ. **Live Status Indicators:** Components are tagged with visual "Live" badges (green pulsing dot) to distinguish real backend data from demonstration/mock data. The centralized registry (`frontend/src/config/liveStatus.ts`) manages all component statuses with tooltips explaining data provenance. **Design consistency:** Page titles follow "AOS [Feature]" branding pattern, with Live badges as sole indicators (no "Live" text in titles).
 
-*   **Task Orchestration System:** Utilizes Python RQ and Redis Queue for asynchronous background job processing with full lifecycle management.
-*   **Authentication & Security:** Implements JWT-based authentication with Argon2 password hashing.
+**Technical Implementations:**
+*   **Task Orchestration:** Utilizes Python RQ and Redis Queue for asynchronous background job processing with full lifecycle management.
+*   **Authentication & Security:** Implements JWT-based authentication with Argon2 password hashing. JWT token expiry configured to 8 hours (480 minutes) for development convenience via `JWT_EXPIRE_MINUTES` environment variable. Both registration (`/api/v1/auth/register`) and login (`/api/v1/auth/login`) endpoints return JWT tokens immediately for seamless authentication. Frontend token expiry synchronized to 8 hours to match backend (Nov 2025).
 *   **AOA (Agentic Orchestration Architecture):** High-level orchestration layer managing DCL engine operations.
-*   **DCL Engine (Data Connection Layer):** An AI-driven, in-process engine for data orchestration, leveraging DuckDB for materialized views and Redis for concurrent access control. It supports multiple connectors, AI-powered entity mapping, graph generation, and idempotent operations. Materialized views are exposed via PostgreSQL tables. LLM Telemetry tracks cumulative LLM calls and token usage via Redis.
-*   **Adaptive API Mesh (AAM):** Provides self-healing data connectivity with production connectors (Salesforce, FileSource, Supabase, MongoDB). Features include canonical event normalization (Pydantic), schema fingerprinting for drift detection, an auto-repair agent with LLM-powered field mapping, and RAG intelligence for semantic matching. AAM integrates with DCL via Redis Streams for data ingestion.
-    *   **FileSource Connector:** Ingests CSV data files, normalizes events to canonical format, persists to PostgreSQL for audit trail, and publishes batched payloads to Redis streams (`aam:dcl:{tenant_id}:filesource`) using `dcl_output_adapter` for table-based format. Includes DecimalEncoder for financial data serialization. Recognized as FinOps source in heuristic filtering.
-    *   **Data Flow:** FileSource → Canonical Events (DB + Redis) → AAM Source Adapter → DCL Materialized Views → Agent Consumption
-    *   **Domain Filtering:** Heuristic-based routing ensures data reaches appropriate agents. FinOps sources (snowflake, sap, netsuite, legacy_sql, filesource) route to FinOps Pilot. RevOps sources (dynamics, salesforce, hubspot) route to RevOps Pilot. Unknown sources pass through without filtering for extensibility.
+*   **DCL Engine (Data Connection Layer):** An AI-driven, in-process engine for data orchestration, leveraging DuckDB for materialized views and Redis for concurrent access control. Supports multiple connectors, AI-powered entity mapping, graph generation, and idempotent operations. LLM Telemetry tracks cumulative LLM calls and token usage via Redis.
+*   **Adaptive API Mesh (AAM):** Provides self-healing data connectivity with production connectors (Salesforce, FileSource, Supabase, MongoDB). Features include canonical event normalization (Pydantic), schema fingerprinting for drift detection, an auto-repair agent with LLM-powered field mapping, and RAG intelligence for semantic matching. AAM integrates with DCL via Redis Streams. Includes an auto-onboarding system for data sources with Safe Mode guardrails. **Airbyte Sync Monitoring (Nov 2025):** Real-time sync activity tracking via Airbyte Cloud API integration. Displays last sync status, records transferred, data volume, and timestamp in Connector Details. Smart data selection prioritizes most recent sync WITH actual data transferred over empty incremental syncs. 60-second caching with ThreadPoolExecutor for async compatibility.
+*   **NLP Gateway Service:** A dedicated natural-language processing service providing persona-based routing (CTO, CRO, COO, CFO) with context-specific prompts. Features include persona summary endpoint (`/nlp/v1/persona/summary`) with DEMO_MODE support for deterministic mock data, tenant-scoped RAG knowledge base (Postgres + pgvector), hybrid retrieval (BM25 + vector embeddings with Reciprocal Rank Fusion), JWT auth, and PII redaction. Demo data is clearly labeled with amber "Demo" badges to distinguish from live data.
 *   **Event Streaming System:** Real-time event delivery via Server-Sent Events (SSE) and WebSockets, with Redis Pub/Sub for inter-service broadcasting.
-*   **Frontend:** Built with React 18 and TypeScript, featuring a responsive UI/UX design with Quicksand typography, a distinct color scheme (Green, Blue, Purple), and dark mode support. Includes pages for Dashboard, AAM Monitor, Live Flow, Ontology, Connections, Data Lineage, and an interactive architecture viewer.
 *   **API Endpoints:** Organized by domain (Auth, AOA, DCL Views, Events, AAM, Debug) with OpenAPI/Swagger documentation.
-*   **System Design:** The platform employs a "Strangler Fig" pattern with feature flags for zero downtime, restructuring towards a unified data flow: Data Sources → AAM → DCL → Agents. This includes a unified PostgreSQL database for DCL and AAM, Redis-based LLM counter persistence, and intelligent RAG coverage checks.
-*   **Data Quality Intelligence Layer:** Implements canonical event processing (Pydantic validation, metadata enrichment), schema drift detection (fingerprinting with Redis persistence), an LLM/RAG-powered auto-repair agent with confidence scoring, and a Human-in-the-Loop (HITL) workflow (Redis + PostgreSQL for audit). Metadata flows end-to-end, providing data quality insights to agents and visualizations in the frontend.
+*   **Data Quality Intelligence Layer:** Implements canonical event processing (Pydantic validation, metadata enrichment), schema drift detection (fingerprinting with Redis persistence), an LLM/RAG-powered auto-repair agent with confidence scoring, and a Human-in-the-Loop (HITL) workflow (Redis + PostgreSQL for audit).
 
-## Database Migration Workflow
+**System Design Choices:**
+The platform employs a "Strangler Fig" pattern with feature flags for zero downtime, restructuring towards a unified data flow: Data Sources → AAM → DCL → Agents. A single Supabase PostgreSQL database is used for both development and production, handling DCL and AAM data. Alembic is used for production-ready database schema versioning and migrations, automatically applied on server startup. Deployment safety infrastructure is in place to prevent destructive database operations.
 
-**Migration System:** Alembic (production-ready schema versioning for SQLAlchemy)
+**Database Connection Architecture (Nov 2025):**
+*   **Unified Database Access:** All database operations use centralized session factories from `app/database.py`:
+    *   Sync: `SessionLocal` (psycopg2) for synchronous operations
+    *   Async: `AsyncSessionLocal` (psycopg3) for asynchronous operations
+*   **PgBouncer Compatibility:** Switched from asyncpg to psycopg3's async driver to eliminate prepared statement conflicts with Supabase PgBouncer transaction mode. No more `DuplicatePreparedStatementError`!
+*   **AAM Integration:** `aam_hybrid/shared/database.py` imports and forwards to shared session factories instead of creating duplicate engines, ensuring consistent PgBouncer-safe connections across all AAM operations.
 
-### How Migrations Work
+**AAM Production Connections (Nov 2025):**
+Platform includes 3 configured AAM connectors using real external credentials stored in Replit Secrets:
+*   **Salesforce Production:** Connects to real Salesforce.com org (`orgfarm-2c8d7db716-dev-ed.develop.my.salesforce.com`) via `SALESFORCE_ACCESS_TOKEN` and `SALESFORCE_INSTANCE_URL` environment secrets. OAuth tokens require periodic refresh.
+*   **MongoDB Production:** Connects to real MongoDB Atlas cluster via `MONGODB_URI` environment secret. Fully operational for live data ingestion.
+*   **FilesSource Demo:** Local CSV file connector reading from `mock_sources/` directory with connection-scoped mapping registry and drift detection enabled.
 
-1. **Automatic Migrations on Startup:**
-   - Every server startup runs `alembic upgrade head` automatically
-   - Ensures database schema is always up-to-date
-   - Configured in `start.sh` script
+All connection credentials use `env_ref` type in `connector_config` for secure secret management. Connection endpoint: `POST /api/v1/aam/connections` (requires JWT authentication).
 
-2. **Creating New Migrations:**
-   ```bash
-   # After changing models in app/models.py or aam_hybrid/shared/models.py
-   alembic revision --autogenerate -m "Description of changes"
-   
-   # Review the generated migration in alembic/versions/
-   # Test locally, then commit to git
-   ```
+**Feature Flags:**
+*   **VITE_CONNECTIONS_V2** (default: `false`): Frontend feature flag for typed AAM connectors client with drift metadata. When `true`, ConnectPage uses `useConnectorsV2()` hook with OpenAPI-generated TypeScript types and displays DRIFT badges for connectors with detected schema drift. Set via `.env.local` (frontend).
 
-3. **Applying Migrations:**
-   ```bash
-   # Apply pending migrations
-   alembic upgrade head
-   
-   # Rollback last migration
-   alembic downgrade -1
-   
-   # Check current migration version
-   alembic current
-   ```
+**Data Ingestion:**
+*   **FilesSource CSV Ingest:** Use `scripts/filesource_ingest.py` to populate `mapping_registry` from CSV files in `mock_sources/`. This enables field-level mapping visibility for FilesSource connections in the Connections tab.
+    ```bash
+    # Ingest FilesSource CSV data (idempotent)
+    python scripts/filesource_ingest.py --connection-id 10ca3a88-5105-4e24-b984-6e350a5fa443 --namespace demo
+    
+    # Verify mapping count
+    # SQL: SELECT COUNT(*) FROM mapping_registry WHERE connection_id='<connection_uuid>' AND tenant_id='<tenant_id>';
+    
+    # Fetch connectors with drift metadata (requires JWT)
+    curl -H "Authorization: Bearer $JWT" http://localhost:5000/api/v1/aam/connectors
+    # Returns: {"connectors": [{"id": "...", "name": "...", "source_type": "...", "status": "...", 
+    #                            "mapping_count": 0, "has_drift": false, "last_event_type": null, 
+    #                            "last_event_at": null}], "total": 1}
+    ```
 
-4. **First-Time Production Setup:**
-   ```bash
-   # Run ONCE when first deploying Alembic to existing database
-   ./scripts/stamp_baseline.sh
-   
-   # This marks current production schema as baseline
-   # Future migrations will only track changes from this point
-   ```
-
-### Multi-Base Architecture
-
-The project uses two SQLAlchemy Base objects:
-- `app.models.Base` - Main platform tables (users, tasks, canonical_streams, etc.)
-- `aam_hybrid.shared.models.Base` - AAM connector tables (connections, job_history, etc.)
-
-Alembic is configured in `alembic/env.py` to merge metadata from both Base objects, ensuring all tables are tracked in a single migration history.
-
-### Important Notes
-
-- **Never manually edit production database schema** - Use Alembic migrations
-- **Baseline migration is empty** - Existing production tables are preserved
-- **Test migrations locally first** - Use development database before production deploy
-- **Migrations are version-controlled** - Committed to git with code changes
+**AAM Performance Notes:**
+*   **Mapping Registry Schema:** Database migration `789c8385e9b1` added `connection_id UUID` column to `mapping_registry` table with index `ix_mapping_registry_connection_id` for connection-scoped mapping counts (Nov 2025).
+*   **Connection-Scoped Mapping Counts:** `/api/v1/aam/connectors` endpoint filters `mapping_registry` by `connection_id` (not `vendor`) to prevent overcounting when multiple connections of the same type exist in a tenant.
+*   **Backward Compatibility:** `vendor` column retained for transition period; both `vendor` and `connection_id` populated by ingest scripts.
+*   **Performance Monitoring:** Endpoint logs latency (`latency_ms`) and total connector count for observability.
+*   **Health Check:** `GET /api/v1/aam/healthz` provides lightweight DB connectivity test respecting `AAM_CONNECTORS_SYNC` feature flag.
+*   **OpenAPI Contract (Nov 2025):** `/api/v1/aam/connectors` endpoint uses `ConnectorDTO` response model with drift metadata (`has_drift`, `last_event_type`, `last_event_at`). Batched drift query uses `ROW_NUMBER()` window function to avoid N+1 queries.
+*   **TypeScript Client Regeneration:** When ConnectorDTO schema changes, manually update `frontend/src/api/generated/connectors.ts` to match the new schema from `/openapi.json`. Contract tests in `tests/api/test_aam_connectors.py` validate DTO compliance.
 
 ## External Dependencies
 *   **FastAPI:** Web framework.
 *   **uvicorn:** ASGI server.
 *   **SQLAlchemy:** ORM.
 *   **Alembic:** Database migration tool.
-*   **psycopg2-binary:** PostgreSQL adapter.
+*   **psycopg2-binary:** PostgreSQL sync adapter.
+*   **psycopg-binary:** PostgreSQL async adapter (PgBouncer-safe).
 *   **redis:** Python client for Redis.
 *   **rq (Redis Queue):** Background job processing.
 *   **pydantic:** Data validation.
@@ -103,6 +86,15 @@ Alembic is configured in `alembic/env.py` to merge metadata from both Base objec
 *   **pyyaml:** YAML parsing.
 *   **google-generativeai:** Gemini AI integration.
 *   **openai:** OpenAI API integration.
-*   **Replit's PostgreSQL:** Built-in database service.
+*   **Supabase PostgreSQL:** Primary database service.
 *   **Upstash Redis:** External Redis for production.
 *   **Slack Incoming Webhooks:** For notifications.
+*   **AOS Discover (AOD):** External microservice for asset discovery.
+*   **pgvector:** PostgreSQL extension for vector embeddings.
+
+## Deployment Optimizations
+*   **Build Optimization:** Vite configured with code splitting (react-vendor, d3-vendor), CSS splitting, and esbuild minification
+*   **Static Assets:** Automated cleanup via `emptyOutDir: true`, reduced from 35MB to 1.6MB
+*   **.dockerignore:** Comprehensive exclusion list (node_modules, tests, docs, dev files) to minimize deployment image size
+*   **Dependencies:** Production-only requirements.txt (removed duplicates and test dependencies)
+*   **Build Script:** Uses `npm ci` for faster, reproducible builds

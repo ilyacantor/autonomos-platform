@@ -48,7 +48,11 @@ interface GraphState {
   dev_mode: boolean;
 }
 
-export default function LiveSankeyGraph() {
+interface LiveSankeyGraphProps {
+  isActive?: boolean;
+}
+
+export default function LiveSankeyGraph({ isActive = true }: LiveSankeyGraphProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<GraphState | null>(null);
@@ -58,6 +62,9 @@ export default function LiveSankeyGraph() {
   const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
+    // Only fetch if graph is active (visible)
+    if (!isActive) return;
+
     const fetchState = async () => {
       try {
         const response = await fetch(API_CONFIG.buildDclUrl('/state'));
@@ -74,7 +81,7 @@ export default function LiveSankeyGraph() {
     window.addEventListener('dcl-state-changed', handleRefetch);
     
     return () => window.removeEventListener('dcl-state-changed', handleRefetch);
-  }, []);
+  }, [isActive]);
 
   useLayoutEffect(() => {
     if (!state || !svgRef.current || !containerRef.current) return;

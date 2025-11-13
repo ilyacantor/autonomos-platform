@@ -1,4 +1,7 @@
 import os
+import sys
+import asyncio
+from contextlib import asynccontextmanager
 from uuid import UUID
 from datetime import timedelta
 from typing import Optional
@@ -6,7 +9,7 @@ from fastapi import FastAPI, Depends, HTTPException, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
-from fastapi.security import OAuth2PasswordRequestForm
+# OAUTH DISABLED - from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from redis import Redis
 from rq import Queue, Retry
@@ -30,7 +33,8 @@ from app.security import (
     get_current_user,
     ACCESS_TOKEN_EXPIRE_MINUTES
 )
-from app.api.v1 import auth, aoa, aam_monitoring, aam_mesh, aam_connections, platform_stubs, filesource, dcl_views, debug, mesh_test, events, dcl_unify
+from app.api.v1 import auth, aoa, aam_monitoring, aam_mesh, aam_connections, platform_stubs, filesource, dcl_views, debug, mesh_test, events, dcl_unify, aod_mock, aam_onboarding
+from app import nlp_simple
 
 # Initialize database tables - with error handling for resilience
 try:
@@ -39,7 +43,179 @@ try:
 except Exception as e:
     print(f"⚠️ Database initialization failed: {e}. Continuing without database...")
 
-app = FastAPI(title="AutonomOS", description="AI Orchestration Platform - Multi-Tenant Edition", version="2.0.0")
+# Add aam_hybrid to Python path for AAM service imports
+sys.path.insert(0, 'aam_hybrid')
+
+# Import AAM orchestration components
+AAM_AVAILABLE = False
+background_tasks = []
+try:
+    from aam_hybrid.services.schema_observer.service import SchemaObserver
+    from aam_hybrid.services.rag_engine.service import RAGEngine as AAMRAGEngine
+    from aam_hybrid.services.drift_repair_agent.service import DriftRepairAgent
+    from aam_hybrid.services.orchestrator.service import handle_status_update, manager
+    from aam_hybrid.shared.event_bus import event_bus
+    AAM_AVAILABLE = True
+    print("✅ AAM Hybrid orchestration modules imported successfully")
+except ImportError as e:
+    print(f"⚠️ AAM Hybrid orchestration not available: {e}")
+except Exception as e:
+    print(f"⚠️ AAM Hybrid orchestration initialization error: {e}")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Manage AAM background services lifecycle and application startup"""
+    # STARTUP PHASE
+    logger.info("🚀 Starting AutonomOS application...")
+    
+    # CRITICAL: Validate DATABASE_URL to prevent Neon connection
+    db_url = os.environ.get("DATABASE_URL", "")
+    if not db_url:
+        logger.error("❌ FATAL: DATABASE_URL environment variable not set!")
+        sys.exit(1)
+    
+    # Extract and log database host
+    try:
+        db_host = db_url.split('@')[1].split('/')[0] if '@' in db_url else 'unknown'
+        logger.info(f"📊 Database host: {db_host}")
+    except:
+        db_host = 'unknown'
+    
+    # Hard fail if connecting to disabled Neon database
+    if "neon.tech" in db_url:
+        logger.error(f"❌ FATAL: DATABASE_URL points to disabled Neon database!")
+        logger.error(f"   Found host: {db_host}")
+        logger.error(f"   Expected: pooler.supabase.com")
+        logger.error(f"   Fix: Update DATABASE_URL in deployment secrets to use Supabase")
+        sys.exit(1)
+    
+    logger.info(f"✅ Database validation passed: {db_host}")
+    
+    # Initialize AAM database (create tables and enums)
+    try:
+        from aam_hybrid.shared.database import init_db
+        await asyncio.wait_for(init_db(), timeout=5.0)
+        logger.info("✅ AAM database initialized successfully")
+    except asyncio.TimeoutError:
+        logger.warning("⚠️ AAM database initialization timed out (PgBouncer conflict). Some AAM features may not work.")
+    except Exception as e:
+        logger.warning(f"⚠️ AAM database initialization failed: {e}. Some AAM features may not work.")
+    
+    # Initialize DCL RAG engine
+    global dcl_app
+    if dcl_app:
+        from app.dcl_engine.rag_engine import RAGEngine as DCLRAGEngine
+        try:
+            dcl_app.rag_engine = DCLRAGEngine()
+            logger.info("✅ DCL RAG Engine initialized successfully")
+        except Exception as e:
+            logger.warning(f"⚠️ DCL RAG Engine initialization failed: {e}. Continuing without RAG.")
+    
+    # Initialize DCL Agent Executor
+    if dcl_app and redis_conn:
+        from app.dcl_engine.agent_executor import AgentExecutor
+        from app.dcl_engine.app import AGENT_RESULTS_CACHE, load_agents_config, DB_PATH
+        import app.dcl_engine.app as dcl_app_module
+        try:
+            agents_config = load_agents_config()
+            dcl_app.agent_executor = AgentExecutor(DB_PATH, agents_config, AGENT_RESULTS_CACHE, redis_conn)
+            dcl_app_module.agent_executor = dcl_app.agent_executor
+            logger.info("✅ DCL Agent Executor initialized successfully with Phase 4 metadata support")
+        except Exception as e:
+            logger.warning(f"⚠️ DCL Agent Executor initialization failed: {e}. Continuing without agent execution.")
+    
+    # Initialize AAM Auto-Onboarding Services
+    if redis_conn:
+        try:
+            from aam_hybrid.core.funnel_metrics import FunnelMetricsTracker
+            from aam_hybrid.core.onboarding_service import OnboardingService
+            import app.api.v1.aam_onboarding as onboarding_module
+            
+            funnel_tracker = FunnelMetricsTracker(redis_conn)
+            onboarding_module.funnel_tracker = funnel_tracker
+            
+            onboarding_service = OnboardingService(funnel_tracker)
+            onboarding_module.onboarding_service = onboarding_service
+            
+            logger.info("✅ AAM Auto-Onboarding services initialized (Safe Mode enabled, 90% SLO target)")
+        except Exception as e:
+            logger.warning(f"⚠️ AAM Auto-Onboarding initialization failed: {e}. Auto-onboarding disabled.")
+    else:
+        logger.warning("⚠️ Redis not available - AAM Auto-Onboarding disabled")
+    
+    # Start AAM Hybrid Orchestration Services
+    if AAM_AVAILABLE:
+        logger.info("🚀 Starting AAM Hybrid orchestration services...")
+        try:
+            # Initialize Event Bus
+            await event_bus.connect()
+            logger.info("✅ Event Bus connected")
+            
+            # Initialize services
+            schema_observer = SchemaObserver()
+            aam_rag_engine = AAMRAGEngine()
+            drift_repair_agent = DriftRepairAgent()
+            
+            # Subscribe to channels
+            await event_bus.subscribe("aam:drift_detected", aam_rag_engine.handle_drift_detected)
+            await event_bus.subscribe("aam:repair_proposed", drift_repair_agent.handle_repair_proposed)
+            await event_bus.subscribe("aam:status_update", handle_status_update)
+            
+            # Start background tasks
+            tasks = [
+                asyncio.create_task(event_bus.listen(), name="event_bus_listener"),
+                asyncio.create_task(schema_observer.polling_loop(), name="schema_observer"),
+            ]
+            background_tasks.extend(tasks)
+            logger.info(f"✅ Started {len(tasks)} AAM orchestration background tasks")
+            
+        except Exception as e:
+            logger.error(f"⚠️ Failed to start AAM orchestration services: {e}")
+    else:
+        logger.warning("⚠️ AAM orchestration services disabled - imports not available")
+    
+    logger.info("✅ AutonomOS startup complete")
+    
+    yield  # Application runs here
+    
+    # SHUTDOWN PHASE
+    logger.info("🛑 Shutting down AutonomOS application...")
+    
+    # Cancel AAM background tasks
+    for task in background_tasks:
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            logger.debug(f"Task {task.get_name()} cancelled successfully")
+    
+    # Disconnect event bus
+    if AAM_AVAILABLE:
+        try:
+            await event_bus.disconnect()
+            logger.info("✅ AAM orchestration services stopped")
+        except Exception as e:
+            logger.warning(f"⚠️ Error during AAM shutdown: {e}")
+    
+    logger.info("✅ AutonomOS shutdown complete")
+
+app = FastAPI(
+    title="AutonomOS", 
+    description="AI Orchestration Platform - Multi-Tenant Edition", 
+    version="2.0.0",
+    lifespan=lifespan
+)
+
+# PRODUCTION FIX: Global exception handler to ensure JSON responses in production
+# Without this, Replit's production proxy returns plain text "Internal Server Error"
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Catch all unhandled exceptions and return JSON (not plain text)"""
+    logger.error(f"Unhandled exception on {request.url}: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error", "error": str(exc), "path": str(request.url.path)}
+    )
 
 # Configure CORS to allow both dev and production origins
 allowed_origins = [
@@ -121,52 +297,13 @@ except Exception as e:
     import traceback
     traceback.print_exc()
 
-@app.on_event("startup")
-async def startup_event():
-    """Initialize services on startup"""
-    # Initialize AAM database (create tables and enums)
-    try:
-        import sys
-        # Insert 'aam_hybrid' directory into sys.path to allow importing from it
-        sys.path.insert(0, 'aam_hybrid')
-        from shared.database import init_db
-        await init_db()
-        logger.info("✅ AAM database initialized successfully")
-    except Exception as e:
-        logger.warning(f"⚠️ AAM database initialization failed: {e}. Some AAM features may not work.")
-
-    # Initialize DCL RAG engine
-    global dcl_app
-    if dcl_app:
-        from app.dcl_engine.rag_engine import RAGEngine
-        try:
-            dcl_app.rag_engine = RAGEngine()
-            logger.info("✅ DCL RAG Engine initialized successfully")
-        except Exception as e:
-            logger.warning(f"⚠️ DCL RAG Engine initialization failed: {e}. Continuing without RAG.")
-
-    # Initialize DCL Agent Executor
-    if dcl_app:
-        from app.dcl_engine.agent_executor import AgentExecutor
-        from app.dcl_engine.app import AGENT_RESULTS_CACHE, load_agents_config, DB_PATH
-        import app.dcl_engine.app as dcl_app_module
-        try:
-            agents_config = load_agents_config()
-            # Pass redis_conn for Phase 4 metadata support
-            dcl_app.agent_executor = AgentExecutor(DB_PATH, agents_config, AGENT_RESULTS_CACHE, redis_conn)
-            
-            # Set the global variable in dcl_app module (CRITICAL FIX)
-            dcl_app_module.agent_executor = dcl_app.agent_executor
-            
-            logger.info("✅ DCL Agent Executor initialized successfully with Phase 4 metadata support")
-        except Exception as e:
-            logger.warning(f"⚠️ DCL Agent Executor initialization failed: {e}. Continuing without agent execution.")
-
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
+app.include_router(nlp_simple.router, tags=["NLP Gateway"])
 app.include_router(aoa.router, prefix="/api/v1/aoa", tags=["AOA Orchestration"])
 app.include_router(aam_monitoring.router, prefix="/api/v1/aam", tags=["AAM Monitoring"])
 app.include_router(aam_connections.router, prefix="/api/v1/aam", tags=["AAM Connections"])
+app.include_router(aam_onboarding.router, prefix="/api/v1/aam", tags=["AAM Auto-Onboarding"])
 app.include_router(aam_mesh.router, prefix="/api/v1/mesh", tags=["AAM Mesh"])
 app.include_router(mesh_test.router, prefix="/api/v1", tags=["Mesh Test (Dev-Only)"])
 app.include_router(filesource.router, prefix="/api/v1/filesource", tags=["FileSource Connector"])
@@ -175,6 +312,7 @@ app.include_router(dcl_unify.router, prefix="/api/v1/dcl", tags=["DCL Unificatio
 app.include_router(debug.router, prefix="/api/v1", tags=["Debug (Dev-Only)"])
 app.include_router(events.router, prefix="/api/v1/events", tags=["Event Stream"])
 app.include_router(platform_stubs.router, prefix="/api/v1", tags=["Platform Stubs"])
+app.include_router(aod_mock.router, prefix="", tags=["AOD Mock (Testing)"])
 
 STATIC_DIR = "static"
 if os.path.exists(STATIC_DIR) and os.path.isdir(STATIC_DIR):
@@ -377,27 +515,28 @@ def register_user(user_data: schemas.UserRegister, db: Session = Depends(get_db)
 
     return user
 
-@app.post("/token", response_model=schemas.Token)
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    """
-    Login endpoint to get a JWT access token.
-    Use email as username and provide password.
-    """
-    user = authenticate_user(db, form_data.username, form_data.password)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"user_id": str(user.id), "tenant_id": str(user.tenant_id)},
-        expires_delta=access_token_expires
-    )
-
-    return {"access_token": access_token, "token_type": "bearer"}
+# OAUTH ENDPOINT DISABLED PER USER REQUEST
+# @app.post("/token", response_model=schemas.Token)
+# def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+#     """
+#     Login endpoint to get a JWT access token.
+#     Use email as username and provide password.
+#     """
+#     user = authenticate_user(db, form_data.username, form_data.password)
+#     if not user:
+#         raise HTTPException(
+#             status_code=status.HTTP_401_UNAUTHORIZED,
+#             detail="Incorrect email or password",
+#             headers={"WWW-Authenticate": "Bearer"},
+#         )
+# 
+#     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+#     access_token = create_access_token(
+#         data={"user_id": str(user.id), "tenant_id": str(user.tenant_id)},
+#         expires_delta=access_token_expires
+#     )
+# 
+#     return {"access_token": access_token, "token_type": "bearer"}
 
 @app.get("/users/me", response_model=schemas.User)
 def get_current_user_info(current_user: models.User = Depends(get_current_user)):

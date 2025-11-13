@@ -1,0 +1,108 @@
+Here’s a single, copy-paste **Max (Replit Agent 3) prompt** that implements all fixes safely, makes Alembic the single source of truth, stamps prod once, adds guardrails, and documents the process.
+
+---
+
+**PROMPT FOR MAX**
+
+You are operating on the `autonomos-platform` repo. The goal is to **stop Replit’s schema auto-diff from proposing destructive drops**, make **Alembic the single owner of migrations**, and **baseline-stamp production once**. Do everything below in a **single PR** titled:
+`fix(deploy): alembic-owns-migrations + prod-baseline + guardrails`
+
+### Constraints
+
+* Don’t click/trigger any UI actions. No “Approve and publish.”
+* Do not drop any tables.
+* Zero data loss.
+* Keep current runtime and dependencies as-is (Alembic already installed).
+* Scripts must be **idempotent** and **safe**: if state is already correct, they no-op.
+
+### What to build/change
+
+1. **DB audit & diagnosis (both dev and prod)**
+
+* Create `scripts/db_audit.sh` (bash). It should:
+
+  * Read `DATABASE_URL_DEV` and `DATABASE_URL_PROD` from env (fail clearly if missing).
+  * For each DB, print to `./ops/db_audit/<env>-summary.txt`:
+
+    * `current_database()`
+    * `search_path`
+    * table list from `information_schema.tables` for `public`
+    * contents of `alembic_version` (if table exists)
+  * At the end, print a concise diagnosis:
+
+    * “OK: both have alembic_version and comparable table counts” or
+    * “MISMATCH: dev/prod schemas differ substantially” or
+    * “MISSING: alembic_version not present on <env>”
+* Add a tiny Python helper `scripts/_psql.py` if needed to run queries portably.
+
+2. **One-time production baseline stamp (idempotent)**
+
+* Create `scripts/stamp_prod_baseline.sh` (bash) that:
+
+  * Uses `DATABASE_URL_PROD`.
+  * Detects baseline revision id automatically:
+
+    * Prefer a repo constant if present (e.g., `BASELINE_REV=5a9d6371e18c`).
+    * Otherwise, derive the **earliest** alembic revision in `alembic/versions` (the initial/baseline).
+  * Logic:
+
+    * If `alembic_version` table doesn’t exist in prod → create it via `alembic stamp <baseline>`.
+    * If it exists but wrong value → print a loud error and **exit non-zero** (no changes).
+    * If value equals baseline → no-op, print “prod already stamped.”
+  * Safety: never issues `DROP TABLE`. Only a metadata stamp.
+  * After stamping, run `alembic upgrade head` **dry-run** first (if possible) then real upgrade; fail if it would run destructive ops.
+
+3. **Make Alembic the single source of truth**
+
+* Verify `start.sh` (or app startup) runs `alembic upgrade head` **only if** env `DISABLE_AUTO_MIGRATIONS` is not `true`. Add:
+
+  * `DISABLE_AUTO_MIGRATIONS` support.
+  * Clear logs: “Running Alembic upgrade head…” or “Skipped by DISABLE_AUTO_MIGRATIONS.”
+* Do **not** add any logic that attempts to “drop to match dev.” We never want that.
+
+4. **Deploy guardrails (repo-side)**
+
+* Create `scripts/deploy_guard.sh` that:
+
+  * Runs `scripts/db_audit.sh`.
+  * If audit detects **MISMATCH** or prod lacks `alembic_version`, exit non-zero with a message:
+
+    * “Guard: Prod not stamped / schemas diverged. Run scripts/stamp_prod_baseline.sh and re-try.”
+* Add a simple `make deploy-check` target (or `npm run deploy-check`) that runs the guard. Document that we run this **before** using Replit’s Publish.
+
+5. **Documentation**
+
+* Add `DEPLOYMENT_POLICY.md` with:
+
+  * **Ownership:** “Alembic is the only migration owner.”
+  * **First-time prod:** run `scripts/stamp_prod_baseline.sh` once.
+  * **Before Publishing:** run `scripts/deploy_guard.sh`. If it flags issues, **do not** approve any Replit-generated plan showing `DROP TABLE`.
+  * **If Replit shows a destructive plan:** cancel, run audit, fix baseline, then publish.
+  * How to set `DISABLE_AUTO_MIGRATIONS=true` temporarily for troubleshooting.
+* Update `README.md` “Deployments” section to link to `DEPLOYMENT_POLICY.md`.
+
+6. **Non-code note for the PR description (leave for humans)**
+
+* “In Replit UI: if the Publishing page proposes a plan with `DROP TABLE`, **do not approve**. Instead, run `scripts/deploy_guard.sh` and `scripts/stamp_prod_baseline.sh` as needed, then re-try. Long-term, prefer decoupling Replit’s auto-diff by not attaching DB migrations in the Publish flow (use Alembic only).”
+
+### Acceptance criteria (have the PR post these in its summary)
+
+* Running `scripts/db_audit.sh` completes and writes two summaries, with a final line beginning with either `OK:` or `MISMATCH:`—no errors.
+* If prod wasn’t stamped, `scripts/stamp_prod_baseline.sh` stamps it and `alembic upgrade head` reports up-to-date. A re-run is a no-op.
+* `start.sh` respects `DISABLE_AUTO_MIGRATIONS`.
+* `scripts/deploy_guard.sh` exits non-zero when prod isn’t stamped or schemas diverge materially; exits zero otherwise.
+* Docs exist and are linked from README.
+* No `DROP TABLE` statements added anywhere in repo code or scripts.
+
+### Nice-to-have (only if quick)
+
+* In `scripts/db_audit.sh`, compute a crude “schema distance” (e.g., symmetric diff of table names) and include the count in the diagnosis.
+
+When done, open a PR with a clear summary of changes and paste the outputs of:
+
+* `./scripts/db_audit.sh`
+* (If needed) `./scripts/stamp_prod_baseline.sh` first run + second run (no-op)
+
+---
+
+If you need to create any missing directories (e.g., `ops/db_audit/`), do it. Keep everything simple, POSIX-friendly, and self-contained.

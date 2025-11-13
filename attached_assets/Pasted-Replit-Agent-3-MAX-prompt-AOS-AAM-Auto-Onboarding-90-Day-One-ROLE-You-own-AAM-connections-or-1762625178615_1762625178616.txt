@@ -1,0 +1,121 @@
+Replit Agent 3 MAX prompt — AOS/AAM Auto-Onboarding (90% Day One)
+
+ROLE: You own AAM (connections/orchestration). Implement the AOD → AAM auto-onboarding flow with Safe Mode, funnel metrics, and a hard 90% day-one SLO. Preserve all existing demo functionality; write new work to the autonomy namespace only.
+
+0) Planning Gate + Technical-Debt Sentinel (run first)
+
+Create PLAN.md listing tasks, files to add/modify, data flows, APIs, and risks.
+
+Create DEBT.md listing any shortcuts (tests skipped, security relax, hard-coded secrets, missing retries/caps, over-coupling, oversized PRs, incomplete docs) with:
+
+Severity: Blocker | High | Medium | Low
+
+Rationale, payoff plan, ETA.
+
+If any Blocker/High is detected, STOP and print AWAITING APPROVAL with a 5-line summary.
+
+If none, continue automatically. Token for approval is included at end: CONTINUE 90 RUN.
+
+1) APIs (idempotent)
+
+Implement/extend AAM HTTP API:
+
+POST /connections/onboard — accept connection_intent (see schema below) and onboard in Safe Mode.
+
+GET /connections?namespace=autonomy — list connections and states.
+
+GET /connections/:id/health — health + last tiny-sync counters.
+
+GET /metrics/funnel — numbers for the exec report: eligible, reachable, active, plus awaiting_credentials, network_blocked, unsupported_type.
+Return JSON; keep existing endpoints intact.
+
+2) Onboarding flow (Safe Mode, day-one reliable)
+
+When POST /connections/onboard arrives:
+
+Validate source_type against allowlist (section 5). If unsupported → 409 UNSUPPORTED and count under unsupported_type.
+
+Resolve credential_locator (Vault/env/admin-consent/service account). If missing → create record in Awaiting Credentials (no sync).
+
+Create or upsert the connector instance (prefer Airbyte where available; otherwise a native metadata adapter).
+
+Discover schema (metadata-only for suites/identity) and register Catalog v1.
+
+Health check (open/authorize). On success → state = ACTIVE (Safe Mode).
+
+Run a tiny first sync (≤20 items) to prove reachability; persist first_sync_rows, latency_ms.
+
+Persist to the Connection Registry: namespace, state, catalog_version, timestamps, counters, last error. Never delete; append-only with versions.
+
+3) Funnel metrics + SLO
+
+Maintain counters (namespace-scoped = autonomy):
+
+eligible (mappable + sanctioned + credentialed intents actually received)
+
+reachable (passed health)
+
+active (tiny first sync succeeded)
+
+awaiting_credentials, network_blocked, unsupported_type, healing, error
+
+SLO: coverage = active / eligible ≥ 0.90 on day one. Print funnel and SLO result in every run.
+
+4) Make targets
+
+make autonomy-mode — enable Safe Mode, allowlist, rate caps/backoff/circuit-breakers; ensure dashboard shows data_source: "database".
+
+make smoke-90 — ingest 5 sample connection_intent payloads from seeds/intents/, run onboarding, print exec summary.
+
+make heal — manage HEALING → ACTIVE promote after permissions/drift fixes (never destructive).
+
+5) Allowlist (90% day-one families)
+
+gworkspace_drive, m365_sharepoint, slack, zoom, salesforce, servicenow, jira, confluence, github, gitlab, aws_org, azure_sub, gcp_org, s3, snowflake, bigquery, redshift, okta, entra, box, dropbox, zendesk, datadog, pagerduty, workday, netsuite, openapi, jdbc, s3_compat
+
+All read-only/metadata scopes by default (Safe Mode). No writes/deletes.
+
+6) connection_intent schema (accept this JSON)
+{
+  "source_type": "salesforce|gworkspace_drive|m365_sharepoint|slack|zoom|servicenow|jira|confluence|github|gitlab|aws_org|azure_sub|gcp_org|s3|snowflake|bigquery|redshift|okta|entra|box|dropbox|zendesk|datadog|pagerduty|workday|netsuite|mongo|postgres|supabase|filesource|openapi|jdbc|s3_compat",
+  "resource_ids": ["tenant_id|org_id|site|repo|bucket|db_uri"],
+  "scopes_mode": "safe_readonly",
+  "credential_locator": "vault:...|env:...|consent:...|sp:...",
+  "namespace": "autonomy",
+  "risk_level": "low|med|high",
+  "evidence": { "status":"Sanctioned", "source":"IdP|CMDB|Procurement|CASB", "ts":"ISO8601" },
+  "owner": { "user":"email-or-upn", "confidence": 0.0, "why":"oauth_consenter|admin|usage|expense|idp_owner" }
+}
+
+7) Exec summary (plain English)
+
+Add scripts/exec_summary.py that prints:
+
+“Eligible: A | Reachable: B | Active: C → Coverage C/A (target ≥ 0.90).”
+
+Buckets: Awaiting Creds, Network Blocked, Unsupported Type, Healing, Error.
+
+“Auto-created N connections; Safe-Mode only; first-sync p95 latency X ms; no destructive ops.”
+Expose the same via GET /metrics/funnel.
+
+8) Port & runtime
+
+Keep the service bound to the existing port (default PORT=5000). If in use, reuse the running process; do not change ports silently. Fail with a clear message if bind fails.
+
+9) Tests & hygiene
+
+Unit tests: onboard flow (idempotent), allowlist validation, Safe-Mode scopes enforced, tiny first sync, funnel accuracy.
+
+Negative-auth tests: unauthenticated/malformed → 401/403.
+
+No secrets in logs; telemetry OFF by default.
+
+10) Acceptance (must satisfy before success message)
+
+Given Eligible intents, coverage ≥ 90% reaches ACTIVE (Safe Mode) with tiny first sync.
+
+/metrics/funnel reflects counts and matches exec_summary.py.
+
+Demo namespace untouched.
+
+Token: CONTINUE 90 RUN

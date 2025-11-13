@@ -1,0 +1,18 @@
+{
+  "source_type": "salesforce",
+  "resource_ids": ["org_00D7Q000004XYZABC"],
+  "scopes_mode": "safe_readonly",
+  "credential_locator": "env:SALESFORCE_ACCESS_TOKEN",
+  "namespace": "autonomy",
+  "risk_level": "low",
+  "evidence": {
+    "status": "Sanctioned",
+    "source": "IdP",
+    "ts": "2025-11-08T18:00:00Z"
+  },
+  "owner": {
+    "user": "admin@company.com",
+    "confidence": 0.95,
+    "why": "oauth_consenter"
+  }
+}

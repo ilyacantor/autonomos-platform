@@ -1,0 +1,79 @@
+PROMPT 2 — paste into the AOS/AAM repl for Replit Agent 3 MAX
+
+ROLE
+You own AAM. Accept AOD connection_intent payloads and auto-onboard in Safe Mode, targeting 90% day-one coverage. Keep demo connections separate. This prompt is idempotent and must create missing APIs/metrics if absent.
+
+0) Planning Gate + Technical-Debt Sentinel
+
+Emit PLAN.md and DEBT.md (same schema as AOD).
+
+If any Blocker/High debt is detected, STOP and print “AWAITING APPROVAL”.
+
+Proceed only on token CONTINUE 90 RUN.
+
+1) APIs & Contract
+
+Implement POST /connections/onboard (accept the connection_intent schema).
+
+Implement GET /connections?namespace=autonomy, GET /connections/:id/health, GET /metrics/funnel.
+
+Namespace all creations to autonomy; never touch demo/*.
+
+2) Onboarding Flow (idempotent)
+
+Validate source_type is allowlisted (below). Unsupported → 409 UNSUPPORTED.
+
+Resolve credential_locator; if missing → create record in Awaiting Credentials (no sync).
+
+Create/upsert connector (prefer Airbyte; else native metadata adapters).
+
+Discover schema (metadata-only for suites/identity) → register Catalog v1.
+
+Health check → set ACTIVE (Safe Mode) on success.
+
+Run tiny first sync (≤20 items) to prove reachability; store row counts/latency.
+
+Persist Connection Registry (state, catalog version, timestamps, counters, last error).
+
+3) Safe Mode defaults
+
+Read-only/metadata scopes only; no writes/deletes.
+
+Per-vendor/day rate caps, exponential backoff, circuit-breaker; idempotent upserts.
+
+No destructive ops; append-only catalogs with versioning.
+
+4) Allowlist (match AOD)
+
+gworkspace_drive, m365_sharepoint, slack, zoom, salesforce, servicenow, jira, confluence, github, gitlab, aws_org, azure_sub, gcp_org, s3, snowflake, bigquery, redshift, okta, entra, box, dropbox, zendesk, datadog, pagerduty, workday, netsuite, openapi, jdbc, s3_compat.
+
+5) Metrics, SLI & Exec Output
+
+Expose funnel counters:
+
+Anchors recognized (from AOD)
+
+Eligible (mappable + sanctioned + credentialed)
+
+Reachable (passed health)
+
+Active (tiny sync OK)
+
+Awaiting Credentials / Network Blocked / Unsupported Type
+Add scripts/exec_summary.py that prints the same English summary AOD expects.
+
+6) Make Targets
+
+make autonomy-mode → enable Safe Mode, allowlist, caps, metrics; dashboard must show data_source: "database".
+
+make smoke-90 → onboard 5 sample intents from seeds/intents/ and print the summary.
+
+make heal → manage HEALING → ACTIVE transitions (drift/permissions); never delete.
+
+7) Acceptance (enforce)
+
+Given Eligible intents from AOD, ≥ 90% must reach Active (Safe Mode) with a tiny first sync on day one.
+
+All outcomes must be explainable via the funnel and visible in /metrics/funnel.
+
+Demo namespace remains untouched.

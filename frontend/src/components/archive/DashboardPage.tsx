@@ -7,8 +7,6 @@ import AgenticOrchestrationContainer from './AgenticOrchestrationContainer';
 import {
   mockAgentNodes,
   mockDCLStats,
-  mockMappingReviews,
-  mockSchemaChanges,
   mockAgentPerformance,
 } from '../mocks/data';
 
@@ -21,10 +19,7 @@ export default function DashboardPage() {
 
       <AdaptiveAPIMesh />
 
-      <DCLGraphContainer
-        mappings={mockMappingReviews}
-        schemaChanges={mockSchemaChanges}
-      />
+      <DCLGraphContainer />
 
       <AgenticOrchestrationContainer agents={mockAgentPerformance} />
 

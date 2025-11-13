@@ -950,6 +950,8 @@ npm test
 
 ## 🚢 Deployment
 
+> **📖 IMPORTANT:** Before deploying, read the [Deployment Policy](./DEPLOYMENT_POLICY.md) for database migration safety guidelines and pre-publish checks.
+
 ### Replit Deployment (Recommended)
 
 1. Click "**Deploy**" in Replit

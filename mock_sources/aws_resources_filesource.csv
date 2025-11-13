@@ -1,5 +1,5 @@
-resource_id,resource_type,region,instance_type,vcpus,memory,storage,db_engine,instance_class,allocated_storage,storage_type,storage_class,size_gb,object_count,versioning,cpu_utilization,memory_utilization,network_in,network_out,db_connections,read_latency,write_latency,get_requests,put_requests,data_transfer_out,monthly_cost
-i-0a1b2c3d4e5f6g7h8,EC2,us-east-1,t3.large,2,8,100,,,,,,,,,45.2,62.1,1250000,850000,,,,,,,245.80
+resource_id,resource_type,region,instance_type,vcpus,memory,storage,db_engine,instance_class,allocated_storage,storage_type,storage_class,size_gb,object_count,versioning,cpu_utilization,memory_utilization,network_in,network_out,db_connections,read_latency,write_latency,get_requests,put_requests,data_transfer_out,monthly_cost,new_col_20251112_001343,new_col_20251112_001413,new_col_20251112_001512,new_col_20251112_001541,new_col_20251112_001657,new_col_20251112_001737
+i-0a1b2c3d4e5f6g7h8,EC2,us-east-1,t3.large,2,8,100,,,,,,,,,45.2,62.1,1250000,850000,,,,,,,245.80,drift_value,drift_value,drift_value,drift_value,drift_value,drift_value
 i-9h8g7f6e5d4c3b2a1,EC2,us-west-2,m5.xlarge,4,16,200,,,,,,,,,78.5,71.3,3200000,2100000,,,,,,,492.00
 db-prod-001,RDS,us-east-1,,,,,postgres,db.r5.large,500,gp3,,,,,,,,,,125,12.5,,,,580.50
 db-staging-001,RDS,eu-west-1,,,,,mysql,db.t3.medium,100,gp2,,,,,,,,,,45,18.3,,,,185.20

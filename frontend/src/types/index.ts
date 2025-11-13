@@ -111,3 +111,49 @@ export interface AOAStatus {
   state: AOAState;
   vitals: AOAVitals;
 }
+
+export interface DiscoveredEntity {
+  entity_id: string;
+  entity_type: string;
+  entity_name: string;
+  source_system: string;
+  source_schema?: string;
+  confidence_score: number;
+  confidence_level: 'high' | 'medium' | 'low' | 'very_low';
+  attributes: Record<string, any>;
+  metadata: Record<string, any>;
+}
+
+export interface AgentRecommendation {
+  agent_name: string;
+  agent_type: string;
+  reason: string;
+  confidence_score: number;
+  suggested_actions: string[];
+  priority: 'high' | 'medium' | 'low';
+}
+
+export interface DiscoveryProvenance {
+  discovery_method: 'llm' | 'rag' | 'heuristic' | 'hybrid';
+  llm_model?: string;
+  rag_sources: string[];
+  processing_time_ms: number;
+  timestamp: string;
+  human_review_required: boolean;
+  review_reason?: string;
+}
+
+export interface DiscoveryResponse {
+  success: boolean;
+  request_id: string;
+  entities: DiscoveredEntity[];
+  agent_recommendations: AgentRecommendation[];
+  provenance: DiscoveryProvenance;
+  total_entities_found: number;
+  filtered_count: number;
+  overall_confidence: number;
+  quality_issues: string[];
+  errors: string[];
+  warnings: string[];
+  timestamp: string;
+}

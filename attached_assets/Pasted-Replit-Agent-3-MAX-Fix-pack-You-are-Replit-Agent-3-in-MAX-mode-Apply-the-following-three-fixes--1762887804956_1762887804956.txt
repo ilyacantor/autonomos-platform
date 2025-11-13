@@ -1,0 +1,215 @@
+Replit Agent 3 (MAX) — Fix pack
+You are Replit Agent 3 in MAX mode. Apply the following three fixes. Keep commits small with clear messages. Don’t ask questions; infer paths if they differ.
+0) Repo assumptions
+
+
+React FE Control Center page (current persona chips + NLP + dashboard).
+
+
+We already have /nlp/v1/persona/summary and /nlp/v1/persona/classify.
+
+
+There is a single icon source already used elsewhere in the demo (e.g., lucide-react or a local <Icon/> wrapper). Use the SAME source—no emojis.
+
+
+
+1) Replace emojis with standard icons (same library as rest of demo)
+Task
+
+
+Find any emojis used in persona chips, tiles, or headers on the Control Center.
+
+
+Replace with the existing icon set used elsewhere (search for lucide-react, @/components/ui/icon, or similar).
+
+
+Add a central personaIconMap used by both chips and tiles to ensure consistency.
+
+
+Icon mapping (use closest available names in the existing library)
+
+
+CTO → Cpu (or Server)
+
+
+CRO → TrendingUp (or LineChart)
+
+
+COO (FinOps) → Wallet (or BadgeDollarSign / Receipt)
+
+
+CFO → Banknote (or Calculator)
+
+
+Acceptance
+
+
+No emoji characters remain on persona chips/tiles/headers.
+
+
+Icons match the rest of the demo’s style (size/weight/line-width).
+
+
+Dark mode contrast OK.
+
+
+Commit
+
+
+feat(ui): replace emojis with standard icon set and centralize personaIconMap
+
+
+
+2) Fix persona defaults (stop reverting to legacy personas)
+Problem
+It’s reverting to legacy personas: data_engineer, revops, finops, finance.
+Task
+
+
+Ensure the only allowed PersonaSlug values are: auto | cto | cro | coo | cfo.
+
+
+Update any constants, enums, zod validators, and switch statements.
+
+
+LocalStorage migration: On app load, map legacy → new, then store under aos.persona.
+
+
+data_engineer → cto
+
+
+revops → cro
+
+
+finops → coo
+
+
+finance → cfo
+
+
+
+
+If JWT role contains {cto,cro,coo,cfo}, use that as first-load default; otherwise use aos.persona or auto.
+
+
+Verify the NLP request sends the new slug and summary endpoint receives it.
+
+
+Acceptance
+
+
+Chip defaults to the correct persona and never shows legacy labels.
+
+
+Reloading the page preserves the new persona (no rollback to legacy).
+
+
+GET /nlp/v1/persona/summary?persona=<slug> is called with cto/cro/coo/cfo/auto only.
+
+
+Commit
+
+
+fix(persona): remove legacy personas, add localStorage migration, enforce new slugs
+
+
+
+3) Keep the NLP box above KPI tiles (layout order & styles)
+Problem
+The KPI grid pushed the NLP box below.
+Task
+
+
+In the Control Center page layout, ensure render order is:
+
+
+Page header
+
+
+Persona chips
+
+
+NLP Gateway box
+
+
+Persona Dashboard tiles/table
+
+
+
+
+If using CSS grid/flex where order is set, assign:
+
+
+NLP container: order: 1
+
+
+Dashboard container: order: 2
+
+
+
+
+Remove any CSS that sets the dashboard to position: sticky above NLP.
+
+
+Ensure the NLP container has a consistent max width and margins (same as other top blocks).
+
+
+Quick responsive check (1280–1920 px): tiles do not stretch beyond content width; NLP remains on top.
+
+
+Acceptance
+
+
+NLP box is visually above KPI tiles on initial load and after persona switches.
+
+
+No jumpiness/resizes push it down.
+
+
+Lighthouse/DevTools shows correct DOM order and no overriding order rules.
+
+
+Commit
+
+
+fix(layout): keep NLP Gateway above KPI grid and normalize container order
+
+
+
+4) Sanity checks & logs
+
+
+Add a one-time console info on mount: ControlCenter persona=<slug> source=<jwt|localStorage|default>.
+
+
+Verify network calls:
+
+
+Summary loads after persona selection change (no extra calls).
+
+
+NLP queries include persona param.
+
+
+
+
+Commit
+
+
+chore(dx): add persona source logging and verify network calls
+
+
+
+Done criteria
+
+
+Icons are standardized (no emojis).
+
+
+Personas never revert to legacy names; persisted correctly.
+
+
+NLP box is always on top; layout solid on common widths.
+
+
+If any component library icons are missing, create a tiny local wrapper that re-exports the project’s icon set for these four names and use that wrapper everywhere.

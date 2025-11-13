@@ -46,6 +46,7 @@ class ConnectionManager:
         self,
         name: str,
         source_type: str,
+        tenant_id: uuid.UUID,
         config: Optional[Dict[str, Any]] = None
     ) -> Connection:
         """
@@ -54,6 +55,7 @@ class ConnectionManager:
         Args:
             name: Human-readable name for the connection
             source_type: Type of source (e.g., 'Salesforce', 'Supabase', 'MongoDB', 'FileSource')
+            tenant_id: UUID of the tenant that owns this connection
             config: Connector-specific configuration stored in JSONB field
             
         Returns:
@@ -67,6 +69,7 @@ class ConnectionManager:
                 connection = Connection(
                     name=name,
                     source_type=source_type,
+                    tenant_id=tenant_id,
                     connector_config=config or {},
                     status=ConnectionStatus.PENDING
                 )

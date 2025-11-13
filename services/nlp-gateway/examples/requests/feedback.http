@@ -1,0 +1,25 @@
+### Log Positive Feedback
+POST http://localhost:8001/v1/feedback/log
+Content-Type: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+{
+  "tenant_id": "demo-tenant",
+  "env": "dev",
+  "turn_id": "turn-123",
+  "rating": "up",
+  "notes": "Great response! Very helpful."
+}
+
+### Log Negative Feedback
+POST http://localhost:8001/v1/feedback/log
+Content-Type: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+{
+  "tenant_id": "demo-tenant",
+  "env": "dev",
+  "turn_id": "turn-124",
+  "rating": "down",
+  "notes": "Response was not relevant to my query."
+}

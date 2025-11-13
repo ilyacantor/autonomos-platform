@@ -1,0 +1,47 @@
+Yes—proceed.
+
+Token: CONTINUE 90 RUN
+
+Before you start, keep these guardrails tight:
+
+Real endpoints only. Use the live POST /connections/onboard; if AAM is unavailable, fail fast (don’t mock success).
+
+Safe Mode by default. Read-only/metadata scopes; tiny first sync; no destructive ops.
+
+90% day-one SLO is enforced. Compute the funnel and stop if predicted coverage < 0.90, printing exactly which bucket is short (credentials, network, unsupported).
+
+Demo namespace stays untouched. All new work under autonomy/*.
+
+Technical-Debt Sentinel stays on. If new High/Blocker debt appears during planning for any phase, halt and surface it.
+
+Do this sequence
+
+DB + Registry: add/extend tables for connection state, catalog versions, funnel counters, namespace.
+
+APIs: implement POST /connections/onboard, GET /connections?namespace=autonomy, GET /connections/:id/health, GET /metrics/funnel.
+
+Onboarding flow: allowlist validation → credential resolution → create/upsert connector (Airbyte or native metadata adapter) → schema discover (Catalog v1) → health check → tiny first sync → persist.
+
+Funnel metrics: track eligible, reachable, active, plus awaiting_credentials, network_blocked, unsupported_type, healing, error.
+
+Throughput safety: rate caps, backoff, circuit breaker, idempotent upserts.
+
+Make targets: make autonomy-mode, make smoke-90, make heal.
+
+Exec summary: script + /metrics/funnel return the same English paragraph.
+
+Tests: auth negatives (401/403), allowlist, Safe-Mode scopes, idempotent onboarding, funnel math.
+
+Minimal SLO monitoring (add now to avoid debt)
+
+On each run: if active/eligible < 0.90, return HTTP 503 from /metrics/funnel and print the English failure summary with top blockers.
+
+Acceptance (must pass before you say “done”)
+
+Coverage ≥ 90% of Eligible reaches ACTIVE (Safe Mode) with tiny first sync.
+
+Funnel counts in /metrics/funnel match the exec summary.
+
+No writes/deletes; demo namespace unchanged.
+
+Go ahead and start with Phase 1 (schema + API stubs), then wire the onboarding flow and funnel.

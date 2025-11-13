@@ -1,0 +1,253 @@
+You can modify code. Keep edits minimal and localized. Do not refactor unrelated code.
+Context (current state)
+
+
+/api/v1/aam/connectors now works using a sync code path (psycopg2) to avoid PgBouncer async prepared-statement issues.
+
+
+Centralized DB config added; auth middleware normalized.
+
+
+A seeded FilesSource connection exists:
+id = 10ca3a88-5105-4e24-b984-6e350a5fa443, namespace = demo, status = ACTIVE, config.path = mock_sources/, config.pattern = *.csv.
+
+
+CSVs live in /mock_sources/ (e.g., aws_resources_filesource.csv, cost_reports_filesource.csv).
+
+
+Objectives
+
+
+Add a feature flag to gate the sync code path (default: ON).
+
+
+Add a tiny ingest script to process FilesSource CSVs → populate mapping_registry (+ optional drift event).
+
+
+Ensure mapping_count in connectors response reflects mapping_registry rows.
+
+
+Add smoke tests (fast) for auth, namespace scoping, connectors list, and mapping_count after ingest.
+
+
+Update docs with run/verify steps.
+
+
+
+TASKS
+1) Feature flag for sync endpoint
+
+
+Add env var AAM_CONNECTORS_SYNC=true (default true if unset).
+
+
+In app/api/v1/aam_monitoring.py, wrap the current sync implementation of /api/v1/aam/connectors behind this flag:
+
+
+If AAM_CONNECTORS_SYNC=true → use current sync handler.
+
+
+Else → use existing async handler (do not delete; keep code path intact).
+
+
+
+
+Ensure both paths return the same JSON shape:
+{ "connectors": [ { id,name,type,status,mapping_count,... } ], "total": N }.
+
+
+2) Ingest script (FilesSource → mapping_registry)
+
+
+Create scripts/filesource_ingest.py (idempotent). Behavior:
+
+
+Input:
+
+
+connection id (default: 10ca3a88-5105-4e24-b984-6e350a5fa443)
+
+
+namespace (default: demo)
+
+
+directory (default: mock_sources/)
+
+
+pattern (default: *.csv)
+
+
+
+
+For each CSV:
+
+
+Parse header, sample first N rows (e.g., 50) for basic dtype inference.
+
+
+Upsert into mapping_registry per column:
+
+
+connection_id, source_field, canonical_field (same as source by default), dtype, confidence (default 0.80), timestamps.
+
+
+
+
+
+
+Print summary: files processed, columns mapped, total rows in mapping_registry for that connection.
+
+
+
+
+Do not alter schema. If table/cols differ, adapt to existing field names. Keep it small and safe.
+
+
+SQL to verify after run (add to script logs or README):
+SELECT COUNT(*) AS total_mappings
+FROM mapping_registry
+WHERE connection_id = '10ca3a88-5105-4e24-b984-6e350a5fa443';
+
+SELECT source_field, canonical_field, dtype, confidence
+FROM mapping_registry
+WHERE connection_id = '10ca3a88-5105-4e24-b984-6e350a5fa443'
+ORDER BY source_field
+LIMIT 20;
+
+3) Ensure mapping_count is real
+
+
+In the connectors query (both sync and async paths), compute:
+
+
+mapping_count = COUNT(*) FROM mapping_registry WHERE connection_id = connections.id
+
+
+
+
+If already present, verify it reflects post-ingest counts. Otherwise add a lightweight join/subquery.
+
+
+4) Smoke tests (fast)
+Create tests/api/test_aam_connectors.py with:
+
+
+test_unauthorized_get_connectors → 401 when no token.
+
+
+test_wrong_namespace_returns_empty
+
+
+Create/login a user with a different namespace than demo (or mock JWT claim). Expect 200 with empty connectors.
+
+
+
+
+test_happy_path_includes_filesource
+
+
+Login as demo tenant; expect 200 and a FilesSource item with status == "ACTIVE".
+
+
+
+
+test_mapping_count_after_ingest
+
+
+Run scripts/filesource_ingest.py (or call ingest function).
+
+
+Expect FilesSource mapping_count > 0.
+
+
+
+
+Mark any test that requires DB state as integration if needed, but keep runtime quick.
+5) Docs
+
+
+Update replit.md:
+
+
+Add Feature flag section for AAM_CONNECTORS_SYNC (default ON).
+
+
+Add How to ingest FilesSource:
+
+
+python scripts/filesource_ingest.py --connection-id 10ca3a88-5105-4e24-b984-6e350a5fa443 --namespace demo
+
+
+
+
+Add Verify section (curl + SQL shown below).
+
+
+
+
+
+VERIFICATION (agent should paste outputs)
+JWT off → 401
+curl -i https://<backend>/api/v1/aam/connectors
+
+JWT on (demo tenant) → 200 with FilesSource
+curl -i -H "Authorization: Bearer <JWT>" https://<backend>/api/v1/aam/connectors
+# Expect: connectors includes FilesSource Demo, status ACTIVE
+
+After ingest → mapping_count > 0
+python scripts/filesource_ingest.py --connection-id 10ca3a88-5105-4e24-b984-6e350a5fa443 --namespace demo
+# Paste summary output
+
+# SQL (paste counts)
+SELECT COUNT(*) FROM mapping_registry WHERE connection_id='10ca3a88-5105-4e24-b984-6e350a5fa443';
+
+Toggle feature flag (sanity)
+
+
+Set AAM_CONNECTORS_SYNC=false, restart, re-run the two curl calls to ensure parity.
+
+
+
+DELIVERABLES (paste back)
+
+
+Files changed list.
+
+
+Diff snippets for:
+
+
+feature-flag gate in app/api/v1/aam_monitoring.py
+
+
+connectors query showing mapping_count calculation
+
+
+scripts/filesource_ingest.py (entire file)
+
+
+
+
+Test outputs (4 tests above) with runtimes.
+
+
+Curl + SQL verification results.
+
+
+Confirmation that Connections tab shows FilesSource with non-zero mapping_count.
+
+
+Guardrails
+
+
+Do not introduce a second API route.
+
+
+Keep the async path intact (behind flag) but unchanged otherwise.
+
+
+No schema changes, no broad refactors.
+
+
+If any step requires more than ~30 lines beyond the script/tests, STOP and report.
+

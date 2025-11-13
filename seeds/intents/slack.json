@@ -1,0 +1,18 @@
+{
+  "source_type": "slack",
+  "resource_ids": ["workspace_T123456789"],
+  "scopes_mode": "safe_readonly",
+  "credential_locator": "vault:slack-enterprise-token",
+  "namespace": "autonomy",
+  "risk_level": "low",
+  "evidence": {
+    "status": "Sanctioned",
+    "source": "CASB",
+    "ts": "2025-11-08T17:30:00Z"
+  },
+  "owner": {
+    "user": "it-admin@company.com",
+    "confidence": 0.88,
+    "why": "admin"
+  }
+}

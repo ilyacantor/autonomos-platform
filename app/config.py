@@ -17,6 +17,9 @@ class Settings:
     EVENT_STREAM_ENABLED: bool = os.getenv("EVENT_STREAM_ENABLED", "true").lower() == "true"
     EVENT_STREAM_HEARTBEAT_MS: int = int(os.getenv("EVENT_STREAM_HEARTBEAT_MS", "15000"))
     
+    # AOS Discover service (AOD) configuration
+    AOD_BASE_URL: str = os.getenv("AOD_BASE_URL", "http://localhost:8000")
+    
     def __init__(self):
         if not self.DATABASE_URL:
             raise ValueError(

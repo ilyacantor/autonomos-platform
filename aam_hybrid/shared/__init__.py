@@ -1,6 +1,7 @@
 from .config import settings
 from .database import get_db, init_db, engine
 from .airbyte_client import airbyte_client
+from .event_bus import event_bus
 from .models import (
     Connection,
     SyncCatalogVersion,
@@ -11,7 +12,11 @@ from .models import (
     ConnectionResponse,
     CatalogUpdate,
     SyncTrigger,
-    HealthResponse
+    HealthResponse,
+    RepairKnowledgeBase,
+    DriftEvent,
+    RepairProposal,
+    StatusUpdate
 )
 
 __all__ = [
@@ -20,6 +25,7 @@ __all__ = [
     "init_db",
     "engine",
     "airbyte_client",
+    "event_bus",
     "Connection",
     "SyncCatalogVersion",
     "JobHistory",
@@ -29,5 +35,9 @@ __all__ = [
     "ConnectionResponse",
     "CatalogUpdate",
     "SyncTrigger",
-    "HealthResponse"
+    "HealthResponse",
+    "RepairKnowledgeBase",
+    "DriftEvent",
+    "RepairProposal",
+    "StatusUpdate"
 ]

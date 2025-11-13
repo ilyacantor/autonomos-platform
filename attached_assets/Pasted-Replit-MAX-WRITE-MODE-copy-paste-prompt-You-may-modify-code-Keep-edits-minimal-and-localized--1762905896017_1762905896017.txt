@@ -1,0 +1,100 @@
+Replit MAX (WRITE MODE) — copy/paste prompt
+
+You may modify code. Keep edits minimal and localized.
+
+Objectives
+
+Add a drift simulation + assertion path for FilesSource.
+
+Enforce uniqueness of mappings per connection.
+
+Add Make targets for ingest + verify.
+
+Add a small WARN badge in the UI when last event is DRIFT_DETECTED (only if trivial).
+
+Tasks
+
+Drift simulation
+
+New script: scripts/filesource_drift_sim.py
+
+Args: --connection-id (default: 10ca3a88-5105-4e24-b984-6e350a5fa443), --namespace demo, --directory mock_sources/
+
+Action:
+
+Pick one CSV (e.g., aws_resources_filesource.csv) and append one column (e.g., new_col_<timestamp>) to the header and one sample value to first data row (in-place).
+
+Run the existing filesource_ingest.py.
+
+Insert an event row into aam_events:
+
+type='DRIFT_DETECTED', connection_id, namespace, details JSON includes { "field":"<new_col_*>" }.
+
+Print: old mapping_count, new mapping_count, event id.
+
+Add test test_drift_detected_increments_mapping_count in tests/api/test_aam_connectors.py:
+
+Record pre-count for the connection.
+
+Run drift_sim.
+
+Assert mapping_count == pre + 1.
+
+Optionally GET /api/v1/aam/events?connection_id=... (if exists) or query DB to assert 1 new drift event.
+
+Uniqueness
+
+Migration: add unique index
+
+CREATE UNIQUE INDEX IF NOT EXISTS ux_mapping_registry_conn_field
+ON mapping_registry (connection_id, vendor_field);
+
+
+Adjust filesource_ingest.py upsert to catch duplicate key and update in place.
+
+Make targets
+
+In Makefile:
+
+ingest-filesource:
+	python scripts/filesource_ingest.py --connection-id 10ca3a88-5105-4e24-b984-6e350a5fa443 --namespace demo
+
+drift-filesource:
+	python scripts/filesource_drift_sim.py --connection-id 10ca3a88-5105-4e24-b984-6e350a5fa443 --namespace demo
+
+verify-filesource:
+	python - << 'PY'
+# prints mapping_count from DB for the connection (use existing DB helper)
+# keep to <= 20 lines; exit nonzero if count == 0
+PY
+
+
+UI badge (only if trivial)
+
+In the Connections list item renderer, if last_event_type === 'DRIFT_DETECTED' (add to API payload if easy), show a tiny “DRIFT” chip (WARN style). If adding last_event_type requires >20 LOC, skip and just leave the backend event created.
+
+Timeout/SLO
+
+For the sync connectors path, set per-request statement timeout to 3s (via SET LOCAL statement_timeout='3s' on session open). Log WARN if latency_ms > 3000.
+
+Deliverables to paste back
+
+Files changed list.
+
+New script filesource_drift_sim.py (full file).
+
+Migration snippet for the unique index.
+
+Test output for the new drift test.
+
+One curl of /api/v1/aam/connectors after drift showing mapping_count increased by 1.
+
+Guardrails
+
+Do not refactor unrelated code.
+
+Keep AAM_CONNECTORS_SYNC flag intact.
+
+No schema changes beyond the single unique index.
+
+If the UI badge takes >20 lines or requires routing changes, skip it and note.

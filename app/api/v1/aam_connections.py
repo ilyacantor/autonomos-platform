@@ -23,6 +23,7 @@ sys.path.insert(0, 'aam_hybrid')
 
 from core.connection_manager import connection_manager
 from shared.models import ConnectionStatus
+from shared.constants import DEMO_TENANT_UUID
 from connectors import (
     salesforce_adapter,
     supabase_adapter,
@@ -209,6 +210,7 @@ async def create_connection(
         connection = await connection_manager.register_connector(
             name=request.name,
             source_type=request.source_type,
+            tenant_id=current_user.tenant_id if current_user and hasattr(current_user, 'tenant_id') and current_user.tenant_id else UUID(DEMO_TENANT_UUID),
             config=request.connector_config
         )
         

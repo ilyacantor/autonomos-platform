@@ -1,0 +1,108 @@
+# Python virtual environments and caches (CRITICAL - saves 11.5GB)
+.pythonlibs/
+.cache/
+.local/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+pip-log.txt
+pip-delete-this-directory.txt
+.venv/
+venv/
+env/
+
+# Git repository (saves ~135MB)
+.git/
+.gitignore
+.gitattributes
+
+# Node modules (will be rebuilt)
+node_modules/
+frontend/node_modules/
+**/node_modules/
+
+# Development and testing files
+*.test.js
+*.test.ts
+*.spec.js
+*.spec.ts
+tests/
+*.log
+
+# Development dependencies
+requirements-dev.txt
+frontend/package-lock.json
+frontend/tsconfig.json
+frontend/tsconfig.app.json
+frontend/tsconfig.node.json
+frontend/eslint.config.js
+
+# Documentation and archive files
+docs/
+*.md
+!README.md
+ARCHITECTURE.md
+PLAN.md
+DEBT.md
+archive/
+attached_assets/
+alembic.backup/
+
+# Build artifacts that will be rebuilt
+frontend/dist/
+frontend/.vite/
+
+# Git and version control
+.git/
+.gitignore
+.gitattributes
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment and local config
+.env.local
+.env.*.local
+*.local
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+dump.rdb
+
+# Test results and reports
+test_results*.txt
+PHASE4_TEST_RESULTS.md
+TEST_RESULTS.md
+VERIFICATION_PROOF.md
+*_SUMMARY.md
+
+# Mock data and seeds (if not needed in production)
+mock_sources/
+seeds/
+
+# Large documentation files
+DCL_*.md
+AAM_*.md
+RENDER_*.md
+*_GUIDE.md
+FRONTEND-BACKUP-LOCATION.txt
+
+# Scripts not needed in production
+scripts/
+integrate_frontend.sh
+verify_integration.py
+
+# Ops and development tools
+ops/
+Makefile
+render.yaml

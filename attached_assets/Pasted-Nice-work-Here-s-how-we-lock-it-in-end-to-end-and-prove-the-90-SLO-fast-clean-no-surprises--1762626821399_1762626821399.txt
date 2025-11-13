@@ -1,0 +1,80 @@
+Nice work. Here’s how we lock it in end-to-end and prove the 90% SLO—fast, clean, no surprises.
+
+# What changed vs. the spec (align AOD now)
+
+* **API base/path**: you shipped under `/api/v1/aam/...`. Update AOD’s router to:
+
+  * `POST {AAM_BASE}/connections/onboard` (and use `/onboard/batch` for throughput)
+  * `GET  {AAM_BASE}/metrics/funnel?namespace=autonomy`
+  * `GET  {AAM_BASE}/connections/health` (or `/connections/health` with `?namespace=` if supported)
+* **Auth**: AOD must send the Bearer token you’re using for the curl tests.
+* **Namespace**: keep `namespace: "autonomy"` in every intent.
+
+# Set these AOD envs (so Replit can run hands-free)
+
+```
+AAM_BASE_URL=http://localhost:5000/api/v1/aam
+AAM_ONBOARD_SINGLE=/connections/onboard
+AAM_ONBOARD_BATCH=/connections/onboard/batch
+AAM_FUNNEL=/metrics/funnel?namespace=autonomy
+AAM_AUTH_TOKEN=<paste the token you used in curl>
+```
+
+# Send this to the **AOD agent** (exact text)
+
+```
+CONTINUE 90 RUN
+Use real AAM endpoints:
+- POST $AAM_BASE_URL$AAM_ONBOARD_BATCH with connection_intent[]
+- GET  $AAM_BASE_URL$AAM_FUNNEL for coverage
+Fail fast if AAM unreachable (no mocks).
+Dictionary: tenant-seeded + core list.
+Run coverage pre-flight; stop if predicted < 0.90 and print blocking buckets.
+```
+
+# Quick acceptance (do this now)
+
+1. **Smoke**: POST your 5 seeds (or the batch) → expect `ACTIVE (Safe Mode)` receipts with tiny-sync rows/latency in each.
+2. **Funnel**: `GET /api/v1/aam/metrics/funnel?namespace=autonomy` should show:
+
+   * Eligible → Reachable → Active, with `coverage >= 0.90`.
+   * If `< 0.90`, API must return **503** and list blockers (you already implemented this).
+3. **Exec summary**: run `python scripts/exec_summary.py` in AAM and capture the English paragraph; AOD should print a matching summary in its own report.
+4. **Isolation**: verify demo connections unchanged; new rows show `namespace=autonomy`.
+5. **Safe Mode**: confirm read-only scopes in logs (no write/delete calls), and that first-sync caps at ~20 items.
+
+# Use batch onboarding for day-one scale
+
+* Prefer `/connections/onboard/batch` with 50–200 intents per request (respect your rate caps/backoff).
+* AOD router should bucket intents per vendor to avoid quota spikes.
+
+# Minimal deltas to close right now (keeps debt low)
+
+* **Make targets** (you marked deferred):
+
+  * `make autonomy-mode` (flip Safe Mode + caps + allowlist)
+  * `make smoke-90` (POST seeds/intents/* and print summary)
+  * `make heal` (promote HEALING→ACTIVE)
+* **Two tiny tests** (happy path + 429 throttling) so the funnel math can’t regress.
+* **SLO monitor**: you already return 503 on miss; add one log line with the top 2 blocking buckets (credentials/network).
+
+# AOD → AAM intent checklist (to avoid avoidable misses)
+
+Every intent must include:
+
+```
+{
+  "source_type": "<one of your 30+ allowlisted types>",
+  "resource_ids": ["<tenant/org/site/repo/bucket/db_uri>"],
+  "scopes_mode": "safe_readonly",
+  "credential_locator": "env:...|vault:...|consent:...|sp:...",
+  "namespace": "autonomy",
+  "risk_level": "low|med|high",
+  "evidence": { "status":"Sanctioned", "source":"IdP|CMDB|Procurement|CASB", "ts":"<ISO8601>" },
+  "owner": { "user":"<email/upn>", "confidence": <0..1>, "why":"oauth_consenter|admin|usage|expense|idp_owner" }
+}
+```
+
+# Green light
+
+You’ve got the AAM side live and SLO-gated. Push the token to AOD with the endpoint details above, run the router, and send me the **exec summary line** plus the funnel counts. If coverage is <90%, don’t tweak code—use the blockers list to decide: (a) quick credential loads, or (b) enable an additional allowlisted connector family.

@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { LayoutDashboard, Cable, Network, Bell, Menu, X, LogIn, UserPlus, HelpCircle, Activity, Search } from 'lucide-react';
-import AutonomyModeToggle from './AutonomyModeToggle';
 import type { PersonaType } from '../types';
 import autonomosLogo from '../assets/autonomos-logo.png';
 
@@ -23,11 +22,12 @@ export default function TopBar({ onAuthOpen, currentPage, onNavigate }: TopBarPr
 
   const navItems: NavItem[] = [
     { id: 'control-center', label: 'Control Center', icon: <LayoutDashboard className="w-5 h-5" /> },
-    { id: 'discover', label: 'Discover', icon: <Search className="w-5 h-5" /> },
-    { id: 'connect', label: 'Connect', icon: <Cable className="w-5 h-5" />, tooltip: 'AAM Connect - Self-healing data connectivity' },
+    { id: 'discover', label: 'Discovery', icon: <Search className="w-5 h-5" /> },
+    { id: 'connect', label: 'Connections', icon: <Cable className="w-5 h-5" />, tooltip: 'AAM Connect - Self-healing data connectivity' },
     { id: 'ontology', label: 'Ontology', icon: <Network className="w-5 h-5" /> },
     { id: 'orchestration', label: 'Orchestration', icon: <Activity className="w-5 h-5" /> },
-    { id: 'faq', label: 'FAQ', icon: <HelpCircle className="w-5 h-5" /> },
+    { id: 'agents', label: 'Agents', icon: <Activity className="w-5 h-5" /> },
+    { id: 'faq', label: 'Help', icon: <HelpCircle className="w-5 h-5" /> },
   ];
 
   return (
@@ -73,13 +73,8 @@ export default function TopBar({ onAuthOpen, currentPage, onNavigate }: TopBarPr
         {/* Mobile Spacer */}
         <div className="flex-1 sm:hidden"></div>
 
-        {/* Right Side: Autonomy Toggle, Notifications, Profile */}
+        {/* Right Side: Notifications, Profile */}
         <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-          {/* Autonomy Toggle - Hidden on Mobile */}
-          <div className="hidden sm:block">
-            <AutonomyModeToggle />
-          </div>
-
           {/* Notifications */}
           <div className="relative">
             <button className="p-2 hover:bg-gray-800 rounded-lg transition-colors relative touch-target mobile-tap-highlight">
@@ -158,12 +153,6 @@ export default function TopBar({ onAuthOpen, currentPage, onNavigate }: TopBarPr
                   </button>
                 ))}
               </nav>
-
-              {/* Autonomy Mode Toggle */}
-              <div className="border-t border-gray-800 pt-4 mb-4">
-                <div className="text-xs text-gray-500 mb-2 px-2">Autonomy Mode</div>
-                <AutonomyModeToggle />
-              </div>
 
               {/* Auth Buttons for Mobile */}
               <div className="border-t border-gray-800 pt-4 mt-auto">

@@ -146,7 +146,7 @@ export default function LiveFlow() {
           <div>
             <h1 className="text-2xl font-bold text-white flex items-center gap-2">
               <Activity className="w-6 h-6 text-blue-400" />
-              Live Flow
+              Flow
               <span className="text-sm font-normal text-gray-400 ml-2">(beta)</span>
             </h1>
             <p className="text-sm text-gray-400 mt-1">
