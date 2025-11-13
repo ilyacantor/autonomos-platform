@@ -15,373 +15,60 @@ from app.dcl_engine.source_loader import get_source_adapter, AAMSourceAdapter
 from app.config.feature_flags import FeatureFlagConfig, FeatureFlag
 from app.dcl_engine.agent_executor import AgentExecutor
 
+
+# Import from refactored modules
+from app.dcl_engine.models import Scorecard
+from app.dcl_engine.utils import (
+    DCL_BASE_PATH, DB_PATH, ONTOLOGY_PATH, AGENTS_CONFIG_PATH, SCHEMAS_DIR,
+    CONF_THRESHOLD, AUTO_PUBLISH_PARTIAL, AUTH_ENABLED,
+    load_ontology, load_agents_config, infer_types, snapshot_tables_from_dir, mk_sql_expr
+)
+from app.dcl_engine.lock_manager import lock_manager, LockManager
+from app.dcl_engine.state_manager import state_manager, StateManager, ConnectionManager
+from app.dcl_engine.database_operations import register_src_views, preview_table
+
 # Configure logger
 logger = logging.getLogger(__name__)
 
 # Use paths relative to this module's directory
-DCL_BASE_PATH = Path(__file__).parent
-DB_PATH = str(DCL_BASE_PATH / "registry.duckdb")
-ONTOLOGY_PATH = str(DCL_BASE_PATH / "ontology" / "catalog.yml")
-AGENTS_CONFIG_PATH = str(DCL_BASE_PATH / "agents" / "config.yml")
-SCHEMAS_DIR = str(DCL_BASE_PATH / "schemas")
-CONF_THRESHOLD = 0.70
-AUTO_PUBLISH_PARTIAL = True
-AUTH_ENABLED = False  # Set to True to enable authentication, False to bypass
 
 if os.getenv("GEMINI_API_KEY"):
     genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 else:
     logger.warning("⚠️ GEMINI_API_KEY not set. LLM proposals may be unavailable.")
 
-EVENT_LOG: List[str] = []
-GRAPH_STATE = {"nodes": [], "edges": [], "confidence": None, "last_updated": None}
-SOURCES_ADDED: List[str] = []
-ENTITY_SOURCES: Dict[str, List[str]] = {}
-AUTO_INGEST_UNMAPPED = False
-ontology = None
-agents_config = None
-SELECTED_AGENTS: List[str] = []
-AGENT_RESULTS_CACHE: Dict[str, Dict] = {}  # tenant_id -> {agent_id -> results}
-agent_executor: Optional[AgentExecutor] = None
-LLM_CALLS = 0
-LLM_TOKENS = 0
-rag_engine = None
-RAG_CONTEXT = {"retrievals": [], "total_mappings": 0, "last_retrieval_count": 0}
-SOURCE_SCHEMAS: Dict[str, Dict[str, Any]] = {}
-DEV_MODE = False  # When True, uses AI/RAG for mapping; when False, uses only heuristics
-STATE_LOCK = threading.Lock()  # Lock for thread-safe global state updates (sync contexts)
-ASYNC_STATE_LOCK = None  # Will be initialized as asyncio.Lock in async contexts
+# Global state is now managed by state_manager
+# Legacy references for backward compatibility
+EVENT_LOG = state_manager.EVENT_LOG
+GRAPH_STATE = state_manager.GRAPH_STATE
+SOURCES_ADDED = state_manager.SOURCES_ADDED
+ENTITY_SOURCES = state_manager.ENTITY_SOURCES
+AUTO_INGEST_UNMAPPED = state_manager.AUTO_INGEST_UNMAPPED
+ontology = state_manager.ontology
+agents_config = state_manager.agents_config
+SELECTED_AGENTS = state_manager.SELECTED_AGENTS
+AGENT_RESULTS_CACHE = state_manager.AGENT_RESULTS_CACHE
+agent_executor = state_manager.agent_executor
+LLM_CALLS = lock_manager.LLM_CALLS
+LLM_TOKENS = lock_manager.LLM_TOKENS
+rag_engine = state_manager.rag_engine
+RAG_CONTEXT = state_manager.RAG_CONTEXT
+SOURCE_SCHEMAS = state_manager.SOURCE_SCHEMAS
+# DEV_MODE is now managed by lock_manager (use lock_manager.lock_manager.get_dev_mode())
+STATE_LOCK = state_manager.STATE_LOCK
+ASYNC_STATE_LOCK = state_manager.ASYNC_STATE_LOCK
 
 # Performance timing storage
-TIMING_LOG: Dict[str, List[float]] = {
-    "llm_propose_total": [],
-    "rag_retrieval": [],
-    "gemini_call": [],
-    "connect_total": []
-}
+TIMING_LOG = state_manager.TIMING_LOG
 
 # Redis-based distributed lock for cross-process DuckDB access
 # NOTE: Redis client is shared from main app to avoid connection limit issues
-redis_client = None
-redis_available = False
-DB_LOCK_KEY = "dcl:duckdb:lock"
-DB_LOCK_TIMEOUT = 30  # seconds
-DEV_MODE_KEY = "dcl:dev_mode"  # Redis key for cross-process dev mode state
-LLM_CALLS_KEY = "dcl:llm:calls"  # Redis key for LLM call counter
-LLM_TOKENS_KEY = "dcl:llm:tokens"  # Redis key for LLM token counter
-LLM_CALLS_SAVED_KEY = "dcl:llm:calls_saved"  # Redis key for LLM calls saved via RAG
-DCL_STATE_CHANNEL = "dcl:state:updates"  # Redis pub/sub channel for state broadcasts
-in_memory_dev_mode = False  # Fallback when Redis unavailable
-_dev_mode_initialized = False  # Track if dev_mode has been initialized
-
-class RedisDecodeWrapper:
-    """
-    Wrapper to provide decode_responses=True behavior on top of a decode_responses=False client.
-    This allows sharing the same connection pool while having different decode behaviors.
-    """
-    def __init__(self, base_client):
-        self._client = base_client
-    
-    def get(self, key):
-        value = self._client.get(key)
-        return value.decode('utf-8') if value else None
-    
-    def set(self, key, value, **kwargs):
-        if isinstance(value, str):
-            value = value.encode('utf-8')
-        return self._client.set(key, value, **kwargs)
-    
-    def incr(self, key):
-        return self._client.incr(key)
-    
-    def incrby(self, key, amount):
-        return self._client.incrby(key, amount)
-    
-    def delete(self, key):
-        return self._client.delete(key)
-    
-    def ping(self):
-        return self._client.ping()
-
-def set_redis_client(client):
-    """
-    Set the shared Redis client from main app.
-    This avoids creating multiple Redis connections and hitting Upstash connection limits.
-    
-    Args:
-        client: Redis client instance from main app (typically with decode_responses=False)
-    """
-    global redis_client, redis_available, _dev_mode_initialized
-    
-    # Wrap the client to provide decode_responses=True behavior
-    redis_client = RedisDecodeWrapper(client)
-    redis_available = client is not None
-
-    if redis_available:
-        logger.info(f"✅ DCL Engine: Using shared Redis client from main app")
-
-        # Initialize dev_mode now that we have a Redis client
-        try:
-            default_mode = "false"  # Default to Prod Mode
-            redis_client.set(DEV_MODE_KEY, default_mode)
-            _dev_mode_initialized = True
-            logger.info(f"🚀 DCL Engine: Initialized dev_mode = {default_mode} (Prod Mode) in Redis")
-        except Exception as e:
-            logger.warning(f"⚠️ DCL Engine: Failed to initialize dev_mode: {e}, using in-memory fallback")
-            global in_memory_dev_mode
-            in_memory_dev_mode = False
-            _dev_mode_initialized = True
-    else:
-        logger.warning(f"⚠️ DCL Engine: No Redis client provided, using in-memory state")
-        in_memory_dev_mode = False
-        _dev_mode_initialized = True
+redis_client = lock_manager.redis_client
+redis_available = lock_manager.redis_available
+in_memory_dev_mode = lock_manager.in_memory_dev_mode
+_dev_mode_initialized = lock_manager._dev_mode_initialized
 
 # WebSocket connection manager
-class ConnectionManager:
-    def __init__(self):
-        self.active_connections: List[WebSocket] = []
-    
-    async def connect(self, websocket: WebSocket):
-        await websocket.accept()
-        self.active_connections.append(websocket)
-        log(f"🔌 WebSocket client connected ({len(self.active_connections)} active)")
-    
-    def disconnect(self, websocket: WebSocket):
-        if websocket in self.active_connections:
-            self.active_connections.remove(websocket)
-        log(f"🔌 WebSocket client disconnected ({len(self.active_connections)} active)")
-    
-    async def broadcast(self, message: dict):
-        """Broadcast message to all connected WebSocket clients"""
-        disconnected = []
-        for connection in self.active_connections:
-            try:
-                await connection.send_json(message)
-            except Exception:
-                # Client disconnected - mark for removal
-                disconnected.append(connection)
-        
-        # Remove disconnected clients
-        for connection in disconnected:
-            if connection in self.active_connections:
-                self.active_connections.remove(connection)
-
-ws_manager = ConnectionManager()
-
-def acquire_db_lock(timeout=None):
-    """Acquire distributed lock for DuckDB access using Redis (cross-process safe)"""
-    if not redis_available or not redis_client:
-        # No-op in single-process mode
-        return f"local-{os.getpid()}-{time.time()}"
-    
-    if timeout is None:
-        timeout = DB_LOCK_TIMEOUT
-    lock_id = f"{os.getpid()}-{time.time()}"
-    end_time = time.time() + timeout
-    
-    while time.time() < end_time:
-        try:
-            # Try to acquire lock with auto-expiry (prevents deadlocks if process crashes)
-            if redis_client.set(DB_LOCK_KEY, lock_id, nx=True, ex=timeout):
-                return lock_id
-        except (redis.RedisError, redis.ConnectionError, AttributeError) as e:
-            # Redis failed, fall back to local lock
-            logger.warning(f"Redis lock acquisition failed: {e}. Using local lock.", exc_info=True)
-            return f"local-{os.getpid()}-{time.time()}"
-        time.sleep(0.05)  # Wait 50ms before retrying
-    
-    raise TimeoutError(f"Could not acquire DuckDB lock after {timeout} seconds")
-
-def release_db_lock(lock_id):
-    """Release distributed lock for DuckDB access"""
-    if not redis_available or not redis_client:
-        return  # No-op in single-process mode
-    
-    try:
-        # Only release if we still own the lock (prevents releasing someone else's lock)
-        current_lock = redis_client.get(DB_LOCK_KEY)
-        if current_lock == lock_id:
-            redis_client.delete(DB_LOCK_KEY)
-    except Exception as e:
-        pass  # Silently ignore lock release errors
-
-def get_dev_mode() -> bool:
-    """Get dev mode state from Redis (cross-process safe)"""
-    global in_memory_dev_mode
-    
-    if not redis_available or not redis_client:
-        return in_memory_dev_mode
-    
-    try:
-        value = redis_client.get(DEV_MODE_KEY)
-        result = value == "true" if value else False
-        return result
-    except Exception as e:
-        log(f"⚠️ Error reading dev mode from Redis: {e}")
-        return False
-
-def set_dev_mode(enabled: bool):
-    """Set dev mode state in Redis (cross-process safe)"""
-    global in_memory_dev_mode
-    
-    if not redis_available or not redis_client:
-        in_memory_dev_mode = enabled
-        return
-    
-    try:
-        value = "true" if enabled else "false"
-        redis_client.set(DEV_MODE_KEY, value)
-    except Exception as e:
-        # Fallback to in-memory
-        in_memory_dev_mode = enabled
-
-def get_llm_stats() -> dict:
-    """Get LLM stats from Redis (cross-process safe, persists across restarts)"""
-    global LLM_CALLS, LLM_TOKENS
-    
-    if not redis_available or not redis_client:
-        return {"calls": LLM_CALLS, "tokens": LLM_TOKENS, "calls_saved": 0}
-    
-    try:
-        calls = redis_client.get(LLM_CALLS_KEY)
-        tokens = redis_client.get(LLM_TOKENS_KEY)
-        calls_saved = redis_client.get(LLM_CALLS_SAVED_KEY)
-        return {
-            "calls": int(calls) if calls else 0,
-            "tokens": int(tokens) if tokens else 0,
-            "calls_saved": int(calls_saved) if calls_saved else 0
-        }
-    except Exception as e:
-        log(f"⚠️ Error reading LLM stats from Redis: {e}")
-        return {"calls": LLM_CALLS, "tokens": LLM_TOKENS, "calls_saved": 0}
-
-def increment_llm_calls(tokens: int = 0):
-    """Increment LLM call counter in Redis (cross-process safe, persists across restarts)"""
-    global LLM_CALLS, LLM_TOKENS
-    
-    if not redis_available or not redis_client:
-        LLM_CALLS += 1
-        LLM_TOKENS += tokens
-        return
-    
-    try:
-        redis_client.incr(LLM_CALLS_KEY)
-        if tokens > 0:
-            redis_client.incrby(LLM_TOKENS_KEY, tokens)
-    except Exception as e:
-        log(f"⚠️ Error incrementing LLM stats in Redis: {e}")
-        LLM_CALLS += 1
-        LLM_TOKENS += tokens
-
-def increment_llm_calls_saved():
-    """Increment LLM calls saved counter in Redis (cross-process safe, persists across restarts)"""
-    if not redis_available or not redis_client:
-        return
-    
-    try:
-        redis_client.incr(LLM_CALLS_SAVED_KEY)
-    except Exception as e:
-        log(f"⚠️ Error incrementing LLM calls saved in Redis: {e}")
-
-def reset_llm_stats():
-    """Reset LLM stats in Redis (cross-process safe)"""
-    global LLM_CALLS, LLM_TOKENS
-    
-    if not redis_available or not redis_client:
-        LLM_CALLS = 0
-        LLM_TOKENS = 0
-        return
-    
-    try:
-        redis_client.set(LLM_CALLS_KEY, "0")
-        redis_client.set(LLM_TOKENS_KEY, "0")
-        redis_client.set(LLM_CALLS_SAVED_KEY, "0")
-    except Exception as e:
-        log(f"⚠️ Error resetting LLM stats in Redis: {e}")
-        LLM_CALLS = 0
-        LLM_TOKENS = 0
-
-def log(msg: str):
-    logger.info(msg)
-    if not EVENT_LOG or EVENT_LOG[-1] != msg:
-        EVENT_LOG.append(msg)
-    if len(EVENT_LOG) > 50:
-        EVENT_LOG.pop(0)
-
-def load_ontology():
-    with open(ONTOLOGY_PATH, "r") as f:
-        return yaml.safe_load(f)
-
-def load_agents_config():
-    try:
-        with open(AGENTS_CONFIG_PATH, "r") as f:
-            return yaml.safe_load(f)
-    except FileNotFoundError:
-        log(f"⚠️ Agents config not found at {AGENTS_CONFIG_PATH}")
-        return {"agents": {}}
-
-def infer_types(df: pd.DataFrame) -> Dict[str, str]:
-    mapping = {}
-    for col in df.columns:
-        series = df[col]
-        if pd.api.types.is_integer_dtype(series):
-            mapping[col] = "integer"
-        elif pd.api.types.is_float_dtype(series):
-            mapping[col] = "numeric"
-        else:
-            try:
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore")
-                    pd.to_datetime(series.dropna().head(50),
-                                   format="%Y-%m-%d %H:%M:%S",
-                                   errors="raise")
-                mapping[col] = "datetime"
-            except Exception:
-                try:
-                    with warnings.catch_warnings():
-                        warnings.simplefilter("ignore")
-                        pd.to_datetime(series.dropna().head(50), errors="coerce")
-                    mapping[col] = "datetime"
-                except Exception:
-                    mapping[col] = "string"
-    return mapping
-
-def snapshot_tables_from_dir(source_key: str, dir_path: str) -> Dict[str, Any]:
-    tables = {}
-    for path in glob.glob(os.path.join(dir_path, "*.csv")):
-        tname = os.path.splitext(os.path.basename(path))[0]
-        df = pd.read_csv(path)
-        tables[tname] = {
-            "path": path,
-            "schema": infer_types(df),
-            "samples": df.head(8).to_dict(orient="records")
-        }
-    return tables
-
-def register_src_views(con, source_key: str, tables: Dict[str, Any]):
-    for tname, info in tables.items():
-        path = info["path"]
-        view_name = f"src_{source_key}_{tname}"
-        con.sql(f"CREATE OR REPLACE VIEW {view_name} AS SELECT * FROM read_csv_auto('{path}')")
-
-def mk_sql_expr(src: Any, transform: str):
-    if isinstance(src, list):
-        parts = " || ' ' || ".join([f"COALESCE({c}, '')" for c in src])
-        return parts + " AS value"
-    if transform.startswith("cast"):
-        return f"CAST({src} AS DOUBLE) AS value"
-    if transform.startswith("parse_timestamp"):
-        return f"TRY_STRPTIME({src}, '%Y-%m-%d %H:%M:%S') AS value"
-    if transform.startswith("lower") or transform == 'lower_trim':
-        return f"LOWER(TRIM({src})) AS value"
-    return f"{src} AS value"
-
-@dataclass
-class Scorecard:
-    confidence: float
-    blockers: List[str]
-    issues: List[str]
-    joins: List[Dict[str,str]]
 
 def safe_llm_call(prompt: str, source_key: str, tables: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Wrapper around Gemini calls that guarantees a result with proper logging."""
@@ -399,7 +86,7 @@ def safe_llm_call(prompt: str, source_key: str, tables: Dict[str, Any]) -> Optio
             tokens_used = usage.get("total_token_count", 0)
         except Exception:
             pass
-        increment_llm_calls(tokens_used)
+        lock_manager.increment_llm_calls(tokens_used)
         
         try:
             text = resp.text.strip()
@@ -415,7 +102,7 @@ def safe_llm_call(prompt: str, source_key: str, tables: Dict[str, Any]) -> Optio
             # Log Gemini timing
             gemini_elapsed = time.time() - gemini_start
             TIMING_LOG["gemini_call"].append(gemini_elapsed)
-            log(f"⏱️ Gemini call: {gemini_elapsed:.2f}s")
+            state_manager.log(f"⏱️ Gemini call: {gemini_elapsed:.2f}s")
             
             return result
         except Exception as parse_err:
@@ -425,7 +112,7 @@ def safe_llm_call(prompt: str, source_key: str, tables: Dict[str, Any]) -> Optio
                 f.write(f"Source: {source_key}\n")
                 f.write(f"Response: {resp.text if hasattr(resp, 'text') else 'N/A'}\n")
                 f.write(f"Error: {parse_err}\n\n")
-            log(f"[LLM PARSE ERROR] Falling back to heuristic for {source_key}")
+            state_manager.log(f"[LLM PARSE ERROR] Falling back to heuristic for {source_key}")
             return (None, False)  # (plan, skip_semantic_validation)
     
     except Exception as e:
@@ -434,7 +121,7 @@ def safe_llm_call(prompt: str, source_key: str, tables: Dict[str, Any]) -> Optio
             f.write(f"--- LLM ERROR ({time.strftime('%Y-%m-%d %H:%M:%S')}) ---\n")
             f.write(f"Source: {source_key}\n")
             f.write(f"{traceback.format_exc()}\n\n")
-        log(f"[LLM ERROR] {e} - Falling back to heuristic for {source_key}")
+        state_manager.log(f"[LLM ERROR] {e} - Falling back to heuristic for {source_key}")
         return (None, False)  # (plan, skip_semantic_validation)
 
 async def llm_propose(
@@ -452,12 +139,12 @@ async def llm_propose(
         try:
             from rag_engine import RAGEngine
             rag_engine = RAGEngine()
-            log("✅ RAG Engine initialized in worker process")
+            state_manager.log("✅ RAG Engine initialized in worker process")
         except Exception as e:
-            log(f"⚠️ RAG Engine initialization failed in worker: {e}")
+            state_manager.log(f"⚠️ RAG Engine initialization failed in worker: {e}")
     
     # STREAMING EVENT: RAG retrieval starting
-    await ws_manager.broadcast({
+    await state_manager.ws_manager.broadcast({
         "type": "mapping_progress",
         "source": source_key,
         "stage": "rag_started",
@@ -499,16 +186,16 @@ async def llm_propose(
             all_similar = []
             for result in all_similar_lists:
                 if isinstance(result, Exception):
-                    log(f"⚠️ RAG retrieval error: {result}")
+                    state_manager.log(f"⚠️ RAG retrieval error: {result}")
                 elif isinstance(result, list):
                     all_similar.extend(result)
             
             rag_elapsed = time.time() - rag_task_start
             TIMING_LOG["rag_retrieval"].append(rag_elapsed)
-            log(f"⏱️ RAG retrieval (PARALLEL): {rag_elapsed:.2f}s for {len(field_queries)} fields")
+            state_manager.log(f"⏱️ RAG retrieval (PARALLEL): {rag_elapsed:.2f}s for {len(field_queries)} fields")
             
             # STREAMING EVENT: RAG complete
-            await ws_manager.broadcast({
+            await state_manager.ws_manager.broadcast({
                 "type": "mapping_progress",
                 "source": source_key,
                 "stage": "rag_complete",
@@ -533,7 +220,7 @@ async def llm_propose(
             
             if top_similar:
                 rag_context = rag_engine.build_context_for_llm(top_similar)
-                log(f"📚 RAG: Retrieved {len(top_similar)} similar mappings for context")
+                state_manager.log(f"📚 RAG: Retrieved {len(top_similar)} similar mappings for context")
                 
                 # Store RAG retrieval data for visualization
                 RAG_CONTEXT["retrievals"] = [
@@ -547,13 +234,13 @@ async def llm_propose(
                 ]
                 RAG_CONTEXT["last_retrieval_count"] = len(top_similar)
         except Exception as e:
-            log(f"⚠️ RAG retrieval failed: {e}")
+            state_manager.log(f"⚠️ RAG retrieval failed: {e}")
     
     # Skip LLM calls if dev mode is disabled (check Redis for cross-process state)
     # RAG retrieval still happened above for both modes
-    current_dev_mode = get_dev_mode()
+    current_dev_mode = lock_manager.get_dev_mode()
     if not current_dev_mode:
-        log(f"⚡ Prod Mode: RAG retrieval complete, skipping LLM - falling back to heuristics for {source_key}")
+        state_manager.log(f"⚡ Prod Mode: RAG retrieval complete, skipping LLM - falling back to heuristics for {source_key}")
         return (None, False)  # (plan, skip_semantic_validation)
     
     # INTELLIGENT LLM DECISION: Check RAG coverage before calling LLM
@@ -577,13 +264,13 @@ async def llm_propose(
         # If coverage is high (>=80%), skip LLM and use RAG mappings directly
         if coverage_pct >= 80:
             
-            log(f"📊 RAG Coverage: {coverage_pct:.0f}% ({len(matched_fields)}/{total_fields} fields) - skipping LLM, using RAG inventory")
+            state_manager.log(f"📊 RAG Coverage: {coverage_pct:.0f}% ({len(matched_fields)}/{total_fields} fields) - skipping LLM, using RAG inventory")
             
             # Increment saved calls counter
-            increment_llm_calls_saved()
+            lock_manager.increment_llm_calls_saved()
             
             # Broadcast intelligent decision event
-            await ws_manager.broadcast({
+            await state_manager.ws_manager.broadcast({
                 "type": "rag_coverage_check",
                 "source": source_key,
                 "coverage_pct": round(coverage_pct, 1),
@@ -597,13 +284,13 @@ async def llm_propose(
             })
             
             # Return tuple (None, True) to skip LLM and use heuristics without semantic validation
-            log(f"✅ Dev Mode: Skipping LLM call, using RAG inventory (coverage {coverage_pct:.0f}%)")
+            state_manager.log(f"✅ Dev Mode: Skipping LLM call, using RAG inventory (coverage {coverage_pct:.0f}%)")
             return (None, True)  # (plan, skip_semantic_validation)
         elif coverage_pct >= 75:
             # Show coverage check but still call LLM
-            log(f"📊 RAG Coverage: {coverage_pct:.0f}% ({len(matched_fields)}/{total_fields} fields) - proceeding with LLM")
+            state_manager.log(f"📊 RAG Coverage: {coverage_pct:.0f}% ({len(matched_fields)}/{total_fields} fields) - proceeding with LLM")
             
-            await ws_manager.broadcast({
+            await state_manager.ws_manager.broadcast({
                 "type": "rag_coverage_check",
                 "source": source_key,
                 "coverage_pct": round(coverage_pct, 1),
@@ -621,14 +308,14 @@ async def llm_propose(
     # Check for appropriate API key based on model
     if llm_model.startswith("gpt"):
         if not os.getenv("OPENAI_API_KEY"):
-            log(f"⚠️ OPENAI_API_KEY not set - skipping LLM for {source_key}")
+            state_manager.log(f"⚠️ OPENAI_API_KEY not set - skipping LLM for {source_key}")
             return (None, False)  # (plan, skip_semantic_validation)
     else:
         if not os.getenv("GEMINI_API_KEY"):
-            log(f"⚠️ GEMINI_API_KEY not set - skipping LLM for {source_key}")
+            state_manager.log(f"⚠️ GEMINI_API_KEY not set - skipping LLM for {source_key}")
             return (None, False)  # (plan, skip_semantic_validation)
     
-    log(f"🤖 Dev Mode: Starting LLM mapping for {source_key} with {llm_model}")
+    state_manager.log(f"🤖 Dev Mode: Starting LLM mapping for {source_key} with {llm_model}")
     
     sys_prompt = (
         "You are a data integration planner. Given an ontology and a set of new tables from a source system, "
@@ -657,7 +344,7 @@ async def llm_propose(
     )
     
     # STREAMING EVENT: LLM call starting
-    await ws_manager.broadcast({
+    await state_manager.ws_manager.broadcast({
         "type": "mapping_progress",
         "source": source_key,
         "stage": "llm_started",
@@ -668,9 +355,9 @@ async def llm_propose(
     # Get LLM service with counter callback (dependency injection pattern)
     try:
         llm_service = get_llm_service(llm_model, increment_llm_calls)
-        log(f"📊 Using {llm_service.get_provider_name()} - {llm_service.get_model_name()}")
+        state_manager.log(f"📊 Using {llm_service.get_provider_name()} - {llm_service.get_model_name()}")
     except (ValueError, ImportError) as e:
-        log(f"⚠️ {e} - falling back to heuristic")
+        state_manager.log(f"⚠️ {e} - falling back to heuristic")
         return (None, False)  # (plan, skip_semantic_validation)
     
     llm_call_start = time.time()
@@ -678,7 +365,7 @@ async def llm_propose(
     llm_call_elapsed = time.time() - llm_call_start
     
     # STREAMING EVENT: LLM complete
-    await ws_manager.broadcast({
+    await state_manager.ws_manager.broadcast({
         "type": "mapping_progress",
         "source": source_key,
         "stage": "llm_complete",
@@ -690,7 +377,7 @@ async def llm_propose(
     # Store successful mappings in RAG (only if dev_mode enabled)
     if result and rag_engine:
         try:
-            dev_mode = get_dev_mode()
+            dev_mode = lock_manager.get_dev_mode()
             stored_count = 0
             for mapping in result.get("mappings", []):
                 entity = mapping.get("entity")
@@ -709,7 +396,7 @@ async def llm_propose(
                     if result_id:
                         stored_count += 1
             if dev_mode:
-                log(f"💾 Stored {stored_count} mappings to RAG (dev mode)")
+                state_manager.log(f"💾 Stored {stored_count} mappings to RAG (dev mode)")
                 # Update RAG total count after storing
                 try:
                     stats = rag_engine.get_stats()
@@ -717,14 +404,14 @@ async def llm_propose(
                 except Exception as e:
                     logger.warning(f"Failed to update RAG stats: {e}")
             else:
-                log(f"🔒 RAG writes blocked - heuristic mode (retrieved context only)")
+                state_manager.log(f"🔒 RAG writes blocked - heuristic mode (retrieved context only)")
         except Exception as e:
-            log(f"⚠️ Failed to store mappings in RAG: {e}")
+            state_manager.log(f"⚠️ Failed to store mappings in RAG: {e}")
     
     # Log total llm_propose timing
     llm_elapsed = time.time() - llm_start
     TIMING_LOG["llm_propose_total"].append(llm_elapsed)
-    log(f"⏱️ llm_propose total: {llm_elapsed:.2f}s")
+    state_manager.log(f"⏱️ llm_propose total: {llm_elapsed:.2f}s")
     
     return (result, False)  # (plan, skip_semantic_validation) - False because LLM succeeded
 
@@ -751,7 +438,7 @@ def validate_mapping_semantics_llm(source_key: str, table_name: str, entity: str
                 for sm in similar_mappings:
                     rag_context += f"- {sm.get('source_system', 'unknown')}.{sm.get('source_field', 'unknown')} → {sm.get('ontology_entity', 'unknown')} (conf: {sm.get('confidence', 0):.2f})\n"
         except Exception as e:
-            log(f"⚠️ RAG retrieval failed during validation: {e}")
+            state_manager.log(f"⚠️ RAG retrieval failed during validation: {e}")
     
     prompt = f"""You are a semantic data mapping validator. Assess if this mapping makes sense.
 
@@ -784,7 +471,7 @@ Answer with ONLY a JSON object:
         
         # Increment LLM counter in Redis (persists across restarts)
         tokens_estimate = len(prompt.split()) + len(text.split())
-        increment_llm_calls(tokens_estimate)
+        lock_manager.increment_llm_calls(tokens_estimate)
         
         # Extract JSON from response
         json_match = re.search(r'\{.*\}', text, re.DOTALL)
@@ -796,15 +483,15 @@ Answer with ONLY a JSON object:
             confidence = result.get("confidence", 0.5)
             
             if not valid and confidence > 0.7:
-                log(f"🚫 Semantic validation rejected: {source_key}.{table_name} → {entity} ({reason})")
+                state_manager.log(f"🚫 Semantic validation rejected: {source_key}.{table_name} → {entity} ({reason})")
             
             return valid
         else:
-            log(f"⚠️ LLM validation response not parseable, defaulting to allow")
+            state_manager.log(f"⚠️ LLM validation response not parseable, defaulting to allow")
             return True
             
     except Exception as e:
-        log(f"⚠️ LLM semantic validation failed: {e}, defaulting to allow")
+        state_manager.log(f"⚠️ LLM semantic validation failed: {e}, defaulting to allow")
         return True
 
 def heuristic_plan(ontology: Dict[str, Any], source_key: str, tables: Dict[str, Any], skip_llm_validation: bool = False) -> Dict[str, Any]:
@@ -1068,10 +755,10 @@ def heuristic_plan(ontology: Dict[str, Any], source_key: str, tables: Dict[str, 
     
     # Semantic filtering based on Prod Mode setting (check Redis for cross-process state)
     # Skip LLM validation if RAG coverage was high enough to skip main LLM call
-    current_dev_mode = get_dev_mode()
+    current_dev_mode = lock_manager.get_dev_mode()
     if current_dev_mode and not skip_llm_validation:
         # DEV MODE ON + Low RAG coverage: Use LLM for intelligent semantic validation (AI/RAG)
-        log("🔍 Dev Mode ON: Using LLM for semantic validation")
+        state_manager.log("🔍 Dev Mode ON: Using LLM for semantic validation")
         semantically_valid_mappings = []
         for mapping in mappings:
             entity = mapping.get("entity")
@@ -1085,13 +772,13 @@ def heuristic_plan(ontology: Dict[str, Any], source_key: str, tables: Dict[str, 
                 semantically_valid_mappings.append(mapping)
         
         mappings = semantically_valid_mappings
-        log(f"✅ LLM validated {len(mappings)} mappings as semantically correct")
+        state_manager.log(f"✅ LLM validated {len(mappings)} mappings as semantically correct")
     else:
         # DEV MODE OFF OR High RAG coverage: Use hard-wired heuristic rules (fast, deterministic)
         if skip_llm_validation:
-            log("⚡ High RAG coverage: Skipping LLM semantic validation, using heuristic filtering")
+            state_manager.log("⚡ High RAG coverage: Skipping LLM semantic validation, using heuristic filtering")
         else:
-            log("⚡ Dev Mode OFF: Using heuristic domain filtering")
+            state_manager.log("⚡ Dev Mode OFF: Using heuristic domain filtering")
         FINOPS_SOURCES = {"snowflake", "sap", "netsuite", "legacy_sql", "filesource"}
         REVOPS_SOURCES = {"dynamics", "salesforce", "hubspot"}
         FINOPS_ENTITIES = {"aws_resources", "cost_reports"}
@@ -1121,7 +808,7 @@ def heuristic_plan(ontology: Dict[str, Any], source_key: str, tables: Dict[str, 
                 semantically_valid_mappings.append(mapping)
         
         mappings = semantically_valid_mappings
-        log(f"✅ Heuristic filtered {len(mappings)} mappings as valid")
+        state_manager.log(f"✅ Heuristic filtered {len(mappings)} mappings as valid")
     
     # Filter out mappings that don't provide any useful fields for selected agents
     if SELECTED_AGENTS:
@@ -1362,31 +1049,18 @@ def add_ontology_to_agent_edges():
                         "entity_name": entity_name
                     })
 
-def preview_table(con, name: str, limit: int = 6) -> List[Dict[str,Any]]:
-    try:
-        df = con.sql(f"SELECT * FROM {name} LIMIT {limit}").to_df()
-        records = df.to_dict(orient="records")
-        for record in records:
-            for key, value in record.items():
-                if pd.isna(value):
-                    record[key] = None
-                elif isinstance(value, (pd.Timestamp, pd.Timedelta)):
-                    record[key] = str(value)
-        return records
-    except Exception:
-        return []
-
 async def connect_source(
     source_key: str, 
     llm_model: str = "gemini-2.5-flash",
     tenant_id: str = "default"
 ) -> Dict[str, Any]:
-    global ontology, agents_config, SOURCE_SCHEMAS, STATE_LOCK, TIMING_LOG, ASYNC_STATE_LOCK, ws_manager
+    global ontology, agents_config, SOURCE_SCHEMAS, STATE_LOCK, TIMING_LOG, ASYNC_STATE_LOCK
+    # Note: ws_manager is now state_manager.ws_manager
     
     connect_start = time.time()
     
     # STREAMING EVENT 1: Connection started (immediate <2s)
-    await ws_manager.broadcast({
+    await state_manager.ws_manager.broadcast({
         "type": "mapping_progress",
         "source": source_key,
         "stage": "started",
@@ -1405,7 +1079,7 @@ async def connect_source(
     adapter = get_source_adapter()
     source_mode = "aam_connectors" if FeatureFlagConfig.is_enabled(FeatureFlag.USE_AAM_AS_SOURCE) else "demo_files"
     
-    log(f"📂 Using {source_mode} for source: {source_key} (tenant: {tenant_id})")
+    state_manager.log(f"📂 Using {source_mode} for source: {source_key} (tenant: {tenant_id})")
     
     # CRITICAL FIX: Clear cache for AAM sources to force fresh load from Redis Streams
     # Without this, SOURCE_SCHEMAS caching prevents load_tables from being called
@@ -1415,13 +1089,13 @@ async def connect_source(
         async with ASYNC_STATE_LOCK:
             if source_key in SOURCE_SCHEMAS:
                 del SOURCE_SCHEMAS[source_key]
-                log(f"🗑️  Cleared SOURCE_SCHEMAS cache for AAM source: {source_key}")
+                state_manager.log(f"🗑️  Cleared SOURCE_SCHEMAS cache for AAM source: {source_key}")
         
         # Clear idempotency cache so all messages are reprocessed (fixes "0 sources" bug)
         # SAFE: /dcl/connect is user-initiated and synchronous (no concurrent ingestion)
         if isinstance(adapter, AAMSourceAdapter):
             adapter.clear_idempotency_cache(tenant_id, source_id=source_key)
-            log(f"🗑️  Cleared idempotency cache for tenant: {tenant_id}")
+            state_manager.log(f"🗑️  Cleared idempotency cache for tenant: {tenant_id}")
     
     # Load tables using adapter
     tables = adapter.load_tables(source_key, tenant_id)
@@ -1430,7 +1104,7 @@ async def connect_source(
         return {"error": f"No tables found for source '{source_key}'"}
     
     # STREAMING EVENT 2: Schema snapshot complete
-    await ws_manager.broadcast({
+    await state_manager.ws_manager.broadcast({
         "type": "mapping_progress",
         "source": source_key,
         "stage": "schema_loaded",
@@ -1453,10 +1127,10 @@ async def connect_source(
     if not plan:
         # Use heuristic plan with explicit skip_semantic_validation flag from llm_propose
         plan = heuristic_plan(ontology, source_key, tables, skip_llm_validation=skip_semantic_validation)
-        log(f"I connected to {source_key.title()} (schema sample) and generated a heuristic plan. I mapped obvious IDs and foreign keys and published a basic unified view.")
+        state_manager.log(f"I connected to {source_key.title()} (schema sample) and generated a heuristic plan. I mapped obvious IDs and foreign keys and published a basic unified view.")
         
         # STREAMING EVENT: Heuristic plan used
-        await ws_manager.broadcast({
+        await state_manager.ws_manager.broadcast({
             "type": "mapping_progress",
             "source": source_key,
             "stage": "heuristic_plan",
@@ -1464,10 +1138,10 @@ async def connect_source(
             "timestamp": time.time()
         })
     else:
-        log(f"I connected to {source_key.title()} (schema sample) and proposed mappings and joins.")
+        state_manager.log(f"I connected to {source_key.title()} (schema sample) and proposed mappings and joins.")
         
         # STREAMING EVENT: AI plan used
-        await ws_manager.broadcast({
+        await state_manager.ws_manager.broadcast({
             "type": "mapping_progress",
             "source": source_key,
             "stage": "ai_plan",
@@ -1476,7 +1150,7 @@ async def connect_source(
         })
     
     # Acquire distributed lock for ALL DuckDB operations (cross-process safe)
-    lock_id = acquire_db_lock()
+    lock_id = lock_manager.acquire_db_lock()
     try:
         con = duckdb.connect(DB_PATH, config={'access_mode': 'READ_WRITE'})
         register_src_views(con, source_key, tables)
@@ -1493,16 +1167,16 @@ async def connect_source(
             SOURCES_ADDED.append(source_key)
         
         ents = ", ".join(sorted(tables.keys()))
-        log(f"I found these entities: {ents}.")
+        state_manager.log(f"I found these entities: {ents}.")
         if score.joins:
-            log("To connect them, I proposed joins like " + "; ".join([f"{j['left']} with {j['right']}" for j in score.joins]) + ".")
+            state_manager.log("To connect them, I proposed joins like " + "; ".join([f"{j['left']} with {j['right']}" for j in score.joins]) + ".")
         if score.confidence >= CONF_THRESHOLD and not score.blockers:
-            log(f"I am about {int(score.confidence*100)}% confident. I created unified views so you can now query across these sources.")
+            state_manager.log(f"I am about {int(score.confidence*100)}% confident. I created unified views so you can now query across these sources.")
         elif AUTO_PUBLISH_PARTIAL and not score.blockers:
-            log(f"I applied the mappings, but with some issues: {score.issues}")
+            state_manager.log(f"I applied the mappings, but with some issues: {score.issues}")
         else:
             blockers_msg = "; ".join(score.blockers) if score.blockers else "Unknown blockers"
-            log(f"I paused because of blockers and did not publish. Blockers: {blockers_msg}")
+            state_manager.log(f"I paused because of blockers and did not publish. Blockers: {blockers_msg}")
         
         previews = {"sources": {}, "ontology": {}}
         for t in tables.keys():
@@ -1532,10 +1206,10 @@ async def connect_source(
         # Log total connect_source timing
         connect_elapsed = time.time() - connect_start
         TIMING_LOG["connect_total"].append(connect_elapsed)
-        log(f"⏱️ connect_source({source_key}) total: {connect_elapsed:.2f}s")
+        state_manager.log(f"⏱️ connect_source({source_key}) total: {connect_elapsed:.2f}s")
         
         # STREAMING EVENT: Source complete
-        await ws_manager.broadcast({
+        await state_manager.ws_manager.broadcast({
             "type": "mapping_progress",
             "source": source_key,
             "stage": "complete",
@@ -1548,7 +1222,7 @@ async def connect_source(
         
         return {"ok": True, "score": score.confidence, "previews": previews, "source_mode": source_mode}
     finally:
-        release_db_lock(lock_id)
+        lock_manager.release_db_lock(lock_id)
 
 def reset_state(exclude_dev_mode=True):
     """
@@ -1559,7 +1233,7 @@ def reset_state(exclude_dev_mode=True):
         exclude_dev_mode: If True, dev_mode persists across resets
     
     Note: LLM counters (calls/tokens) persist across all runs for telemetry tracking,
-          similar to "elapsed time until next run". Use reset_llm_stats() endpoint to manually reset.
+          similar to "elapsed time until next run". Use lock_manager.reset_llm_stats() endpoint to manually reset.
     """
     global EVENT_LOG, GRAPH_STATE, SOURCES_ADDED, ENTITY_SOURCES, ontology, SELECTED_AGENTS, SOURCE_SCHEMAS, RAG_CONTEXT
     EVENT_LOG = []
@@ -1578,7 +1252,7 @@ def reset_state(exclude_dev_mode=True):
         os.remove(DB_PATH)
     except FileNotFoundError:
         pass
-    log("🔄 DCL state cleared (dev_mode preserved). Ready for new connection.")
+    state_manager.log("🔄 DCL state cleared (dev_mode preserved). Ready for new connection.")
 
 app = FastAPI()
 
@@ -1618,7 +1292,7 @@ async def broadcast_state_change(event_type: str = "state_update"):
         }
         
         # Get LLM stats from Redis (includes calls_saved)
-        llm_stats = get_llm_stats()
+        llm_stats = lock_manager.get_llm_stats()
         
         # Calculate blended confidence
         blended_confidence = GRAPH_STATE.get("confidence")
@@ -1633,7 +1307,7 @@ async def broadcast_state_change(event_type: str = "state_update"):
             "data": {
                 "sources": SOURCES_ADDED,
                 "agents": SELECTED_AGENTS,
-                "devMode": get_dev_mode(),
+                "devMode": lock_manager.get_dev_mode(),
                 "sourceMode": source_mode,
                 "graph": filtered_graph,  # Send filtered graph instead of raw GRAPH_STATE
                 "llmCalls": llm_stats["calls"],
@@ -1653,20 +1327,20 @@ async def broadcast_state_change(event_type: str = "state_update"):
         }
         
         # Debug log to verify events are included
-        log(f"📡 Broadcasting {event_type}: {len(EVENT_LOG)} events, {len(SOURCES_ADDED)} sources, {RAG_CONTEXT.get('total_mappings', 0)} RAG mappings")
+        state_manager.log(f"📡 Broadcasting {event_type}: {len(EVENT_LOG)} events, {len(SOURCES_ADDED)} sources, {RAG_CONTEXT.get('total_mappings', 0)} RAG mappings")
         
         # Broadcast to WebSocket clients
-        await ws_manager.broadcast(state_payload)
+        await state_manager.ws_manager.broadcast(state_payload)
         
         # Publish to Redis pub/sub for cross-process broadcast (if available)
         if redis_available and redis_client:
             try:
-                redis_client.publish(DCL_STATE_CHANNEL, json.dumps(state_payload))
+                redis_client.publish(lock_manager.DCL_STATE_CHANNEL, json.dumps(state_payload))
             except (redis.RedisError, redis.ConnectionError) as e:
                 logger.warning(f"Failed to publish state to Redis pub/sub: {e}")
         
     except Exception as e:
-        log(f"⚠️ Error broadcasting state change: {e}")
+        state_manager.log(f"⚠️ Error broadcasting state change: {e}")
 
 # Middleware for API usage logging
 @app.middleware("http")
@@ -1677,7 +1351,7 @@ async def log_api_usage(request: Request, call_next):
     
     # Log important API calls only (exclude static files, assets, and polling endpoints like /state)
     if not request.url.path.startswith("/static") and not request.url.path.startswith("/assets") and request.url.path not in ["/state", "/"]:
-        log(f"📊 API: {request.method} {request.url.path} - {response.status_code} ({process_time:.2f}s)")
+        state_manager.log(f"📊 API: {request.method} {request.url.path} - {response.status_code} ({process_time:.2f}s)")
     
     return response
 
@@ -1709,33 +1383,33 @@ async def startup_event():
     
     # Initialize dev_mode to Prod Mode (False) as default if not already set
     try:
-        existing_mode = redis_client.get(DEV_MODE_KEY)
+        existing_mode = redis_client.get(lock_manager.DEV_MODE_KEY)
         if existing_mode is None:
             # First time startup - default to Prod Mode
-            set_dev_mode(False)
-            log("🔧 Initialized dev_mode to Prod Mode (default)")
+            lock_manager.set_dev_mode(False)
+            state_manager.log("🔧 Initialized dev_mode to Prod Mode (default)")
         else:
             # Keep existing user preference
-            current = get_dev_mode()
+            current = lock_manager.get_dev_mode()
             mode_str = "Dev Mode" if current else "Prod Mode"
-            log(f"🔧 Loaded persistent dev_mode setting: {mode_str}")
+            state_manager.log(f"🔧 Loaded persistent dev_mode setting: {mode_str}")
     except Exception as e:
-        log(f"⚠️ Error initializing dev_mode: {e}, defaulting to Prod Mode")
-        set_dev_mode(False)
+        state_manager.log(f"⚠️ Error initializing dev_mode: {e}, defaulting to Prod Mode")
+        lock_manager.set_dev_mode(False)
     
     try:
         rag_engine = RAGEngine()
-        log("✅ RAG Engine initialized successfully")
+        state_manager.log("✅ RAG Engine initialized successfully")
     except Exception as e:
-        log(f"⚠️ RAG Engine initialization failed: {e}. Continuing without RAG.")
+        state_manager.log(f"⚠️ RAG Engine initialization failed: {e}. Continuing without RAG.")
     
     # Initialize AgentExecutor
     try:
         agents_config = load_agents_config()
         agent_executor = AgentExecutor(DB_PATH, agents_config, AGENT_RESULTS_CACHE, redis_client)
-        log("✅ AgentExecutor initialized successfully with Phase 4 metadata support")
+        state_manager.log("✅ AgentExecutor initialized successfully with Phase 4 metadata support")
     except Exception as e:
-        log(f"⚠️ AgentExecutor initialization failed: {e}. Continuing without agent execution.")
+        state_manager.log(f"⚠️ AgentExecutor initialization failed: {e}. Continuing without agent execution.")
 
 
 @app.websocket("/ws")
@@ -1744,22 +1418,22 @@ async def websocket_endpoint(websocket: WebSocket):
     WebSocket endpoint for real-time DCL state updates.
     Eliminates polling by pushing state changes to connected clients.
     """
-    await ws_manager.connect(websocket)
+    await state_manager.ws_manager.connect(websocket)
     try:
         # Send initial state on connection
-        await broadcast_state_change("connection_established")
+        await state_manager.broadcast_state_change("connection_established")
         
         # Keep connection alive and listen for client messages (if needed)
         while True:
             data = await websocket.receive_text()
             # Client can request state refresh by sending "refresh"
             if data == "refresh":
-                await broadcast_state_change("state_refresh")
+                await state_manager.broadcast_state_change("state_refresh")
     except WebSocketDisconnect:
-        ws_manager.disconnect(websocket)
+        state_manager.ws_manager.disconnect(websocket)
     except Exception as e:
-        log(f"⚠️ WebSocket error: {e}")
-        ws_manager.disconnect(websocket)
+        state_manager.log(f"⚠️ WebSocket error: {e}")
+        state_manager.ws_manager.disconnect(websocket)
 
 
 @app.get("/state")
@@ -1793,7 +1467,7 @@ def state():
     }
     
     # Get LLM stats from Redis (persists across restarts)
-    llm_stats = get_llm_stats()
+    llm_stats = lock_manager.get_llm_stats()
     
     # Use graph confidence directly as blended confidence
     # (Graph confidence already incorporates mapping quality and completeness)
@@ -1821,7 +1495,7 @@ def state():
         "agent_consumption": agent_consumption,
         "selected_sources": SOURCES_ADDED,
         "selected_agents": SELECTED_AGENTS,
-        "dev_mode": get_dev_mode(),  # Read from Redis for cross-process consistency
+        "dev_mode": lock_manager.get_dev_mode(),  # Read from Redis for cross-process consistency
         "auth_enabled": AUTH_ENABLED,
         "source_mode": source_mode
     })
@@ -1884,7 +1558,7 @@ async def get_data_quality_metadata(
         metadata = await asyncio.to_thread(agent_executor._aggregate_metadata, tenant_id)
         return JSONResponse(metadata)
     except Exception as e:
-        log(f"⚠️ Error fetching data quality metadata: {e}")
+        state_manager.log(f"⚠️ Error fetching data quality metadata: {e}")
         return JSONResponse({
             "overall_data_quality_score": 0.0,
             "drift_detected": False,
@@ -1942,7 +1616,7 @@ async def get_drift_alerts(
         
         return JSONResponse({"alerts": alerts})
     except Exception as e:
-        log(f"⚠️ Error fetching drift alerts: {e}")
+        state_manager.log(f"⚠️ Error fetching drift alerts: {e}")
         return JSONResponse({"alerts": [], "error": str(e)}, status_code=500)
 
 @app.get("/dcl/hitl-pending")
@@ -1983,7 +1657,7 @@ async def get_hitl_pending(
             "reviews": reviews
         })
     except Exception as e:
-        log(f"⚠️ Error fetching HITL pending: {e}")
+        state_manager.log(f"⚠️ Error fetching HITL pending: {e}")
         return JSONResponse({"pending_count": 0, "reviews": [], "error": str(e)}, status_code=500)
 
 @app.get("/dcl/repair-history")
@@ -2038,7 +1712,7 @@ async def get_repair_history(
         
         return JSONResponse({"repairs": repairs})
     except Exception as e:
-        log(f"⚠️ Error fetching repair history: {e}")
+        state_manager.log(f"⚠️ Error fetching repair history: {e}")
         return JSONResponse({"repairs": [], "error": str(e)}, status_code=500)
 
 @app.get("/connect")
@@ -2067,15 +1741,15 @@ async def connect(
     source_mode = "aam_connectors" if FeatureFlagConfig.is_enabled(FeatureFlag.USE_AAM_AS_SOURCE) else "demo_files"
     
     # Clear prior state (preserves dev_mode) for idempotent behavior
-    reset_state(exclude_dev_mode=True)
-    log(f"🔌 Connecting {len(source_list)} source(s) with {len(agent_list)} agent(s)...")
-    log(f"📂 Using {source_mode} for sources: {', '.join(source_list)} (tenant: {tenant_id})")
+    state_manager.reset_state(exclude_dev_mode=True)
+    state_manager.log(f"🔌 Connecting {len(source_list)} source(s) with {len(agent_list)} agent(s)...")
+    state_manager.log(f"📂 Using {source_mode} for sources: {', '.join(source_list)} (tenant: {tenant_id})")
     
     # Store selected agents globally
     SELECTED_AGENTS = agent_list
     
     # Log which model is being used
-    log(f"🤖 Using LLM model: {llm_model}")
+    state_manager.log(f"🤖 Using LLM model: {llm_model}")
     
     try:
         # Connect all sources in parallel using async concurrency
@@ -2088,13 +1762,13 @@ async def connect(
             if isinstance(result, Exception):
                 error_msg = f"{source_list[i]}: {str(result)}"
                 errors.append(error_msg)
-                log(f"❌ Error connecting {source_list[i]}: {str(result)}")
+                state_manager.log(f"❌ Error connecting {source_list[i]}: {str(result)}")
         
         if errors:
-            log(f"⚠️ Some sources failed to connect: {'; '.join(errors)}")
+            state_manager.log(f"⚠️ Some sources failed to connect: {'; '.join(errors)}")
             return JSONResponse({"error": f"Partial failure: {'; '.join(errors)}"}, status_code=207)
     except Exception as e:
-        log(f"❌ Connection error: {str(e)}")
+        state_manager.log(f"❌ Connection error: {str(e)}")
         return JSONResponse({"error": str(e)}, status_code=500)
     
     # Execute agents after all sources have completed and materialized views are ready
@@ -2102,21 +1776,21 @@ async def connect(
         # Check if DuckDB database exists before attempting agent execution
         if os.path.exists(DB_PATH):
             try:
-                log(f"🚀 Executing {len(agent_list)} agent(s) on unified DCL views (tenant: {tenant_id})")
-                await agent_executor.execute_agents_async(agent_list, tenant_id, ws_manager)
-                log(f"✅ Agent results stored in cache - accessible via /dcl/agents/{{agent_id}}/results")
+                state_manager.log(f"🚀 Executing {len(agent_list)} agent(s) on unified DCL views (tenant: {tenant_id})")
+                await agent_executor.execute_agents_async(agent_list, tenant_id, state_manager.ws_manager)
+                state_manager.log(f"✅ Agent results stored in cache - accessible via /dcl/agents/{{agent_id}}/results")
             except Exception as e:
-                log(f"❌ Agent execution failed: {e}")
+                state_manager.log(f"❌ Agent execution failed: {e}")
                 # Don't fail the entire connection if agents fail - log and continue
         else:
-            log(f"ℹ️ No materialized views available - skipping agent execution (DuckDB not created)")
+            state_manager.log(f"ℹ️ No materialized views available - skipping agent execution (DuckDB not created)")
     elif not agent_list:
-        log(f"ℹ️ No agents selected for execution")
+        state_manager.log(f"ℹ️ No agents selected for execution")
     elif not agent_executor:
-        log(f"⚠️ Agent executor not initialized - skipping agent execution")
+        state_manager.log(f"⚠️ Agent executor not initialized - skipping agent execution")
     
     # Broadcast state change to WebSocket clients
-    await broadcast_state_change("sources_connected")
+    await state_manager.broadcast_state_change("sources_connected")
     
     return JSONResponse({
         "ok": True, 
@@ -2130,32 +1804,32 @@ async def connect(
 # Keeping this commented out for reference. All reset+connect behavior is now handled by /connect.
 # @app.get("/reset")
 # async def reset():
-#     reset_state(exclude_dev_mode=True)
+#     state_manager.reset_state(exclude_dev_mode=True)
 #     # Broadcast state change to WebSocket clients
-#     await broadcast_state_change("demo_reset")
+#     await state_manager.broadcast_state_change("demo_reset")
 #     return JSONResponse({"ok": True})
 
 @app.get("/toggle_dev_mode")
 async def toggle_dev_mode(enabled: Optional[bool] = None):
     global DEV_MODE, rag_engine
     # Update both local and Redis state for backward compatibility
-    current_dev_mode = get_dev_mode()
+    current_dev_mode = lock_manager.get_dev_mode()
     if enabled is not None:
         DEV_MODE = enabled
-        set_dev_mode(enabled)
+        lock_manager.set_dev_mode(enabled)
     else:
         DEV_MODE = not current_dev_mode
-        set_dev_mode(DEV_MODE)
+        lock_manager.set_dev_mode(DEV_MODE)
     
     # Clear RAG cache when dev mode toggles
     if rag_engine:
         rag_engine.clear_cache()
-        log("🗑️ Cleared RAG cache due to dev mode toggle")
+        state_manager.log("🗑️ Cleared RAG cache due to dev mode toggle")
     
     status = "enabled" if DEV_MODE else "disabled"
-    log(f"🔧 Dev Mode {status} - {'AI/RAG mapping active' if DEV_MODE else 'Using heuristic-only mapping'}")
+    state_manager.log(f"🔧 Dev Mode {status} - {'AI/RAG mapping active' if DEV_MODE else 'Using heuristic-only mapping'}")
     # Broadcast state change to WebSocket clients
-    await broadcast_state_change("dev_mode_toggled")
+    await state_manager.broadcast_state_change("dev_mode_toggled")
     return JSONResponse({"dev_mode": DEV_MODE, "status": status})
 
 @app.post("/reset_llm_stats")
@@ -2165,9 +1839,9 @@ async def reset_llm_stats_endpoint():
     Note: LLM stats persist across all runs by default for cumulative tracking.
     Use this endpoint only when you want to reset the counters manually.
     """
-    reset_llm_stats()
-    stats = get_llm_stats()
-    log("🔄 LLM stats manually reset to 0")
+    lock_manager.reset_llm_stats()
+    stats = lock_manager.get_llm_stats()
+    state_manager.log("🔄 LLM stats manually reset to 0")
     return JSONResponse({
         "ok": True,
         "message": "LLM stats reset successfully",
@@ -2716,7 +2390,7 @@ async def create_connection(request: Request):
         
         con.close()
         
-        log(f"✅ New PostgreSQL connection '{connection_name}' saved successfully")
+        state_manager.log(f"✅ New PostgreSQL connection '{connection_name}' saved successfully")
         
         return JSONResponse({
             "success": True,

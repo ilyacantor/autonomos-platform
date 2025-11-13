@@ -4,13 +4,9 @@ Monitors Airbyte sync jobs and detects schema drift failures
 """
 import asyncio
 import logging
-import sys
-from pathlib import Path
 from typing import Optional, List
 from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
-
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from aam_hybrid.shared.config import settings
 from aam_hybrid.shared.database import AsyncSessionLocal

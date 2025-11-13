@@ -4,13 +4,9 @@ Subscribes to repair proposals and autonomously applies high-confidence fixes
 """
 import logging
 import uuid
-import sys
-from pathlib import Path
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 import httpx
-
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from aam_hybrid.shared.config import settings
 from aam_hybrid.shared.database import AsyncSessionLocal

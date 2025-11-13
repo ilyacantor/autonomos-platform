@@ -9,7 +9,7 @@ import time
 import subprocess
 
 # Add parent directory to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 
 from app.database import get_db
 from app.models import CanonicalStream

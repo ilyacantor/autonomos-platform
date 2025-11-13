@@ -22,23 +22,12 @@ import os
 import uuid
 from typing import Optional, List, Dict, Any
 from datetime import datetime
-from pathlib import Path
-import sys
 
 import redis
 
-current_dir = Path(__file__).parent
-project_root = current_dir.parent.parent
-sys.path.insert(0, str(project_root))
-sys.path.insert(0, str(current_dir))
-
 from app.contracts.canonical_event import DriftEvent, EntityEvent
 from app.config.feature_flags import FeatureFlagConfig, FeatureFlag
-
-try:
-    from repair_types import RepairSuggestion, RepairAction, RepairBatch
-except ImportError:
-    from .repair_types import RepairSuggestion, RepairAction, RepairBatch
+from aam_hybrid.core.repair_types import RepairSuggestion, RepairAction, RepairBatch
 
 try:
     from app.dcl_engine.llm_service import get_llm_service, LLMService

@@ -2,22 +2,18 @@ from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
 import logging
-import sys
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
-from shared import (
-    settings, get_db, init_db, HealthResponse,
-    ConnectionCreate, ConnectionResponse, SyncTrigger
-)
-from .service import (
+from aam_hybrid.shared.config import settings
+from aam_hybrid.shared.database import get_db, init_db
+from app.schemas.health import HealthResponse
+from app.schemas.connection import ConnectionCreate, ConnectionResponse, SyncTrigger
+from aam_hybrid.services.orchestrator.service import (
     onboard_connection,
     trigger_connection_sync,
     get_connection_by_id,
     list_connections
 )
-from .startup_check import validate_configuration
+from aam_hybrid.services.orchestrator.startup_check import validate_configuration
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

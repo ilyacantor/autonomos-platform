@@ -1,27 +1,22 @@
 import logging
 import httpx
 import uuid
-import sys
-from pathlib import Path
 from typing import List, Optional, Set
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from datetime import datetime
 from fastapi import WebSocket
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
-from shared import (
-    settings,
-    airbyte_client,
+from aam_hybrid.shared.config import settings
+from aam_hybrid.shared.airbyte_client import airbyte_client
+from aam_hybrid.shared.models import (
     Connection,
     SyncCatalogVersion,
     JobHistory,
     ConnectionStatus,
-    JobStatus,
-    ConnectionCreate,
-    ConnectionResponse
+    JobStatus
 )
+from app.schemas.connection import ConnectionCreate, ConnectionResponse
 
 logger = logging.getLogger(__name__)
 

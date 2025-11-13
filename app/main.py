@@ -43,10 +43,8 @@ try:
 except Exception as e:
     logger.warning(f"⚠️ Database initialization failed: {e}. Continuing without database...")
 
-# Add aam_hybrid to Python path for AAM service imports
-sys.path.insert(0, 'aam_hybrid')
-
 # Import AAM orchestration components
+# NOTE: aam_hybrid package must be installed (pip install -e .)
 AAM_AVAILABLE = False
 background_tasks = []
 try:

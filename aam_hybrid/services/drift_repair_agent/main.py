@@ -2,13 +2,12 @@ from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
 import logging
-import sys
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
-from shared import settings, get_db, init_db, HealthResponse, CatalogUpdate
-from .service import apply_catalog_update
+from aam_hybrid.shared.config import settings
+from aam_hybrid.shared.database import get_db, init_db
+from app.schemas.health import HealthResponse
+from aam_hybrid.shared.models import CatalogUpdate
+from aam_hybrid.services.drift_repair_agent.service import apply_catalog_update
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

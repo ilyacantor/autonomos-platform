@@ -1,10 +1,6 @@
-import sys
-from pathlib import Path
 import logging
 
 logger = logging.getLogger(__name__)
-
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from app.database import AsyncSessionLocal as AppAsyncSessionLocal, async_engine
 

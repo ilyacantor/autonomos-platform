@@ -11,19 +11,9 @@ New code should import from app.config.settings directly.
 
 from pydantic_settings import BaseSettings
 from typing import Optional
-import os
-import sys
 
 # Import unified settings from the main app config
-# Handle import path differences when running from different directories
-try:
-    from app.config.settings import settings as unified_settings
-except ImportError:
-    # Add parent directory to path for imports from aam_hybrid services
-    parent_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    if parent_dir not in sys.path:
-        sys.path.insert(0, parent_dir)
-    from app.config.settings import settings as unified_settings
+from app.config.settings import settings as unified_settings
 
 
 class Settings(BaseSettings):
