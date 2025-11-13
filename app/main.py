@@ -68,29 +68,6 @@ async def lifespan(app: FastAPI):
     # STARTUP PHASE
     logger.info("🚀 Starting AutonomOS application...")
     
-    # CRITICAL: Validate DATABASE_URL to prevent Neon connection
-    db_url = os.environ.get("DATABASE_URL", "")
-    if not db_url:
-        logger.error("❌ FATAL: DATABASE_URL environment variable not set!")
-        sys.exit(1)
-    
-    # Extract and log database host
-    try:
-        db_host = db_url.split('@')[1].split('/')[0] if '@' in db_url else 'unknown'
-        logger.info(f"📊 Database host: {db_host}")
-    except:
-        db_host = 'unknown'
-    
-    # Hard fail if connecting to disabled Neon database
-    if "neon.tech" in db_url:
-        logger.error(f"❌ FATAL: DATABASE_URL points to disabled Neon database!")
-        logger.error(f"   Found host: {db_host}")
-        logger.error(f"   Expected: pooler.supabase.com")
-        logger.error(f"   Fix: Update DATABASE_URL in deployment secrets to use Supabase")
-        sys.exit(1)
-    
-    logger.info(f"✅ Database validation passed: {db_host}")
-    
     # Initialize AAM database (create tables and enums)
     try:
         from aam_hybrid.shared.database import init_db
