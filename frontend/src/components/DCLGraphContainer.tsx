@@ -13,7 +13,7 @@ export default function DCLGraphContainer() {
   const [devMode, setDevMode] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showProgress, setShowProgress] = useState(false); // Separate flag to control progress bar visibility
-  const { state: dclState } = useDCLState();
+  const { state: dclState, isStale } = useDCLState();
   const [typingEvents, setTypingEvents] = useState<Array<{ text: string; isTyping: boolean; key: string }>>([]);
   const [selectedModel, setSelectedModel] = useState('gemini-2.5-flash');
   const [useAamSource, setUseAamSource] = useState(false);
@@ -26,6 +26,9 @@ export default function DCLGraphContainer() {
   // Persist LLM call count across state polls (like timer)
   const [persistedLlmCalls, setPersistedLlmCalls] = useState(0);
   const [startingLlmCalls, setStartingLlmCalls] = useState(0);
+  
+  // Track if we've attempted auto-run to prevent infinite retry loops
+  const autoRunAttemptedRef = React.useRef(false);
 
   // Auth helper - follows same pattern as aoaApi.ts
   const getAuthHeader = (): Record<string, string> => {
@@ -144,15 +147,30 @@ export default function DCLGraphContainer() {
     }
   }, [dclState?.events, typingEvents]);
 
+  // Reset auto-run attempt flag when cache becomes fresh
+  useEffect(() => {
+    if (!isStale) {
+      autoRunAttemptedRef.current = false;
+    }
+  }, [isStale]);
+
   // Auto-run graph on page load to display all nodes, sources, and agents
   // Note: showProgress remains false during auto-run at mount
   useEffect(() => {
     if (!dclState) return;
     
-    // Check if graph is empty (no nodes) and we haven't run yet
+    // Check if graph is empty (no nodes) or cached data is stale
     const hasNodes = dclState.graph?.nodes && dclState.graph.nodes.length > 0;
     
-    if (!hasNodes && !isProcessing) {
+    // Auto-run if:
+    // 1. (No nodes in graph OR cached data is stale) AND we haven't attempted yet
+    // This prevents infinite retry loops when refresh fails (both first-load and stale scenarios)
+    const shouldAutoRun = ((!hasNodes || isStale) && !autoRunAttemptedRef.current) && !isProcessing;
+    
+    if (shouldAutoRun) {
+      // Mark that we've attempted auto-run to prevent retry loops (both first-load and stale)
+      autoRunAttemptedRef.current = true;
+      
       // Auto-run the mapping to populate the graph (background operation - no progress bar)
       const autoRun = async () => {
         setIsProcessing(true);
@@ -179,18 +197,19 @@ export default function DCLGraphContainer() {
             throw new Error(error.detail || `HTTP error! status: ${response.status}`);
           }
 
-          console.log('[DCL] Auto-run successful');
+          console.log(`[DCL] Auto-run successful (triggered by: ${!hasNodes ? 'no nodes' : 'stale cache'})`);
           // Notify graph to update (event-driven)
           window.dispatchEvent(new Event('dcl-state-changed'));
         } catch (error) {
           console.error('[DCL] Error auto-running graph:', error);
+          // On error, user still has cached graph to view - no retry needed
         } finally {
           setTimeout(() => setIsProcessing(false), 1500);
         }
       };
       autoRun();
     }
-  }, [dclState, isProcessing]);
+  }, [dclState, isProcessing, isStale]);
 
   // Timer effect - tracks elapsed time during processing
   useEffect(() => {

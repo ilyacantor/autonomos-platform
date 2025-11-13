@@ -3,6 +3,11 @@ import { API_CONFIG, AUTH_TOKEN_KEY } from '../config/api';
 
 const TOKEN_EXPIRY_KEY = 'auth_token_expiry';
 
+// DCL State Cache constants
+const DCL_CACHE_KEY = 'aos.dclState.v1';
+const DCL_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const CACHE_VERSION = 1;
+
 interface RAGRetrieval {
   source_field: string;
   ontology_entity: string;
@@ -67,7 +72,14 @@ interface UseDCLStateReturn {
   state: DCLState | null;
   loading: boolean;
   error: Error | null;
+  isStale: boolean;
   refetch: () => Promise<void>;
+}
+
+interface CachedState {
+  state: DCLState;
+  timestamp: number;
+  version: number;
 }
 
 interface WebSocketMessage {
@@ -88,15 +100,99 @@ interface WebSocketMessage {
   };
 }
 
+// Cache helper functions
+function loadCachedState(): { state: DCLState; isStale: boolean } | null {
+  try {
+    const cached = localStorage.getItem(DCL_CACHE_KEY);
+    if (!cached) return null;
+
+    const parsed: CachedState = JSON.parse(cached);
+    
+    // Validate version
+    if (parsed.version !== CACHE_VERSION) {
+      console.log('[DCL Cache] Version mismatch, ignoring cache');
+      localStorage.removeItem(DCL_CACHE_KEY);
+      return null;
+    }
+
+    // Check if state is meaningful (has graph nodes)
+    if (!parsed.state?.graph?.nodes || parsed.state.graph.nodes.length === 0) {
+      console.log('[DCL Cache] Empty graph in cache, ignoring');
+      return null;
+    }
+
+    // Check TTL
+    const age = Date.now() - parsed.timestamp;
+    const isStale = age > DCL_CACHE_TTL_MS;
+
+    console.log(`[DCL Cache] Loaded cached state (age: ${Math.round(age / 1000)}s, stale: ${isStale})`);
+    
+    return { state: parsed.state, isStale };
+  } catch (err) {
+    console.error('[DCL Cache] Failed to load cache:', err);
+    localStorage.removeItem(DCL_CACHE_KEY);
+    return null;
+  }
+}
+
+function saveCachedState(state: DCLState): void {
+  try {
+    // Only cache meaningful state (non-empty graph)
+    if (!state?.graph?.nodes || state.graph.nodes.length === 0) {
+      return;
+    }
+
+    const cached: CachedState = {
+      state,
+      timestamp: Date.now(),
+      version: CACHE_VERSION,
+    };
+
+    localStorage.setItem(DCL_CACHE_KEY, JSON.stringify(cached));
+    console.log('[DCL Cache] State cached successfully');
+  } catch (err) {
+    console.error('[DCL Cache] Failed to save cache:', err);
+  }
+}
+
+function clearCachedState(): void {
+  try {
+    localStorage.removeItem(DCL_CACHE_KEY);
+    console.log('[DCL Cache] Cache cleared');
+  } catch (err) {
+    console.error('[DCL Cache] Failed to clear cache:', err);
+  }
+}
+
 export function useDCLState(): UseDCLStateReturn {
-  const [state, setState] = useState<DCLState | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Hydrate state from cache synchronously on mount
+  const [state, setState] = useState<DCLState | null>(() => {
+    const cached = loadCachedState();
+    if (cached) {
+      console.log('[DCL] Hydrated from cache');
+      return cached.state;
+    }
+    return null;
+  });
+  
+  const [loading, setLoading] = useState(() => {
+    // If we have cached state, we're not loading
+    const cached = loadCachedState();
+    return !cached;
+  });
+  
+  const [isStale, setIsStale] = useState(() => {
+    const cached = loadCachedState();
+    return cached ? cached.isStale : false;
+  });
+  
   const [error, setError] = useState<Error | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const maxReconnectAttempts = 10;
   const baseReconnectDelay = 1000;
+  const initialFetchDoneRef = useRef(false);
 
   const processWebSocketMessage = useCallback((message: any) => {
     try {
@@ -146,8 +242,10 @@ export function useDCLState(): UseDCLStateReturn {
       };
 
       setState(newState);
+      saveCachedState(newState); // Write-through to cache
       setError(null);
       setLoading(false);
+      setIsStale(false); // Fresh data from server
     } catch (err) {
       console.error('Error processing WebSocket message:', err);
       setError(err instanceof Error ? err : new Error('Failed to process message'));
@@ -248,9 +346,10 @@ export function useDCLState(): UseDCLStateReturn {
       
       if (!response.ok) {
         if (response.status === 401 && token) {
-          console.log('[DCL State] 401 Unauthorized - clearing auth state');
+          console.log('[DCL State] 401 Unauthorized - clearing auth and cache');
           localStorage.removeItem(AUTH_TOKEN_KEY);
           localStorage.removeItem(TOKEN_EXPIRY_KEY);
+          clearCachedState(); // Clear cache on auth failure
           window.dispatchEvent(new CustomEvent('auth:unauthorized'));
           return;
         }
@@ -258,8 +357,10 @@ export function useDCLState(): UseDCLStateReturn {
       }
       const data = await response.json();
       setState(data);
+      saveCachedState(data); // Write-through to cache
       setError(null);
       setLoading(false);
+      setIsStale(false); // Fresh data from server
     } catch (err) {
       setError(err instanceof Error ? err : new Error('Unknown error'));
       console.error('Error fetching DCL state:', err);
@@ -268,6 +369,13 @@ export function useDCLState(): UseDCLStateReturn {
 
   useEffect(() => {
     connectWebSocket();
+    
+    // If we hydrated from cache, trigger an immediate fetch to refresh
+    if (!initialFetchDoneRef.current) {
+      initialFetchDoneRef.current = true;
+      console.log('[DCL] Triggering initial state fetch for refresh');
+      fetchState();
+    }
 
     return () => {
       console.log('[DCL WebSocket] Cleaning up...');
@@ -282,7 +390,7 @@ export function useDCLState(): UseDCLStateReturn {
         wsRef.current = null;
       }
     };
-  }, [connectWebSocket]);
+  }, [connectWebSocket, fetchState]);
 
-  return { state, loading, error, refetch: fetchState };
+  return { state, loading, error, isStale, refetch: fetchState };
 }
