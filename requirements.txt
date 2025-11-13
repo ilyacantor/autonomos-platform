@@ -32,10 +32,7 @@ python-jose[cryptography]
 PyJWT
 
 # AI/ML - NOTE: Install requirements-cpu.txt FIRST for CPU-only PyTorch
-# Pin torch to CPU version to prevent sentence-transformers from upgrading to GPU
-torch==2.5.0+cpu
-torchvision==0.20.0+cpu
-torchaudio==2.5.0+cpu
+# torch/torchvision/torchaudio are installed by requirements-cpu.txt
 sentence-transformers==3.3.1
 google-generativeai==0.8.5
 openai
