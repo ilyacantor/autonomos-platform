@@ -25,11 +25,57 @@ interface Connector {
   last_sync_at: string | null;
 }
 
+const DEMO_CONNECTORS: Connector[] = [
+  {
+    id: 'demo-salesforce-001',
+    name: 'Salesforce Production',
+    source_type: 'salesforce',
+    status: 'ACTIVE',
+    mapping_count: 12,
+    has_drift: false,
+    last_event_type: 'schema_validation',
+    last_event_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+    last_sync_status: 'succeeded',
+    last_sync_records: 1547,
+    last_sync_bytes: 2456789,
+    last_sync_at: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 'demo-mongodb-001',
+    name: 'MongoDB Production',
+    source_type: 'mongodb',
+    status: 'ACTIVE',
+    mapping_count: 8,
+    has_drift: false,
+    last_event_type: 'field_mapping',
+    last_event_at: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
+    last_sync_status: 'succeeded',
+    last_sync_records: 892,
+    last_sync_bytes: 1234567,
+    last_sync_at: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 'demo-filesource-001',
+    name: 'FilesSource Demo',
+    source_type: 'filesource',
+    status: 'ACTIVE',
+    mapping_count: 35,
+    has_drift: true,
+    last_event_type: 'drift_detected',
+    last_event_at: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+    last_sync_status: 'succeeded',
+    last_sync_records: 456,
+    last_sync_bytes: 987654,
+    last_sync_at: new Date(Date.now() - 25 * 60 * 1000).toISOString(),
+  },
+];
+
 export default function ConnectPage() {
   const { isAuthenticated } = useAuth();
   const [connectors, setConnectors] = useState<Connector[]>([]);
   const [loading, setLoading] = useState(false);
   const [expandedConnector, setExpandedConnector] = useState<string | null>(null);
+  const [showDemo, setShowDemo] = useState(false);
 
   const getAuthHeaders = (): HeadersInit => {
     const token = localStorage.getItem(AUTH_TOKEN_KEY);
@@ -48,15 +94,24 @@ export default function ConnectPage() {
       
       if (response.status === 401) {
         console.log('No tenant context — sign in or select tenant.');
-        setConnectors([]);
+        setConnectors(DEMO_CONNECTORS);
+        setShowDemo(true);
         return;
       }
       
       if (!response.ok) throw new Error('Failed to fetch connectors');
       const data = await response.json();
-      setConnectors(data.connectors || []);
+      if (!data.connectors || data.connectors.length === 0) {
+        setConnectors(DEMO_CONNECTORS);
+        setShowDemo(true);
+      } else {
+        setConnectors(data.connectors);
+        setShowDemo(false);
+      }
     } catch (err) {
       console.error('Error fetching connectors:', err);
+      setConnectors(DEMO_CONNECTORS);
+      setShowDemo(true);
     } finally {
       setLoading(false);
     }
@@ -142,7 +197,14 @@ export default function ConnectPage() {
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-white mb-2">AOS Connector Details</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold text-white mb-2">AOS Connector Details</h1>
+            {showDemo && (
+              <span className="px-3 py-1 bg-amber-500/10 border border-amber-500/30 rounded-full text-xs font-medium text-amber-400">
+                Demo
+              </span>
+            )}
+          </div>
           <p className="text-gray-400">
             Individual connection details with mappings and drift status
           </p>
