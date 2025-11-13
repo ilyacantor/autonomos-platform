@@ -1411,6 +1411,12 @@ async def startup_event():
     except Exception as e:
         state_manager.log(f"⚠️ AgentExecutor initialization failed: {e}. Continuing without agent execution.")
 
+    # Restore persisted graph state from DuckDB (if exists)
+    try:
+        state_manager.restore_graph_state()
+    except Exception as e:
+        state_manager.log(f"⚠️ Graph state restoration failed: {e}. Starting with empty graph.")
+
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -1788,13 +1794,19 @@ async def connect(
         state_manager.log(f"ℹ️ No agents selected for execution")
     elif not agent_executor:
         state_manager.log(f"⚠️ Agent executor not initialized - skipping agent execution")
-    
+
+    # Persist graph state to DuckDB for recovery across restarts
+    try:
+        state_manager.save_graph_state()
+    except Exception as e:
+        state_manager.log(f"⚠️ Failed to persist graph state: {e}")
+
     # Broadcast state change to WebSocket clients
     await state_manager.broadcast_state_change("sources_connected")
-    
+
     return JSONResponse({
-        "ok": True, 
-        "sources": SOURCES_ADDED, 
+        "ok": True,
+        "sources": SOURCES_ADDED,
         "agents": agent_list,
         "source_mode": source_mode,
         "tenant_id": tenant_id

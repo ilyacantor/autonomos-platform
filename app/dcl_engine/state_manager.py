@@ -8,6 +8,7 @@ import json
 import asyncio
 import logging
 import threading
+import duckdb
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from fastapi import WebSocket
@@ -225,6 +226,85 @@ class StateManager:
 
         except Exception as e:
             self.log(f"⚠️ Error broadcasting state change: {e}")
+
+    def save_graph_state(self):
+        """
+        Persist GRAPH_STATE to DuckDB for state recovery across restarts.
+        Creates a graph_state table if it doesn't exist and stores the current state.
+        """
+        try:
+            # Only save if there are nodes (skip empty state saves)
+            if not self.GRAPH_STATE.get("nodes"):
+                logger.debug("Skipping graph state save - no nodes present")
+                return
+
+            lock_id = lock_manager.acquire_db_lock()
+            try:
+                con = duckdb.connect(DB_PATH, config={'access_mode': 'READ_WRITE'})
+
+                # Create table if it doesn't exist
+                con.execute("""
+                    CREATE TABLE IF NOT EXISTS dcl_graph_state (
+                        id INTEGER PRIMARY KEY,
+                        state_json TEXT,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+
+                # Serialize graph state to JSON
+                state_json = json.dumps(self.GRAPH_STATE)
+
+                # Upsert the state (always keep only the latest state)
+                con.execute("""
+                    INSERT OR REPLACE INTO dcl_graph_state (id, state_json, updated_at)
+                    VALUES (1, ?, CURRENT_TIMESTAMP)
+                """, [state_json])
+
+                con.close()
+                logger.info(f"✅ Graph state persisted ({len(self.GRAPH_STATE['nodes'])} nodes, {len(self.GRAPH_STATE['edges'])} edges)")
+            finally:
+                lock_manager.release_db_lock(lock_id)
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to save graph state: {e}")
+
+    def restore_graph_state(self):
+        """
+        Restore GRAPH_STATE from DuckDB on startup.
+        If no persisted state exists, keeps the empty initial state.
+        """
+        try:
+            # Check if DB file exists
+            if not os.path.exists(DB_PATH):
+                logger.info("No persisted DCL database found - starting with empty graph")
+                return
+
+            lock_id = lock_manager.acquire_db_lock()
+            try:
+                con = duckdb.connect(DB_PATH, read_only=True)
+
+                # Check if graph_state table exists
+                tables = con.execute("SHOW TABLES").fetchall()
+                table_names = [t[0] for t in tables]
+
+                if 'dcl_graph_state' not in table_names:
+                    logger.info("No graph state table found - starting with empty graph")
+                    con.close()
+                    return
+
+                # Fetch the latest state
+                result = con.execute("SELECT state_json FROM dcl_graph_state WHERE id = 1").fetchone()
+                con.close()
+
+                if result and result[0]:
+                    restored_state = json.loads(result[0])
+                    self.GRAPH_STATE = restored_state
+                    logger.info(f"✅ Graph state restored from database ({len(self.GRAPH_STATE['nodes'])} nodes, {len(self.GRAPH_STATE['edges'])} edges)")
+                else:
+                    logger.info("No persisted graph state found - starting with empty graph")
+            finally:
+                lock_manager.release_db_lock(lock_id)
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to restore graph state: {e} - starting with empty graph")
 
 
 # Global instance for backward compatibility
