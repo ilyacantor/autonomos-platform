@@ -2,5 +2,5 @@
 # This must be installed before sentence-transformers
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch==2.5.0+cpu
-+torchvision==0.21.0+cpu
+torchvision==0.21.0+cpu
 torchaudio==2.5.0+cpu
