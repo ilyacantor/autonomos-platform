@@ -1,8 +1,10 @@
 services:
+  # Production Service
   - type: web
     name: autonomos-platform
     runtime: python
     plan: starter
+    branch: main
     buildCommand: pip install -r requirements.txt
     startCommand: bash start.sh
     envVars:
@@ -24,5 +26,67 @@ services:
         sync: false
       - key: SLACK_WEBHOOK_URL
         sync: false
+      - key: ENVIRONMENT
+        value: production
     healthCheckPath: /
     autoDeploy: true
+
+  # Preview Service (for PR branches)
+  - type: web
+    name: autonomos-platform-preview
+    runtime: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: bash start.sh
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: autonomos-redis-preview
+          property: connectionString
+      - key: DATABASE_URL
+        fromDatabase:
+          name: autonomos-db-preview
+          property: connectionString
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: PINECONE_API_KEY
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: API_KEY
+        generateValue: true
+      - key: ALLOWED_WEB_ORIGIN
+        fromService:
+          type: web
+          name: autonomos-platform-preview
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: SLACK_WEBHOOK_URL
+        sync: false
+      - key: ENVIRONMENT
+        value: preview
+      - key: DISABLE_AUTO_MIGRATIONS
+        value: false
+    healthCheckPath: /
+    previewsEnabled: true
+    previewsExpireAfterDays: 7
+
+databases:
+  # Production Database
+  - name: autonomos-db
+    plan: starter
+    databaseName: autonomos_prod
+    user: autonomos_user
+
+  # Preview Database
+  - name: autonomos-db-preview
+    plan: starter
+    databaseName: autonomos_preview
+    user: autonomos_preview_user
+
+  # Preview Redis
+  - name: autonomos-redis-preview
+    plan: starter
+    maxmemoryPolicy: allkeys-lru
