@@ -14,9 +14,9 @@ redis
 rq
 
 # Data validation
-pydantic
-pydantic-settings
-pydantic[email]
+pydantic==2.5.3
+pydantic-settings==2.1.0
+pydantic[email]==2.5.3
 
 # Utilities
 python-dotenv
