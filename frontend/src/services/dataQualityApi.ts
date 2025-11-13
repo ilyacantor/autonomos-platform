@@ -1,4 +1,5 @@
 import { API_CONFIG } from '../config/api';
+import type { SourceInfo } from '../types/dcl';
 
 export interface DataQualityMetadata {
   overall_data_quality_score: number;
@@ -9,7 +10,7 @@ export interface DataQualityMetadata {
   sources_with_drift: string[];
   low_confidence_sources: string[];
   overall_confidence: number | null;
-  sources: Record<string, any>;
+  sources: Record<string, SourceInfo>;
 }
 
 export interface DriftAlert {

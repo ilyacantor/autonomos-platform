@@ -641,7 +641,7 @@ export default function DCLGraphContainer() {
                   <div className="text-white mb-2 text-[11px]">
                     Retrieved {dclState.rag.last_retrieval_count} similar mappings:
                   </div>
-                  {dclState.rag.retrievals.map((ret: any, i: number) => (
+                  {dclState.rag.retrievals.map((ret, i: number) => (
                     <div key={i} className="mb-2 pb-2 border-b border-teal-800/30 last:border-0">
                       <div className="flex justify-between items-start mb-1">
                         <div className="text-white text-[11px]">{ret.source_field}</div>

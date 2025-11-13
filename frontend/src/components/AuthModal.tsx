@@ -2,6 +2,10 @@ import { useState, useEffect, useRef } from 'react';
 import { X, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 
+interface AuthError extends Error {
+  message: string;
+}
+
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -46,8 +50,9 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
     try {
       await login(loginEmail, loginPassword);
       onClose();
-    } catch (err: any) {
-      setError(err.message || 'Invalid credentials');
+    } catch (err) {
+      const error = err as AuthError;
+      setError(error.message || 'Invalid credentials');
     } finally {
       setIsLoading(false);
     }
@@ -61,8 +66,9 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
     try {
       await register(registerName, registerEmail, registerPassword);
       onClose();
-    } catch (err: any) {
-      setError(err.message || 'Registration failed');
+    } catch (err) {
+      const error = err as AuthError;
+      setError(error.message || 'Registration failed');
     } finally {
       setIsLoading(false);
     }

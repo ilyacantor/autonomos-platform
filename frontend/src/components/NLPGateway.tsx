@@ -4,6 +4,7 @@ import LiveStatusBadge from './LiveStatusBadge';
 import { getLiveStatus } from '../config/liveStatus';
 import type { PersonaSlug } from '../types/persona';
 import { slugToLabel } from '../types/persona';
+import type { NLPQueryResponse, NLPMatch } from '../types/api';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -77,21 +78,21 @@ export default function NLPGateway({ persona }: NLPGatewayProps) {
         }),
       });
 
-      const data = await response.json();
-      
+      const data: NLPQueryResponse = await response.json();
+
       // Update resolved persona if available
       if (data.resolved_persona) {
         setResolvedPersona(data.resolved_persona);
       }
-      
+
       let content = '';
       let sources: string[] = [];
-      
+
       if (data.matches) {
-        content = data.matches.map((m: any, i: number) => 
+        content = data.matches.map((m: NLPMatch, i: number) =>
           `${i + 1}. ${m.title}\n${m.content}\nScore: ${m.score.toFixed(3)}`
         ).join('\n\n');
-        sources = data.matches.map((m: any) => `${m.title}: ${m.section}`);
+        sources = data.matches.map((m: NLPMatch) => `${m.title}: ${m.section}`);
       } else if (data.response) {
         content = data.response;
       } else {

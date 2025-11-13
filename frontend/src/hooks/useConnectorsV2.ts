@@ -40,9 +40,10 @@ export function useConnectorsV2(): UseConnectorsV2Result {
 
       const response: ConnectorsResponse = await fetchConnectors(API_CONFIG.BASE_URL, token);
       setConnectors(response.connectors || []);
-    } catch (err: any) {
-      console.error('Error fetching connectors (v2):', err);
-      setError(err.message || 'Failed to load connectors');
+    } catch (err) {
+      const error = err as Error;
+      console.error('Error fetching connectors (v2):', error);
+      setError(error.message || 'Failed to load connectors');
       setConnectors([]);
     } finally {
       setLoading(false);

@@ -10,7 +10,7 @@ interface HITLAsset {
   vendor: string;
   discovered_at: string;
   reason: string;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 interface HITLDecision {
