@@ -479,12 +479,12 @@ class AAMSourceAdapter(BaseSourceAdapter):
             return materialized_tables
             
         except Exception as e:
-            # CRITICAL DEBUG: Print directly to console (bypasses logging config issues)
+            # CRITICAL DEBUG: Log error with full traceback
             import traceback
-            print(f"🚨 AAMSourceAdapter.load_tables() EXCEPTION for '{source_id}':")
-            print(f"🚨 Error: {e}")
-            print(f"🚨 Traceback:")
-            traceback.print_exc()
+            logger.error(f"🚨 AAMSourceAdapter.load_tables() EXCEPTION for '{source_id}':")
+            logger.error(f"🚨 Error: {e}")
+            logger.error(f"🚨 Traceback:")
+            logger.error(traceback.format_exc())
             self.logger.error(f"Failed to load tables from AAM source '{source_id}': {e}", exc_info=True)
             return {}
     

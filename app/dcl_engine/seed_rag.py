@@ -3,14 +3,18 @@ Seed script to populate RAG Engine with initial schema mappings.
 Run this to bootstrap the RAG with known-good mappings from existing schemas.
 """
 
+import logging
 from rag_engine import RAGEngine
+
+# Configure logger
+logger = logging.getLogger(__name__)
 
 def seed_common_mappings():
     """Seed RAG with common field mappings across enterprise systems."""
-    
+
     rag = RAGEngine(persist_dir="./chroma_db")
-    
-    print("🌱 Seeding RAG with common enterprise schema mappings...")
+
+    logger.info("🌱 Seeding RAG with common enterprise schema mappings...")
     
     # Salesforce common mappings
     salesforce_mappings = [
@@ -98,15 +102,16 @@ def seed_common_mappings():
             validated=True  # These are curated/validated mappings
         )
         count += 1
-    
+
+
     stats = rag.get_stats()
-    print(f"\n✅ Seeded {count} mappings")
-    print(f"📊 Total mappings in store: {stats['total_mappings']}")
-    print(f"🧠 Embedding model: {stats['embedding_model']}")
-    print(f"📐 Dimension: {stats['embedding_dimension']}")
-    
+    logger.info(f"\n✅ Seeded {count} mappings")
+    logger.info(f"📊 Total mappings in store: {stats['total_mappings']}")
+    logger.info(f"🧠 Embedding model: {stats['embedding_model']}")
+    logger.info(f"📐 Dimension: {stats['embedding_dimension']}")
+
     # Test retrieval
-    print("\n🔍 Testing retrieval...")
+    logger.info("\n🔍 Testing retrieval...")
     test_fields = [
         ("AccountId", "string", "Salesforce"),
         ("EMAIL", "string", "Legacy_SQL"),
@@ -115,9 +120,9 @@ def seed_common_mappings():
     
     for field, ftype, system in test_fields:
         similar = rag.retrieve_similar_mappings(field, ftype, system, top_k=3)
-        print(f"\n  Query: {field} ({system})")
+        logger.info(f"\n  Query: {field} ({system})")
         for s in similar[:2]:
-            print(f"    → {s['ontology_entity']} (similarity: {s['similarity']:.2f}, conf: {s['confidence']:.2f})")
+            logger.info(f"    → {s['ontology_entity']} (similarity: {s['similarity']:.2f}, conf: {s['confidence']:.2f})")
 
 if __name__ == "__main__":
     seed_common_mappings()

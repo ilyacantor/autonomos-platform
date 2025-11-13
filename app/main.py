@@ -39,9 +39,9 @@ from app import nlp_simple
 # Initialize database tables - with error handling for resilience
 try:
     models.Base.metadata.create_all(bind=engine)
-    print("✅ Database tables initialized successfully")
+    logger.info("✅ Database tables initialized successfully")
 except Exception as e:
-    print(f"⚠️ Database initialization failed: {e}. Continuing without database...")
+    logger.warning(f"⚠️ Database initialization failed: {e}. Continuing without database...")
 
 # Add aam_hybrid to Python path for AAM service imports
 sys.path.insert(0, 'aam_hybrid')
@@ -56,11 +56,11 @@ try:
     from aam_hybrid.services.orchestrator.service import handle_status_update, manager
     from aam_hybrid.shared.event_bus import event_bus
     AAM_AVAILABLE = True
-    print("✅ AAM Hybrid orchestration modules imported successfully")
+    logger.info("✅ AAM Hybrid orchestration modules imported successfully")
 except ImportError as e:
-    print(f"⚠️ AAM Hybrid orchestration not available: {e}")
+    logger.warning(f"⚠️ AAM Hybrid orchestration not available: {e}")
 except Exception as e:
-    print(f"⚠️ AAM Hybrid orchestration initialization error: {e}")
+    logger.warning(f"⚠️ AAM Hybrid orchestration initialization error: {e}")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -254,9 +254,9 @@ try:
     app.middleware("http")(idempotency_middleware)
     app.middleware("http")(audit_middleware)
 
-    print("✅ Gateway middleware registered successfully")
+    logger.info("✅ Gateway middleware registered successfully")
 except Exception as e:
-    print(f"⚠️ Gateway middleware not available: {e}")
+    logger.warning(f"⚠️ Gateway middleware not available: {e}")
 
 # Use REDIS_URL if available (production), otherwise use host/port (development)
 # Redis is optional - if not available, task queue features will be disabled
@@ -269,16 +269,16 @@ try:
         # Upstash requires TLS connections, and rediss:// protocol enables this
         if REDIS_URL.startswith("redis://"):
             REDIS_URL = "rediss://" + REDIS_URL[8:]
-            print("🔒 Using TLS/SSL for Redis connection (rediss:// protocol)")
+            logger.info("🔒 Using TLS/SSL for Redis connection (rediss:// protocol)")
 
         redis_conn = Redis.from_url(REDIS_URL, decode_responses=False)
     else:
         redis_conn = Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB)
 
     task_queue = Queue(connection=redis_conn)
-    print("✅ Redis connected successfully")
+    logger.info("✅ Redis connected successfully")
 except Exception as e:
-    print(f"⚠️ Redis not available: {e}. Task queue features disabled.")
+    logger.warning(f"⚠️ Redis not available: {e}. Task queue features disabled.")
     redis_conn = None
     task_queue = None
 
@@ -292,9 +292,9 @@ try:
         set_redis_client(redis_conn)
 
     app.mount("/dcl", dcl_app)
-    print("✅ DCL Engine mounted successfully at /dcl")
+    logger.info("✅ DCL Engine mounted successfully at /dcl")
 except Exception as e:
-    print(f"⚠️ Failed to mount DCL Engine: {e}")
+    logger.warning(f"⚠️ Failed to mount DCL Engine: {e}")
     import traceback
     traceback.print_exc()
 
@@ -328,7 +328,7 @@ if os.path.exists(STATIC_DIR) and os.path.isdir(STATIC_DIR):
         abs_index = os.path.abspath(index_path)
         abs_static = os.path.abspath(STATIC_DIR)
         host = request.headers.get("host", "unknown")
-        print(f"[INDEX] host={host} index={abs_index} static={abs_static}")
+        logger.debug(f"[INDEX] host={host} index={abs_index} static={abs_static}")
         if os.path.exists(index_path):
             return FileResponse(
                 index_path,
@@ -418,7 +418,7 @@ if os.path.exists(STATIC_DIR) and os.path.isdir(STATIC_DIR):
         """Serve AAM Monitor frontend page"""
         index_path = os.path.join(STATIC_DIR, "index.html")
         host = request.headers.get("host", "unknown")
-        print(f"[AAM MONITOR] host={host} -> serving index.html")
+        logger.debug(f"[AAM MONITOR] host={host} -> serving index.html")
         if os.path.exists(index_path):
             return FileResponse(
                 index_path,

@@ -231,7 +231,6 @@ async def discover(
         f"AOD_URL={settings.AOD_BASE_URL}"
     )
     logger.info(log_msg)
-    print(log_msg)  # Ensure console output for debugging
     logger.debug(f"[DISCOVER E2E] Full request payload: {request.dict()}")
     
     # ═══════════════════════════════════════════════════════════
@@ -270,7 +269,6 @@ async def discover(
             f"AOD_URL={settings.AOD_BASE_URL}"
         )
         logger.error(error_log)
-        print(error_log)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Failed to reach AOS Discover service: {str(e)}. "
@@ -292,7 +290,6 @@ async def discover(
         f"timestamp={aod_timestamp}"
     )
     logger.info(log_msg2)
-    print(log_msg2)  # Ensure console output for debugging
     logger.debug(f"[DISCOVER E2E] Full AOD response sample: {str(aod_response)[:500]}...")
     
     # ═══════════════════════════════════════════════════════════
@@ -332,7 +329,6 @@ async def discover(
         f"priority={priority} | status={handoff_status} | avg_confidence={avg_confidence:.2f}"
     )
     logger.info(log_msg3)
-    print(log_msg3)  # Ensure console output for debugging
     
     logger.info(
         f"[DISCOVER E2E] ✓ Discovery flow completed successfully | "
@@ -382,9 +378,8 @@ async def demo_scan(
     import time
     start_time = time.time()
     request_id = str(uuid.uuid4())
-    
+
     logger.info(f"[DEMO SCAN] Starting full asset scan | request_id={request_id} | tenant_id={current_user.tenant_id}")
-    print(f"[DEMO SCAN] Starting full asset scan | request_id={request_id}")
     
     # Call AOD with full scan query
     try:
@@ -414,7 +409,6 @@ async def demo_scan(
     except httpx.HTTPError as e:
         error_msg = f"[DEMO SCAN] AOD service call failed: {str(e)}"
         logger.error(error_msg)
-        print(error_msg)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Failed to reach AOS Discover service: {str(e)}"
@@ -439,7 +433,6 @@ async def demo_scan(
         f"medium_risk={medium_risk} | low_risk={low_risk} | "
         f"processing_time_ms={processing_time_ms}"
     )
-    print(f"[DEMO SCAN] ✓ Scan completed: {aod_total} assets discovered")
     
     # Return scan results
     return {

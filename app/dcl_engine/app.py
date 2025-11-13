@@ -31,7 +31,7 @@ AUTH_ENABLED = False  # Set to True to enable authentication, False to bypass
 if os.getenv("GEMINI_API_KEY"):
     genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 else:
-    print("⚠️ GEMINI_API_KEY not set. LLM proposals may be unavailable.")
+    logger.warning("⚠️ GEMINI_API_KEY not set. LLM proposals may be unavailable.")
 
 EVENT_LOG: List[str] = []
 GRAPH_STATE = {"nodes": [], "edges": [], "confidence": None, "last_updated": None}
@@ -116,23 +116,23 @@ def set_redis_client(client):
     # Wrap the client to provide decode_responses=True behavior
     redis_client = RedisDecodeWrapper(client)
     redis_available = client is not None
-    
+
     if redis_available:
-        print(f"✅ DCL Engine: Using shared Redis client from main app", flush=True)
-        
+        logger.info(f"✅ DCL Engine: Using shared Redis client from main app")
+
         # Initialize dev_mode now that we have a Redis client
         try:
             default_mode = "false"  # Default to Prod Mode
             redis_client.set(DEV_MODE_KEY, default_mode)
             _dev_mode_initialized = True
-            print(f"🚀 DCL Engine: Initialized dev_mode = {default_mode} (Prod Mode) in Redis", flush=True)
+            logger.info(f"🚀 DCL Engine: Initialized dev_mode = {default_mode} (Prod Mode) in Redis")
         except Exception as e:
-            print(f"⚠️ DCL Engine: Failed to initialize dev_mode: {e}, using in-memory fallback", flush=True)
+            logger.warning(f"⚠️ DCL Engine: Failed to initialize dev_mode: {e}, using in-memory fallback")
             global in_memory_dev_mode
             in_memory_dev_mode = False
             _dev_mode_initialized = True
     else:
-        print(f"⚠️ DCL Engine: No Redis client provided, using in-memory state", flush=True)
+        logger.warning(f"⚠️ DCL Engine: No Redis client provided, using in-memory state")
         in_memory_dev_mode = False
         _dev_mode_initialized = True
 
@@ -302,7 +302,7 @@ def reset_llm_stats():
         LLM_TOKENS = 0
 
 def log(msg: str):
-    print(msg, flush=True)
+    logger.info(msg)
     if not EVENT_LOG or EVENT_LOG[-1] != msg:
         EVENT_LOG.append(msg)
     if len(EVENT_LOG) > 50:
