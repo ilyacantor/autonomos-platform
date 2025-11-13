@@ -10,7 +10,6 @@ import {
   Zap,
   Brain,
   Shield,
-  TrendingUp,
   GitBranch
 } from 'lucide-react';
 import { API_CONFIG, AUTH_TOKEN_KEY } from '../config/api';
@@ -278,51 +277,6 @@ export default function ConnectPage() {
                   <div className="h-full bg-gradient-to-r from-green-500 to-emerald-500 animate-pulse" style={{ width: '86%' }} />
                 </div>
               </div>
-            </div>
-          </div>
-
-          <div className="bg-black/40 backdrop-blur-sm border border-gray-700 rounded-lg p-4">
-            <div className="flex items-center gap-2 mb-4">
-              <TrendingUp className="w-4 h-4 text-gray-400" />
-              <span className="text-sm font-medium text-gray-300">Mesh Activity Visualization</span>
-            </div>
-            <div className="relative h-32 bg-gray-900/50 rounded-lg overflow-hidden">
-              <div className="absolute inset-0 flex items-center justify-center gap-8">
-                {[...Array(8)].map((_, i) => (
-                  <div
-                    key={i}
-                    className="relative"
-                    style={{ 
-                      animation: `pulse ${2 + i * 0.3}s ease-in-out infinite`,
-                      animationDelay: `${i * 0.2}s`
-                    }}
-                  >
-                    <div className={`w-3 h-3 rounded-full ${
-                      i % 3 === 0 ? 'bg-green-500' : i % 3 === 1 ? 'bg-blue-500' : 'bg-purple-500'
-                    }`} />
-                    <div className={`absolute inset-0 rounded-full ${
-                      i % 3 === 0 ? 'bg-green-500' : i % 3 === 1 ? 'bg-blue-500' : 'bg-purple-500'
-                    } opacity-20 animate-ping`} />
-                  </div>
-                ))}
-              </div>
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-purple-500/5 to-transparent animate-pulse" />
-              <svg className="absolute inset-0 w-full h-full opacity-20">
-                <defs>
-                  <linearGradient id="meshGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#8B5CF6" />
-                    <stop offset="50%" stopColor="#3B82F6" />
-                    <stop offset="100%" stopColor="#10B981" />
-                  </linearGradient>
-                </defs>
-                <line x1="10%" y1="50%" x2="90%" y2="50%" stroke="url(#meshGradient)" strokeWidth="1" />
-                <line x1="25%" y1="30%" x2="75%" y2="70%" stroke="url(#meshGradient)" strokeWidth="1" />
-                <line x1="25%" y1="70%" x2="75%" y2="30%" stroke="url(#meshGradient)" strokeWidth="1" />
-              </svg>
-            </div>
-            <div className="mt-3 flex items-center justify-between text-xs text-gray-500">
-              <span>Real-time data flow across adaptive mesh topology</span>
-              <span className="text-green-400">● LIVE</span>
             </div>
           </div>
         </div>
