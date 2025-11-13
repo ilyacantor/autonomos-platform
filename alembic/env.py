@@ -15,10 +15,31 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 # access to the values within the .ini file in use.
 config = context.config
 
-# Get DATABASE_URL from environment variable
-database_url = os.getenv("DATABASE_URL")
-if database_url:
-    config.set_main_option("sqlalchemy.url", database_url)
+# Get DATABASE_URL from environment variable (REQUIRED - no fallback)
+database_url = os.environ.get("DATABASE_URL")
+if not database_url:
+    raise RuntimeError(
+        "❌ FATAL: DATABASE_URL environment variable is required for migrations.\n"
+        "   Please set DATABASE_URL in your environment."
+    )
+
+# Validate that we're not connecting to disabled Neon database
+if "neon.tech" in database_url:
+    raise RuntimeError(
+        f"❌ FATAL: DATABASE_URL points to Neon database (disabled).\n"
+        f"   Found: {database_url[:50]}...\n"
+        f"   Expected: Supabase pooler.supabase.com"
+    )
+
+# Remove prepare_threshold for Alembic (psycopg2 doesn't support it)
+import re
+if "prepare_threshold" in database_url:
+    database_url = re.sub(r'[&?]prepare_threshold=\d+', '', database_url)
+    database_url = re.sub(r'[?&]$', '', database_url)
+    print("🔧 Alembic: Removed prepare_threshold for psycopg2 compatibility")
+
+config.set_main_option("sqlalchemy.url", database_url)
+print(f"✅ Alembic using database: {database_url.split('@')[1].split('/')[0] if '@' in database_url else 'localhost'}")
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
