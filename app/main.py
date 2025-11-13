@@ -47,6 +47,8 @@ except Exception as e:
 # NOTE: aam_hybrid package must be installed (pip install -e .)
 AAM_AVAILABLE = False
 background_tasks = []
+dcl_app = None  # Initialize to None - will be set later if DCL engine imports successfully
+redis_conn = None  # Initialize to None - will be set later if Redis is available
 try:
     from aam_hybrid.services.schema_observer.service import SchemaObserver
     from aam_hybrid.services.rag_engine.service import RAGEngine as AAMRAGEngine
@@ -258,7 +260,6 @@ except Exception as e:
 
 # Use REDIS_URL if available (production), otherwise use host/port (development)
 # Redis is optional - if not available, task queue features will be disabled
-redis_conn = None
 task_queue = None
 try:
     REDIS_URL = os.getenv("REDIS_URL")
