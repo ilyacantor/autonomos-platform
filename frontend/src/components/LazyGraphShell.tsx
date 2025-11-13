@@ -38,11 +38,11 @@ export default function LazyGraphShell() {
   }, [isGraphActive]);
 
   return (
-    <div ref={observerRef} className="w-full">
+    <div ref={observerRef} className="w-full h-full min-h-[400px]">
       {isGraphActive ? (
         <Suspense
           fallback={
-            <div className="rounded-xl bg-gray-800/40 border border-gray-700 shadow-sm ring-1 ring-cyan-500/10 p-8 w-full md:min-h-[400px] flex items-center justify-center">
+            <div className="rounded-xl bg-gray-800/40 border border-gray-700 shadow-sm ring-1 ring-cyan-500/10 p-8 w-full h-full flex items-center justify-center">
               <div className="flex flex-col items-center gap-3">
                 <Loader2 className="w-8 h-8 text-cyan-400 animate-spin" />
                 <p className="text-sm text-gray-400">Loading interactive graph...</p>
@@ -53,7 +53,7 @@ export default function LazyGraphShell() {
           <LiveSankeyGraph isActive={isGraphActive} />
         </Suspense>
       ) : (
-        <div className="rounded-xl bg-gray-800/40 border border-gray-700 shadow-sm ring-1 ring-cyan-500/10 p-8 w-full md:min-h-[400px] flex items-center justify-center">
+        <div className="rounded-xl bg-gray-800/40 border border-gray-700 shadow-sm ring-1 ring-cyan-500/10 p-8 w-full h-full min-h-[400px] flex items-center justify-center">
           <p className="text-sm text-gray-400">Scroll to view interactive graph...</p>
         </div>
       )}

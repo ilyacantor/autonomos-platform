@@ -577,7 +577,7 @@ export default function DCLGraphContainer() {
             </div>
           </div>
 
-          <div className="relative pb-2 md:min-h-[500px]">
+          <div className="relative pb-2 h-[500px] md:h-[600px]">
             <LazyGraphShell />
           </div>
         </div>
