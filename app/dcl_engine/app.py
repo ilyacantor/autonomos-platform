@@ -70,6 +70,16 @@ _dev_mode_initialized = lock_manager._dev_mode_initialized
 
 # WebSocket connection manager
 
+def set_redis_client(client):
+    """
+    Set the shared Redis client from main app.
+    This function is called by main.py to share the Redis connection with DCL engine.
+
+    Args:
+        client: Redis client instance from main app
+    """
+    lock_manager.set_redis_client(client)
+
 def safe_llm_call(prompt: str, source_key: str, tables: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Wrapper around Gemini calls that guarantees a result with proper logging."""
     global TIMING_LOG
