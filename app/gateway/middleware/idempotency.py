@@ -1,10 +1,14 @@
 import os
 import json
+import logging
 from datetime import datetime, timedelta
 from fastapi import Request
 from fastapi.responses import JSONResponse
 from typing import Callable
 from redis import Redis
+
+# Configure logger
+logger = logging.getLogger(__name__)
 
 IDEMPOTENCY_CACHE_MINUTES = int(os.getenv("IDEMPOTENCY_CACHE_MINUTES", "10"))
 
@@ -21,7 +25,8 @@ try:
         )
     redis_client.ping()
     REDIS_AVAILABLE = True
-except Exception:
+except Exception as e:
+    logger.warning(f"Redis connection failed for idempotency middleware: {e}")
     redis_client = None
     REDIS_AVAILABLE = False
 
@@ -47,7 +52,7 @@ async def idempotency_middleware(request: Request, call_next: Callable):
     
     try:
         cached_response = redis_client.get(cache_key)
-        
+
         if cached_response:
             cached_data = json.loads(cached_response)
             return JSONResponse(
@@ -55,9 +60,9 @@ async def idempotency_middleware(request: Request, call_next: Callable):
                 content=cached_data.get("body", {}),
                 headers={"X-Idempotent-Replay": "true"}
             )
-    
-    except Exception:
-        pass
+
+    except (json.JSONDecodeError, Exception) as e:
+        logger.warning(f"Failed to retrieve cached idempotent response for key {cache_key}: {e}")
     
     response = await call_next(request)
     
@@ -85,8 +90,8 @@ async def idempotency_middleware(request: Request, call_next: Callable):
                 headers=dict(response.headers),
                 media_type=response.media_type
             )
-    
-    except Exception:
-        pass
+
+    except (json.JSONDecodeError, UnicodeDecodeError, Exception) as e:
+        logger.warning(f"Failed to cache idempotent response for key {cache_key}: {e}")
     
     return response

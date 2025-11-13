@@ -3,9 +3,13 @@ import time
 import json
 import re
 import traceback
+import logging
 from abc import ABC, abstractmethod
 from typing import Optional, Dict, Any, Callable
 import google.generativeai as genai  # type: ignore
+
+# Configure logger
+logger = logging.getLogger(__name__)
 
 
 class LLMService(ABC):
@@ -67,8 +71,8 @@ class GeminiService(LLMService):
                 usage = resp.usage_metadata
                 if hasattr(usage, 'total_token_count'):
                     tokens = usage.total_token_count
-            except Exception:
-                pass
+            except (AttributeError, Exception) as e:
+                logger.debug(f"Could not extract token usage from Gemini response: {e}")
             
             # Parse JSON from response
             try:
@@ -156,8 +160,8 @@ class OpenAIService(LLMService):
             tokens = 0
             try:
                 tokens = response.usage.total_tokens
-            except Exception:
-                pass
+            except (AttributeError, Exception) as e:
+                logger.debug(f"Could not extract token usage from OpenAI response: {e}")
             
             # Parse JSON from response
             try:

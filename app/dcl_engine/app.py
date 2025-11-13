@@ -1,5 +1,6 @@
 
 import os, time, json, glob, duckdb, pandas as pd, yaml, warnings, threading, re, traceback, asyncio
+import logging
 from pathlib import Path
 from fastapi import FastAPI, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
@@ -13,6 +14,9 @@ import redis
 from app.dcl_engine.source_loader import get_source_adapter, AAMSourceAdapter
 from app.config.feature_flags import FeatureFlagConfig, FeatureFlag
 from app.dcl_engine.agent_executor import AgentExecutor
+
+# Configure logger
+logger = logging.getLogger(__name__)
 
 # Use paths relative to this module's directory
 DCL_BASE_PATH = Path(__file__).parent
@@ -180,8 +184,9 @@ def acquire_db_lock(timeout=None):
             # Try to acquire lock with auto-expiry (prevents deadlocks if process crashes)
             if redis_client.set(DB_LOCK_KEY, lock_id, nx=True, ex=timeout):
                 return lock_id
-        except:
-            # Redis failed, return local lock
+        except (redis.RedisError, redis.ConnectionError, AttributeError) as e:
+            # Redis failed, fall back to local lock
+            logger.warning(f"Redis lock acquisition failed: {e}. Using local lock.", exc_info=True)
             return f"local-{os.getpid()}-{time.time()}"
         time.sleep(0.05)  # Wait 50ms before retrying
     
@@ -709,8 +714,8 @@ async def llm_propose(
                 try:
                     stats = rag_engine.get_stats()
                     RAG_CONTEXT["total_mappings"] = stats.get("total_mappings", 0)
-                except:
-                    pass
+                except Exception as e:
+                    logger.warning(f"Failed to update RAG stats: {e}")
             else:
                 log(f"🔒 RAG writes blocked - heuristic mode (retrieved context only)")
         except Exception as e:
@@ -1592,8 +1597,8 @@ async def broadcast_state_change(event_type: str = "state_update"):
             try:
                 stats = rag_engine.get_stats()
                 RAG_CONTEXT["total_mappings"] = stats.get("total_mappings", 0)
-            except:
-                pass
+            except Exception as e:
+                logger.warning(f"Failed to get RAG stats: {e}")
         
         # Include agent consumption metadata
         if not agents_config:
@@ -1657,8 +1662,8 @@ async def broadcast_state_change(event_type: str = "state_update"):
         if redis_available and redis_client:
             try:
                 redis_client.publish(DCL_STATE_CHANNEL, json.dumps(state_payload))
-            except:
-                pass  # Redis unavailable, skip pub/sub
+            except (redis.RedisError, redis.ConnectionError) as e:
+                logger.warning(f"Failed to publish state to Redis pub/sub: {e}")
         
     except Exception as e:
         log(f"⚠️ Error broadcasting state change: {e}")
@@ -1766,9 +1771,9 @@ def state():
         try:
             stats = rag_engine.get_stats()
             RAG_CONTEXT["total_mappings"] = stats.get("total_mappings", 0)
-        except:
-            pass
-    
+        except Exception as e:
+            logger.warning(f"Failed to get RAG stats: {e}")
+
     # Include agent consumption metadata for frontend
     if not agents_config:
         agents_config = load_agents_config()
@@ -2182,8 +2187,8 @@ def preview(node: Optional[str] = None):
                 sources[node] = preview_table(con, node)
             elif node.startswith("dcl_"):
                 ontology_tables[node] = preview_table(con, node)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Failed to preview table {node}: {e}")
     else:
         # Determine which entities to preview based on selected agents
         if not agents_config:
@@ -2550,7 +2555,8 @@ def decrypt_password(encrypted: str) -> str:
         if decoded.startswith(f"{key}:"):
             return decoded[len(f"{key}:"):]
         return decoded
-    except:
+    except (ValueError, UnicodeDecodeError, Exception) as e:
+        logger.warning(f"Failed to decrypt password: {e}. Returning encrypted value.")
         return encrypted
 
 @app.get("/api/connections")

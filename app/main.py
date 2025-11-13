@@ -78,7 +78,8 @@ async def lifespan(app: FastAPI):
     try:
         db_host = db_url.split('@')[1].split('/')[0] if '@' in db_url else 'unknown'
         logger.info(f"📊 Database host: {db_host}")
-    except:
+    except (IndexError, AttributeError, Exception) as e:
+        logger.warning(f"Could not extract database host from URL: {e}")
         db_host = 'unknown'
     
     # Hard fail if connecting to disabled Neon database
@@ -399,7 +400,8 @@ if os.path.exists(STATIC_DIR) and os.path.isdir(STATIC_DIR):
         try:
             git_sha = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'],
                                              stderr=subprocess.DEVNULL).decode().strip()
-        except:
+        except (subprocess.CalledProcessError, FileNotFoundError, Exception) as e:
+            logger.debug(f"Could not retrieve git SHA: {e}")
             git_sha = 'unknown'
 
         return {
