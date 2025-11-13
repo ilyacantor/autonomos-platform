@@ -5,7 +5,13 @@ import {
   ChevronDown,
   ChevronRight,
   Database,
-  AlertTriangle
+  AlertTriangle,
+  Network,
+  Zap,
+  Brain,
+  Shield,
+  TrendingUp,
+  GitBranch
 } from 'lucide-react';
 import { API_CONFIG, AUTH_TOKEN_KEY } from '../config/api';
 import { useAuth } from '../hooks/useAuth';
@@ -30,6 +36,30 @@ export default function ConnectPage() {
   const [connectors, setConnectors] = useState<Connector[]>([]);
   const [loading, setLoading] = useState(false);
   const [expandedConnector, setExpandedConnector] = useState<string | null>(null);
+  
+  const [meshMetrics, setMeshMetrics] = useState({
+    activeConnections: 287,
+    healingEvents: 12,
+    driftAlerts: 3,
+    llmCalls: 1234,
+    llmTokens: 2100000,
+    ragMappings: 14876
+  });
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setMeshMetrics(prev => ({
+        activeConnections: prev.activeConnections + Math.floor(Math.random() * 3) - 1,
+        healingEvents: Math.max(0, prev.healingEvents + Math.floor(Math.random() * 3) - 1),
+        driftAlerts: Math.max(0, prev.driftAlerts + Math.floor(Math.random() * 2) - 0.5),
+        llmCalls: prev.llmCalls + Math.floor(Math.random() * 5),
+        llmTokens: prev.llmTokens + Math.floor(Math.random() * 1000),
+        ragMappings: prev.ragMappings + Math.floor(Math.random() * 10)
+      }));
+    }, 3000);
+    
+    return () => clearInterval(interval);
+  }, []);
 
   const getAuthHeaders = (): HeadersInit => {
     const token = localStorage.getItem(AUTH_TOKEN_KEY);
@@ -146,6 +176,155 @@ export default function ConnectPage() {
           <p className="text-gray-400">
             Individual connection details with mappings and drift status
           </p>
+        </div>
+      </div>
+
+      <div className="bg-gradient-to-br from-purple-900/20 via-blue-900/20 to-green-900/20 rounded-xl border border-purple-500/30 overflow-hidden">
+        <div className="p-6 border-b border-purple-500/20 bg-black/40">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <Network className="w-6 h-6 text-purple-400" />
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  AAM Adaptive API Mesh
+                  <span className="px-2 py-0.5 bg-amber-500/20 border border-amber-500/40 rounded text-xs font-medium text-amber-400">
+                    DEMO
+                  </span>
+                </h2>
+                <p className="text-sm text-gray-400">Real-time orchestration intelligence and self-healing infrastructure</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-black/40 backdrop-blur-sm border border-green-500/30 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <GitBranch className="w-4 h-4 text-green-400" />
+                  <span className="text-sm font-medium text-gray-300">Active Connections</span>
+                </div>
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+              </div>
+              <div className="text-3xl font-bold text-white mb-1">{meshMetrics.activeConnections}</div>
+              <div className="text-xs text-gray-400">Across 47 data sources</div>
+            </div>
+
+            <div className="bg-black/40 backdrop-blur-sm border border-blue-500/30 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-blue-400" />
+                  <span className="text-sm font-medium text-gray-300">Self-Healing Events</span>
+                </div>
+                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+              </div>
+              <div className="text-3xl font-bold text-white mb-1">{meshMetrics.healingEvents}</div>
+              <div className="text-xs text-gray-400">Auto-repairs last hour</div>
+            </div>
+
+            <div className="bg-black/40 backdrop-blur-sm border border-orange-500/30 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-orange-400" />
+                  <span className="text-sm font-medium text-gray-300">Schema Drift</span>
+                </div>
+                <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" />
+              </div>
+              <div className="text-3xl font-bold text-white mb-1">{meshMetrics.driftAlerts}</div>
+              <div className="text-xs text-gray-400">Alerts detected</div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-black/40 backdrop-blur-sm border border-purple-500/30 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Zap className="w-4 h-4 text-purple-400" />
+                <span className="text-sm font-medium text-gray-300">LLM Intelligence</span>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-400">Total Calls</span>
+                  <span className="text-lg font-bold text-white">{meshMetrics.llmCalls.toLocaleString()}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-400">Tokens Processed</span>
+                  <span className="text-lg font-bold text-white">{(meshMetrics.llmTokens / 1000000).toFixed(2)}M</span>
+                </div>
+                <div className="mt-2 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-purple-500 to-blue-500 animate-pulse" style={{ width: '73%' }} />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-black/40 backdrop-blur-sm border border-green-500/30 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Brain className="w-4 h-4 text-green-400" />
+                <span className="text-sm font-medium text-gray-300">RAG Learning</span>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-400">Field Mappings</span>
+                  <span className="text-lg font-bold text-white">{meshMetrics.ragMappings.toLocaleString()}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-400">Confidence Score</span>
+                  <span className="text-lg font-bold text-green-400">86%</span>
+                </div>
+                <div className="mt-2 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-green-500 to-emerald-500 animate-pulse" style={{ width: '86%' }} />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-black/40 backdrop-blur-sm border border-gray-700 rounded-lg p-4">
+            <div className="flex items-center gap-2 mb-4">
+              <TrendingUp className="w-4 h-4 text-gray-400" />
+              <span className="text-sm font-medium text-gray-300">Mesh Activity Visualization</span>
+            </div>
+            <div className="relative h-32 bg-gray-900/50 rounded-lg overflow-hidden">
+              <div className="absolute inset-0 flex items-center justify-center gap-8">
+                {[...Array(8)].map((_, i) => (
+                  <div
+                    key={i}
+                    className="relative"
+                    style={{ 
+                      animation: `pulse ${2 + i * 0.3}s ease-in-out infinite`,
+                      animationDelay: `${i * 0.2}s`
+                    }}
+                  >
+                    <div className={`w-3 h-3 rounded-full ${
+                      i % 3 === 0 ? 'bg-green-500' : i % 3 === 1 ? 'bg-blue-500' : 'bg-purple-500'
+                    }`} />
+                    <div className={`absolute inset-0 rounded-full ${
+                      i % 3 === 0 ? 'bg-green-500' : i % 3 === 1 ? 'bg-blue-500' : 'bg-purple-500'
+                    } opacity-20 animate-ping`} />
+                  </div>
+                ))}
+              </div>
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-purple-500/5 to-transparent animate-pulse" />
+              <svg className="absolute inset-0 w-full h-full opacity-20">
+                <defs>
+                  <linearGradient id="meshGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#8B5CF6" />
+                    <stop offset="50%" stopColor="#3B82F6" />
+                    <stop offset="100%" stopColor="#10B981" />
+                  </linearGradient>
+                </defs>
+                <line x1="10%" y1="50%" x2="90%" y2="50%" stroke="url(#meshGradient)" strokeWidth="1" />
+                <line x1="25%" y1="30%" x2="75%" y2="70%" stroke="url(#meshGradient)" strokeWidth="1" />
+                <line x1="25%" y1="70%" x2="75%" y2="30%" stroke="url(#meshGradient)" strokeWidth="1" />
+              </svg>
+            </div>
+            <div className="mt-3 flex items-center justify-between text-xs text-gray-500">
+              <span>Real-time data flow across adaptive mesh topology</span>
+              <span className="text-green-400">● LIVE</span>
+            </div>
+          </div>
         </div>
       </div>
 
