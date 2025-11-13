@@ -1,4 +1,4 @@
-modules = ["nodejs-20", "bash", "web", "python-3.11", "postgresql-16"]
+modules = ["nodejs-20", "bash", "web", "python-3.11"]
 [agent]
 expertMode = true
 
@@ -33,10 +33,6 @@ outputType = "webview"
 [[ports]]
 localPort = 5000
 externalPort = 80
-
-[[ports]]
-localPort = 33605
-externalPort = 3000
 
 [deployment]
 run = ["bash", "start.sh"]
