@@ -1,38 +1,78 @@
-import os
+"""
+Legacy configuration module for backward compatibility
+
+This module now uses the unified Pydantic settings system from app.config.settings
+but maintains the same interface for backward compatibility with existing code.
+
+DEPRECATED: New code should import from app.config.settings directly.
+"""
+
 from dotenv import load_dotenv
+from app.config.settings import settings as unified_settings
 
 load_dotenv()
 
-class Settings:
-    DATABASE_URL: str = os.getenv("DATABASE_URL", "")
-    REDIS_HOST: str = os.getenv("REDIS_HOST", "localhost")
-    REDIS_PORT: int = int(os.getenv("REDIS_PORT", "6379"))
-    REDIS_DB: int = int(os.getenv("REDIS_DB", "0"))
-    REDIS_URL: str = os.getenv("REDIS_URL", "")
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "")
-    SLACK_WEBHOOK_URL: str = os.getenv("SLACK_WEBHOOK_URL", "")
-    ALLOWED_WEB_ORIGIN: str = os.getenv("ALLOWED_WEB_ORIGIN", "http://localhost:3000")
-    JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "")
-    JWT_EXPIRE_MINUTES: int = int(os.getenv("JWT_EXPIRE_MINUTES", "30"))
-    EVENT_STREAM_ENABLED: bool = os.getenv("EVENT_STREAM_ENABLED", "true").lower() == "true"
-    EVENT_STREAM_HEARTBEAT_MS: int = int(os.getenv("EVENT_STREAM_HEARTBEAT_MS", "15000"))
-    
-    # AOS Discover service (AOD) configuration
-    AOD_BASE_URL: str = os.getenv("AOD_BASE_URL", "http://localhost:8000")
-    
-    def __init__(self):
-        if not self.DATABASE_URL:
-            raise ValueError(
-                "DATABASE_URL environment variable is required but not set. "
-                "Please ensure your PostgreSQL database is configured."
-            )
-        if not self.SECRET_KEY:
-            raise ValueError(
-                "SECRET_KEY environment variable is required but not set. "
-                "Please add a secure random string (32+ characters) to Replit Secrets. "
-                "This key is used for JWT token signing."
-            )
-        if not self.JWT_SECRET_KEY:
-            self.JWT_SECRET_KEY = self.SECRET_KEY
 
+class Settings:
+    """
+    Backward-compatible Settings class wrapper around unified Pydantic settings.
+
+    This class provides the same interface as the old config.py to avoid breaking
+    existing imports and usage patterns.
+
+    New code should use: from app.config.settings import settings
+    """
+
+    def __init__(self):
+        # All validation happens in unified_settings initialization
+        # These properties will be accessed via __getattribute__ below
+        pass
+
+    def __getattribute__(self, name: str):
+        """
+        Dynamically map old attribute names to unified settings.
+
+        This ensures backward compatibility while using the new settings internally.
+        """
+        # Handle special methods normally
+        if name.startswith('__'):
+            return object.__getattribute__(self, name)
+
+        # Map old attribute names to new unified settings structure
+        mappings = {
+            # Database
+            'DATABASE_URL': lambda: unified_settings.database.database_url,
+
+            # Redis
+            'REDIS_HOST': lambda: unified_settings.redis.redis_host,
+            'REDIS_PORT': lambda: unified_settings.redis.redis_port,
+            'REDIS_DB': lambda: unified_settings.redis.redis_db,
+            'REDIS_URL': lambda: unified_settings.redis.redis_url,
+
+            # Security
+            'SECRET_KEY': lambda: unified_settings.security.secret_key,
+            'JWT_SECRET_KEY': lambda: unified_settings.security.jwt_secret_key,
+            'JWT_EXPIRE_MINUTES': lambda: unified_settings.security.jwt_expire_minutes,
+
+            # External integrations
+            'SLACK_WEBHOOK_URL': lambda: unified_settings.external.slack_webhook_url or "",
+            'ALLOWED_WEB_ORIGIN': lambda: unified_settings.external.allowed_web_origin,
+            'AOD_BASE_URL': lambda: unified_settings.external.aod_base_url,
+
+            # Event streaming
+            'EVENT_STREAM_ENABLED': lambda: unified_settings.event_stream.event_stream_enabled,
+            'EVENT_STREAM_HEARTBEAT_MS': lambda: unified_settings.event_stream.event_stream_heartbeat_ms,
+        }
+
+        if name in mappings:
+            return mappings[name]()
+
+        # If not in mappings, raise AttributeError
+        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+
+
+# Create settings instance - validation happens in unified_settings initialization
 settings = Settings()
+
+
+__all__ = ["Settings", "settings"]
