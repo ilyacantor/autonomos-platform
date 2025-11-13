@@ -15,14 +15,8 @@ import logging
 import re
 from datetime import datetime
 from typing import List, Dict, Any, Optional
-from pathlib import Path
-import sys
 
 import redis
-
-current_dir = Path(__file__).parent
-project_root = current_dir.parent.parent
-sys.path.insert(0, str(project_root))
 
 from app.contracts.canonical_event import EntityEvent, FieldMapping
 from app.config.feature_flags import FeatureFlagConfig, FeatureFlag

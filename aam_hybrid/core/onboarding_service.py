@@ -19,10 +19,6 @@ import os
 import time
 from typing import Optional, Dict, Any
 from uuid import UUID
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from aam_hybrid.core.connection_manager import connection_manager
 from aam_hybrid.core.funnel_metrics import FunnelMetricsTracker

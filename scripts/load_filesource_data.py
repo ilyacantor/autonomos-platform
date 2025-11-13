@@ -11,7 +11,7 @@ import logging
 import os
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+
 
 from app.database import SessionLocal
 from services.aam.connectors.filesource.connector import FileSourceConnector

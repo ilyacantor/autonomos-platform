@@ -584,7 +584,7 @@ export default function DCLGraphContainer() {
 
         <div className="flex flex-col gap-4">
           {/* Narration Panel with Typing Animation - MOVED TO TOP FOR PROMINENCE */}
-          <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 flex-1 max-w-md mx-auto w-full">
+          <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 flex-1 w-full">
             <div className="flex items-center gap-2 mb-3">
               <div className="w-6 h-6 rounded-full bg-purple-500 flex items-center justify-center text-white text-xs">
                 📝
@@ -616,7 +616,7 @@ export default function DCLGraphContainer() {
           </div>
 
           {/* RAG Learning Engine - EXACT LEGACY LAYOUT */}
-          <div className="rounded-lg p-4 bg-gradient-to-br from-teal-950 to-cyan-950 border border-teal-700/30 max-w-md mx-auto w-full">
+          <div className="rounded-lg p-4 bg-gradient-to-br from-teal-950 to-cyan-950 border border-teal-700/30 w-full">
             <div className="flex items-center gap-2 mb-3">
               <div className="w-6 h-6 rounded-full bg-teal-500 flex items-center justify-center text-white text-xs">
                 🧠
@@ -641,7 +641,7 @@ export default function DCLGraphContainer() {
                   <div className="text-white mb-2 text-[11px]">
                     Retrieved {dclState.rag.last_retrieval_count} similar mappings:
                   </div>
-                  {dclState.rag.retrievals.map((ret: any, i: number) => (
+                  {dclState.rag.retrievals.map((ret, i: number) => (
                     <div key={i} className="mb-2 pb-2 border-b border-teal-800/30 last:border-0">
                       <div className="flex justify-between items-start mb-1">
                         <div className="text-white text-[11px]">{ret.source_field}</div>

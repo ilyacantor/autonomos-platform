@@ -16,7 +16,7 @@ export interface EventItem {
   source_system: SourceSystem;
   entity: string;
   stage: EventStage;
-  meta?: Record<string, any>;
+  meta?: Record<string, unknown>;
 }
 
 export interface EventStreamState {

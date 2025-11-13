@@ -1,11 +1,7 @@
 import logging
-import sys
-from pathlib import Path
 from typing import Dict, Any, Optional
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
-from shared import settings
+from aam_hybrid.shared.config import settings
 
 logger = logging.getLogger(__name__)
 

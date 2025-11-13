@@ -23,14 +23,8 @@ import os
 import uuid
 from typing import Optional
 from datetime import datetime
-from pathlib import Path
-import sys
 
 import redis
-
-current_dir = Path(__file__).parent
-project_root = current_dir.parent.parent
-sys.path.insert(0, str(project_root))
 
 from app.contracts.canonical_event import (
     EntityEvent,

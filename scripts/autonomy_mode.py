@@ -5,7 +5,6 @@ Enable Autonomy Mode for AAM Auto-Onboarding
 Sets Safe Mode + allowlist + rate caps for production use.
 """
 
-import sys
 
 def main():
     print("✅ Autonomy Mode is ENABLED by default in AAM Auto-Onboarding")

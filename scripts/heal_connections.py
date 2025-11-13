@@ -32,7 +32,7 @@ async def heal_connections():
     
     async with async_session() as session:
         # Import here to avoid circular imports
-        sys.path.insert(0, 'aam_hybrid')
+        
         from shared.models import Connection
         
         # Find HEALING connections

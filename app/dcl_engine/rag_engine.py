@@ -6,10 +6,14 @@ Uses Pinecone Inference API for cloud-based embeddings
 import os
 import json
 import time
+import logging
 from pinecone import Pinecone, ServerlessSpec
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
 import hashlib
+
+# Configure logger
+logger = logging.getLogger(__name__)
 
 class RAGEngine:
     """
@@ -41,15 +45,15 @@ class RAGEngine:
         
         # sentence-transformers removed (2GB dependency) - rely on Pinecone Inference API
         self.sentence_encoder = None
-        
+
         # LRU cache with TTL for retrieve_similar_mappings
         # Key: (field_name, field_type, source_system, top_k, min_confidence)
         # Value: (result, timestamp)
         self._cache: Dict[Tuple, Tuple[List[Dict[str, Any]], float]] = {}
         self._cache_ttl = 300  # 5 minutes TTL
         self._cache_max_size = 1000  # Max 1000 entries
-        
-        print(f"✅ RAG Engine ready for embeddings ({self.embedding_model})")
+
+        logger.info(f"✅ RAG Engine ready for embeddings ({self.embedding_model})")
         
         # Create or connect to index
         self._ensure_index()
@@ -71,27 +75,27 @@ class RAGEngine:
                         region='us-east-1'
                     )
                 )
-                print(f"🔄 Created new index: {self.index_name}, waiting for readiness...")
-                
+                logger.info(f"🔄 Created new index: {self.index_name}, waiting for readiness...")
+
                 # Wait for index to be ready
                 max_wait = 60
                 wait_time = 0
                 while wait_time < max_wait:
                     desc = self.pc.describe_index(self.index_name)
                     if desc.status.get('ready', False):
-                        print(f"✅ Index {self.index_name} is ready")
+                        logger.info(f"✅ Index {self.index_name} is ready")
                         break
                     time.sleep(2)
                     wait_time += 2
                     if wait_time % 10 == 0:
-                        print(f"   Still waiting... ({wait_time}s)")
-                
+                        logger.debug(f"   Still waiting... ({wait_time}s)")
+
                 if wait_time >= max_wait:
                     error_msg = f"Pinecone index '{self.index_name}' did not become ready within {max_wait}s. Cannot proceed with unready index."
-                    print(f"❌ {error_msg}")
+                    logger.error(f"❌ {error_msg}")
                     raise RuntimeError(error_msg)
             else:
-                print(f"✅ Connected to existing index: {self.index_name}")
+                logger.info(f"✅ Connected to existing index: {self.index_name}")
             
             # Get index
             self.index = self.pc.Index(self.index_name)
@@ -99,7 +103,7 @@ class RAGEngine:
             # Re-raise readiness timeout errors - do not proceed with unready index
             raise
         except Exception as e:
-            print(f"⚠️  Error with index: {e}")
+            logger.warning(f"⚠️  Error with index: {e}")
             # For other errors, try to connect anyway (index might exist but had temporary issue)
             self.index = self.pc.Index(self.index_name)
     
@@ -157,7 +161,7 @@ Confidence: {mapping.get('confidence', 0.0)}
                 embedding = self.sentence_encoder.encode(prefixed_text, convert_to_numpy=True)
                 return embedding.tolist()
             except Exception as e:
-                print(f"⚠️ Sentence transformer encoding failed: {e}")
+                logger.warning(f"⚠️ Sentence transformer encoding failed: {e}")
         
         # Try Pinecone Inference API as fallback
         try:
@@ -168,7 +172,7 @@ Confidence: {mapping.get('confidence', 0.0)}
             )
             return response.data[0].values
         except (AttributeError, Exception) as e:
-            print(f"⚠️ Pinecone Inference API not available: {e}")
+            logger.warning(f"⚠️ Pinecone Inference API not available: {e}")
             # Last resort: deterministic hash-based embeddings
             import hashlib
             import random
@@ -196,10 +200,10 @@ Confidence: {mapping.get('confidence', 0.0)}
         """
         # GUARD: Block writes in heuristic/production mode (dev_mode=false)
         if not dev_mode_enabled:
-            print(f"🔒 RAG path: retrieve-only (read-only) - Write blocked for {source_field} → {ontology_entity}")
+            logger.info(f"🔒 RAG path: retrieve-only (read-only) - Write blocked for {source_field} → {ontology_entity}")
             return None
-        
-        print(f"✅ RAG path: retrieve+learn (write enabled) - Storing mapping")
+
+        logger.info(f"✅ RAG path: retrieve+learn (write enabled) - Storing mapping")
         
         # Create unique ID
         vector_id = self._create_vector_id(source_system, source_field)
@@ -230,26 +234,26 @@ Confidence: {mapping.get('confidence', 0.0)}
                 "metadata": mapping
             }]
         )
-        
-        print(f"📝 Stored mapping: {source_field} → {ontology_entity}")
+
+        logger.info(f"📝 Stored mapping: {source_field} → {ontology_entity}")
         return vector_id
     
     def clear_cache(self):
         """Clear the retrieval cache. Called when dev_mode toggles or schema changes."""
         self._cache.clear()
-        print("🗑️ RAG cache cleared")
+        logger.info("🗑️ RAG cache cleared")
     
     def _get_from_cache(self, cache_key: Tuple) -> Optional[List[Dict[str, Any]]]:
         """Get result from cache if valid (within TTL)."""
         if cache_key in self._cache:
             result, timestamp = self._cache[cache_key]
             if time.time() - timestamp < self._cache_ttl:
-                print(f"💾 Cache HIT for {cache_key[0]} ({time.time() - timestamp:.1f}s old)")
+                logger.debug(f"💾 Cache HIT for {cache_key[0]} ({time.time() - timestamp:.1f}s old)")
                 return result
             else:
                 # Expired, remove from cache
                 del self._cache[cache_key]
-                print(f"⏰ Cache EXPIRED for {cache_key[0]}")
+                logger.debug(f"⏰ Cache EXPIRED for {cache_key[0]}")
         return None
     
     def _put_in_cache(self, cache_key: Tuple, result: List[Dict[str, Any]]):
@@ -260,9 +264,9 @@ Confidence: {mapping.get('confidence', 0.0)}
             sorted_keys = sorted(self._cache.items(), key=lambda x: x[1][1])
             for key, _ in sorted_keys[:self._cache_max_size // 10]:
                 del self._cache[key]
-        
+
         self._cache[cache_key] = (result, time.time())
-        print(f"💾 Cached result for {cache_key[0]} ({len(result)} mappings)")
+        logger.debug(f"💾 Cached result for {cache_key[0]} ({len(result)} mappings)")
     
     def retrieve_similar_mappings(self,
                                    field_name: str,
@@ -298,7 +302,7 @@ Confidence: {mapping.get('confidence', 0.0)}
         # Check if index has any vectors
         stats = self.index.describe_index_stats()
         if stats.total_vector_count == 0:
-            print("ℹ️  No historical mappings in vector store yet")
+            logger.info("ℹ️  No historical mappings in vector store yet")
             return []
         
         # Generate query embedding using Pinecone Inference API
@@ -324,8 +328,8 @@ Confidence: {mapping.get('confidence', 0.0)}
                 **match.metadata,
                 "similarity": round(match.score, 3)
             })
-        
-        print(f"🔍 Found {len(similar_mappings)} similar mappings for '{field_name}'")
+
+        logger.info(f"🔍 Found {len(similar_mappings)} similar mappings for '{field_name}'")
         
         # Store in cache
         self._put_in_cache(cache_key, similar_mappings)
@@ -392,8 +396,8 @@ Confidence: {mapping.get('confidence', 0.0)}
                         validated=True
                     )
                     count += 1
-        
-        print(f"🌱 Seeded {count} mappings from {source_system}")
+
+        logger.info(f"🌱 Seeded {count} mappings from {source_system}")
     
     def get_stats(self) -> Dict[str, Any]:
         """Get statistics about the vector store."""

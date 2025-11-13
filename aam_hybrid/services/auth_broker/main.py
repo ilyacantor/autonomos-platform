@@ -1,13 +1,10 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import logging
-import sys
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
-from shared import settings, HealthResponse
-from .service import get_salesforce_config, get_credential
+from aam_hybrid.shared.config import settings
+from app.schemas.health import HealthResponse
+from aam_hybrid.services.auth_broker.service import get_salesforce_config, get_credential
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

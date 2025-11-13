@@ -1,6 +1,5 @@
 from logging.config import fileConfig
 import os
-import sys
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
@@ -8,8 +7,7 @@ from sqlalchemy import MetaData
 
 from alembic import context
 
-# Add project root to path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# NOTE: No need for sys.path manipulation with proper package installation
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

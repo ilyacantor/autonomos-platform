@@ -11,22 +11,13 @@ import logging
 import uuid
 import hashlib
 from datetime import datetime
-from pathlib import Path
 from typing import List, Dict, Any, Optional
 import csv
-import sys
 
 import redis
 
-# Add paths for imports
-current_dir = Path(__file__).parent
-aam_root = current_dir.parent
-project_root = aam_root.parent
-
-sys.path.insert(0, str(project_root))
-
-from .dcl_output_adapter import publish_to_dcl_stream
-from .canonical_processor import CanonicalProcessor
+from aam_hybrid.core.dcl_output_adapter import publish_to_dcl_stream
+from aam_hybrid.core.canonical_processor import CanonicalProcessor
 from app.contracts.canonical_event import (
     EntityEvent,
     EventType,

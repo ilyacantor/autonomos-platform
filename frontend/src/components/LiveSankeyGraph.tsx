@@ -2,48 +2,20 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import { sankey as d3Sankey, sankeyLinkHorizontal } from 'd3-sankey';
 import { API_CONFIG } from '../config/api';
-
-interface SankeyNode {
-  name: string;
-  type: string;
-  id: string;
-  sourceSystem?: string;
-  parentId?: string;
-}
-
-interface SankeyLink {
-  source: number;
-  target: number;
-  value: number;
-  edgeType?: 'hierarchy' | 'dataflow';
-  sourceSystem?: string;
-  targetType?: string;
-  fieldMappings?: any[];
-  edgeLabel?: string;
-  entityFields?: string[];
-  entityName?: string;
-  tableFields?: string[];
-}
+import type {
+  SankeyNodeDatum,
+  SankeyLinkDatum,
+  SankeyNode,
+  SankeyLink,
+  NodeStyle,
+  LabelData,
+} from '../types/d3';
+import type { GraphNode, GraphEdge, FieldMapping } from '../types/dcl';
 
 interface GraphState {
   graph: {
-    nodes: Array<{ 
-      id: string; 
-      label: string; 
-      type: string; 
-      fields?: string[]; 
-      sourceSystem?: string;
-      parentId?: string;
-    }>;
-    edges: Array<{
-      source: string;
-      target: string;
-      label?: string;
-      edgeType?: string;
-      field_mappings?: any[];
-      entity_fields?: string[];
-      entity_name?: string;
-    }>;
+    nodes: GraphNode[];
+    edges: GraphEdge[];
   };
   dev_mode: boolean;
 }
@@ -125,8 +97,8 @@ export default function LiveSankeyGraph({ isActive = true }: LiveSankeyGraphProp
       }
     };
 
-    window.addEventListener('dcl-graph-event' as any, handleEvent);
-    return () => window.removeEventListener('dcl-graph-event' as any, handleEvent);
+    window.addEventListener('dcl-graph-event' as keyof WindowEventMap, handleEvent as EventListener);
+    return () => window.removeEventListener('dcl-graph-event' as keyof WindowEventMap, handleEvent as EventListener);
   }, []);
 
   useEffect(() => {
@@ -175,14 +147,7 @@ export default function LiveSankeyGraph({ isActive = true }: LiveSankeyGraphProp
   );
 }
 
-interface NodeStyle {
-  fill: string;
-  stroke?: string;
-  strokeWidth?: number;
-  fillOpacity?: number;
-}
-
-function getNodeStyle(_node: any, _sankeyNodes: SankeyNode[]): NodeStyle {
+function getNodeStyle(_node: SankeyNode, _sankeyNodes: SankeyNodeDatum[]): NodeStyle {
   return {
     fill: '#1e293b',
     stroke: '#475569',
@@ -212,8 +177,8 @@ function renderSankey(
     return;
   }
 
-  const sankeyNodes: SankeyNode[] = [];
-  const sankeyLinks: SankeyLink[] = [];
+  const sankeyNodes: SankeyNodeDatum[] = [];
+  const sankeyLinks: SankeyLinkDatum[] = [];
   const nodeIndexMap: Record<string, number> = {};
   let nodeIndex = 0;
 
@@ -221,7 +186,7 @@ function renderSankey(
     nodeIndexMap[n.id] = nodeIndex;
     sankeyNodes.push({
       name: n.label,
-      type: n.type,
+      type: n.type as 'source_parent' | 'source' | 'ontology' | 'agent',
       id: n.id,
       sourceSystem: n.sourceSystem,
       parentId: n.parentId
@@ -233,8 +198,8 @@ function renderSankey(
     if (nodeIndexMap[e.source] !== undefined && nodeIndexMap[e.target] !== undefined) {
       const sourceNode = state.graph.nodes.find(n => n.id === e.source);
       const targetNode = state.graph.nodes.find(n => n.id === e.target);
-      
-      const edgeType = ((e as any).edgeType ?? (e as any).edge_type ?? 'dataflow') as 'hierarchy' | 'dataflow';
+
+      const edgeType = (e.edgeType ?? e.edge_type ?? 'dataflow') as 'hierarchy' | 'dataflow';
 
       sankeyLinks.push({
         source: nodeIndexMap[e.source],
@@ -267,7 +232,7 @@ function renderSankey(
   const totalNodeCount = sankeyNodes.length;
   const calculatedHeight = Math.min(validHeight, 100 + (totalNodeCount * 40));
 
-  const sankey = d3Sankey<SankeyNode, SankeyLink>()
+  const sankey = d3Sankey<SankeyNodeDatum, SankeyLinkDatum>()
     .nodeWidth(8)
     .nodePadding(18)
     .extent([
@@ -279,8 +244,8 @@ function renderSankey(
     nodes: sankeyNodes.map(d => Object.assign({}, d)),
     links: sankeyLinks.map(d => Object.assign({}, d)),
   });
-  
-  const { nodes, links } = graph;
+
+  const { nodes, links } = graph as { nodes: SankeyNode[]; links: SankeyLink[] };
   
   const leftPadding = 20;
   const rightPadding = 20;
@@ -307,12 +272,14 @@ function renderSankey(
   });
   
   const recalculateLinkPositions = () => {
-    links.forEach((link: any) => {
-      const source = link.source;
-      const target = link.target;
-      
-      link.y0 = source.y0 + (source.y1 - source.y0) / 2;
-      link.y1 = target.y0 + (target.y1 - target.y0) / 2;
+    links.forEach((link: SankeyLink) => {
+      const source = link.source as SankeyNode;
+      const target = link.target as SankeyNode;
+
+      if (source.y0 !== undefined && source.y1 !== undefined && target.y0 !== undefined && target.y1 !== undefined) {
+        link.y0 = source.y0 + (source.y1 - source.y0) / 2;
+        link.y1 = target.y0 + (target.y1 - target.y0) / 2;
+      }
     });
   };
   
@@ -372,10 +339,10 @@ function renderSankey(
     mongodb: { parent: '#10b981', child: '#34d399' },
   };
 
-  const minX = Math.min(...nodes.map((n: any) => n.x0));
-  const maxX = Math.max(...nodes.map((n: any) => n.x1));
-  const minY = Math.min(...nodes.map((n: any) => n.y0));
-  const maxY = Math.max(...nodes.map((n: any) => n.y1));
+  const minX = Math.min(...nodes.map((n: SankeyNode) => n.x0 ?? 0));
+  const maxX = Math.max(...nodes.map((n: SankeyNode) => n.x1 ?? 0));
+  const minY = Math.min(...nodes.map((n: SankeyNode) => n.y0 ?? 0));
+  const maxY = Math.max(...nodes.map((n: SankeyNode) => n.y1 ?? 0));
   
   const boundingWidth = maxX - minX;
   const boundingHeight = maxY - minY;
@@ -387,7 +354,7 @@ function renderSankey(
   // Create a temporary SVG group for measurement (will be removed after measurement)
   const tempGroup = svg.append('g');
   
-  nodes.forEach((d: any) => {
+  nodes.forEach((d: SankeyNode) => {
     const nodeData = sankeyNodes.find(n => n.name === d.name);
     
     // Only measure labels for source_parent, ontology, and agent nodes (same as label creation logic)
@@ -460,10 +427,10 @@ function renderSankey(
     .data(links)
     .join('path')
     .attr('d', sankeyLinkHorizontal())
-    .attr('stroke', (d: any, i: number) => {
+    .attr('stroke', (d: SankeyLink, i: number) => {
       const originalLink = sankeyLinks[i];
       const sourceNode = state.graph.nodes.find(n => nodeIndexMap[n.id] === originalLink.source);
-      const targetNode = sankeyNodes.find(n => n.name === d.target.name);
+      const targetNode = sankeyNodes.find(n => n.name === (d.target as SankeyNode).name);
       
       // Color hierarchy edges from source_parent (layer 0) to source (layer 1) green
       if (originalLink?.edgeType === 'hierarchy' && sourceNode?.type === 'source_parent') {
@@ -483,8 +450,8 @@ function renderSankey(
       }
       return '#94a3b8';
     })
-    .attr('stroke-width', (d: any) => Math.min(Math.max(0.5, d.width * 0.5), 20))
-    .attr('stroke-opacity', (_d: any, i: number) => {
+    .attr('stroke-width', (d: SankeyLink) => Math.min(Math.max(0.5, (d.width ?? 1) * 0.5), 20))
+    .attr('stroke-opacity', (_d: SankeyLink, i: number) => {
       const originalLink = sankeyLinks[i];
       
       if (originalLink?.edgeType === 'hierarchy') {
@@ -503,7 +470,7 @@ function renderSankey(
       
       return 0.4;
     })
-    .attr('class', (_d: any, i: number) => {
+    .attr('class', (_d: SankeyLink, i: number) => {
       const originalLink = sankeyLinks[i];
       const sourceNode = state.graph.nodes.find(n => nodeIndexMap[n.id] === originalLink.source);
       const targetNode = state.graph.nodes.find(n => nodeIndexMap[n.id] === originalLink.target);
@@ -511,19 +478,19 @@ function renderSankey(
       return animatingEdges.has(edgeKey) ? 'animate-pulse' : '';
     })
     .style('cursor', 'pointer')
-    .on('mouseenter', function(event: MouseEvent, d: any) {
+    .on('mouseenter', function(event: MouseEvent, d: SankeyLink) {
       const linkIndex = links.indexOf(d);
       const originalLink = sankeyLinks[linkIndex];
-      
+
       // Increase opacity on hover for all edge types
       if (originalLink?.edgeType === 'hierarchy') {
         d3.select(this).attr('stroke-opacity', 0.6);
       } else {
         d3.select(this).attr('stroke-opacity', 0.7);
       }
-      
-      const sourceNodeData = sankeyNodes.find(n => n.name === d.source.name);
-      const targetNodeData = sankeyNodes.find(n => n.name === d.target.name);
+
+      const sourceNodeData = sankeyNodes.find(n => n.name === (d.source as SankeyNode).name);
+      const targetNodeData = sankeyNodes.find(n => n.name === (d.target as SankeyNode).name);
       
       const tooltipContent = getEdgeTooltip(sourceNodeData, targetNodeData, originalLink);
       
@@ -557,7 +524,7 @@ function renderSankey(
         .style('left', (event.pageX + 10) + 'px')
         .style('top', (event.pageY - 10) + 'px');
     })
-    .on('mouseleave', function(_event: MouseEvent, d: any) {
+    .on('mouseleave', function(_event: MouseEvent, d: SankeyLink) {
       const linkIndex = links.indexOf(d);
       const originalLink = sankeyLinks[linkIndex];
       
@@ -595,23 +562,23 @@ function renderSankey(
 
   nodeGroups
     .append('rect')
-    .attr('x', (d: any) => d.x0)
-    .attr('y', (d: any) => d.y0)
-    .attr('width', (d: any) => d.x1 - d.x0)
-    .attr('height', (d: any) => Math.max(d.y1 - d.y0, 2))
-    .attr('fill', (d: any) => {
+    .attr('x', (d: SankeyNode) => d.x0 ?? 0)
+    .attr('y', (d: SankeyNode) => d.y0 ?? 0)
+    .attr('width', (d: SankeyNode) => (d.x1 ?? 0) - (d.x0 ?? 0))
+    .attr('height', (d: SankeyNode) => Math.max((d.y1 ?? 0) - (d.y0 ?? 0), 2))
+    .attr('fill', (d: SankeyNode) => {
       const nodeStyle = getNodeStyle(d, sankeyNodes);
       return nodeStyle.fill;
     })
-    .attr('fill-opacity', (d: any) => {
+    .attr('fill-opacity', (d: SankeyNode) => {
       const nodeStyle = getNodeStyle(d, sankeyNodes);
       const nodeData = sankeyNodes.find(n => n.name === d.name);
-      
+
       if (nodeData?.type === 'ontology') {
         return 0.9;
       } else if (nodeData?.type === 'source') {
-        const hasOutgoingDataflow = state.graph.edges.some(e => 
-          e.source === nodeData.id && ((e as any).edgeType ?? (e as any).edge_type) === 'dataflow'
+        const hasOutgoingDataflow = state.graph.edges.some(e =>
+          e.source === nodeData.id && (e.edgeType ?? e.edge_type) === 'dataflow'
         );
         return hasOutgoingDataflow ? 1 : 0.5;
       } else if (nodeData?.type === 'agent') {
@@ -619,33 +586,33 @@ function renderSankey(
       } else if (nodeData?.type === 'source_parent') {
         return 0.7;
       }
-      
+
       return nodeStyle.fillOpacity || 0.7;
     })
-    .attr('stroke', (d: any) => {
+    .attr('stroke', (d: SankeyNode) => {
       const nodeStyle = getNodeStyle(d, sankeyNodes);
       return nodeStyle.stroke || '#475569';
     })
-    .attr('stroke-width', (d: any) => {
+    .attr('stroke-width', (d: SankeyNode) => {
       const nodeStyle = getNodeStyle(d, sankeyNodes);
       return nodeStyle.strokeWidth || 0;
     })
-    .attr('stroke-opacity', (d: any) => {
+    .attr('stroke-opacity', (d: SankeyNode) => {
       const nodeData = sankeyNodes.find(n => n.name === d.name);
-      
+
       if (nodeData?.type === 'source') {
-        const hasOutgoingDataflow = state.graph.edges.some(e => 
-          e.source === nodeData.id && ((e as any).edgeType ?? (e as any).edge_type) === 'dataflow'
+        const hasOutgoingDataflow = state.graph.edges.some(e =>
+          e.source === nodeData.id && (e.edgeType ?? e.edge_type) === 'dataflow'
         );
         return hasOutgoingDataflow ? 1 : 0.6;
       } else if (nodeData?.type === 'agent' || nodeData?.type === 'source_parent') {
         return 1;
       }
-      
+
       return 0;
     })
     .style('cursor', 'pointer')
-    .on('mouseenter', function(event: MouseEvent, d: any) {
+    .on('mouseenter', function(event: MouseEvent, d: SankeyNode) {
       const nodeData = sankeyNodes.find(n => n.name === d.name);
       if (!nodeData) return;
       
@@ -673,14 +640,14 @@ function renderSankey(
         .style('left', (event.pageX + 10) + 'px')
         .style('top', (event.pageY - 10) + 'px');
     })
-    .on('mouseleave', function(event: MouseEvent, d: any) {
+    .on('mouseleave', function(_event: MouseEvent, d: SankeyNode) {
       const nodeData = sankeyNodes.find(n => n.name === d.name);
-      
+
       if (nodeData?.type === 'ontology') {
         d3.select(this).attr('fill-opacity', 0.9);
       } else if (nodeData?.type === 'source') {
-        const hasOutgoingDataflow = state.graph.edges.some(e => 
-          e.source === nodeData.id && ((e as any).edgeType ?? (e as any).edge_type) === 'dataflow'
+        const hasOutgoingDataflow = state.graph.edges.some(e =>
+          e.source === nodeData.id && (e.edgeType ?? e.edge_type) === 'dataflow'
         );
         d3.select(this).attr('fill-opacity', hasOutgoingDataflow ? 1 : 0.5);
         d3.select(this).attr('stroke-opacity', hasOutgoingDataflow ? 1 : 0.6);
@@ -691,10 +658,10 @@ function renderSankey(
       } else {
         d3.select(this).attr('fill-opacity', 0.7);
       }
-      
+
       tooltip.style('opacity', '0');
     })
-    .on('click', async function(_event: MouseEvent, d: any) {
+    .on('click', async function(_event: MouseEvent, d: SankeyNode) {
       const nodeData = sankeyNodes.find(n => n.name === d.name);
       if (!nodeData) return;
       
@@ -713,21 +680,9 @@ function renderSankey(
 
   // Add pillbox labels for data source, ontology, and agent nodes
   // First pass: collect all label data
-  const labelData: Array<{
-    element: any;
-    nodeData: any;
-    d: any;
-    label: string;
-    fontSize: number;
-    pillHeight: number;
-    pillWidth: number;
-    padding: number;
-    xPos: number;
-    yPos: number;
-    borderColor: string;
-  }> = [];
-  
-  nodeGroups.each(function (this: any, d: any) {
+  const labelData: LabelData[] = [];
+
+  nodeGroups.each(function (this: SVGGElement, d: SankeyNode) {
     const nodeData = sankeyNodes.find(n => n.name === d.name);
     
     // Add labels to source_parent nodes (data sources), ontology nodes, and agent nodes
@@ -856,7 +811,7 @@ function renderSankey(
       .text(item.label);
   });
 
-  function getEdgeTooltip(sourceNodeData: SankeyNode | undefined, targetNodeData: SankeyNode | undefined, linkData: SankeyLink): string {
+  function getEdgeTooltip(sourceNodeData: SankeyNodeDatum | undefined, targetNodeData: SankeyNodeDatum | undefined, linkData: SankeyLinkDatum): string {
     if (!sourceNodeData || !targetNodeData) return 'Data Flow';
     
     const sourceName = sourceNodeData.name || 'Unknown';
@@ -904,7 +859,7 @@ function renderSankey(
           <strong style="color: #a78bfa; font-size: 10px;">Field Mappings:</strong><br>
           <div style="max-height: 120px; overflow-y: auto; margin-top: 4px;">
       `;
-      linkData.fieldMappings.forEach((field: any) => {
+      linkData.fieldMappings.forEach((field: FieldMapping) => {
         const sourceField = field.source || 'N/A';
         const ontoField = field.onto_field || 'N/A';
         const confidence = field.confidence ? `(${Math.round(field.confidence * 100)}%)` : '';

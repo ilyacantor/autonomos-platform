@@ -3,9 +3,13 @@ import time
 import json
 import re
 import traceback
+import logging
 from abc import ABC, abstractmethod
 from typing import Optional, Dict, Any, Callable
 import google.generativeai as genai  # type: ignore
+
+# Configure logger
+logger = logging.getLogger(__name__)
 
 
 class LLMService(ABC):
@@ -67,8 +71,8 @@ class GeminiService(LLMService):
                 usage = resp.usage_metadata
                 if hasattr(usage, 'total_token_count'):
                     tokens = usage.total_token_count
-            except Exception:
-                pass
+            except (AttributeError, Exception) as e:
+                logger.debug(f"Could not extract token usage from Gemini response: {e}")
             
             # Parse JSON from response
             try:
@@ -84,7 +88,7 @@ class GeminiService(LLMService):
                 
                 # Log timing and record call via dependency injection
                 gemini_elapsed = time.time() - gemini_start
-                print(f"⏱️ {self.get_model_name()} call: {gemini_elapsed:.2f}s | {tokens} tokens", flush=True)
+                logger.info(f"⏱️ {self.get_model_name()} call: {gemini_elapsed:.2f}s | {tokens} tokens")
                 self._record_llm_call(tokens)  # Persist LLM call counter in Redis
                 
                 return result
@@ -96,7 +100,7 @@ class GeminiService(LLMService):
                     f.write(f"Source: {source_key}\n")
                     f.write(f"Response: {resp.text if hasattr(resp, 'text') else 'N/A'}\n")
                     f.write(f"Error: {parse_err}\n\n")
-                print(f"[LLM PARSE ERROR] {self.get_model_name()} - Falling back to heuristic for {source_key}", flush=True)
+                logger.warning(f"[LLM PARSE ERROR] {self.get_model_name()} - Falling back to heuristic for {source_key}")
                 return None
         
         except Exception as e:
@@ -106,12 +110,12 @@ class GeminiService(LLMService):
                 f.write(f"Model: {self.get_model_name()}\n")
                 f.write(f"Source: {source_key}\n")
                 f.write(f"{traceback.format_exc()}\n\n")
-            print(f"[LLM ERROR] {self.get_model_name()} - {e} - Falling back to heuristic for {source_key}", flush=True)
+            logger.error(f"[LLM ERROR] {self.get_model_name()} - {e} - Falling back to heuristic for {source_key}")
             return None
-    
+
     def get_model_name(self) -> str:
         return self.model
-    
+
     def get_provider_name(self) -> str:
         return "Gemini"
 
@@ -156,8 +160,8 @@ class OpenAIService(LLMService):
             tokens = 0
             try:
                 tokens = response.usage.total_tokens
-            except Exception:
-                pass
+            except (AttributeError, Exception) as e:
+                logger.debug(f"Could not extract token usage from OpenAI response: {e}")
             
             # Parse JSON from response
             try:
@@ -173,7 +177,7 @@ class OpenAIService(LLMService):
                 
                 # Log timing and record call via dependency injection
                 openai_elapsed = time.time() - openai_start
-                print(f"⏱️ {self.get_model_name()} call: {openai_elapsed:.2f}s | {tokens} tokens", flush=True)
+                logger.info(f"⏱️ {self.get_model_name()} call: {openai_elapsed:.2f}s | {tokens} tokens")
                 self._record_llm_call(tokens)  # Persist LLM call counter in Redis
                 
                 return result
@@ -185,9 +189,9 @@ class OpenAIService(LLMService):
                     f.write(f"Source: {source_key}\n")
                     f.write(f"Response: {text}\n")
                     f.write(f"Error: {parse_err}\n\n")
-                print(f"[LLM PARSE ERROR] {self.get_model_name()} - Falling back to heuristic for {source_key}", flush=True)
+                logger.warning(f"[LLM PARSE ERROR] {self.get_model_name()} - Falling back to heuristic for {source_key}")
                 return None
-        
+
         except Exception as e:
             os.makedirs("logs", exist_ok=True)
             with open("logs/llm_failures.log", "a") as f:
@@ -195,7 +199,7 @@ class OpenAIService(LLMService):
                 f.write(f"Model: {self.get_model_name()}\n")
                 f.write(f"Source: {source_key}\n")
                 f.write(f"{traceback.format_exc()}\n\n")
-            print(f"[LLM ERROR] {self.get_model_name()} - {e} - Falling back to heuristic for {source_key}", flush=True)
+            logger.error(f"[LLM ERROR] {self.get_model_name()} - {e} - Falling back to heuristic for {source_key}")
             return None
     
     def get_model_name(self) -> str:

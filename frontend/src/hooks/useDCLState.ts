@@ -1,91 +1,18 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { API_CONFIG, AUTH_TOKEN_KEY } from '../config/api';
+import type {
+  DCLState,
+  DCLWebSocketMessage,
+  SourceSchema,
+} from '../types/dcl';
 
 const TOKEN_EXPIRY_KEY = 'auth_token_expiry';
-
-interface RAGRetrieval {
-  source_field: string;
-  ontology_entity: string;
-  similarity: number;
-}
-
-interface RAGContext {
-  retrievals: RAGRetrieval[];
-  total_mappings: number;
-  last_retrieval_count: number;
-  mappings_retrieved?: number;
-}
-
-interface GraphNode {
-  id: string;
-  label: string;
-  type: string;
-  fields?: string[];
-}
-
-interface GraphEdge {
-  source: string;
-  target: string;
-  label?: string;
-  field_mappings?: any[];
-  entity_fields?: string[];
-  entity_name?: string;
-}
-
-interface Graph {
-  nodes: GraphNode[];
-  edges: GraphEdge[];
-  confidence?: number | null;
-  last_updated?: string | null;
-}
-
-interface LLMStats {
-  calls: number;
-  tokens: number;
-  calls_saved?: number;
-}
-
-interface PreviewData {
-  sources: Record<string, any>;
-  ontology: Record<string, any>;
-  connectionInfo: any;
-}
-
-export interface DCLState {
-  events: string[];
-  graph: Graph;
-  llm: LLMStats;
-  preview: PreviewData;
-  rag: RAGContext;
-  selected_sources: string[];
-  selected_agents: string[];
-  dev_mode: boolean;
-  blended_confidence?: number | null;
-}
 
 interface UseDCLStateReturn {
   state: DCLState | null;
   loading: boolean;
   error: Error | null;
   refetch: () => Promise<void>;
-}
-
-interface WebSocketMessage {
-  type: string;
-  timestamp: number;
-  data: {
-    sources: string[];
-    agents: string[];
-    devMode: boolean;
-    graph: Graph;
-    llmCalls: number;
-    llmTokens: number;
-    ragContext: RAGContext;
-    events?: string[];
-    entitySources?: Record<string, string[]>;
-    sourceSchemas?: Record<string, any>;
-    agentConsumption?: Record<string, string[]>;
-  };
 }
 
 export function useDCLState(): UseDCLStateReturn {
@@ -98,7 +25,7 @@ export function useDCLState(): UseDCLStateReturn {
   const maxReconnectAttempts = 10;
   const baseReconnectDelay = 1000;
 
-  const processWebSocketMessage = useCallback((message: any) => {
+  const processWebSocketMessage = useCallback((message: DCLWebSocketMessage) => {
     try {
       // Handle RAG coverage check events (intelligent LLM decision prompts)
       if (message.type === 'rag_coverage_check') {

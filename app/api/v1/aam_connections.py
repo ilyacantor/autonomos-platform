@@ -11,7 +11,6 @@ Supported connector types:
 - FileSource: CSV/JSON/YAML file-based sources
 """
 
-import sys
 import logging
 from uuid import UUID
 from typing import List, Optional, Dict, Any
@@ -19,12 +18,10 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from pydantic import BaseModel, Field
 
-sys.path.insert(0, 'aam_hybrid')
-
-from core.connection_manager import connection_manager
-from shared.models import ConnectionStatus
-from shared.constants import DEMO_TENANT_UUID
-from connectors import (
+from aam_hybrid.core.connection_manager import connection_manager
+from aam_hybrid.shared.models import ConnectionStatus
+from aam_hybrid.shared.constants import DEMO_TENANT_UUID
+from aam_hybrid.connectors import (
     salesforce_adapter,
     supabase_adapter,
     mongodb_adapter,

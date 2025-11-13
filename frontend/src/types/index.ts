@@ -120,8 +120,8 @@ export interface DiscoveredEntity {
   source_schema?: string;
   confidence_score: number;
   confidence_level: 'high' | 'medium' | 'low' | 'very_low';
-  attributes: Record<string, any>;
-  metadata: Record<string, any>;
+  attributes: Record<string, unknown>;
+  metadata: Record<string, unknown>;
 }
 
 export interface AgentRecommendation {

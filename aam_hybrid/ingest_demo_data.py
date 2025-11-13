@@ -14,17 +14,11 @@ Environment Variables:
 
 import asyncio
 import logging
-import sys
 import os
-from pathlib import Path
-
-# Add aam_hybrid directory to sys.path for package imports
-sys.path.insert(0, str(Path(__file__).parent.parent))  # Project root for app imports
-sys.path.insert(0, str(Path(__file__).parent))  # aam_hybrid directory for core imports
 
 import redis
 
-from core.data_ingestion import ingest_connector_data
+from aam_hybrid.core.data_ingestion import ingest_connector_data
 
 logging.basicConfig(
     level=logging.INFO,

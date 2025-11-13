@@ -1,16 +1,18 @@
-interface DCLState {
+import type { DCLStateResponse } from '../types/dcl';
+
+interface DCLBridgeState {
   sources: string[];
   agents: string[];
   devMode: boolean;
 }
 
-const dclState: DCLState = {
+const dclState: DCLBridgeState = {
   sources: [],
   agents: [],
   devMode: false,
 };
 
-async function fetchDCLState(): Promise<any> {
+async function fetchDCLState(): Promise<DCLStateResponse | null> {
   try {
     const response = await fetch('/dcl/state');
     const data = await response.json();
@@ -128,7 +130,15 @@ function setupDCLBridge(): void {
   // Dev Mode toggle now integrated into DCLGraphContainer component
   // setTimeout(createDevModeToggle, 1000);
 
-  (window as any).dclConnect = async function(sources?: string, agents?: string) {
+  declare global {
+    interface Window {
+      dclConnect: (sources?: string, agents?: string) => Promise<DCLStateResponse>;
+      dclReset: () => Promise<DCLStateResponse>;
+      dclToggleDevMode: () => Promise<{ success: boolean; dev_mode: boolean; message: string }>;
+    }
+  }
+
+  window.dclConnect = async function(sources?: string, agents?: string) {
     const sourcesParam = sources || 'dynamics,salesforce,hubspot';
     const agentsParam = agents || 'revops_pilot,finops_pilot';
 
@@ -148,7 +158,7 @@ function setupDCLBridge(): void {
     }
   };
 
-  (window as any).dclReset = async function() {
+  window.dclReset = async function() {
     console.log('[DCL] ⚠️ DEPRECATED: dclReset() is deprecated. Reset functionality removed - calling dclConnect() instead.');
     console.log('[DCL] Backend /dcl/connect is now idempotent and handles state clearing automatically.');
     
@@ -162,14 +172,14 @@ function setupDCLBridge(): void {
         : 'revops_pilot,finops_pilot';
       
       // Call dclConnect instead of reset
-      return await (window as any).dclConnect(sources, agents);
+      return await window.dclConnect(sources, agents);
     } catch (err) {
       console.error('[DCL] Error in deprecated dclReset():', err);
       throw err;
     }
   };
 
-  (window as any).dclToggleDevMode = async function() {
+  window.dclToggleDevMode = async function() {
     console.log('[DCL] Toggling dev mode...');
 
     try {

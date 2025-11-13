@@ -1,4 +1,5 @@
 import { API_CONFIG, AUTH_TOKEN_KEY } from '../config/api';
+import type { DiscoveryResponse } from '../types/api';
 
 const TOKEN_EXPIRY_KEY = 'auth_token_expiry';
 
@@ -99,12 +100,12 @@ class AOAApiService {
       body: JSON.stringify(payload),
     });
 
-    const data = await this.handleResponse(response);
-    
+    const data: DiscoveryResponse = await this.handleResponse(response);
+
     console.log('[Discover] Received response:', data);
-    
+
     if (data.agent_recommendations && data.agent_recommendations.length > 0) {
-      const assignedAgents = data.agent_recommendations.map((rec: any) => rec.agent_name);
+      const assignedAgents = data.agent_recommendations.map(rec => rec.agent_name);
       console.log('[Discover] Handing to agents:', {
         assigned_agents: assignedAgents,
         processing_priority: data.agent_recommendations[0]?.priority || 'medium',

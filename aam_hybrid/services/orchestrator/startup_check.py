@@ -3,12 +3,8 @@ Startup validation for AAM Orchestrator
 Ensures all required credentials are configured before accepting requests
 """
 import logging
-import sys
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
-from shared import settings
+from aam_hybrid.shared.config import settings
 
 logger = logging.getLogger(__name__)
 

@@ -5,10 +5,6 @@ Provides text embeddings for semantic similarity search
 import logging
 from typing import List
 from openai import AsyncOpenAI
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from aam_hybrid.shared.config import settings
 

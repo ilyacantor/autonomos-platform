@@ -2,8 +2,12 @@
 Simple vector storage helper using Pinecone RAG Engine
 """
 
+import logging
 from rag_engine import RAGEngine
 from typing import List, Dict, Optional
+
+# Configure logger
+logger = logging.getLogger(__name__)
 
 # Global RAG engine instance
 _rag_engine = None
@@ -37,7 +41,7 @@ def store_text(doc_id: str, text: str, metadata: Optional[Dict] = None):
         confidence=1.0,
         validated=True
     )
-    print(f"✅ Stored text with ID: {doc_id}")
+    logger.info(f"✅ Stored text with ID: {doc_id}")
 
 def search_text(query: str, top_k: int = 5) -> List[Dict]:
     """
