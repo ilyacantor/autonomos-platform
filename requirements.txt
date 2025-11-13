@@ -13,10 +13,10 @@ asyncpg
 redis
 rq
 
-# Data validation
-pydantic==2.5.3
-pydantic-settings==2.1.0
-pydantic[email]==2.5.3
+# Data validation - Using latest versions with Python 3.13 pre-built wheels
+pydantic>=2.9.0
+pydantic-settings>=2.5.0
+pydantic[email]>=2.9.0
 
 # Utilities
 python-dotenv
