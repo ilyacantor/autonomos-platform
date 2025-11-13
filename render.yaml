@@ -5,7 +5,7 @@ services:
     runtime: python
     plan: starter
     branch: main
-    buildCommand: pip install -r requirements-cpu.txt && pip install -r requirements.txt
+    buildCommand: pip install -r requirements-cpu.txt && pip install -r requirements.txt && cd frontend && npm ci && npm run build && cd ..
     startCommand: bash start.sh
     envVars:
       - key: PORT
@@ -36,7 +36,7 @@ services:
     name: autonomos-platform-preview
     runtime: python
     plan: starter
-    buildCommand: pip install -r requirements-cpu.txt && pip install -r requirements.txt
+    buildCommand: pip install -r requirements-cpu.txt && pip install -r requirements.txt && cd frontend && npm ci && npm run build && cd ..
     startCommand: bash start.sh
     envVars:
       - key: PORT
