@@ -4,7 +4,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Settings:
-    DATABASE_URL: str = os.getenv("DATABASE_URL", "")
+    # Priority: SUPABASE_DATABASE_URL (custom) > DATABASE_URL (Replit-managed)
+    # Use SUPABASE_DATABASE_URL in production to override Replit's auto-generated Neon DATABASE_URL
+    DATABASE_URL: str = os.getenv("SUPABASE_DATABASE_URL") or os.getenv("DATABASE_URL", "")
     REDIS_HOST: str = os.getenv("REDIS_HOST", "localhost")
     REDIS_PORT: int = int(os.getenv("REDIS_PORT", "6379"))
     REDIS_DB: int = int(os.getenv("REDIS_DB", "0"))
