@@ -1603,12 +1603,55 @@ async def broadcast_state_change(event_type: str = "state_update"):
         for agent_id, agent_info in agents_config.get("agents", {}).items():
             agent_consumption[agent_id] = agent_info.get("consumes", [])
         
+        # Filter graph based on AAM mode - show only relevant source nodes
+        use_aam = FeatureFlagConfig.is_enabled(FeatureFlag.USE_AAM_AS_SOURCE)
+        # AAM sources (lowercase keys as they appear in source_key)
+        aam_source_keys = {"salesforce", "supabase", "mongodb", "filesource"}
+        
+        # Filter nodes based on mode
+        if use_aam:
+            # AAM mode: Only show nodes from AAM production connectors
+            # source_parent node IDs are "sys_{source_key}", sourceSystem is title-cased from source_key
+            filtered_nodes = []
+            for node in GRAPH_STATE["nodes"]:
+                node_type = node.get("type")
+                
+                # Always include ontology and agent nodes
+                if node_type in ["ontology", "agent"]:
+                    filtered_nodes.append(node)
+                    continue
+                
+                # For source_parent nodes: check if ID matches sys_{aam_source}
+                if node_type == "source_parent":
+                    node_id = node.get("id", "")
+                    if node_id.startswith("sys_"):
+                        source_key = node_id[4:]  # Remove "sys_" prefix
+                        if source_key in aam_source_keys:
+                            filtered_nodes.append(node)
+                    continue
+                
+                # For source table nodes: check parent ID (more reliable than sourceSystem string matching)
+                if node_type == "source":
+                    parent_id = node.get("parentId", "")
+                    if parent_id.startswith("sys_"):
+                        source_key = parent_id[4:]  # Remove "sys_" prefix
+                        if source_key in aam_source_keys:
+                            filtered_nodes.append(node)
+                    continue
+        else:
+            # Legacy mode: Show all nodes (9 demo CSV sources)
+            filtered_nodes = GRAPH_STATE["nodes"]
+        
         # Filter graph edges for Sankey rendering - exclude join edges to prevent circular references
+        # Also filter edges to only include those between filtered nodes
+        filtered_node_ids = {node["id"] for node in filtered_nodes}
         filtered_graph = {
-            "nodes": GRAPH_STATE["nodes"],
+            "nodes": filtered_nodes,
             "edges": [
                 edge for edge in GRAPH_STATE["edges"]
                 if edge.get("type") != "join"  # Only keep hierarchy and dataflow edges
+                and edge.get("source") in filtered_node_ids  # Source node must be in filtered set
+                and edge.get("target") in filtered_node_ids  # Target node must be in filtered set
             ]
         }
         
@@ -1777,13 +1820,56 @@ def state():
     for agent_id, agent_info in agents_config.get("agents", {}).items():
         agent_consumption[agent_id] = agent_info.get("consumes", [])
     
+    # Filter graph based on AAM mode - show only relevant source nodes
+    use_aam = FeatureFlagConfig.is_enabled(FeatureFlag.USE_AAM_AS_SOURCE)
+    # AAM sources (lowercase keys as they appear in source_key)
+    aam_source_keys = {"salesforce", "supabase", "mongodb", "filesource"}
+    
+    # Filter nodes based on mode
+    if use_aam:
+        # AAM mode: Only show nodes from AAM production connectors
+        # source_parent node IDs are "sys_{source_key}", sourceSystem is title-cased from source_key
+        filtered_nodes = []
+        for node in GRAPH_STATE["nodes"]:
+            node_type = node.get("type")
+            
+            # Always include ontology and agent nodes
+            if node_type in ["ontology", "agent"]:
+                filtered_nodes.append(node)
+                continue
+            
+            # For source_parent nodes: check if ID matches sys_{aam_source}
+            if node_type == "source_parent":
+                node_id = node.get("id", "")
+                if node_id.startswith("sys_"):
+                    source_key = node_id[4:]  # Remove "sys_" prefix
+                    if source_key in aam_source_keys:
+                        filtered_nodes.append(node)
+                continue
+            
+            # For source table nodes: check parent ID (more reliable than sourceSystem string matching)
+            if node_type == "source":
+                parent_id = node.get("parentId", "")
+                if parent_id.startswith("sys_"):
+                    source_key = parent_id[4:]  # Remove "sys_" prefix
+                    if source_key in aam_source_keys:
+                        filtered_nodes.append(node)
+                continue
+    else:
+        # Legacy mode: Show all nodes (9 demo CSV sources)
+        filtered_nodes = GRAPH_STATE["nodes"]
+    
     # Filter graph edges for Sankey rendering - exclude join edges to prevent circular references
     # D3-sankey requires a directed acyclic graph (DAG), but join edges create bidirectional cycles
+    # Also filter edges to only include those between filtered nodes
+    filtered_node_ids = {node["id"] for node in filtered_nodes}
     filtered_graph = {
-        "nodes": GRAPH_STATE["nodes"],
+        "nodes": filtered_nodes,
         "edges": [
             edge for edge in GRAPH_STATE["edges"]
             if edge.get("type") != "join"  # Only keep hierarchy and dataflow edges
+            and edge.get("source") in filtered_node_ids  # Source node must be in filtered set
+            and edge.get("target") in filtered_node_ids  # Target node must be in filtered set
         ]
     }
     
