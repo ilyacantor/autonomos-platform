@@ -1,6 +1,14 @@
 # AutonomOS - Multi-Tenant AI Orchestration Platform
 
 ## Recent Changes (2025-11-14)
+**Graph State Persistence for Demo Visual:**
+- Implemented Redis-backed GraphStateStore for persistent graph state across app restarts
+- Added tenant-scoped persistence with key pattern `dcl:graph_state:{tenant_id}`
+- Graph state loads automatically on startup, preserving demo visuals for all users
+- Save hooks after /connect execution and reset hooks after state clears
+- Graceful degradation when Redis unavailable (falls back to in-memory state)
+- Manual Run control: graph executes only when user clicks Run button (no auto-run)
+
 **Frontend Mode Toggle & Manual Run Control:**
 - Fixed AAM/Legacy mode toggle: checkboxes now synchronize correctly when switching between 4 AAM sources and 9 Legacy sources
 - Implemented React "lift state up" pattern: NewOntologyPage owns mode state, DCLGraphContainer receives via props (single source of truth)
