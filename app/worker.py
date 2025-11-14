@@ -267,6 +267,7 @@ def execute_task(task_id_str: str):
 
 if __name__ == "__main__":
     import os
+    import ssl as ssl_module
     
     # Use REDIS_URL if available (production), otherwise use host/port (development)
     REDIS_URL = os.getenv("REDIS_URL")
@@ -278,7 +279,12 @@ if __name__ == "__main__":
         else:
             print(f"✅ Worker using external Redis from REDIS_URL")
         
-        redis_conn = Redis.from_url(REDIS_URL, decode_responses=False)
+        # Add SSL parameters for rediss:// connections (Redis Cloud/Upstash)
+        # Disable certificate verification for compatibility with managed Redis services
+        if REDIS_URL.startswith("rediss://"):
+            redis_conn = Redis.from_url(REDIS_URL, decode_responses=False, ssl_cert_reqs=ssl_module.CERT_NONE)
+        else:
+            redis_conn = Redis.from_url(REDIS_URL, decode_responses=False)
     else:
         print(f"✅ Worker using local Redis at {settings.REDIS_HOST}:{settings.REDIS_PORT}")
         redis_conn = Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB)

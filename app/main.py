@@ -293,6 +293,7 @@ except Exception as e:
 redis_conn = None
 task_queue = None
 try:
+    import ssl as ssl_module
     REDIS_URL = os.getenv("REDIS_URL")
     if REDIS_URL:
         # Fix for Upstash Redis: Change redis:// to rediss:// to enable TLS/SSL
@@ -301,7 +302,12 @@ try:
             REDIS_URL = "rediss://" + REDIS_URL[8:]
             print("🔒 Using TLS/SSL for Redis connection (rediss:// protocol)")
 
-        redis_conn = Redis.from_url(REDIS_URL, decode_responses=False)
+        # Add SSL parameters for rediss:// connections (Redis Cloud/Upstash)
+        # Disable certificate verification for compatibility with managed Redis services
+        if REDIS_URL.startswith("rediss://"):
+            redis_conn = Redis.from_url(REDIS_URL, decode_responses=False, ssl_cert_reqs=ssl_module.CERT_NONE)
+        else:
+            redis_conn = Redis.from_url(REDIS_URL, decode_responses=False)
     else:
         redis_conn = Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB)
 

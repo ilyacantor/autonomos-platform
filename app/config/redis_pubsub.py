@@ -41,6 +41,7 @@ async def init_async_redis() -> Optional[AsyncRedis]:
     Returns:
         AsyncRedis client instance or None if Redis URL not available
     """
+    import ssl as ssl_module
     redis_url = os.getenv("REDIS_URL")
     if not redis_url:
         logger.warning("⚠️ REDIS_URL not set - async Redis client unavailable")
@@ -53,7 +54,12 @@ async def init_async_redis() -> Optional[AsyncRedis]:
     
     try:
         # Create async Redis client with decode_responses=True for easier string handling
-        client = AsyncRedis.from_url(redis_url, decode_responses=True)
+        # Add SSL parameters for rediss:// connections (Redis Cloud/Upstash)
+        # Disable certificate verification for compatibility with managed Redis services
+        if redis_url.startswith("rediss://"):
+            client = AsyncRedis.from_url(redis_url, decode_responses=True, ssl_cert_reqs=ssl_module.CERT_NONE)
+        else:
+            client = AsyncRedis.from_url(redis_url, decode_responses=True)
         
         # Test connection
         await client.ping()
