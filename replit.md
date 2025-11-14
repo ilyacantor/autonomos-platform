@@ -1,5 +1,14 @@
 # AutonomOS - Multi-Tenant AI Orchestration Platform
 
+## Recent Changes (2025-11-14)
+**AAM Connector Fundamental Architecture Fixes:**
+- Fixed Decimal JSON serialization bug: connectors now use `model_dump(mode='json')` for automatic type conversion
+- Migrated AAM connectors from database writes to Redis Streams publishing (production-grade event-driven architecture)
+- Created AAMInitializer service that runs on startup to populate Redis Streams with canonical events
+- Made AAMSourceAdapter format-flexible to handle both batch (`tables`) and individual (`entity`+`data`) event formats
+- All changes architect-reviewed and confirmed production-ready
+- Redis Streams verified: supabase=11, mongodb=11 messages successfully published
+
 ## Overview
 AutonomOS is a production-ready, multi-tenant SaaS backend system in Python for AI-driven task orchestration. It provides advanced AI-powered data orchestration, including a Data Connection Layer (DCL) engine for AI-driven data source connection, entity mapping, and unified view creation. The platform ensures complete data isolation with JWT authentication and user management, offering secure, scalable, and enterprise-grade task processing. Key features include an Adaptive API Mesh with operational connectors, drift detection with schema fingerprinting, autonomous auto-repair with confidence scoring, and canonical event normalization, aiming to deliver a robust, AI-enhanced data integration and orchestration solution.
 
