@@ -274,9 +274,15 @@ if __name__ == "__main__":
     if REDIS_URL:
         # Respect the URL scheme - use TLS if rediss://, plain if redis://
         if REDIS_URL.startswith("rediss://"):
-            # TLS/SSL connection - disable cert verification for managed Redis services
-            redis_conn = Redis.from_url(REDIS_URL, decode_responses=False, ssl_cert_reqs=ssl_module.CERT_NONE)
-            print(f"✅ Worker using external Redis with TLS/SSL (rediss:// protocol)")
+            # TLS/SSL connection with certificate validation
+            CA_CERT_PATH = os.path.join(os.path.dirname(__file__), "..", "certs", "redis_ca.pem")
+            redis_conn = Redis.from_url(
+                REDIS_URL, 
+                decode_responses=False, 
+                ssl_cert_reqs=ssl_module.CERT_REQUIRED,
+                ssl_ca_certs=CA_CERT_PATH
+            )
+            print(f"✅ Worker using external Redis with TLS/SSL certificate validation")
         else:
             # Plain connection
             redis_conn = Redis.from_url(REDIS_URL, decode_responses=False)

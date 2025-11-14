@@ -51,10 +51,15 @@ async def init_async_redis() -> Optional[AsyncRedis]:
         # Create async Redis client with decode_responses=True for easier string handling
         # Respect the URL scheme - use TLS if rediss://, plain if redis://
         if redis_url.startswith("rediss://"):
-            # TLS/SSL connection - disable cert verification for managed Redis services
-            # Note: async Redis uses ssl_cert_reqs=None (not ssl.CERT_NONE)
-            client = AsyncRedis.from_url(redis_url, decode_responses=True, ssl_cert_reqs=None)
-            logger.info("🔒 Using TLS/SSL for async Redis connection (rediss:// protocol)")
+            # TLS/SSL connection with certificate validation
+            # Note: Async Redis uses ssl_ca_certs parameter (not ssl_cert_reqs)
+            CA_CERT_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "certs", "redis_ca.pem")
+            client = AsyncRedis.from_url(
+                redis_url, 
+                decode_responses=True, 
+                ssl_ca_certs=CA_CERT_PATH
+            )
+            logger.info("🔒 Using TLS/SSL for async Redis connection with certificate validation")
         else:
             # Plain connection
             client = AsyncRedis.from_url(redis_url, decode_responses=True)

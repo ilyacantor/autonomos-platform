@@ -28,7 +28,7 @@ The platform uses a "Strangler Fig" pattern with feature flags for zero downtime
 *   **Database Connection Architecture:** Centralized session factories (`SessionLocal` for sync with psycopg2, `AsyncSessionLocal` for async with psycopg3) ensure PgBouncer compatibility for Supabase.
 *   **Production Database Override:** Prioritizes `SUPABASE_DATABASE_URL` over Replit's auto-provisioned `DATABASE_URL` (Neon) to maintain Supabase usage in production.
 *   **AAM Production Connections:** Three configured AAM connectors (Salesforce, MongoDB, FilesSource) use real credentials from Replit Secrets.
-*   **Redis Infrastructure:** All Redis connections (sync, async, RQ worker) support TLS with disabled certificate verification for managed services. Shared Redis client prevents connection pool exhaustion. Includes graceful degradation and monitoring with watchdog processes and retry logic.
+*   **Redis Infrastructure:** All Redis connections (sync, async, RQ worker) use TLS encryption with full certificate validation (`certs/redis_ca.pem` containing GlobalSign + Redis Labs CA chain). Sync clients use `ssl_cert_reqs=CERT_REQUIRED`, async client uses `ssl_ca_certs` parameter. Shared Redis client prevents connection pool exhaustion. Includes graceful degradation and monitoring with watchdog processes and retry logic.
 *   **Feature Flags:** Frontend (`VITE_CONNECTIONS_V2`) and backend (`USE_AAM_AS_SOURCE`) feature flags managed via `.env.local` and Redis, respectively. The `USE_AAM_AS_SOURCE` flag is Redis-backed with multi-worker support, async pub/sub broadcasting, and persistence.
 *   **Data Ingestion:** `scripts/filesource_ingest.py` for populating `mapping_registry` from CSV files.
 
