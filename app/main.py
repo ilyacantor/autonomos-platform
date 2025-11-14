@@ -296,18 +296,15 @@ try:
     import ssl as ssl_module
     REDIS_URL = os.getenv("REDIS_URL")
     if REDIS_URL:
-        # Fix for Upstash Redis: Change redis:// to rediss:// to enable TLS/SSL
-        # Upstash requires TLS connections, and rediss:// protocol enables this
-        if REDIS_URL.startswith("redis://"):
-            REDIS_URL = "rediss://" + REDIS_URL[8:]
-            print("🔒 Using TLS/SSL for Redis connection (rediss:// protocol)")
-
-        # Add SSL parameters for rediss:// connections (Redis Cloud/Upstash)
-        # Disable certificate verification for compatibility with managed Redis services
+        # Respect the URL scheme - use TLS if rediss://, plain if redis://
         if REDIS_URL.startswith("rediss://"):
+            # TLS/SSL connection - disable cert verification for managed Redis services
             redis_conn = Redis.from_url(REDIS_URL, decode_responses=False, ssl_cert_reqs=ssl_module.CERT_NONE)
+            print("🔒 Using TLS/SSL for Redis connection (rediss:// protocol)")
         else:
+            # Plain connection
             redis_conn = Redis.from_url(REDIS_URL, decode_responses=False)
+            print("⚠️ Using non-TLS Redis connection - ensure this is intentional for dev/local only")
     else:
         redis_conn = Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB)
 

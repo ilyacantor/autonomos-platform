@@ -47,19 +47,18 @@ async def init_async_redis() -> Optional[AsyncRedis]:
         logger.warning("⚠️ REDIS_URL not set - async Redis client unavailable")
         return None
     
-    # Convert redis:// to rediss:// for Upstash TLS requirement
-    if redis_url.startswith("redis://"):
-        redis_url = "rediss://" + redis_url[8:]
-        logger.info("🔒 Using TLS/SSL for async Redis connection (rediss:// protocol)")
-    
     try:
         # Create async Redis client with decode_responses=True for easier string handling
-        # Add SSL parameters for rediss:// connections (Redis Cloud/Upstash)
-        # Disable certificate verification for compatibility with managed Redis services
+        # Respect the URL scheme - use TLS if rediss://, plain if redis://
         if redis_url.startswith("rediss://"):
-            client = AsyncRedis.from_url(redis_url, decode_responses=True, ssl_cert_reqs=ssl_module.CERT_NONE)
+            # TLS/SSL connection - disable cert verification for managed Redis services
+            # Note: async Redis uses ssl_cert_reqs=None (not ssl.CERT_NONE)
+            client = AsyncRedis.from_url(redis_url, decode_responses=True, ssl_cert_reqs=None)
+            logger.info("🔒 Using TLS/SSL for async Redis connection (rediss:// protocol)")
         else:
+            # Plain connection
             client = AsyncRedis.from_url(redis_url, decode_responses=True)
+            logger.warning("⚠️ Using non-TLS async Redis - ensure this is intentional for dev/local only")
         
         # Test connection
         await client.ping()

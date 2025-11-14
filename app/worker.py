@@ -272,19 +272,15 @@ if __name__ == "__main__":
     # Use REDIS_URL if available (production), otherwise use host/port (development)
     REDIS_URL = os.getenv("REDIS_URL")
     if REDIS_URL:
-        # Fix for Upstash Redis: Change redis:// to rediss:// to enable TLS/SSL
-        if REDIS_URL.startswith("redis://"):
-            REDIS_URL = "rediss://" + REDIS_URL[8:]
+        # Respect the URL scheme - use TLS if rediss://, plain if redis://
+        if REDIS_URL.startswith("rediss://"):
+            # TLS/SSL connection - disable cert verification for managed Redis services
+            redis_conn = Redis.from_url(REDIS_URL, decode_responses=False, ssl_cert_reqs=ssl_module.CERT_NONE)
             print(f"✅ Worker using external Redis with TLS/SSL (rediss:// protocol)")
         else:
-            print(f"✅ Worker using external Redis from REDIS_URL")
-        
-        # Add SSL parameters for rediss:// connections (Redis Cloud/Upstash)
-        # Disable certificate verification for compatibility with managed Redis services
-        if REDIS_URL.startswith("rediss://"):
-            redis_conn = Redis.from_url(REDIS_URL, decode_responses=False, ssl_cert_reqs=ssl_module.CERT_NONE)
-        else:
+            # Plain connection
             redis_conn = Redis.from_url(REDIS_URL, decode_responses=False)
+            print(f"⚠️ Worker using non-TLS Redis - ensure this is intentional for dev/local only")
     else:
         print(f"✅ Worker using local Redis at {settings.REDIS_HOST}:{settings.REDIS_PORT}")
         redis_conn = Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB)
