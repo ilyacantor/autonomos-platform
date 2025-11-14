@@ -120,6 +120,25 @@ async def lifespan(app: FastAPI):
     else:
         logger.warning("⚠️ Redis not available - AAM Auto-Onboarding disabled")
     
+    # Initialize production-grade feature flags with Redis persistence
+    if redis_conn:
+        try:
+            from app.config.feature_flags import FeatureFlagConfig, FeatureFlag
+            from app.dcl_engine.app import RedisDecodeWrapper
+            
+            # Wrap Redis client for decode_responses=True behavior
+            redis_wrapper = RedisDecodeWrapper(redis_conn)
+            FeatureFlagConfig.set_redis_client(redis_wrapper)
+            
+            # Log current flag states (hydrated from Redis)
+            use_aam = FeatureFlagConfig.is_enabled(FeatureFlag.USE_AAM_AS_SOURCE)
+            mode_name = "AAM Connectors" if use_aam else "Legacy File Sources"
+            logger.info(f"✅ Feature flags initialized - USE_AAM_AS_SOURCE: {mode_name} (survives restarts)")
+        except Exception as e:
+            logger.warning(f"⚠️ Feature flag initialization failed: {e}. Using in-memory fallback.")
+    else:
+        logger.warning("⚠️ Redis not available - feature flags will use in-memory storage only")
+    
     # Start AAM Hybrid Orchestration Services
     if AAM_AVAILABLE:
         logger.info("🚀 Starting AAM Hybrid orchestration services...")

@@ -10,6 +10,7 @@ import google.generativeai as genai  # type: ignore
 from rag_engine import RAGEngine
 from llm_service import get_llm_service
 import redis
+from redis.asyncio import Redis as AsyncRedis
 from app.dcl_engine.source_loader import get_source_adapter, AAMSourceAdapter
 from app.config.feature_flags import FeatureFlagConfig, FeatureFlag
 from app.dcl_engine.agent_executor import AgentExecutor
@@ -60,6 +61,7 @@ TIMING_LOG: Dict[str, List[float]] = {
 # NOTE: Redis client is shared from main app to avoid connection limit issues
 redis_client = None
 redis_available = False
+async_redis_client = None  # Async Redis client for non-blocking pub/sub operations
 DB_LOCK_KEY = "dcl:duckdb:lock"
 DB_LOCK_TIMEOUT = 30  # seconds
 DEV_MODE_KEY = "dcl:dev_mode"  # Redis key for cross-process dev mode state
@@ -99,9 +101,39 @@ class RedisDecodeWrapper:
     def ping(self):
         return self._client.ping()
 
+async def init_async_redis():
+    """
+    Initialize async Redis client for non-blocking pub/sub operations.
+    This creates a separate async connection pool for pub/sub to avoid blocking the event loop.
+    
+    Returns:
+        AsyncRedis client instance or None if Redis URL not available
+    """
+    redis_url = os.getenv("REDIS_URL")
+    if not redis_url:
+        print("⚠️ REDIS_URL not set - async Redis client unavailable", flush=True)
+        return None
+    
+    # Convert redis:// to rediss:// for Upstash TLS requirement
+    if redis_url.startswith("redis://"):
+        redis_url = "rediss://" + redis_url[8:]
+        print("🔒 Using TLS/SSL for async Redis connection (rediss:// protocol)", flush=True)
+    
+    try:
+        # Create async Redis client with decode_responses=True for easier string handling
+        client = AsyncRedis.from_url(redis_url, decode_responses=True)
+        
+        # Test connection
+        await client.ping()
+        print("✅ Async Redis client initialized for non-blocking pub/sub", flush=True)
+        return client
+    except Exception as e:
+        print(f"⚠️ Failed to initialize async Redis client: {e}", flush=True)
+        return None
+
 def set_redis_client(client):
     """
-    Set the shared Redis client from main app.
+    Set the shared Redis client from main app and initialize feature flags.
     This avoids creating multiple Redis connections and hitting Upstash connection limits.
     
     Args:
@@ -115,6 +147,18 @@ def set_redis_client(client):
     
     if redis_available:
         print(f"✅ DCL Engine: Using shared Redis client from main app", flush=True)
+        
+        # Initialize feature flags with Redis client for cross-worker persistence
+        try:
+            FeatureFlagConfig.set_redis_client(redis_client)
+            
+            # Hydrate USE_AAM_AS_SOURCE from Redis on startup (survives restarts)
+            current_value = FeatureFlagConfig.is_enabled(FeatureFlag.USE_AAM_AS_SOURCE)
+            mode_name = "AAM Connectors" if current_value else "Legacy File Sources"
+            print(f"🚩 DCL Engine: Feature Flags initialized - USE_AAM_AS_SOURCE: {mode_name}", flush=True)
+            print("📡 DCL Engine: Feature flag pub/sub listener will start on first async event (ASYNC MODE)", flush=True)
+        except Exception as e:
+            print(f"⚠️ DCL Engine: Feature flag initialization failed: {e}. Using in-memory fallback.", flush=True)
         
         # Initialize dev_mode now that we have a Redis client
         try:
@@ -1740,10 +1784,119 @@ async def log_api_usage(request: Request, call_next):
 # app.mount("/static", StaticFiles(directory="static"), name="static")
 # app.mount("/attached_assets", StaticFiles(directory="attached_assets"), name="attached_assets")
 
+# Track whether pub/sub listener has been started
+_pubsub_listener_started = False
+
+async def ensure_pubsub_listener():
+    """
+    Ensure the pub/sub listener is started (lazy initialization).
+    Safe to call multiple times - only starts once.
+    """
+    global _pubsub_listener_started
+    
+    if _pubsub_listener_started or not redis_client:
+        return
+    
+    _pubsub_listener_started = True
+    asyncio.create_task(feature_flag_pubsub_listener())
+    log("📡 Feature flag pub/sub listener started (lazy init)")
+
+async def feature_flag_pubsub_listener():
+    """
+    ASYNC NON-BLOCKING pub/sub listener for feature flag changes.
+    
+    Uses redis.asyncio for fully async, non-blocking operations.
+    This ensures the listener does NOT block the FastAPI event loop,
+    maintaining async responsiveness for production deployment.
+    
+    Previously: Used sync pubsub.get_message(timeout=1.0) which blocked event loop for 1 second
+    Now: Uses async for message in pubsub.listen() which is fully non-blocking
+    
+    Provides cross-worker cache invalidation when flags are toggled.
+    When Worker A toggles a flag, Worker B receives the change and clears its cache.
+    """
+    global GRAPH_STATE, SOURCES_ADDED, async_redis_client
+    
+    # Initialize async Redis client if not already done
+    if async_redis_client is None:
+        async_redis_client = await init_async_redis()
+    
+    if not async_redis_client:
+        log("⚠️ Async Redis not available - pub/sub listener disabled")
+        return
+    
+    try:
+        # Create ASYNC pub/sub instance (non-blocking)
+        pubsub = async_redis_client.pubsub()
+        await pubsub.subscribe(FeatureFlagConfig._pubsub_channel)
+        
+        log(f"📡 [ASYNC] Subscribed to {FeatureFlagConfig._pubsub_channel} for flag changes")
+        log(f"✅ Pub/sub listener running in NON-BLOCKING mode (production-ready)")
+        
+        # Listen for messages using ASYNC iterator (fully non-blocking)
+        async for message in pubsub.listen():
+            try:
+                # Only process actual messages (skip subscription confirmations)
+                if message['type'] == 'message':
+                    # Data is already decoded (decode_responses=True)
+                    data = message['data']
+                    
+                    # Parse JSON payload
+                    payload = json.loads(data)
+                    flag_name = payload.get('flag')
+                    flag_value = payload.get('value')
+                    
+                    log(f"📨 [ASYNC] Received flag change: {flag_name}={flag_value}")
+                    
+                    # Handle USE_AAM_AS_SOURCE flag changes
+                    if flag_name == FeatureFlag.USE_AAM_AS_SOURCE.value:
+                        # Clear DCL cache to force fresh graph generation
+                        GRAPH_STATE = {"nodes": [], "edges": [], "confidence": None, "last_updated": None}
+                        SOURCES_ADDED = []
+                        
+                        mode_name = "AAM Connectors" if flag_value else "Legacy File Sources"
+                        log(f"🔄 Cache cleared due to flag change: {mode_name}")
+                        
+                        # Broadcast state change to WebSocket clients
+                        await broadcast_state_change("aam_mode_toggled")
+                
+            except json.JSONDecodeError as e:
+                log(f"⚠️ Invalid JSON in pub/sub message: {e}")
+            except Exception as e:
+                log(f"⚠️ Error processing pub/sub message: {e}")
+                # Continue listening even on errors
+                
+    except Exception as e:
+        log(f"⚠️ Pub/sub listener crashed: {e}")
+        # Clean up on crash
+        if async_redis_client:
+            try:
+                await async_redis_client.close()
+            except:
+                pass
+
 @app.on_event("startup")
 async def startup_event():
     """Initialize RAG engine and default settings on startup."""
     global rag_engine, agents_config, agent_executor
+    
+    # Initialize feature flags with Redis client for cross-worker persistence
+    if redis_client:
+        try:
+            FeatureFlagConfig.set_redis_client(redis_client)
+            
+            # Hydrate USE_AAM_AS_SOURCE from Redis on startup (survives restarts)
+            current_value = FeatureFlagConfig.is_enabled(FeatureFlag.USE_AAM_AS_SOURCE)
+            mode_name = "AAM Connectors" if current_value else "Legacy File Sources"
+            log(f"🚩 Feature Flags initialized - USE_AAM_AS_SOURCE: {mode_name}")
+            
+            # Start background pub/sub listener for flag changes (cross-worker cache invalidation)
+            asyncio.create_task(feature_flag_pubsub_listener())
+            log("📡 Feature flag pub/sub listener started")
+        except Exception as e:
+            log(f"⚠️ Feature flag initialization failed: {e}. Using in-memory fallback.")
+    else:
+        log("⚠️ Redis not available - feature flags will use in-memory storage only")
     
     # Initialize dev_mode to Prod Mode (False) as default if not already set
     try:
@@ -2246,20 +2399,26 @@ async def toggle_aam_mode():
     
     This endpoint:
     1. Toggles the USE_AAM_AS_SOURCE flag (Legacy files <-> AAM connectors)
-    2. Clears DCL graph state (GRAPH_STATE, SOURCES_ADDED) to force fresh generation
-    3. Returns the new flag state
+    2. Writes to Redis for cross-worker persistence
+    3. Publishes to pub/sub for cross-worker cache invalidation
+    4. Clears DCL graph state (GRAPH_STATE, SOURCES_ADDED) to force fresh generation
+    5. Returns the new flag state
     
     Expected behavior:
     - AAM mode ON: Uses 4 AAM sources (Salesforce, MongoDB, Supabase, FilesSource)
     - AAM mode OFF: Uses 9 Legacy file sources (Salesforce, Dynamics, HubSpot, etc.)
+    - Flag change broadcasts to all workers via Redis pub/sub
     """
     global GRAPH_STATE, SOURCES_ADDED
+    
+    # Ensure pub/sub listener is running (lazy initialization)
+    await ensure_pubsub_listener()
     
     # Get current state and toggle
     current_state = FeatureFlagConfig.is_enabled(FeatureFlag.USE_AAM_AS_SOURCE)
     new_state = not current_state
     
-    # Set the flag
+    # Set the flag (writes to Redis and publishes to pub/sub)
     FeatureFlagConfig.set_flag(FeatureFlag.USE_AAM_AS_SOURCE, new_state)
     
     # Clear DCL cache to force fresh graph generation

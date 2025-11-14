@@ -5,10 +5,17 @@ This module provides centralized feature flag management for progressive
 rollout of the new Data Sources → AAM → DCL → Agents architecture.
 
 Feature flags allow safe, incremental migration without breaking existing functionality.
+
+PRODUCTION-GRADE REDIS-BACKED IMPLEMENTATION:
+- Precedence: ENV variable > Redis stored value > hardcoded default
+- Cross-worker consistency via shared Redis
+- Pub/sub broadcasts for cache invalidation
+- Restart persistence via Redis storage
 """
 
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import os
+import json
 from enum import Enum
 
 
@@ -25,7 +32,12 @@ class FeatureFlag(str, Enum):
 
 class FeatureFlagConfig:
     """
-    Feature flag configuration with environment variable override support.
+    Production-grade feature flag configuration with Redis-backed multi-worker support.
+    
+    PRECEDENCE MODEL (highest to lowest):
+    1. Environment variable (FEATURE_<FLAG_NAME>)
+    2. Redis stored value (feature_flags:<FLAG_NAME>)
+    3. Hardcoded default value
     
     Default Values (All False for backward compatibility):
     - USE_AAM_AS_SOURCE: Route DCL data through AAM connectors
@@ -38,9 +50,15 @@ class FeatureFlagConfig:
     Environment Variables:
     - Set to "true", "1", "yes" to enable
     - Example: FEATURE_USE_AAM_AS_SOURCE=true
+    
+    Redis Integration:
+    - Keys: feature_flags:<FLAG_NAME>
+    - Values: "true" or "false" (string format)
+    - Pub/Sub Channel: dcl:feature_flags
     """
     
-    _flags: Dict[str, bool] = {
+    # Hardcoded defaults (lowest precedence)
+    _defaults: Dict[str, bool] = {
         FeatureFlag.USE_AAM_AS_SOURCE: False,  # Default: False (Legacy demo files) - Toggle to True for AAM connectors (Salesforce, MongoDB, FilesSource)
         FeatureFlag.ENABLE_DRIFT_DETECTION: True,  # Phase 4: ENABLED - Detect schema drift in AAM connectors
         FeatureFlag.ENABLE_AUTO_REPAIR: True,  # Phase 4: ENABLED (Task 8) - Auto-repair with 3-tier confidence scoring
@@ -49,10 +67,119 @@ class FeatureFlagConfig:
         FeatureFlag.ENABLE_SCHEMA_FINGERPRINTING: True,  # Phase 4: ENABLED - Track schema versions for drift
     }
     
+    # Redis client (injected from main app)
+    _redis_client: Optional[Any] = None
+    
+    # Redis key prefix for feature flags
+    _redis_prefix = "feature_flags:"
+    
+    # Pub/sub channel for flag changes
+    _pubsub_channel = "dcl:feature_flags"
+    
+    @classmethod
+    def set_redis_client(cls, redis_client: Any) -> None:
+        """
+        Inject Redis client for cross-worker flag persistence.
+        Called from main app during startup.
+        
+        Args:
+            redis_client: Redis client instance (with decode_responses=True or wrapper)
+        """
+        cls._redis_client = redis_client
+        print(f"✅ FeatureFlagConfig: Redis client initialized")
+    
+    @classmethod
+    def _get_redis_key(cls, flag: FeatureFlag) -> str:
+        """Generate Redis key for a feature flag"""
+        return f"{cls._redis_prefix}{flag.value}"
+    
+    @classmethod
+    def _get_from_redis(cls, flag: FeatureFlag) -> Optional[bool]:
+        """
+        Read flag value from Redis.
+        
+        Returns:
+            True/False if value exists in Redis, None if not found or Redis unavailable
+        """
+        if not cls._redis_client:
+            return None
+        
+        try:
+            key = cls._get_redis_key(flag)
+            value = cls._redis_client.get(key)
+            if value is None:
+                return None
+            
+            # Handle both bytes and string responses
+            if isinstance(value, bytes):
+                value = value.decode('utf-8')
+            
+            return value.lower() == "true"
+        except Exception as e:
+            print(f"⚠️ FeatureFlagConfig: Redis read error for {flag.value}: {e}")
+            return None
+    
+    @classmethod
+    def _set_to_redis(cls, flag: FeatureFlag, enabled: bool) -> bool:
+        """
+        Write flag value to Redis (persistent storage).
+        
+        Args:
+            flag: Feature flag to set
+            enabled: New value
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        if not cls._redis_client:
+            print(f"⚠️ FeatureFlagConfig: Redis not available, cannot persist {flag.value}")
+            return False
+        
+        try:
+            key = cls._get_redis_key(flag)
+            value = "true" if enabled else "false"
+            cls._redis_client.set(key, value)
+            return True
+        except Exception as e:
+            print(f"⚠️ FeatureFlagConfig: Redis write error for {flag.value}: {e}")
+            return False
+    
+    @classmethod
+    def _publish_change(cls, flag: FeatureFlag, enabled: bool) -> None:
+        """
+        Publish flag change to Redis pub/sub for cross-worker cache invalidation.
+        
+        Args:
+            flag: Feature flag that changed
+            enabled: New value
+        """
+        if not cls._redis_client:
+            return
+        
+        try:
+            message = json.dumps({
+                "flag": flag.value,
+                "value": enabled,
+                "timestamp": os.times().elapsed
+            })
+            
+            # Get underlying Redis client if using wrapper
+            redis = cls._redis_client
+            if hasattr(redis, '_client'):
+                redis = redis._client
+            
+            redis.publish(cls._pubsub_channel, message)
+            print(f"📡 Published flag change: {flag.value}={enabled}")
+        except Exception as e:
+            print(f"⚠️ FeatureFlagConfig: Pub/sub publish error: {e}")
+    
     @classmethod
     def is_enabled(cls, flag: FeatureFlag) -> bool:
         """
-        Check if a feature flag is enabled.
+        Check if a feature flag is enabled using precedence model:
+        1. Environment variable (highest priority)
+        2. Redis stored value (persists across restarts)
+        3. Hardcoded default (fallback)
         
         Args:
             flag: The feature flag to check
@@ -64,6 +191,7 @@ class FeatureFlagConfig:
             >>> if FeatureFlagConfig.is_enabled(FeatureFlag.USE_AAM_AS_SOURCE):
             ...     # Use AAM-backed data path
         """
+        # Level 1: Check environment variable (highest precedence)
         env_var = f"FEATURE_{flag.value}"
         env_value = os.getenv(env_var, "").lower()
         
@@ -72,21 +200,35 @@ class FeatureFlagConfig:
         elif env_value in ("false", "0", "no"):
             return False
         
-        return cls._flags.get(flag, False)
+        # Level 2: Check Redis stored value (persists across restarts)
+        redis_value = cls._get_from_redis(flag)
+        if redis_value is not None:
+            return redis_value
+        
+        # Level 3: Use hardcoded default (fallback)
+        return cls._defaults.get(flag, False)
     
     @classmethod
-    def set_flag(cls, flag: FeatureFlag, enabled: bool) -> None:
+    def set_flag(cls, flag: FeatureFlag, enabled: bool, publish: bool = True) -> None:
         """
-        Programmatically set a feature flag (for testing).
+        Set a feature flag value (writes to Redis for persistence).
         
         Args:
             flag: The feature flag to set
             enabled: True to enable, False to disable
+            publish: Whether to publish change to pub/sub (default: True)
             
         Note:
-            Environment variables take precedence over programmatic settings.
+            - Writes to Redis for cross-worker persistence
+            - Publishes to pub/sub for cache invalidation (if publish=True)
+            - Environment variables still take precedence over this value
         """
-        cls._flags[flag] = enabled
+        # Write to Redis for persistence
+        success = cls._set_to_redis(flag, enabled)
+        
+        if success and publish:
+            # Publish to pub/sub for cross-worker cache invalidation
+            cls._publish_change(flag, enabled)
     
     @classmethod
     def get_all_flags(cls) -> Dict[str, bool]:
