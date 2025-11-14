@@ -247,24 +247,47 @@ def set_redis_client(client):
         try:
             graph_store = GraphStateStore(redis_client)
             persisted_graph = graph_store.load()
-            if persisted_graph:
+            
+            # Load demo graph file to check if we should re-seed
+            demo_graph = None
+            demo_graph_path = DCL_BASE_PATH / "demo_graph.json"
+            if demo_graph_path.exists():
+                try:
+                    with open(demo_graph_path, 'r') as f:
+                        demo_graph = json.load(f)
+                except Exception as e:
+                    print(f"⚠️ Failed to load demo graph file: {e}", flush=True)
+            
+            # Decision logic: Version-based upgrade (safe for production)
+            # Only upgrade demo graphs, NEVER overwrite user-authored graphs
+            should_seed = False
+            reason = ""
+            if not persisted_graph:
+                should_seed = True
+                reason = "no persisted graph found"
+            elif demo_graph:
+                # Check if persisted graph is an old demo (has demo_version field)
+                persisted_version = persisted_graph.get('demo_version')
+                current_version = demo_graph.get('demo_version', 'v1.0')
+                
+                if persisted_version:
+                    # It's a demo graph - check if it needs upgrade
+                    if persisted_version != current_version:
+                        should_seed = True
+                        reason = f"demo graph version upgrade ({persisted_version} → {current_version})"
+                # If no demo_version field, it's a user-authored graph - NEVER overwrite
+            
+            if should_seed and demo_graph:
+                print(f"📊 DCL Engine: Seeding demo graph - {reason}", flush=True)
+                GRAPH_STATE = demo_graph
+                graph_store.save(demo_graph)
+                print(f"✅ Demo graph seeded ({len(demo_graph.get('nodes', []))} nodes, {len(demo_graph.get('edges', []))} edges)", flush=True)
+            elif persisted_graph:
                 GRAPH_STATE = persisted_graph
                 print(f"📊 DCL Engine: Hydrated graph state from Redis ({len(GRAPH_STATE.get('nodes', []))} nodes)", flush=True)
             else:
-                # No persisted graph - seed with canonical demo graph for first-time users
-                print(f"📊 DCL Engine: No persisted graph found - seeding with demo graph", flush=True)
-                try:
-                    demo_graph_path = DCL_BASE_PATH / "demo_graph.json"
-                    if demo_graph_path.exists():
-                        with open(demo_graph_path, 'r') as f:
-                            demo_graph = json.load(f)
-                        GRAPH_STATE = demo_graph
-                        graph_store.save(demo_graph)  # Persist demo graph to Redis
-                        print(f"✅ Demo graph seeded ({len(demo_graph.get('nodes', []))} nodes)", flush=True)
-                    else:
-                        print(f"⚠️ Demo graph file not found at {demo_graph_path}", flush=True)
-                except Exception as seed_error:
-                    print(f"⚠️ Failed to seed demo graph: {seed_error}", flush=True)
+                print(f"📊 DCL Engine: Using empty graph (no demo graph available)", flush=True)
+                
         except Exception as e:
             print(f"⚠️ DCL Engine: Failed to load persisted graph state: {e}", flush=True)
             # Keep default empty GRAPH_STATE

@@ -1,11 +1,14 @@
 # AutonomOS - Multi-Tenant AI Orchestration Platform
 
 ## Recent Changes (2025-11-14)
-**Graph State Persistence for Demo Visual:**
+**Graph State Persistence with Version-Based Demo Seeding:**
 - Implemented Redis-backed GraphStateStore for persistent graph state across app restarts
 - Added tenant-scoped persistence with key pattern `dcl:graph_state:{tenant_id}`
-- Graph state loads automatically on startup, preserving demo visuals for all users
-- Save hooks after /connect execution and reset hooks after state clears
+- Comprehensive demo graph (33 nodes, 37 edges): 9 legacy sources, 5 ontology entities, 2 AI agents
+- Version-based upgrade system: `demo_version` field prevents overwriting user-authored graphs
+- Smart seeding: only upgrades old demo graphs, never overwrites user state (production-safe)
+- Graph state loads automatically on startup with demo-ready visuals for first-time users
+- Save hooks after /connect execution, reset hooks after state clears
 - Graceful degradation when Redis unavailable (falls back to in-memory state)
 - Manual Run control: graph executes only when user clicks Run button (no auto-run)
 

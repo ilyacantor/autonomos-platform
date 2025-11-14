@@ -10,24 +10,196 @@
       "label": "Account",
       "type": "source",
       "parentId": "sys_salesforce",
-      "fields": ["Id", "Name", "Industry"]
+      "fields": ["Id", "Name", "Industry", "Revenue"]
     },
     {
       "id": "salesforce_Opportunity",
       "label": "Opportunity",
       "type": "source",
       "parentId": "sys_salesforce",
-      "fields": ["Id", "Name", "Amount", "Stage"]
+      "fields": ["Id", "Name", "Amount", "Stage", "CloseDate"]
     },
     {
-      "id": "ont_Account",
-      "label": "Account",
+      "id": "salesforce_Contact",
+      "label": "Contact",
+      "type": "source",
+      "parentId": "sys_salesforce",
+      "fields": ["Id", "Name", "Email", "Phone"]
+    },
+    {
+      "id": "sys_hubspot",
+      "label": "HubSpot",
+      "type": "source_parent"
+    },
+    {
+      "id": "hubspot_Companies",
+      "label": "Companies",
+      "type": "source",
+      "parentId": "sys_hubspot",
+      "fields": ["id", "name", "domain", "industry"]
+    },
+    {
+      "id": "hubspot_Deals",
+      "label": "Deals",
+      "type": "source",
+      "parentId": "sys_hubspot",
+      "fields": ["id", "dealname", "amount", "dealstage"]
+    },
+    {
+      "id": "sys_stripe",
+      "label": "Stripe",
+      "type": "source_parent"
+    },
+    {
+      "id": "stripe_Customers",
+      "label": "Customers",
+      "type": "source",
+      "parentId": "sys_stripe",
+      "fields": ["id", "email", "name", "created"]
+    },
+    {
+      "id": "stripe_Invoices",
+      "label": "Invoices",
+      "type": "source",
+      "parentId": "sys_stripe",
+      "fields": ["id", "customer", "amount_due", "status"]
+    },
+    {
+      "id": "sys_postgresql",
+      "label": "PostgreSQL",
+      "type": "source_parent"
+    },
+    {
+      "id": "postgresql_users",
+      "label": "users",
+      "type": "source",
+      "parentId": "sys_postgresql",
+      "fields": ["id", "email", "created_at", "role"]
+    },
+    {
+      "id": "postgresql_orders",
+      "label": "orders",
+      "type": "source",
+      "parentId": "sys_postgresql",
+      "fields": ["id", "user_id", "total", "status"]
+    },
+    {
+      "id": "sys_mongodb",
+      "label": "MongoDB",
+      "type": "source_parent"
+    },
+    {
+      "id": "mongodb_events",
+      "label": "events",
+      "type": "source",
+      "parentId": "sys_mongodb",
+      "fields": ["_id", "event_type", "timestamp", "user_id"]
+    },
+    {
+      "id": "mongodb_sessions",
+      "label": "sessions",
+      "type": "source",
+      "parentId": "sys_mongodb",
+      "fields": ["_id", "session_id", "start_time", "duration"]
+    },
+    {
+      "id": "sys_mysql",
+      "label": "MySQL",
+      "type": "source_parent"
+    },
+    {
+      "id": "mysql_products",
+      "label": "products",
+      "type": "source",
+      "parentId": "sys_mysql",
+      "fields": ["id", "name", "price", "category"]
+    },
+    {
+      "id": "mysql_inventory",
+      "label": "inventory",
+      "type": "source",
+      "parentId": "sys_mysql",
+      "fields": ["id", "product_id", "quantity", "warehouse"]
+    },
+    {
+      "id": "sys_supabase",
+      "label": "Supabase",
+      "type": "source_parent"
+    },
+    {
+      "id": "supabase_profiles",
+      "label": "profiles",
+      "type": "source",
+      "parentId": "sys_supabase",
+      "fields": ["id", "username", "avatar_url", "updated_at"]
+    },
+    {
+      "id": "supabase_projects",
+      "label": "projects",
+      "type": "source",
+      "parentId": "sys_supabase",
+      "fields": ["id", "name", "owner_id", "created_at"]
+    },
+    {
+      "id": "sys_google_sheets",
+      "label": "Google Sheets",
+      "type": "source_parent"
+    },
+    {
+      "id": "sheets_revenue",
+      "label": "Revenue Data",
+      "type": "source",
+      "parentId": "sys_google_sheets",
+      "fields": ["Month", "Region", "Amount", "Quarter"]
+    },
+    {
+      "id": "sys_csv",
+      "label": "CSV Files",
+      "type": "source_parent"
+    },
+    {
+      "id": "csv_employee_data",
+      "label": "Employee Data",
+      "type": "source",
+      "parentId": "sys_csv",
+      "fields": ["employee_id", "name", "department", "salary"]
+    },
+    {
+      "id": "ont_Customer",
+      "label": "Customer",
       "type": "ontology"
     },
     {
-      "id": "ont_Opportunity",
-      "label": "Opportunity",
+      "id": "ont_Transaction",
+      "label": "Transaction",
       "type": "ontology"
+    },
+    {
+      "id": "ont_Product",
+      "label": "Product",
+      "type": "ontology"
+    },
+    {
+      "id": "ont_User",
+      "label": "User",
+      "type": "ontology"
+    },
+    {
+      "id": "ont_Event",
+      "label": "Event",
+      "type": "ontology"
+    },
+    {
+      "id": "agent_revenue_analyzer",
+      "label": "Revenue Analyzer",
+      "type": "agent",
+      "description": "AI agent for revenue analysis and forecasting"
+    },
+    {
+      "id": "agent_customer_insights",
+      "label": "Customer Insights",
+      "type": "agent",
+      "description": "AI agent for customer behavior analysis"
     }
   ],
   "edges": [
@@ -42,16 +214,182 @@
       "type": "hierarchy"
     },
     {
+      "source": "sys_salesforce",
+      "target": "salesforce_Contact",
+      "type": "hierarchy"
+    },
+    {
+      "source": "sys_hubspot",
+      "target": "hubspot_Companies",
+      "type": "hierarchy"
+    },
+    {
+      "source": "sys_hubspot",
+      "target": "hubspot_Deals",
+      "type": "hierarchy"
+    },
+    {
+      "source": "sys_stripe",
+      "target": "stripe_Customers",
+      "type": "hierarchy"
+    },
+    {
+      "source": "sys_stripe",
+      "target": "stripe_Invoices",
+      "type": "hierarchy"
+    },
+    {
+      "source": "sys_postgresql",
+      "target": "postgresql_users",
+      "type": "hierarchy"
+    },
+    {
+      "source": "sys_postgresql",
+      "target": "postgresql_orders",
+      "type": "hierarchy"
+    },
+    {
+      "source": "sys_mongodb",
+      "target": "mongodb_events",
+      "type": "hierarchy"
+    },
+    {
+      "source": "sys_mongodb",
+      "target": "mongodb_sessions",
+      "type": "hierarchy"
+    },
+    {
+      "source": "sys_mysql",
+      "target": "mysql_products",
+      "type": "hierarchy"
+    },
+    {
+      "source": "sys_mysql",
+      "target": "mysql_inventory",
+      "type": "hierarchy"
+    },
+    {
+      "source": "sys_supabase",
+      "target": "supabase_profiles",
+      "type": "hierarchy"
+    },
+    {
+      "source": "sys_supabase",
+      "target": "supabase_projects",
+      "type": "hierarchy"
+    },
+    {
+      "source": "sys_google_sheets",
+      "target": "sheets_revenue",
+      "type": "hierarchy"
+    },
+    {
+      "source": "sys_csv",
+      "target": "csv_employee_data",
+      "type": "hierarchy"
+    },
+    {
       "source": "salesforce_Account",
-      "target": "ont_Account",
+      "target": "ont_Customer",
+      "type": "dataflow"
+    },
+    {
+      "source": "hubspot_Companies",
+      "target": "ont_Customer",
+      "type": "dataflow"
+    },
+    {
+      "source": "stripe_Customers",
+      "target": "ont_Customer",
       "type": "dataflow"
     },
     {
       "source": "salesforce_Opportunity",
-      "target": "ont_Opportunity",
+      "target": "ont_Transaction",
+      "type": "dataflow"
+    },
+    {
+      "source": "hubspot_Deals",
+      "target": "ont_Transaction",
+      "type": "dataflow"
+    },
+    {
+      "source": "stripe_Invoices",
+      "target": "ont_Transaction",
+      "type": "dataflow"
+    },
+    {
+      "source": "postgresql_orders",
+      "target": "ont_Transaction",
+      "type": "dataflow"
+    },
+    {
+      "source": "mysql_products",
+      "target": "ont_Product",
+      "type": "dataflow"
+    },
+    {
+      "source": "mysql_inventory",
+      "target": "ont_Product",
+      "type": "dataflow"
+    },
+    {
+      "source": "postgresql_users",
+      "target": "ont_User",
+      "type": "dataflow"
+    },
+    {
+      "source": "supabase_profiles",
+      "target": "ont_User",
+      "type": "dataflow"
+    },
+    {
+      "source": "salesforce_Contact",
+      "target": "ont_User",
+      "type": "dataflow"
+    },
+    {
+      "source": "mongodb_events",
+      "target": "ont_Event",
+      "type": "dataflow"
+    },
+    {
+      "source": "mongodb_sessions",
+      "target": "ont_Event",
+      "type": "dataflow"
+    },
+    {
+      "source": "ont_Transaction",
+      "target": "agent_revenue_analyzer",
+      "type": "dataflow"
+    },
+    {
+      "source": "ont_Product",
+      "target": "agent_revenue_analyzer",
+      "type": "dataflow"
+    },
+    {
+      "source": "sheets_revenue",
+      "target": "agent_revenue_analyzer",
+      "type": "dataflow"
+    },
+    {
+      "source": "ont_Customer",
+      "target": "agent_customer_insights",
+      "type": "dataflow"
+    },
+    {
+      "source": "ont_User",
+      "target": "agent_customer_insights",
+      "type": "dataflow"
+    },
+    {
+      "source": "ont_Event",
+      "target": "agent_customer_insights",
       "type": "dataflow"
     }
   ],
-  "confidence": 0.85,
-  "last_updated": "2025-11-14T00:00:00Z"
+  "confidence": 0.92,
+  "last_updated": "2025-11-14T00:00:00Z",
+  "demo_version": "v2.0"
 }
