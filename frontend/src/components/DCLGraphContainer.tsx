@@ -134,7 +134,7 @@ export default function DCLGraphContainer({ useAamSource, onModeChange, selected
   }, [isStale]);
 
   // No auto-run - user must explicitly click Run button
-  // This ensures users control when /connect executes
+  // Note: useDCLState hook automatically fetches and caches last graph state on mount
 
   // Timer effect - tracks elapsed time during processing
   useEffect(() => {

@@ -69,8 +69,80 @@ LLM_CALLS_KEY = "dcl:llm:calls"  # Redis key for LLM call counter
 LLM_TOKENS_KEY = "dcl:llm:tokens"  # Redis key for LLM token counter
 LLM_CALLS_SAVED_KEY = "dcl:llm:calls_saved"  # Redis key for LLM calls saved via RAG
 DCL_STATE_CHANNEL = "dcl:state:updates"  # Redis pub/sub channel for state broadcasts
+GRAPH_STATE_KEY_PREFIX = "dcl:graph_state"  # Redis key prefix for graph state persistence
 in_memory_dev_mode = False  # Fallback when Redis unavailable
 _dev_mode_initialized = False  # Track if dev_mode has been initialized
+
+class GraphStateStore:
+    """
+    Helper for persisting GRAPH_STATE to Redis with tenant scoping.
+    Ensures demo users always see a nice graph visual, even after app restarts.
+    """
+    def __init__(self, redis_client=None):
+        self.redis_client = redis_client
+    
+    def _get_key(self, tenant_id: str = "default") -> str:
+        """Build tenant-scoped Redis key for graph state"""
+        return f"{GRAPH_STATE_KEY_PREFIX}:{tenant_id}"
+    
+    def save(self, graph_state: Dict[str, Any], tenant_id: str = "default") -> bool:
+        """
+        Persist graph state to Redis as JSON.
+        Returns True if saved successfully, False otherwise.
+        """
+        if not self.redis_client:
+            log("⚠️ Redis unavailable - graph state not persisted")
+            return False
+        
+        try:
+            key = self._get_key(tenant_id)
+            value = json.dumps(graph_state)
+            self.redis_client.set(key, value)
+            log(f"💾 Graph state persisted to Redis (tenant: {tenant_id}, nodes: {len(graph_state.get('nodes', []))})")
+            return True
+        except Exception as e:
+            log(f"⚠️ Failed to persist graph state: {e}")
+            return False
+    
+    def load(self, tenant_id: str = "default") -> Optional[Dict[str, Any]]:
+        """
+        Load graph state from Redis.
+        Returns graph state dict or None if not found/unavailable.
+        """
+        if not self.redis_client:
+            log("⚠️ Redis unavailable - using in-memory graph state")
+            return None
+        
+        try:
+            key = self._get_key(tenant_id)
+            value = self.redis_client.get(key)
+            if not value:
+                log(f"📊 No persisted graph state found (tenant: {tenant_id})")
+                return None
+            
+            graph_state = json.loads(value)
+            log(f"📊 Loaded graph state from Redis (tenant: {tenant_id}, nodes: {len(graph_state.get('nodes', []))})")
+            return graph_state
+        except Exception as e:
+            log(f"⚠️ Failed to load graph state: {e}")
+            return None
+    
+    def reset(self, tenant_id: str = "default") -> bool:
+        """Delete persisted graph state from Redis"""
+        if not self.redis_client:
+            return False
+        
+        try:
+            key = self._get_key(tenant_id)
+            self.redis_client.delete(key)
+            log(f"🗑️  Graph state cleared from Redis (tenant: {tenant_id})")
+            return True
+        except Exception as e:
+            log(f"⚠️ Failed to clear graph state: {e}")
+            return False
+
+# Global GraphStateStore instance (initialized after Redis client is set)
+graph_store: Optional[GraphStateStore] = None
 
 class RedisDecodeWrapper:
     """
@@ -139,7 +211,7 @@ def set_redis_client(client):
     Args:
         client: Redis client instance from main app (typically with decode_responses=False)
     """
-    global redis_client, redis_available, _dev_mode_initialized
+    global redis_client, redis_available, _dev_mode_initialized, graph_store, GRAPH_STATE
     
     # Wrap the client to provide decode_responses=True behavior
     redis_client = RedisDecodeWrapper(client)
@@ -170,6 +242,19 @@ def set_redis_client(client):
             global in_memory_dev_mode
             in_memory_dev_mode = False
             _dev_mode_initialized = True
+        
+        # Initialize GraphStateStore and load persisted graph state
+        try:
+            graph_store = GraphStateStore(redis_client)
+            persisted_graph = graph_store.load()
+            if persisted_graph:
+                GRAPH_STATE = persisted_graph
+                print(f"📊 DCL Engine: Hydrated graph state from Redis ({len(GRAPH_STATE.get('nodes', []))} nodes)", flush=True)
+            else:
+                print(f"📊 DCL Engine: No persisted graph found - using empty graph", flush=True)
+        except Exception as e:
+            print(f"⚠️ DCL Engine: Failed to load persisted graph state: {e}", flush=True)
+            # Keep default empty GRAPH_STATE
     else:
         print(f"⚠️ DCL Engine: No Redis client provided, using in-memory state", flush=True)
         in_memory_dev_mode = False
@@ -1616,6 +1701,14 @@ def reset_state(exclude_dev_mode=True):
         os.remove(DB_PATH)
     except FileNotFoundError:
         pass
+    
+    # Clear persisted graph state from Redis
+    if graph_store:
+        try:
+            graph_store.reset()
+        except Exception as e:
+            log(f"⚠️ Failed to clear persisted graph: {e}")
+    
     log("🔄 DCL state cleared (dev_mode preserved). Ready for new connection.")
 
 app = FastAPI()
@@ -1853,6 +1946,13 @@ async def feature_flag_pubsub_listener():
                         GRAPH_STATE = {"nodes": [], "edges": [], "confidence": None, "last_updated": None}
                         SOURCES_ADDED = []
                         
+                        # Clear persisted graph state from Redis
+                        if graph_store:
+                            try:
+                                graph_store.reset()
+                            except Exception as e:
+                                log(f"⚠️ Failed to clear persisted graph: {e}")
+                        
                         mode_name = "AAM Connectors" if flag_value else "Legacy File Sources"
                         log(f"🔄 Cache cleared due to flag change: {mode_name}")
                         
@@ -1903,6 +2003,13 @@ async def startup_event():
                     # Clear DCL cache to force fresh graph generation
                     GRAPH_STATE = {"nodes": [], "edges": [], "confidence": None, "last_updated": None}
                     SOURCES_ADDED = []
+                    
+                    # Clear persisted graph state from Redis
+                    if graph_store:
+                        try:
+                            graph_store.reset()
+                        except Exception as e:
+                            log(f"⚠️ Failed to clear persisted graph: {e}")
                     
                     mode_name = "AAM Connectors" if flag_value else "Legacy File Sources"
                     log(f"🔄 DCL Engine: Cache cleared - now using {mode_name}")
@@ -2371,6 +2478,13 @@ async def connect(
     # Broadcast state change to WebSocket clients
     await broadcast_state_change("sources_connected")
     
+    # Persist graph state to Redis after successful connection
+    if graph_store:
+        try:
+            graph_store.save(GRAPH_STATE, tenant_id)
+        except Exception as e:
+            log(f"⚠️ Failed to persist graph: {e}")
+    
     return JSONResponse({
         "ok": True, 
         "sources": SOURCES_ADDED, 
@@ -2443,6 +2557,13 @@ async def toggle_aam_mode():
     # Clear DCL cache to force fresh graph generation
     GRAPH_STATE = {"nodes": [], "edges": [], "confidence": None, "last_updated": None}
     SOURCES_ADDED = []
+    
+    # Clear persisted graph state from Redis
+    if graph_store:
+        try:
+            graph_store.reset()
+        except Exception as e:
+            log(f"⚠️ Failed to clear persisted graph: {e}")
     
     mode_name = "AAM Connectors (4 sources)" if new_state else "Legacy File Sources (9 sources)"
     log(f"🔄 AAM Mode toggled to: {mode_name}")
