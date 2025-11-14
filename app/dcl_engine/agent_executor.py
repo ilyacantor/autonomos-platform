@@ -148,7 +148,7 @@ class AgentExecutor:
                     source_ids = []
                     
                     while True:
-                        cursor, keys = self.redis_client._client.scan(cursor, match=pattern, count=100)
+                        cursor, keys = self.redis_client.scan(cursor, match=pattern, count=100)
                         for key in keys:
                             key_str = key.decode('utf-8') if isinstance(key, bytes) else key
                             parts = key_str.split(':')
@@ -164,7 +164,7 @@ class AgentExecutor:
                     redis_key = f"dcl:metadata:{tenant_id}:{source_id}"
                     
                     try:
-                        metadata_json = self.redis_client._client.get(redis_key)
+                        metadata_json = self.redis_client.get(redis_key)
                         if metadata_json:
                             metadata = json.loads(metadata_json)
                             
@@ -302,7 +302,7 @@ class AgentExecutor:
         
         self.logger.info(f"📊 Preparing input for agent '{agent_id}': consuming {len(consumes)} entities")
         
-        agent_input = {"metadata": {"prepared_at": datetime.utcnow().isoformat(), "row_counts": {}}}
+        agent_input: Dict[str, Any] = {"metadata": {"prepared_at": datetime.utcnow().isoformat(), "row_counts": {}}}
         
         # Fetch Phase 4 data quality metadata
         data_quality_metadata = self.get_data_quality_metadata(tenant_id)
@@ -318,9 +318,10 @@ class AgentExecutor:
                 
                 try:
                     # Check if table exists
-                    table_exists = con.execute(
+                    result = con.execute(
                         f"SELECT COUNT(*) FROM information_schema.tables WHERE table_name = '{table_name}'"
-                    ).fetchone()[0] > 0
+                    ).fetchone()
+                    table_exists = result is not None and result[0] > 0
                     
                     if not table_exists:
                         self.logger.warning(f"Table {table_name} does not exist for agent {agent_id}")
