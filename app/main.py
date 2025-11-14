@@ -183,6 +183,13 @@ async def lifespan(app: FastAPI):
             await event_bus.subscribe("aam:repair_proposed", drift_repair_agent.handle_repair_proposed)
             await event_bus.subscribe("aam:status_update", handle_status_update)
             
+            # Initialize AAM connectors and populate Redis Streams
+            try:
+                from services.aam.initializer import run_aam_initializer
+                await run_aam_initializer()
+            except Exception as init_error:
+                logger.warning(f"⚠️ AAM connector initialization failed: {init_error}")
+            
             # Start background tasks
             tasks = [
                 asyncio.create_task(event_bus.listen(), name="event_bus_listener"),

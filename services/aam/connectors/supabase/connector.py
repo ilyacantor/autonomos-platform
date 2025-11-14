@@ -5,6 +5,8 @@ Fetches data from Supabase Postgres tables and normalizes to canonical format
 import os
 import logging
 import uuid
+import json
+import redis
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 from sqlalchemy import create_engine, text, MetaData, Table, Column, String, Float, DateTime, Integer
@@ -31,12 +33,22 @@ class SupabaseConnector:
     - Idempotent seed data method
     """
     
-    def __init__(self, db: Session, tenant_id: str = "demo-tenant"):
+    def __init__(self, db: Session, tenant_id: str = "default"):
         self.db = db
         self.tenant_id = tenant_id
         self.db_url = os.getenv("SUPABASE_DB_URL", "")
         self.schema = os.getenv("SUPABASE_SCHEMA", "public")
         self.engine = None
+        self.redis_client = None
+        
+        # Initialize Redis client for stream publishing
+        redis_url = os.getenv('REDIS_URL')
+        if redis_url:
+            try:
+                self.redis_client = redis.from_url(redis_url, decode_responses=True)
+                logger.info("✅ SupabaseConnector: Redis client initialized")
+            except Exception as e:
+                logger.error(f"Failed to create Redis client: {e}")
         
         if self.db_url:
             try:
@@ -383,21 +395,30 @@ class SupabaseConnector:
         return event
     
     def emit_canonical_event(self, event: CanonicalEvent):
-        """Emit CanonicalEvent to database canonical_streams table"""
-        canonical_entry = CanonicalStream(
-            tenant_id=self.tenant_id,
-            entity=event.entity,
-            data=event.data.model_dump(),
-            meta=event.meta.model_dump(),
-            source=event.source.model_dump(),
-            emitted_at=event.meta.emitted_at
-        )
+        """Emit CanonicalEvent to Redis Stream for DCL consumption"""
+        if not self.redis_client:
+            logger.error("Redis client not initialized - cannot emit canonical event")
+            return
         
-        self.db.add(canonical_entry)
-        self.db.commit()
+        stream_key = f"aam:dcl:{self.tenant_id}:supabase"
         
-        logger.info(
-            f"✅ Emitted canonical {event.entity} event: "
-            f"trace_id={event.meta.trace_id}, "
-            f"system={event.source.system}"
-        )
+        # Create payload matching AAMSourceAdapter expected format
+        payload = {
+            'batch_id': str(uuid.uuid4()),
+            'timestamp': datetime.utcnow().isoformat(),
+            'source_system': 'supabase',
+            'tenant_id': self.tenant_id,
+            'entity': event.entity,
+            'data': event.data.model_dump(mode='json'),
+            'meta': event.meta.model_dump(mode='json'),
+            'source': event.source.model_dump(mode='json')
+        }
+        
+        try:
+            message_id = self.redis_client.xadd(stream_key, {'payload': json.dumps(payload)})
+            logger.info(
+                f"✅ Emitted canonical {event.entity} to Redis Stream {stream_key}: "
+                f"trace_id={event.meta.trace_id}, message_id={message_id}"
+            )
+        except Exception as e:
+            logger.error(f"Failed to emit canonical event to Redis: {e}")

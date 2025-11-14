@@ -377,7 +377,7 @@ class AAMSourceAdapter(BaseSourceAdapter):
                         self.logger.debug(f"Skipping already processed batch: {batch_id}")
                         continue
                     
-                    # Extract tables from payload - handle both flat and envelope formats
+                    # Extract tables from payload - handle both batch and individual event formats
                     # Phase 4 canonical events may nest tables under canonical_event/canonical_data envelope
                     tables = {}
                     
@@ -394,13 +394,38 @@ class AAMSourceAdapter(BaseSourceAdapter):
                         canonical_data = payload['canonical_data']
                         if isinstance(canonical_data, dict):
                             tables = canonical_data.get('tables', {})
-                    else:
-                        # Flat format (current demo data): payload['tables']
+                    elif 'tables' in payload:
+                        # Flat batch format: payload['tables']
                         tables = payload.get('tables', {})
+                    elif 'entity' in payload and 'data' in payload:
+                        # Individual event format from connectors: aggregate into tables
+                        entity_type = payload.get('entity')
+                        entity_data = payload.get('data')
+                        
+                        if entity_type and entity_data:
+                            # Create synthetic table entry for this entity type
+                            table_name = f"{entity_type}s"  # pluralize entity name
+                            
+                            # Initialize table if not exists
+                            if table_name not in all_tables:
+                                all_tables[table_name] = {
+                                    'schema': {},
+                                    'samples': []
+                                }
+                            
+                            # Add sample to table
+                            all_tables[table_name]['samples'].append(entity_data)
+                            
+                            # Infer schema from accumulated samples (will be done after aggregation)
+                            self.logger.debug(f"Aggregated {entity_type} event into {table_name}")
+                            continue  # Skip to next message
+                    else:
+                        self.logger.warning(f"Unknown payload format in message {message_id}: {list(payload.keys())}")
+                        continue
                     
                     self.logger.info(f"📦 Extracted {len(tables)} tables from {source_id} (batch: {batch_id})")
                     
-                    # Merge tables (latest wins if same table name)
+                    # Merge batch tables (latest wins if same table name)
                     for table_name, table_data in tables.items():
                         all_tables[table_name] = table_data
                     
@@ -470,6 +495,17 @@ class AAMSourceAdapter(BaseSourceAdapter):
             if aggregated_metadata["events_processed"] > 0:
                 self.store_metadata_in_redis(tenant_id, source_id, aggregated_metadata)
                 self.logger.info(f"📊 Aggregated metadata: {aggregated_metadata['events_processed']} events, drift={aggregated_metadata['drift_detected']}, repairs={aggregated_metadata['auto_applied_count']}")
+            
+            # For tables created from individual events, infer schema from samples
+            for table_name, table_data in all_tables.items():
+                if table_data.get('schema') == {} and table_data.get('samples'):
+                    # Schema is empty but samples exist - this came from individual events
+                    # Convert to DataFrame and infer types
+                    import pandas as pd
+                    df = pd.DataFrame(table_data['samples'])
+                    inferred_schema = infer_types(df)
+                    all_tables[table_name]['schema'] = inferred_schema
+                    self.logger.info(f"  ✅ Inferred schema for {table_name}: {len(inferred_schema)} columns from {len(table_data['samples'])} samples")
             
             # Materialize AAM samples to temporary CSV files for DuckDB compatibility
             # DuckDB can't read from "aam://stream" placeholder paths, so we write samples to temp files
