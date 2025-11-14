@@ -32,44 +32,119 @@
 ## Detailed Tasks
 
 ### Day 1-2: Critical Security
-**Task 1.1: Enable DCL Authentication (4 hours)**
+**Task 1.1: Enable DCL Authentication with Development Suspension (4 hours)**
+
+**CRITICAL**: The suspension logic must be implemented INSIDE the `get_current_user` dependency to return a mock user when auth is disabled. Otherwise, endpoints will crash trying to access `current_user.tenant_id`.
+
 ```python
-# app/dcl_engine/app.py
+# app/security.py (implement suspension logic HERE)
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+import os
+import logging
 
-# BEFORE
-AUTH_ENABLED = False
+logger = logging.getLogger(__name__)
 
-# AFTER
+# Mock user for development
+class MockUser:
+    def __init__(self, tenant_id, user_id, email):
+        self.tenant_id = tenant_id
+        self.user_id = user_id
+        self.email = email
+        self.id = user_id
+
+# Configuration check
 AUTH_ENABLED = os.getenv('DCL_AUTH_ENABLED', 'true').lower() == 'true'
 
+# auto_error=False allows us to handle missing tokens manually
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
+
+def get_current_user(token: str | None = Depends(oauth2_scheme)):
+    """
+    Dependency that returns current user.
+    If AUTH_ENABLED=false (dev mode), returns mock user.
+    If AUTH_ENABLED=true (prod), validates JWT and returns real user.
+    """
+    if not AUTH_ENABLED:
+        # Development mode - return mock user
+        logger.warning("⚠️  Authentication disabled. Using MockUser for development.")
+        return MockUser(
+            tenant_id="default-dev-tenant",
+            user_id="dev-001",
+            email="dev@localhost"
+        )
+    
+    # Production mode - require valid JWT
+    if token is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required. Authorization header missing.",
+        )
+    
+    # Validate JWT and fetch user
+    try:
+        # ... JWT validation logic ...
+        user = decode_token_and_fetch_user(token)
+        return user
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Could not validate credentials: {str(e)}",
+        )
+```
+
+```python
+# app/dcl_engine/app.py
 # Add to ALL DCL endpoints:
 from app.security import get_current_user
 from fastapi import Depends
 
 @dcl_app.get("/state")
 async def get_state(current_user = Depends(get_current_user)):
-    tenant_id = current_user.tenant_id
+    tenant_id = current_user.tenant_id  # Works in both dev and prod!
     # ... existing logic using tenant_id
 ```
 
 **Files to Modify**:
-- `app/dcl_engine/app.py` - Add auth to 24 endpoints
-- Test: Verify 401 on unauthenticated requests
+- `app/security.py` - Add MockUser class and suspension logic
+- `app/dcl_engine/app.py` - Add auth dependency to 24 endpoints
+- `.env.local` - Add `DCL_AUTH_ENABLED=false` for local development
+- Test: Verify 401 on unauthenticated requests (prod mode)
+- Test: Verify mock user works (dev mode)
 - Test: Verify tenant isolation (user A can't see user B's data)
 
 **Success Criteria**:
-- ✅ All `/dcl/*` endpoints require valid JWT
+- ✅ All `/dcl/*` endpoints require valid JWT (when AUTH_ENABLED=true)
+- ✅ Dev mode works seamlessly (when AUTH_ENABLED=false)
 - ✅ WebSocket connections check auth on handshake
 - ✅ Multi-tenant test passes (see test below)
 
 **Test Script**:
 ```python
 # tests/test_dcl_auth.py
-def test_dcl_auth_required():
+import os
+import pytest
+
+def test_dcl_auth_required_in_production():
+    """Test that auth is enforced when enabled"""
+    os.environ['DCL_AUTH_ENABLED'] = 'true'
+    
     response = client.get("/dcl/state")
     assert response.status_code == 401
+    assert "Authentication required" in response.json()["detail"]
+
+def test_dev_mode_uses_mock_user():
+    """Test that dev mode allows unauthenticated access"""
+    os.environ['DCL_AUTH_ENABLED'] = 'false'
     
+    response = client.get("/dcl/state")
+    assert response.status_code == 200
+    # Should work without token, using mock user
+
 def test_tenant_isolation():
+    """Test that tenants cannot see each other's data"""
+    os.environ['DCL_AUTH_ENABLED'] = 'true'
+    
     # Create two tenants
     user_a = create_test_user(tenant_id="tenant-a")
     user_b = create_test_user(tenant_id="tenant-b")
@@ -82,6 +157,15 @@ def test_tenant_isolation():
     token_b = get_jwt_token(user_b)
     response = client.get("/dcl/state", headers={"Authorization": f"Bearer {token_b}"})
     assert response.json()["nodes"] == []  # Empty for user B
+```
+
+**Developer Experience**:
+```bash
+# Local development (no auth required)
+echo "DCL_AUTH_ENABLED=false" >> .env.local
+
+# Production/staging (auth required)
+echo "DCL_AUTH_ENABLED=true" >> .env
 ```
 
 ---
