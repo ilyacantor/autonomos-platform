@@ -300,7 +300,7 @@ def log(msg: str):
     print(msg, flush=True)
     if not EVENT_LOG or EVENT_LOG[-1] != msg:
         EVENT_LOG.append(msg)
-    if len(EVENT_LOG) > 50:
+    if len(EVENT_LOG) > 200:
         EVENT_LOG.pop(0)
 
 def load_ontology():
