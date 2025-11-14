@@ -44,6 +44,7 @@ All connection credentials use `env_ref` type in `connector_config` for secure s
 
 **Feature Flags:**
 *   **VITE_CONNECTIONS_V2** (default: `false`): Frontend feature flag for typed AAM connectors client with drift metadata. When `true`, ConnectPage uses `useConnectorsV2()` hook with OpenAPI-generated TypeScript types and displays DRIFT badges for connectors with detected schema drift. Set via `.env.local` (frontend).
+*   **USE_AAM_AS_SOURCE** (default: `false`): Backend feature flag controlling DCL data source mode. When `false`, uses Legacy CSV file sources (9 demo files). When `true`, uses AAM production connectors (4 sources: Salesforce, Supabase, MongoDB, FilesSource). **Runtime Toggling (Nov 2025):** Added POST `/dcl/toggle_aam_mode` endpoint for runtime mode switching with automatic cache clearing and graph regeneration. Frontend toggle button in DCL graph container automatically triggers fresh `/connect` run with updated sources. **Development Limitation:** Current implementation uses in-memory flag storage - works correctly in single-worker dev mode but requires Redis-backed persistence for production multi-worker deployments.
 
 **Data Ingestion:**
 *   **FilesSource CSV Ingest:** Use `scripts/filesource_ingest.py` to populate `mapping_registry` from CSV files in `mock_sources/`. This enables field-level mapping visibility for FilesSource connections in the Connections tab.
