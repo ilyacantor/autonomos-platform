@@ -1,0 +1,57 @@
+{
+  "nodes": [
+    {
+      "id": "sys_salesforce",
+      "label": "Salesforce",
+      "type": "source_parent"
+    },
+    {
+      "id": "salesforce_Account",
+      "label": "Account",
+      "type": "source",
+      "parentId": "sys_salesforce",
+      "fields": ["Id", "Name", "Industry"]
+    },
+    {
+      "id": "salesforce_Opportunity",
+      "label": "Opportunity",
+      "type": "source",
+      "parentId": "sys_salesforce",
+      "fields": ["Id", "Name", "Amount", "Stage"]
+    },
+    {
+      "id": "ont_Account",
+      "label": "Account",
+      "type": "ontology"
+    },
+    {
+      "id": "ont_Opportunity",
+      "label": "Opportunity",
+      "type": "ontology"
+    }
+  ],
+  "edges": [
+    {
+      "source": "sys_salesforce",
+      "target": "salesforce_Account",
+      "type": "hierarchy"
+    },
+    {
+      "source": "sys_salesforce",
+      "target": "salesforce_Opportunity",
+      "type": "hierarchy"
+    },
+    {
+      "source": "salesforce_Account",
+      "target": "ont_Account",
+      "type": "dataflow"
+    },
+    {
+      "source": "salesforce_Opportunity",
+      "target": "ont_Opportunity",
+      "type": "dataflow"
+    }
+  ],
+  "confidence": 0.85,
+  "last_updated": "2025-11-14T00:00:00Z"
+}

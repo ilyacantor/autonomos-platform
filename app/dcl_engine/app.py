@@ -251,7 +251,20 @@ def set_redis_client(client):
                 GRAPH_STATE = persisted_graph
                 print(f"📊 DCL Engine: Hydrated graph state from Redis ({len(GRAPH_STATE.get('nodes', []))} nodes)", flush=True)
             else:
-                print(f"📊 DCL Engine: No persisted graph found - using empty graph", flush=True)
+                # No persisted graph - seed with canonical demo graph for first-time users
+                print(f"📊 DCL Engine: No persisted graph found - seeding with demo graph", flush=True)
+                try:
+                    demo_graph_path = DCL_BASE_PATH / "demo_graph.json"
+                    if demo_graph_path.exists():
+                        with open(demo_graph_path, 'r') as f:
+                            demo_graph = json.load(f)
+                        GRAPH_STATE = demo_graph
+                        graph_store.save(demo_graph)  # Persist demo graph to Redis
+                        print(f"✅ Demo graph seeded ({len(demo_graph.get('nodes', []))} nodes)", flush=True)
+                    else:
+                        print(f"⚠️ Demo graph file not found at {demo_graph_path}", flush=True)
+                except Exception as seed_error:
+                    print(f"⚠️ Failed to seed demo graph: {seed_error}", flush=True)
         except Exception as e:
             print(f"⚠️ DCL Engine: Failed to load persisted graph state: {e}", flush=True)
             # Keep default empty GRAPH_STATE
