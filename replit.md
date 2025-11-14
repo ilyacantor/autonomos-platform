@@ -1,12 +1,19 @@
 # AutonomOS - Multi-Tenant AI Orchestration Platform
 
 ## Recent Changes (2025-11-14)
+**Frontend Mode Toggle & Manual Run Control:**
+- Fixed AAM/Legacy mode toggle: checkboxes now synchronize correctly when switching between 4 AAM sources and 9 Legacy sources
+- Implemented React "lift state up" pattern: NewOntologyPage owns mode state, DCLGraphContainer receives via props (single source of truth)
+- Added smart merge algorithm: preserves valid user selections when mode changes, removes incompatible sources
+- Removed all auto-run behavior: graph only executes /connect when user explicitly clicks Run button (no auto-run on page load or mode toggle)
+- Fixed race conditions: eliminated localStorage stale reads, execution timing issues, and closure bugs
+- All changes architect-reviewed and production-ready
+
 **AAM Connector Fundamental Architecture Fixes:**
 - Fixed Decimal JSON serialization bug: connectors now use `model_dump(mode='json')` for automatic type conversion
 - Migrated AAM connectors from database writes to Redis Streams publishing (production-grade event-driven architecture)
 - Created AAMInitializer service that runs on startup to populate Redis Streams with canonical events
 - Made AAMSourceAdapter format-flexible to handle both batch (`tables`) and individual (`entity`+`data`) event formats
-- All changes architect-reviewed and confirmed production-ready
 - Redis Streams verified: supabase=11, mongodb=11 messages successfully published
 
 ## Overview
