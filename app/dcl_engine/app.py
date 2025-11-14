@@ -2239,6 +2239,47 @@ async def toggle_dev_mode(enabled: Optional[bool] = None):
     await broadcast_state_change("dev_mode_toggled")
     return JSONResponse({"dev_mode": DEV_MODE, "status": status})
 
+@app.post("/dcl/toggle_aam_mode")
+async def toggle_aam_mode():
+    """
+    Toggle USE_AAM_AS_SOURCE feature flag and clear DCL cache.
+    
+    This endpoint:
+    1. Toggles the USE_AAM_AS_SOURCE flag (Legacy files <-> AAM connectors)
+    2. Clears DCL graph state (GRAPH_STATE, SOURCES_ADDED) to force fresh generation
+    3. Returns the new flag state
+    
+    Expected behavior:
+    - AAM mode ON: Uses 4 AAM sources (Salesforce, MongoDB, Supabase, FilesSource)
+    - AAM mode OFF: Uses 9 Legacy file sources (Salesforce, Dynamics, HubSpot, etc.)
+    """
+    global GRAPH_STATE, SOURCES_ADDED
+    
+    # Get current state and toggle
+    current_state = FeatureFlagConfig.is_enabled(FeatureFlag.USE_AAM_AS_SOURCE)
+    new_state = not current_state
+    
+    # Set the flag
+    FeatureFlagConfig.set_flag(FeatureFlag.USE_AAM_AS_SOURCE, new_state)
+    
+    # Clear DCL cache to force fresh graph generation
+    GRAPH_STATE = {"nodes": [], "edges": [], "confidence": None, "last_updated": None}
+    SOURCES_ADDED = []
+    
+    mode_name = "AAM Connectors (4 sources)" if new_state else "Legacy File Sources (9 sources)"
+    log(f"🔄 AAM Mode toggled to: {mode_name}")
+    log("🗑️ Cleared DCL cache (GRAPH_STATE, SOURCES_ADDED) - ready for fresh graph generation")
+    
+    # Broadcast state change to WebSocket clients
+    await broadcast_state_change("aam_mode_toggled")
+    
+    return JSONResponse({
+        "ok": True,
+        "USE_AAM_AS_SOURCE": new_state,
+        "mode": mode_name,
+        "cache_cleared": True
+    })
+
 @app.post("/reset_llm_stats")
 async def reset_llm_stats_endpoint():
     """

@@ -382,28 +382,54 @@ export default function DCLGraphContainer() {
     }
   };
 
-  // Toggle source mode handler
+  // Toggle AAM mode handler - switches between AAM connectors (4 sources) and Legacy files (9 sources)
   const toggleSourceMode = async () => {
     const newValue = !useAamSource;
     try {
-      const response = await fetch(API_CONFIG.buildDclUrl('/feature_flags/toggle'), {
+      // Call new endpoint that toggles flag AND clears backend DCL cache
+      const response = await fetch(API_CONFIG.buildDclUrl('/dcl/toggle_aam_mode'), {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
           ...getAuthHeader(),
         },
-        body: JSON.stringify({
-          flag: 'USE_AAM_AS_SOURCE',
-          enabled: newValue
-        })
       });
+
+      // Handle 401 unauthorized
+      if (response.status === 401) {
+        handleUnauthorized();
+        console.error('[DCL] Session expired. Please login again.');
+        return;
+      }
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Request failed' }));
+        throw new Error(error.detail || `HTTP error! status: ${response.status}`);
+      }
+
       const data = await response.json();
       if (data.ok) {
-        setUseAamSource(newValue);
-        console.log(`[DCL] Switched to ${newValue ? 'AAM Connectors' : 'Legacy File Sources'}`);
+        // Update local state
+        setUseAamSource(data.USE_AAM_AS_SOURCE);
+        console.log(`[DCL] ✅ AAM Mode toggled to: ${data.mode}`);
+        console.log(`[DCL] ✅ Backend cache cleared: ${data.cache_cleared}`);
+        
+        // Clear localStorage DCL cache
+        localStorage.removeItem('dcl_graph_state');
+        localStorage.removeItem('dcl_last_updated');
+        console.log('[DCL] ✅ Frontend localStorage cache cleared');
+        
+        // Update sources in localStorage to match new mode
+        const correctSources = data.USE_AAM_AS_SOURCE ? getAamSourceValues() : getAllSourceValues();
+        localStorage.setItem('aos.selectedSources', JSON.stringify(correctSources));
+        console.log(`[DCL] ✅ Updated sources for ${data.USE_AAM_AS_SOURCE ? 'AAM' : 'Legacy'} mode:`, correctSources);
+        
+        // Trigger fresh /connect run to regenerate graph with new sources
+        console.log('[DCL] 🚀 Triggering fresh /connect run with new mode...');
+        await handleRun();
       }
     } catch (err) {
-      console.error('[DCL] Failed to toggle source mode:', err);
+      console.error('[DCL] ❌ Failed to toggle AAM mode:', err);
     }
   };
 
