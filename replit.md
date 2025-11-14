@@ -32,6 +32,7 @@ The platform employs a "Strangler Fig" pattern with feature flags for zero downt
     *   Async: `AsyncSessionLocal` (psycopg3) for asynchronous operations
 *   **PgBouncer Compatibility:** Switched from asyncpg to psycopg3's async driver to eliminate prepared statement conflicts with Supabase PgBouncer transaction mode. No more `DuplicatePreparedStatementError`!
 *   **AAM Integration:** `aam_hybrid/shared/database.py` imports and forwards to shared session factories instead of creating duplicate engines, ensuring consistent PgBouncer-safe connections across all AAM operations.
+*   **Production Database Override (Nov 2025):** Replit's production database Beta auto-provisions Neon and regenerates `DATABASE_URL` secret. To use Supabase in production instead, set `SUPABASE_DATABASE_URL` in Production Secrets. The app prioritizes `SUPABASE_DATABASE_URL` over `DATABASE_URL`, allowing Replit to manage Neon while the app uses Supabase. This prevents secret regeneration conflicts with the `postgresql-16` module.
 
 **AAM Production Connections (Nov 2025):**
 Platform includes 3 configured AAM connectors using real external credentials stored in Replit Secrets:
