@@ -134,6 +134,32 @@ async def lifespan(app: FastAPI):
             use_aam = FeatureFlagConfig.is_enabled(FeatureFlag.USE_AAM_AS_SOURCE)
             mode_name = "AAM Connectors" if use_aam else "Legacy File Sources"
             logger.info(f"✅ Feature flags initialized - USE_AAM_AS_SOURCE: {mode_name} (survives restarts)")
+            
+            # CRITICAL FIX: Start pub/sub listener in main app (Issue #1 & #2)
+            # This ensures ALL workers (not just DCL engine) receive flag changes
+            from app.config.redis_pubsub import ensure_pubsub_listener
+            
+            async def on_flag_change_callback(flag_name: str, flag_value: bool):
+                """Handle flag changes in main app worker"""
+                logger.info(f"🔄 Main App: Flag changed {flag_name}={flag_value}")
+                
+                # Clear DCL cache if USE_AAM_AS_SOURCE changes
+                if flag_name == FeatureFlag.USE_AAM_AS_SOURCE.value and dcl_app:
+                    try:
+                        import app.dcl_engine.app as dcl_app_module
+                        dcl_app_module.GRAPH_STATE = {
+                            "nodes": [], "edges": [], 
+                            "confidence": None, "last_updated": None
+                        }
+                        dcl_app_module.SOURCES_ADDED = []
+                        mode_name = "AAM Connectors" if flag_value else "Legacy File Sources"
+                        logger.info(f"🔄 Main App: DCL cache cleared - now using {mode_name}")
+                    except Exception as e:
+                        logger.warning(f"⚠️ Failed to clear DCL cache: {e}")
+            
+            await ensure_pubsub_listener(on_flag_change=on_flag_change_callback)
+            logger.info("✅ Main App: Feature flag pub/sub listener started (production-ready)")
+            
         except Exception as e:
             logger.warning(f"⚠️ Feature flag initialization failed: {e}. Using in-memory fallback.")
     else:
@@ -176,6 +202,15 @@ async def lifespan(app: FastAPI):
     
     # SHUTDOWN PHASE
     logger.info("🛑 Shutting down AutonomOS application...")
+    
+    # Stop feature flag pub/sub listener
+    if redis_conn:
+        try:
+            from app.config.redis_pubsub import stop_pubsub_listener
+            await stop_pubsub_listener()
+            logger.info("✅ Feature flag pub/sub listener stopped")
+        except Exception as e:
+            logger.warning(f"⚠️ Error stopping pub/sub listener: {e}")
     
     # Cancel AAM background tasks
     for task in background_tasks:

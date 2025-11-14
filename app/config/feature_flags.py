@@ -16,7 +16,11 @@ PRODUCTION-GRADE REDIS-BACKED IMPLEMENTATION:
 from typing import Dict, Any, Optional
 import os
 import json
+import time
+import logging
 from enum import Enum
+
+logger = logging.getLogger(__name__)
 
 
 class FeatureFlag(str, Enum):
@@ -94,9 +98,50 @@ class FeatureFlagConfig:
         return f"{cls._redis_prefix}{flag.value}"
     
     @classmethod
+    def _retry_with_backoff(cls, operation, max_retries: int = 3, initial_delay: float = 0.5) -> Any:
+        """
+        Execute a Redis operation with exponential backoff retry logic.
+        
+        Args:
+            operation: Function to execute
+            max_retries: Maximum number of retry attempts (default: 3)
+            initial_delay: Initial delay in seconds before first retry (default: 0.5s)
+            
+        Returns:
+            Result of successful operation execution
+            
+        Raises:
+            Exception: Last exception after all retries exhausted
+        """
+        delay = initial_delay
+        last_exception = None
+        
+        for attempt in range(max_retries):
+            try:
+                return operation()
+            except Exception as e:
+                last_exception = e
+                
+                if attempt < max_retries - 1:
+                    logger.warning(
+                        f"⚠️ Redis operation failed (attempt {attempt + 1}/{max_retries}): {e}. "
+                        f"Retrying in {delay:.1f}s..."
+                    )
+                    time.sleep(delay)
+                    
+                    # Exponential backoff
+                    delay = min(delay * 2, 5.0)  # Cap at 5 seconds
+                else:
+                    logger.error(
+                        f"❌ Redis operation failed after {max_retries} attempts: {e}"
+                    )
+        
+        raise last_exception
+    
+    @classmethod
     def _get_from_redis(cls, flag: FeatureFlag) -> Optional[bool]:
         """
-        Read flag value from Redis.
+        Read flag value from Redis with retry logic.
         
         Returns:
             True/False if value exists in Redis, None if not found or Redis unavailable
@@ -104,7 +149,7 @@ class FeatureFlagConfig:
         if not cls._redis_client:
             return None
         
-        try:
+        def read_operation():
             key = cls._get_redis_key(flag)
             value = cls._redis_client.get(key)
             if value is None:
@@ -115,14 +160,20 @@ class FeatureFlagConfig:
                 value = value.decode('utf-8')
             
             return value.lower() == "true"
+        
+        try:
+            return cls._retry_with_backoff(read_operation, max_retries=3)
         except Exception as e:
-            print(f"⚠️ FeatureFlagConfig: Redis read error for {flag.value}: {e}")
+            logger.error(
+                f"⚠️ FeatureFlagConfig: Redis read failed after retries for {flag.value}: {e}. "
+                "Falling back to hardcoded default."
+            )
             return None
     
     @classmethod
     def _set_to_redis(cls, flag: FeatureFlag, enabled: bool) -> bool:
         """
-        Write flag value to Redis (persistent storage).
+        Write flag value to Redis with retry logic (persistent storage).
         
         Args:
             flag: Feature flag to set
@@ -132,22 +183,28 @@ class FeatureFlagConfig:
             True if successful, False otherwise
         """
         if not cls._redis_client:
-            print(f"⚠️ FeatureFlagConfig: Redis not available, cannot persist {flag.value}")
+            logger.warning(f"⚠️ FeatureFlagConfig: Redis not available, cannot persist {flag.value}")
             return False
         
-        try:
+        def write_operation():
             key = cls._get_redis_key(flag)
             value = "true" if enabled else "false"
             cls._redis_client.set(key, value)
             return True
+        
+        try:
+            return cls._retry_with_backoff(write_operation, max_retries=3)
         except Exception as e:
-            print(f"⚠️ FeatureFlagConfig: Redis write error for {flag.value}: {e}")
+            logger.error(
+                f"⚠️ FeatureFlagConfig: Redis write failed after retries for {flag.value}: {e}. "
+                "Flag change will NOT persist across restarts."
+            )
             return False
     
     @classmethod
     def _publish_change(cls, flag: FeatureFlag, enabled: bool) -> None:
         """
-        Publish flag change to Redis pub/sub for cross-worker cache invalidation.
+        Publish flag change to Redis pub/sub with retry logic for cross-worker cache invalidation.
         
         Args:
             flag: Feature flag that changed
@@ -156,7 +213,7 @@ class FeatureFlagConfig:
         if not cls._redis_client:
             return
         
-        try:
+        def publish_operation():
             message = json.dumps({
                 "flag": flag.value,
                 "value": enabled,
@@ -169,9 +226,16 @@ class FeatureFlagConfig:
                 redis = redis._client
             
             redis.publish(cls._pubsub_channel, message)
-            print(f"📡 Published flag change: {flag.value}={enabled}")
+            logger.info(f"📡 Published flag change: {flag.value}={enabled}")
+            return True
+        
+        try:
+            cls._retry_with_backoff(publish_operation, max_retries=3)
         except Exception as e:
-            print(f"⚠️ FeatureFlagConfig: Pub/sub publish error: {e}")
+            logger.error(
+                f"⚠️ FeatureFlagConfig: Pub/sub publish failed after retries: {e}. "
+                "Other workers may not receive flag change notification."
+            )
     
     @classmethod
     def is_enabled(cls, flag: FeatureFlag) -> bool:

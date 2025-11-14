@@ -156,7 +156,6 @@ def set_redis_client(client):
             current_value = FeatureFlagConfig.is_enabled(FeatureFlag.USE_AAM_AS_SOURCE)
             mode_name = "AAM Connectors" if current_value else "Legacy File Sources"
             print(f"🚩 DCL Engine: Feature Flags initialized - USE_AAM_AS_SOURCE: {mode_name}", flush=True)
-            print("📡 DCL Engine: Feature flag pub/sub listener will start on first async event (ASYNC MODE)", flush=True)
         except Exception as e:
             print(f"⚠️ DCL Engine: Feature flag initialization failed: {e}. Using in-memory fallback.", flush=True)
         
@@ -1890,9 +1889,29 @@ async def startup_event():
             mode_name = "AAM Connectors" if current_value else "Legacy File Sources"
             log(f"🚩 Feature Flags initialized - USE_AAM_AS_SOURCE: {mode_name}")
             
-            # Start background pub/sub listener for flag changes (cross-worker cache invalidation)
-            asyncio.create_task(feature_flag_pubsub_listener())
-            log("📡 Feature flag pub/sub listener started")
+            # CRITICAL FIX: Use centralized pub/sub listener (Issue #1 & #2)
+            # This ensures consistent behavior across ALL workers
+            from app.config.redis_pubsub import ensure_pubsub_listener
+            
+            async def on_flag_change_callback(flag_name: str, flag_value: bool):
+                """Handle flag changes in DCL engine worker"""
+                log(f"🔄 DCL Engine: Flag changed {flag_name}={flag_value}")
+                
+                # Handle USE_AAM_AS_SOURCE flag changes
+                if flag_name == FeatureFlag.USE_AAM_AS_SOURCE.value:
+                    global GRAPH_STATE, SOURCES_ADDED
+                    # Clear DCL cache to force fresh graph generation
+                    GRAPH_STATE = {"nodes": [], "edges": [], "confidence": None, "last_updated": None}
+                    SOURCES_ADDED = []
+                    
+                    mode_name = "AAM Connectors" if flag_value else "Legacy File Sources"
+                    log(f"🔄 DCL Engine: Cache cleared - now using {mode_name}")
+                    
+                    # Broadcast state change to WebSocket clients
+                    await broadcast_state_change("aam_mode_toggled")
+            
+            await ensure_pubsub_listener(on_flag_change=on_flag_change_callback)
+            log("📡 DCL Engine: Feature flag pub/sub listener started (production-ready)")
         except Exception as e:
             log(f"⚠️ Feature flag initialization failed: {e}. Using in-memory fallback.")
     else:
