@@ -133,62 +133,8 @@ export default function DCLGraphContainer({ useAamSource, onModeChange, selected
     }
   }, [isStale]);
 
-  // Auto-run graph on page load to display all nodes, sources, and agents
-  // Note: showProgress remains false during auto-run at mount
-  useEffect(() => {
-    if (!dclState) return;
-    
-    // Check if graph is empty (no nodes) or cached data is stale
-    const hasNodes = dclState.graph?.nodes && dclState.graph.nodes.length > 0;
-    
-    // Auto-run if:
-    // 1. (No nodes in graph OR cached data is stale) AND we haven't attempted yet
-    // This prevents infinite retry loops when refresh fails (both first-load and stale scenarios)
-    const shouldAutoRun = ((!hasNodes || isStale) && !autoRunAttemptedRef.current) && !isProcessing;
-    
-    if (shouldAutoRun) {
-      // Mark that we've attempted auto-run to prevent retry loops (both first-load and stale)
-      autoRunAttemptedRef.current = true;
-      
-      // Auto-run the mapping to populate the graph (background operation - no progress bar)
-      const autoRun = async () => {
-        setIsProcessing(true);
-        // showProgress stays false - no visual indicator for auto-run
-        try {
-          const sources = getPersistedSources();
-          const agents = getPersistedAgents();
-          const response = await fetch(API_CONFIG.buildDclUrl(`/connect?sources=${sources}&agents=${agents}&llm_model=${selectedModel}`), {
-            headers: {
-              ...getAuthHeader(),
-            },
-          });
-
-          // Handle 401 unauthorized
-          if (response.status === 401) {
-            handleUnauthorized();
-            console.error('[DCL] Session expired during auto-run. Please login again.');
-            setIsProcessing(false);
-            return;
-          }
-
-          if (!response.ok) {
-            const error = await response.json().catch(() => ({ detail: 'Auto-run failed' }));
-            throw new Error(error.detail || `HTTP error! status: ${response.status}`);
-          }
-
-          console.log(`[DCL] Auto-run successful (triggered by: ${!hasNodes ? 'no nodes' : 'stale cache'})`);
-          // Notify graph to update (event-driven)
-          window.dispatchEvent(new Event('dcl-state-changed'));
-        } catch (error) {
-          console.error('[DCL] Error auto-running graph:', error);
-          // On error, user still has cached graph to view - no retry needed
-        } finally {
-          setTimeout(() => setIsProcessing(false), 1500);
-        }
-      };
-      autoRun();
-    }
-  }, [dclState, isProcessing, isStale]);
+  // No auto-run - user must explicitly click Run button
+  // This ensures users control when /connect executes
 
   // Timer effect - tracks elapsed time during processing
   useEffect(() => {

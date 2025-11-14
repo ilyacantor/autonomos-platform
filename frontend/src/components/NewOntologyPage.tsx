@@ -124,27 +124,14 @@ export default function NewOntologyPage() {
     });
   }, [useAamSource]);
 
-  // Trigger run after mode change AND selections update (deferred execution)
-  // CRITICAL: Verify selections match current mode to prevent race condition
+  // Mode toggle updates selections but does NOT auto-run
+  // User must click Run button to execute /connect with new mode
   useEffect(() => {
-    if (!shouldTriggerRun || selectedSources.length === 0) return;
-    
-    // Get mode-appropriate sources to verify selections are updated
-    const validSources = useAamSource 
-      ? AAM_SOURCES.map(s => s.value) 
-      : DEFAULT_SOURCES.map(s => s.value);
-    
-    // Only trigger if ALL selections are valid for current mode (confirms smart merge completed)
-    const allSelectionsValid = selectedSources.every(source => validSources.includes(source));
-    
-    if (allSelectionsValid) {
-      console.log('[Ontology] ✅ Selections match mode, triggering deferred run:', selectedSources);
-      window.dispatchEvent(new CustomEvent('dcl:trigger-run', { detail: { source: 'mode-toggle' } }));
+    if (shouldTriggerRun) {
+      console.log('[Ontology] ✅ Mode toggled, selections updated. User must click Run to execute.');
       setShouldTriggerRun(false);
-    } else {
-      console.log('[Ontology] ⏳ Waiting for smart merge to complete...', { selectedSources, validSources });
     }
-  }, [shouldTriggerRun, selectedSources, useAamSource]);
+  }, [shouldTriggerRun]);
 
   // Load agent selections from localStorage on mount
   useEffect(() => {
