@@ -9,14 +9,20 @@ import { aoaApi } from '../services/aoaApi';
 import { AUTH_TOKEN_KEY, API_CONFIG } from '../config/api';
 import { getDefaultSources, getDefaultAgents, getAamSourceValues, getAllSourceValues } from '../config/dclDefaults';
 
-export default function DCLGraphContainer() {
+interface DCLGraphContainerProps {
+  useAamSource: boolean;
+  onModeChange: (newMode: boolean) => void;
+  selectedSources: string[];
+  selectedAgents: string[];
+}
+
+export default function DCLGraphContainer({ useAamSource, onModeChange, selectedSources, selectedAgents }: DCLGraphContainerProps) {
   const [devMode, setDevMode] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showProgress, setShowProgress] = useState(false); // Separate flag to control progress bar visibility
   const { state: dclState, isStale } = useDCLState();
   const [typingEvents, setTypingEvents] = useState<Array<{ text: string; isTyping: boolean; key: string }>>([]);
   const [selectedModel, setSelectedModel] = useState('gemini-2.5-flash');
-  const [useAamSource, setUseAamSource] = useState(false);
   
   // Timer and progress state
   const [elapsedTime, setElapsedTime] = useState(0);
@@ -44,62 +50,33 @@ export default function DCLGraphContainer() {
     window.dispatchEvent(new CustomEvent('auth:unauthorized'));
   };
 
-  // Get persisted selections from localStorage, fallback to mode-appropriate sources
-  // Ensures we never send empty query params to backend
+  // Get selections from parent props (single source of truth, no localStorage race)
   const getPersistedSources = () => {
-    // Filter sources based on current mode
-    const allAvailableSources = useAamSource ? getAamSourceValues() : getAllSourceValues();
-    const defaultSources = getDefaultSources();
+    // Use parent-provided selections with fallback
+    const sources = selectedSources.length > 0 
+      ? selectedSources 
+      : (useAamSource ? getAamSourceValues() : getAllSourceValues());
     
-    // Filter to only include sources valid for current mode
-    const filteredSources = defaultSources.filter(s => allAvailableSources.includes(s));
-    
-    // If no valid sources after filtering, use all available for current mode
-    const sources = filteredSources.length > 0 ? filteredSources : allAvailableSources;
-    
-    console.log('[DCL] Current sources from localStorage:', sources);
+    console.log('[DCL] Current sources from parent:', sources);
     return sources.join(',');
   };
   
   const getPersistedAgents = () => {
-    const defaultAgents = getDefaultAgents();
-    console.log('[DCL] Current agents from localStorage:', defaultAgents);
-    // getDefaultAgents always returns non-empty array (fallback to all agents)
-    return defaultAgents.join(',');
+    // Use parent-provided selections with fallback
+    const agents = selectedAgents.length > 0 ? selectedAgents : getDefaultAgents();
+    console.log('[DCL] Current agents from parent:', agents);
+    return agents.join(',');
   };
   
   // Select all sources/agents (selection only, doesn't run)
   const selectAllSources = () => {
-    // Select all sources based on current mode
+    // Select all sources based on current mode (now using prop)
     const allSources = useAamSource ? getAamSourceValues() : getAllSourceValues();
     const allAgents = ['revops_pilot', 'finops_pilot'];
     localStorage.setItem('aos.selectedSources', JSON.stringify(allSources));
     localStorage.setItem('aos.selectedAgents', JSON.stringify(allAgents));
     console.log('[DCL] ✅ Selected ALL sources and agents:', allSources, allAgents);
   };
-
-  // Load feature flags from API
-  useEffect(() => {
-    fetch(API_CONFIG.buildDclUrl('/feature_flags'))
-      .then(res => res.json())
-      .then(flags => {
-        const aamMode = flags.USE_AAM_AS_SOURCE || false;
-        setUseAamSource(aamMode);
-        
-        // Auto-update selected sources to match mode
-        const correctSources = aamMode ? getAamSourceValues() : getAllSourceValues();
-        localStorage.setItem('aos.selectedSources', JSON.stringify(correctSources));
-        console.log(`[DCL] Initialized sources for ${aamMode ? 'AAM' : 'Legacy'} mode:`, correctSources);
-      })
-      .catch(err => console.error('Failed to load feature flags:', err));
-  }, []);
-  
-  // Update sources when AAM mode changes
-  useEffect(() => {
-    const correctSources = useAamSource ? getAamSourceValues() : getAllSourceValues();
-    localStorage.setItem('aos.selectedSources', JSON.stringify(correctSources));
-    console.log(`[DCL] Updated sources for ${useAamSource ? 'AAM' : 'Legacy'} mode:`, correctSources);
-  }, [useAamSource]);
 
   // Sync dev mode from backend state
   useEffect(() => {
@@ -109,11 +86,13 @@ export default function DCLGraphContainer() {
   }, [dclState?.dev_mode]);
 
   // Listen for connection-triggered run events from ConnectionsPage
+  // CRITICAL: Include selectedSources/selectedAgents in dependencies to prevent stale closure
   useEffect(() => {
     const handleTriggerRun = (event: Event) => {
       const customEvent = event as CustomEvent;
       const source = customEvent.detail?.source;
       console.log(`[DCL] Received trigger-run event from: ${source}`);
+      console.log(`[DCL] Current selections: sources=${selectedSources.length}, agents=${selectedAgents.length}`);
       
       // Trigger run with progress bar
       if (!isProcessing) {
@@ -125,7 +104,7 @@ export default function DCLGraphContainer() {
     return () => {
       window.removeEventListener('dcl:trigger-run', handleTriggerRun);
     };
-  }, [isProcessing]);
+  }, [isProcessing, selectedSources, selectedAgents]);
 
   // Track new events and animate them with typing effect
   useEffect(() => {
@@ -384,9 +363,8 @@ export default function DCLGraphContainer() {
 
   // Toggle AAM mode handler - switches between AAM connectors (4 sources) and Legacy files (9 sources)
   const toggleSourceMode = async () => {
-    const newValue = !useAamSource;
     try {
-      // Call new endpoint that toggles flag AND clears backend DCL cache
+      // Call endpoint that toggles flag AND clears backend DCL cache
       const response = await fetch(API_CONFIG.buildDclUrl('/dcl/toggle_aam_mode'), {
         method: 'POST',
         headers: { 
@@ -409,8 +387,8 @@ export default function DCLGraphContainer() {
 
       const data = await response.json();
       if (data.ok) {
-        // Update local state
-        setUseAamSource(data.USE_AAM_AS_SOURCE);
+        // Notify parent component to update shared state (parent will trigger run after selections update)
+        onModeChange(data.USE_AAM_AS_SOURCE);
         console.log(`[DCL] ✅ AAM Mode toggled to: ${data.mode}`);
         console.log(`[DCL] ✅ Backend cache cleared: ${data.cache_cleared}`);
         
@@ -418,15 +396,7 @@ export default function DCLGraphContainer() {
         localStorage.removeItem('dcl_graph_state');
         localStorage.removeItem('dcl_last_updated');
         console.log('[DCL] ✅ Frontend localStorage cache cleared');
-        
-        // Update sources in localStorage to match new mode
-        const correctSources = data.USE_AAM_AS_SOURCE ? getAamSourceValues() : getAllSourceValues();
-        localStorage.setItem('aos.selectedSources', JSON.stringify(correctSources));
-        console.log(`[DCL] ✅ Updated sources for ${data.USE_AAM_AS_SOURCE ? 'AAM' : 'Legacy'} mode:`, correctSources);
-        
-        // Trigger fresh /connect run to regenerate graph with new sources
-        console.log('[DCL] 🚀 Triggering fresh /connect run with new mode...');
-        await handleRun();
+        console.log('[DCL] ✅ Parent will trigger run after selections update (deferred execution)');
       }
     } catch (err) {
       console.error('[DCL] ❌ Failed to toggle AAM mode:', err);

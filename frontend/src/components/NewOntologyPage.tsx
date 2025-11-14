@@ -81,6 +81,7 @@ export default function NewOntologyPage() {
   const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
   const [lineageSearchQuery, setLineageSearchQuery] = useState('');
   const [useAamSource, setUseAamSource] = useState(false);
+  const [shouldTriggerRun, setShouldTriggerRun] = useState(false);
   
   // OntologyPage state
   const [ontologyData, setOntologyData] = useState<OntologyData | null>(null);
@@ -92,9 +93,9 @@ export default function NewOntologyPage() {
   // Get connections based on AAM mode
   const connections = useAamSource ? AAM_SOURCES : DEFAULT_SOURCES;
 
-  // Load feature flags from API
+  // Load feature flags from API (using API_CONFIG for consistency)
   useEffect(() => {
-    fetch('/dcl/feature_flags')
+    fetch(API_CONFIG.buildDclUrl('/feature_flags'))
       .then(res => res.json())
       .then(flags => {
         setUseAamSource(flags.USE_AAM_AS_SOURCE || false);
@@ -102,9 +103,51 @@ export default function NewOntologyPage() {
       .catch(err => console.error('Failed to load feature flags:', err));
   }, []);
 
-  // Load selections from localStorage on mount (with defaults if empty)
+  // Smart merge selected sources when AAM mode changes (preserves valid user selections)
   useEffect(() => {
-    setSelectedSources(getDefaultSources());
+    const availableSources = useAamSource 
+      ? AAM_SOURCES.map(s => s.value) 
+      : DEFAULT_SOURCES.map(s => s.value);
+    
+    // Keep only selections that are still valid in new mode
+    setSelectedSources(prev => {
+      const validSelections = prev.filter(source => availableSources.includes(source));
+      
+      // If no valid selections remain, default to all available sources
+      const finalSelections = validSelections.length > 0 ? validSelections : availableSources;
+      
+      // Persist immediately to prevent race condition
+      localStorage.setItem('aos.selectedSources', JSON.stringify(finalSelections));
+      console.log(`[Ontology] Smart merge for ${useAamSource ? 'AAM' : 'Legacy'} mode:`, finalSelections);
+      
+      return finalSelections;
+    });
+  }, [useAamSource]);
+
+  // Trigger run after mode change AND selections update (deferred execution)
+  // CRITICAL: Verify selections match current mode to prevent race condition
+  useEffect(() => {
+    if (!shouldTriggerRun || selectedSources.length === 0) return;
+    
+    // Get mode-appropriate sources to verify selections are updated
+    const validSources = useAamSource 
+      ? AAM_SOURCES.map(s => s.value) 
+      : DEFAULT_SOURCES.map(s => s.value);
+    
+    // Only trigger if ALL selections are valid for current mode (confirms smart merge completed)
+    const allSelectionsValid = selectedSources.every(source => validSources.includes(source));
+    
+    if (allSelectionsValid) {
+      console.log('[Ontology] ✅ Selections match mode, triggering deferred run:', selectedSources);
+      window.dispatchEvent(new CustomEvent('dcl:trigger-run', { detail: { source: 'mode-toggle' } }));
+      setShouldTriggerRun(false);
+    } else {
+      console.log('[Ontology] ⏳ Waiting for smart merge to complete...', { selectedSources, validSources });
+    }
+  }, [shouldTriggerRun, selectedSources, useAamSource]);
+
+  // Load agent selections from localStorage on mount
+  useEffect(() => {
     setSelectedAgents(getDefaultAgents());
   }, []);
 
@@ -183,6 +226,12 @@ export default function NewOntologyPage() {
     });
   };
 
+  // Callback for DCLGraphContainer to update AAM mode state
+  const handleModeChange = (newMode: boolean) => {
+    setUseAamSource(newMode);
+    setShouldTriggerRun(true); // Defer run until after selections update
+  };
+
   const filteredEntities = ontologyData
     ? Object.entries(ontologyData).filter(([entityName]) =>
         entityName.toLowerCase().includes(searchQuery.toLowerCase())
@@ -199,8 +248,13 @@ export default function NewOntologyPage() {
         </p>
       </div>
 
-      {/* Base: DCL Graph Container */}
-      <DCLGraphContainer />
+      {/* Base: DCL Graph Container with shared AAM state and selections */}
+      <DCLGraphContainer 
+        useAamSource={useAamSource}
+        onModeChange={handleModeChange}
+        selectedSources={selectedSources}
+        selectedAgents={selectedAgents}
+      />
 
       {/* Section 1: Data Connection Section */}
       <div id="data-sources-section" className="space-y-4 sm:space-y-6">
