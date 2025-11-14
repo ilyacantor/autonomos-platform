@@ -6,17 +6,49 @@ from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
+import os
+import logging
 
 from app.database import get_db
 from app import models
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 SECRET_KEY = settings.SECRET_KEY
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 pwd_context = CryptContext(schemes=["argon2", "bcrypt"], deprecated="auto")
-security_scheme = HTTPBearer()
+
+# Configuration check - enable/disable authentication
+AUTH_ENABLED = os.getenv('DCL_AUTH_ENABLED', 'true').lower() == 'true'
+
+# auto_error=False allows us to handle missing tokens manually
+security_scheme = HTTPBearer(auto_error=False)
+
+
+class MockUser:
+    """
+    Mock user object for development mode when authentication is disabled.
+    Provides same interface as real User model for seamless operation.
+    Uses valid UUIDs for tenant_id and user_id to pass DB validation.
+    """
+    def __init__(self, tenant_id: Optional[str] = None, user_id: Optional[str] = None, email: str = "dev@localhost"):
+        from uuid import uuid4
+        import sys
+        sys.path.insert(0, 'aam_hybrid')
+        from shared.constants import DEMO_TENANT_UUID
+        
+        # Use valid UUIDs for DB operations (critical for AAM endpoints)
+        self.tenant_id = tenant_id or str(DEMO_TENANT_UUID)  # Valid UUID
+        self.user_id = user_id or str(uuid4())  # Valid UUID
+        self.email = email
+        self.id = self.user_id  # Alias for compatibility
+        self.is_admin = True  # Dev user has admin privileges
+        
+    def __repr__(self):
+        return f"<MockUser(id='{self.id}', tenant_id='{self.tenant_id}', email='{self.email}')>"
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a plain password against a hashed password."""
@@ -50,13 +82,29 @@ def decode_access_token(token: str) -> dict:
         )
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security_scheme),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_scheme),
     db: Session = Depends(get_db)
 ) -> models.User:
     """
     Dependency that extracts and validates the JWT token from the Authorization header.
     Returns the current authenticated user.
+    
+    When AUTH_ENABLED=false (development mode), returns a MockUser for seamless local development.
+    When AUTH_ENABLED=true (production mode), validates JWT and returns real user.
     """
+    # Development mode - return mock user for frictionless local dev
+    if not AUTH_ENABLED:
+        logger.warning("⚠️  Authentication disabled (DCL_AUTH_ENABLED=false). Using MockUser for development.")
+        return MockUser()
+    
+    # Production mode - require valid JWT token
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required. Authorization header missing.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
     token = credentials.credentials
     payload = decode_access_token(token)
     

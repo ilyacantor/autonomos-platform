@@ -45,3 +45,4 @@ pymongo
 psycopg[async]
 requests
 psycopg-binary
+slowapi

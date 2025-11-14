@@ -35,6 +35,8 @@ from app.security import (
 )
 from app.api.v1 import auth, aoa, aam_monitoring, aam_mesh, aam_connections, platform_stubs, filesource, dcl_views, debug, mesh_test, events, dcl_unify, aod_mock, aam_onboarding
 from app import nlp_simple
+from app.middleware.rate_limit import limiter, rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 # Initialize database tables - with error handling for resilience
 try:
@@ -243,6 +245,11 @@ app = FastAPI(
     version="2.0.0",
     lifespan=lifespan
 )
+
+# Register slowapi rate limiter with the app
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
+logger.info("✅ SlowAPI rate limiter registered for granular endpoint protection")
 
 # PRODUCTION FIX: Global exception handler to ensure JSON responses in production
 # Without this, Replit's production proxy returns plain text "Internal Server Error"

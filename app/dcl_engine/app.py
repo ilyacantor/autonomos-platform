@@ -1,7 +1,7 @@
 
 import os, time, json, glob, duckdb, pandas as pd, yaml, warnings, threading, re, traceback, asyncio
 from pathlib import Path
-from fastapi import FastAPI, Query, Request, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Query, Request, WebSocket, WebSocketDisconnect, Depends
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from typing import Dict, Any, List, Optional, Union
@@ -14,6 +14,8 @@ from redis.asyncio import Redis as AsyncRedis
 from app.dcl_engine.source_loader import get_source_adapter, AAMSourceAdapter
 from app.config.feature_flags import FeatureFlagConfig, FeatureFlag
 from app.dcl_engine.agent_executor import AgentExecutor
+from app.security import get_current_user
+from app.middleware.rate_limit import limiter
 
 # Use paths relative to this module's directory
 DCL_BASE_PATH = Path(__file__).parent
@@ -23,7 +25,10 @@ AGENTS_CONFIG_PATH = str(DCL_BASE_PATH / "agents" / "config.yml")
 SCHEMAS_DIR = str(DCL_BASE_PATH / "schemas")
 CONF_THRESHOLD = 0.70
 AUTO_PUBLISH_PARTIAL = True
-AUTH_ENABLED = False  # Set to True to enable authentication, False to bypass
+
+# Authentication dependencies for all protected endpoints
+# Auth is controlled via DCL_AUTH_ENABLED env var in app/security.py
+AUTH_DEPENDENCIES = [Depends(get_current_user)]
 
 if os.getenv("GEMINI_API_KEY"):
     genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
@@ -56,6 +61,9 @@ TIMING_LOG: Dict[str, List[float]] = {
     "gemini_call": [],
     "connect_total": []
 }
+
+# Request deduplication for toggle operations
+_active_toggle_requests: Dict[str, float] = {}  # tenant_id -> timestamp
 
 # Redis-based distributed lock for cross-process DuckDB access
 # NOTE: Redis client is shared from main app to avoid connection limit issues
@@ -2092,11 +2100,19 @@ async def startup_event():
 
 
 @app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
+async def websocket_endpoint(
+    websocket: WebSocket,
+    current_user = Depends(get_current_user)
+):
     """
     WebSocket endpoint for real-time DCL state updates.
     Eliminates polling by pushing state changes to connected clients.
+    
+    Authentication is enforced via get_current_user dependency.
+    When DCL_AUTH_ENABLED=true, requires valid JWT token.
+    When DCL_AUTH_ENABLED=false, uses MockUser for development.
     """
+    # Auth check passed (either valid JWT or MockUser), proceed with connection
     await ws_manager.connect(websocket)
     try:
         # Send initial state on connection
@@ -2115,7 +2131,7 @@ async def websocket_endpoint(websocket: WebSocket):
         ws_manager.disconnect(websocket)
 
 
-@app.get("/state")
+@app.get("/state", dependencies=AUTH_DEPENDENCIES)
 def state():
     global RAG_CONTEXT, rag_engine, agents_config
     
@@ -2222,7 +2238,7 @@ def state():
         "source_mode": source_mode
     })
 
-@app.get("/dcl/agents/{agent_id}/results")
+@app.get("/dcl/agents/{agent_id}/results", dependencies=AUTH_DEPENDENCIES)
 async def get_agent_results(
     agent_id: str,
     tenant_id: str = Query("default", description="Tenant identifier")
@@ -2244,7 +2260,7 @@ async def get_agent_results(
     
     return results
 
-@app.get("/dcl/agents/results")
+@app.get("/dcl/agents/results", dependencies=AUTH_DEPENDENCIES)
 async def get_all_agent_results(
     tenant_id: str = Query("default", description="Tenant identifier")
 ):
@@ -2254,7 +2270,7 @@ async def get_all_agent_results(
     
     return agent_executor.get_all_results(tenant_id)
 
-@app.get("/dcl/metadata")
+@app.get("/dcl/metadata", dependencies=AUTH_DEPENDENCIES)
 async def get_data_quality_metadata(
     tenant_id: str = Query("default", description="Tenant identifier")
 ):
@@ -2294,7 +2310,7 @@ async def get_data_quality_metadata(
             "error": str(e)
         }, status_code=500)
 
-@app.get("/dcl/drift-alerts")
+@app.get("/dcl/drift-alerts", dependencies=AUTH_DEPENDENCIES)
 async def get_drift_alerts(
     tenant_id: str = Query("default", description="Tenant identifier")
 ):
@@ -2341,7 +2357,7 @@ async def get_drift_alerts(
         log(f"⚠️ Error fetching drift alerts: {e}")
         return JSONResponse({"alerts": [], "error": str(e)}, status_code=500)
 
-@app.get("/dcl/hitl-pending")
+@app.get("/dcl/hitl-pending", dependencies=AUTH_DEPENDENCIES)
 async def get_hitl_pending(
     tenant_id: str = Query("default", description="Tenant identifier")
 ):
@@ -2382,7 +2398,7 @@ async def get_hitl_pending(
         log(f"⚠️ Error fetching HITL pending: {e}")
         return JSONResponse({"pending_count": 0, "reviews": [], "error": str(e)}, status_code=500)
 
-@app.get("/dcl/repair-history")
+@app.get("/dcl/repair-history", dependencies=AUTH_DEPENDENCIES)
 async def get_repair_history(
     tenant_id: str = Query("default", description="Tenant identifier"),
     limit: int = Query(50, description="Maximum number of repair records to return")
@@ -2437,8 +2453,10 @@ async def get_repair_history(
         log(f"⚠️ Error fetching repair history: {e}")
         return JSONResponse({"repairs": [], "error": str(e)}, status_code=500)
 
-@app.get("/connect")
+@app.get("/connect", dependencies=AUTH_DEPENDENCIES)
+@limiter.limit("10/minute")  # Max 10 connect operations per minute
 async def connect(
+    request: Request,
     sources: str = Query(...),
     agents: str = Query(...),
     llm_model: str = Query("gemini-2.5-flash", description="LLM model: gemini-2.5-flash, gpt-4o-mini, gpt-4o"),
@@ -2538,7 +2556,7 @@ async def connect(
 #     await broadcast_state_change("demo_reset")
 #     return JSONResponse({"ok": True})
 
-@app.get("/toggle_dev_mode")
+@app.get("/toggle_dev_mode", dependencies=AUTH_DEPENDENCIES)
 async def toggle_dev_mode(enabled: Optional[bool] = None):
     global DEV_MODE, rag_engine
     # Update both local and Redis state for backward compatibility
@@ -2561,8 +2579,9 @@ async def toggle_dev_mode(enabled: Optional[bool] = None):
     await broadcast_state_change("dev_mode_toggled")
     return JSONResponse({"dev_mode": DEV_MODE, "status": status})
 
-@app.post("/dcl/toggle_aam_mode")
-async def toggle_aam_mode():
+@app.post("/dcl/toggle_aam_mode", dependencies=AUTH_DEPENDENCIES)
+@limiter.limit("5/minute")  # Max 5 mode toggles per minute
+async def toggle_aam_mode(request: Request):
     """
     Toggle USE_AAM_AS_SOURCE feature flag and clear DCL cache.
     
@@ -2578,7 +2597,22 @@ async def toggle_aam_mode():
     - AAM mode OFF: Uses 9 Legacy file sources (Salesforce, Dynamics, HubSpot, etc.)
     - Flag change broadcasts to all workers via Redis pub/sub
     """
-    global GRAPH_STATE, SOURCES_ADDED
+    global GRAPH_STATE, SOURCES_ADDED, _active_toggle_requests
+    
+    # Deduplicate concurrent toggle requests (prevent rapid-fire)
+    tenant_id = "default"  # TODO: Get from current_user when multi-tenant auth is live
+    now = time.time()
+    last_toggle = _active_toggle_requests.get(tenant_id, 0)
+    
+    if now - last_toggle < 1.0:  # Ignore if < 1 second since last toggle
+        log(f"⚠️ Ignoring duplicate toggle request for tenant {tenant_id} (< 1s since last)")
+        return JSONResponse({
+            "ok": True,
+            "status": "debounced",
+            "message": "Request ignored - too soon after previous toggle"
+        })
+    
+    _active_toggle_requests[tenant_id] = now
     
     # Ensure pub/sub listener is running (lazy initialization)
     await ensure_pubsub_listener()
@@ -2615,7 +2649,7 @@ async def toggle_aam_mode():
         "cache_cleared": True
     })
 
-@app.post("/reset_llm_stats")
+@app.post("/reset_llm_stats", dependencies=AUTH_DEPENDENCIES)
 async def reset_llm_stats_endpoint():
     """
     Manual endpoint to reset LLM call counters.
@@ -2632,7 +2666,7 @@ async def reset_llm_stats_endpoint():
         "tokens": stats["tokens"]
     })
 
-@app.get("/preview")
+@app.get("/preview", dependencies=AUTH_DEPENDENCIES)
 def preview(node: Optional[str] = None):
     global ontology, agents_config, SELECTED_AGENTS
     # Use read-only mode for preview operations
@@ -2668,7 +2702,7 @@ def preview(node: Optional[str] = None):
             ontology_tables[f"dcl_{ent}"] = preview_table(con, f"dcl_{ent}")
     return JSONResponse({"sources": sources, "ontology": ontology_tables})
 
-@app.get("/source_schemas")
+@app.get("/source_schemas", dependencies=AUTH_DEPENDENCIES)
 def source_schemas():
     """Return complete schema information for all connected sources."""
     global SOURCE_SCHEMAS
@@ -2688,7 +2722,7 @@ def source_schemas():
     clean_schemas = sanitize(SOURCE_SCHEMAS)
     return JSONResponse(clean_schemas)
 
-@app.get("/ontology_schema")
+@app.get("/ontology_schema", dependencies=AUTH_DEPENDENCIES)
 def ontology_schema():
     """Return ontology entity definitions with all fields and source mappings."""
     global ontology, GRAPH_STATE
@@ -2753,19 +2787,19 @@ def ontology_schema():
     
     return JSONResponse(schema)
 
-@app.get("/toggle_auto_ingest")
+@app.get("/toggle_auto_ingest", dependencies=AUTH_DEPENDENCIES)
 def toggle_auto_ingest(enabled: bool = Query(...)):
     global AUTO_INGEST_UNMAPPED
     AUTO_INGEST_UNMAPPED = enabled
     return JSONResponse({"ok": True, "enabled": AUTO_INGEST_UNMAPPED})
 
-@app.get("/feature_flags")
+@app.get("/feature_flags", dependencies=AUTH_DEPENDENCIES)
 def get_feature_flags():
     """Get current state of all feature flags."""
     from app.config.feature_flags import FeatureFlagConfig
     return JSONResponse(FeatureFlagConfig.get_all_flags())
 
-@app.post("/feature_flags/toggle")
+@app.post("/feature_flags/toggle", dependencies=AUTH_DEPENDENCIES)
 async def toggle_feature_flag(request: Dict[str, Any]):
     """Toggle a feature flag (USE_AAM_AS_SOURCE)."""
     from app.config.feature_flags import FeatureFlagConfig, FeatureFlag
@@ -2792,7 +2826,7 @@ async def toggle_feature_flag(request: Dict[str, Any]):
         "migration_phase": migration_phase
     })
 
-@app.get("/rag/stats")
+@app.get("/rag/stats", dependencies=AUTH_DEPENDENCIES)
 def rag_stats():
     """Get RAG engine statistics."""
     if not rag_engine:
@@ -2803,7 +2837,7 @@ def rag_stats():
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 
-@app.get("/api/supabase-config")
+@app.get("/api/supabase-config", dependencies=AUTH_DEPENDENCIES)
 def supabase_config():
     """Provide Supabase configuration to frontend (only public keys)."""
     supabase_url = os.getenv("SUPABASE_URL", "")
@@ -2817,7 +2851,7 @@ def supabase_config():
         "anonKey": supabase_anon_key
     })
 
-@app.post("/api/infer")
+@app.post("/api/infer", dependencies=AUTH_DEPENDENCIES)
 async def infer_schema(request: Dict[str, Any]):
     fields = request.get("fields", [])
     
@@ -2881,7 +2915,7 @@ Fields:
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
-@app.post("/api/setup-database")
+@app.post("/api/setup-database", dependencies=AUTH_DEPENDENCIES)
 async def setup_database():
     """Automatically create Supabase user_profiles table and policies"""
     import requests
@@ -3015,7 +3049,7 @@ def decrypt_password(encrypted: str) -> str:
     except:
         return encrypted
 
-@app.get("/api/connections")
+@app.get("/api/connections", dependencies=AUTH_DEPENDENCIES)
 def get_connections():
     """Get all database connections"""
     try:
@@ -3045,7 +3079,7 @@ def get_connections():
     except Exception as e:
         return JSONResponse({"error": str(e), "connections": []}, status_code=500)
 
-@app.post("/api/connections/test")
+@app.post("/api/connections/test", dependencies=AUTH_DEPENDENCIES)
 async def test_connection(request: Request):
     """Test a PostgreSQL connection"""
     try:
@@ -3107,7 +3141,7 @@ async def test_connection(request: Request):
             "message": f"Connection failed: {str(e)}"
         }, status_code=500)
 
-@app.post("/api/connections/create")
+@app.post("/api/connections/create", dependencies=AUTH_DEPENDENCIES)
 async def create_connection(request: Request):
     """Create and save a new database connection"""
     try:
@@ -3186,7 +3220,7 @@ async def create_connection(request: Request):
             "message": f"Failed to save connection: {str(e)}"
         }, status_code=500)
 
-@app.get("/api/connections/{connection_id}/logs")
+@app.get("/api/connections/{connection_id}/logs", dependencies=AUTH_DEPENDENCIES)
 def get_connection_logs(connection_id: int):
     """Get logs for a specific connection"""
     from datetime import datetime

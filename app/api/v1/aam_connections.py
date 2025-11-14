@@ -45,7 +45,7 @@ class ConnectionCreateRequest(BaseModel):
     connector_config: Dict[str, Any] = Field(..., description="Connector-specific configuration (credentials, URLs, etc.)")
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "name": "Salesforce Production",
                 "source_type": "Salesforce",
@@ -69,7 +69,7 @@ class ConnectionResponse(BaseModel):
     last_health_check: Optional[datetime] = Field(None, description="Timestamp of last health check")
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "id": "550e8400-e29b-41d4-a716-446655440000",
                 "name": "Salesforce Production",
