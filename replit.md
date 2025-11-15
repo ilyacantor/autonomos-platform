@@ -1,6 +1,15 @@
 # AutonomOS - Multi-Tenant AI Orchestration Platform
 
 ## Recent Changes (2025-11-15)
+**Phase 2 Scripts/Tests Cleanup - Complete & Architect Approved:**
+- Extended Package Structure: Added "scripts" and "services" to pyproject.toml packages list
+- Created scripts/__init__.py: Promoted scripts directory to proper Python package
+- Cleaned 20 Priority Scripts/Tests: Removed sys.path from 15 high-priority scripts + 2 test files (69→42 instances)
+- Modern Execution Pattern: Scripts now run as `python -m scripts.script_name` from project root
+- Absolute Imports: All cleaned files use `from app.*`, `from services.*`, `from aam_hybrid.*` patterns
+- Verified Working: provision_demo_tenant, filesource_ingest, seed_salesforce all functional
+- Architect Verified: Pass status - package structure works, scripts execute successfully, no regressions
+
 **Phase 1 Architectural Remediation - Complete & Architect Approved:**
 - Unified SQLAlchemy Base: All models (app, shared, aam_hybrid) now use shared.database.Base for zero schema drift
 - sys.path Cleanup: Removed all core runtime sys.path manipulations from 5 critical files (security.py, main.py, aam_connections.py, aam_monitoring.py, dcl_engine/__init__.py)
