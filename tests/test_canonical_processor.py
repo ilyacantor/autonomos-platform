@@ -11,7 +11,7 @@ from datetime import datetime
 from app.contracts.canonical_event import (
     EntityEvent, EventType, CanonicalEntityType,
     SchemaFingerprint, FieldMapping, DriftStatus,
-    RepairSummary, DataLineage
+    RepairSummary, DataLineage, EventSchemaVersion
 )
 
 
@@ -72,7 +72,12 @@ class TestEventNormalization:
                 "account_number": "123"
             },
             field_mappings=[],
-            overall_confidence=0.9
+            overall_confidence=0.9,
+            schema_version=EventSchemaVersion.V1_0,
+            raw_data=None,
+            drift_status=None,
+            repair_summary=None,
+            data_lineage=None
         )
         
         normalized = processor.normalize_event(event)
@@ -111,7 +116,12 @@ class TestEventNormalization:
             schema_fingerprint=fingerprint,
             payload={"id": "ACC-001"},
             field_mappings=[],
-            overall_confidence=0.9
+            overall_confidence=0.9,
+            schema_version=EventSchemaVersion.V1_0,
+            raw_data=None,
+            drift_status=None,
+            repair_summary=None,
+            data_lineage=None
         )
         
         normalized = processor.normalize_event(minimal_event)
@@ -228,7 +238,10 @@ class TestMetadataEnrichment:
                 source_type="string",
                 canonical_type="string",
                 mapping_method="exact",
-                confidence_score=1.0
+                confidence_score=1.0,
+                transformation_function=None,
+                semantic_similarity=None,
+                human_verified=False
             ),
             FieldMapping(
                 source_field="Name",
@@ -236,7 +249,10 @@ class TestMetadataEnrichment:
                 source_type="string",
                 canonical_type="string",
                 mapping_method="exact",
-                confidence_score=0.9
+                confidence_score=0.9,
+                transformation_function=None,
+                semantic_similarity=None,
+                human_verified=False
             ),
             FieldMapping(
                 source_field="Amount",
@@ -244,7 +260,10 @@ class TestMetadataEnrichment:
                 source_type="decimal",
                 canonical_type="float",
                 mapping_method="llm",
-                confidence_score=0.8
+                confidence_score=0.8,
+                transformation_function=None,
+                semantic_similarity=None,
+                human_verified=False
             )
         ]
         
@@ -259,7 +278,12 @@ class TestMetadataEnrichment:
             schema_fingerprint=fingerprint,
             payload={"id": "OPP-001", "name": "Test Deal", "amount": 50000.0},
             field_mappings=mappings,
-            overall_confidence=0.9
+            overall_confidence=0.9,
+            schema_version=EventSchemaVersion.V1_0,
+            raw_data=None,
+            drift_status=None,
+            repair_summary=None,
+            data_lineage=None
         )
         
         expected_confidence = (1.0 + 0.9 + 0.8) / 3

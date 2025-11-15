@@ -22,11 +22,13 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engin
 
 def override_get_db():
     """Override database dependency for testing."""
+    db = None
     try:
         db = TestingSessionLocal()
         yield db
     finally:
-        db.close()
+        if db is not None:
+            db.close()
 
 # Override the dependency
 app.dependency_overrides[get_db] = override_get_db
@@ -265,18 +267,28 @@ def sample_canonical_event():
         source_type="decimal",
         canonical_type="float",
         mapping_method="exact",
-        confidence_score=0.95
+        confidence_score=0.95,
+        transformation_function=None,
+        semantic_similarity=None,
+        human_verified=False
     )
     
     drift_status = DriftStatus(
-        drift_detected=False
+        drift_detected=False,
+        drift_event_id=None,
+        drift_severity=None,
+        drift_type=None,
+        repair_attempted=False,
+        repair_successful=False,
+        requires_human_review=False
     )
     
     repair_summary = RepairSummary(
         repair_processed=False,
         auto_applied_count=0,
         hitl_queued_count=0,
-        rejected_count=0
+        rejected_count=0,
+        overall_confidence=None
     )
     
     lineage = DataLineage(
@@ -306,6 +318,7 @@ def sample_canonical_event():
         },
         field_mappings=[field_mapping],
         overall_confidence=0.95,
+        raw_data=None,
         drift_status=drift_status,
         repair_summary=repair_summary,
         data_lineage=lineage

@@ -256,7 +256,7 @@ class CanonicalEvent(BaseModel):
     All events flowing through AAM conform to this schema.
     """
     schema_version: EventSchemaVersion = Field(
-        EventSchemaVersion.V1_0, description="Event schema version"
+        default=EventSchemaVersion.V1_0, description="Event schema version"
     )
     
     event_id: str = Field(..., description="Unique event identifier")
@@ -287,11 +287,7 @@ class EntityEvent(CanonicalEvent):
     
     Extends base CanonicalEvent with entity-specific fields.
     """
-    event_type: Literal[
-        EventType.ENTITY_CREATED,
-        EventType.ENTITY_UPDATED,
-        EventType.ENTITY_DELETED
-    ] = Field(..., description="Must be an entity operation")
+    event_type: EventType = Field(default=EventType.ENTITY_CREATED, description="Must be an entity operation")
     
     field_mappings: List[FieldMapping] = Field(
         default_factory=list, description="Field-level mapping details"
@@ -320,8 +316,8 @@ class SchemaEvent(CanonicalEvent):
     """
     Canonical event for schema changes (drift detection).
     """
-    event_type: Literal[EventType.SCHEMA_DRIFT_DETECTED] = Field(
-        EventType.SCHEMA_DRIFT_DETECTED
+    event_type: EventType = Field(
+        default=EventType.SCHEMA_DRIFT_DETECTED
     )
     
     previous_fingerprint: SchemaFingerprint = Field(..., description="Previous schema state")
@@ -337,7 +333,7 @@ class RepairEvent(CanonicalEvent):
     """
     Canonical event for repair operations.
     """
-    event_type: Literal[EventType.REPAIR_COMPLETED] = Field(EventType.REPAIR_COMPLETED)
+    event_type: EventType = Field(default=EventType.REPAIR_COMPLETED)
     
     repair_job_id: str = Field(..., description="Unique repair job identifier")
     
@@ -360,7 +356,7 @@ class HealthCheckEvent(CanonicalEvent):
     """
     Canonical event for connector health checks.
     """
-    event_type: Literal[EventType.HEALTH_CHECK] = Field(EventType.HEALTH_CHECK)
+    event_type: EventType = Field(default=EventType.HEALTH_CHECK)
     
     connector_status: Literal["healthy", "degraded", "down"] = Field(...)
     
@@ -408,7 +404,10 @@ if __name__ == "__main__":
         source_type="decimal",
         canonical_type="float",
         mapping_method="exact",
-        confidence_score=1.0
+        confidence_score=1.0,
+        transformation_function=None,
+        semantic_similarity=None,
+        human_verified=False
     )
     
     entity_event = EntityEvent(
@@ -426,7 +425,11 @@ if __name__ == "__main__":
             "amount": 100000.0
         },
         field_mappings=[field_mapping],
-        overall_confidence=0.95
+        overall_confidence=0.95,
+        raw_data=None,
+        drift_status=None,
+        repair_summary=None,
+        data_lineage=None
     )
     
     print("Canonical Event Example:")

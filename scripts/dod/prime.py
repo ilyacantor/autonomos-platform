@@ -7,13 +7,10 @@ import os
 import sys
 import time
 import subprocess
-
-# Add parent directory to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import uuid
 
 from app.database import get_db
 from app.models import CanonicalStream
-import uuid
 
 
 def run_seed_script(script_name):

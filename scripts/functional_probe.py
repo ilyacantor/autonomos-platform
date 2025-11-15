@@ -8,17 +8,13 @@ import asyncio
 import os
 import sys
 import uuid
-from pathlib import Path
-
-# Add project root to path
-project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))
 
 import httpx
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from services.aam.connectors.salesforce.connector import SalesforceConnector
 from services.aam.canonical.subscriber import process_canonical_streams
+from services.aam.canonical.models import CanonicalOpportunity
 
 
 async def verify_dcl_materialization(opportunity_id: str, max_retries: int = 10) -> int:
@@ -118,8 +114,15 @@ async def run_functional_probe():
         canonical_event = sf_connector.normalize_opportunity(sf_opportunity, trace_id)
         print(f"✅ Normalized to canonical format")
         print(f"   Entity: {canonical_event.entity}")
-        print(f"   Opportunity ID: {canonical_event.data.opportunity_id}")
-        print(f"   Account ID: {canonical_event.data.account_id}\n")
+        
+        if not isinstance(canonical_event.data, dict):
+            raise TypeError(f"Expected dict for canonical_event.data, got {type(canonical_event.data)}")
+        
+        opportunity_id_field = canonical_event.data.get("opportunity_id", "unknown")
+        account_id_field = canonical_event.data.get("account_id", "unknown")
+        
+        print(f"   Opportunity ID: {opportunity_id_field}")
+        print(f"   Account ID: {account_id_field}\n")
         
         # Step 3: Emit canonical event
         print("📤 Step 3: Emitting canonical event to AAM streams...")
