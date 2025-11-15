@@ -22,8 +22,8 @@ from pydantic import BaseModel, Field
 sys.path.insert(0, 'aam_hybrid')
 
 from core.connection_manager import connection_manager
-from shared.models import ConnectionStatus
-from shared.constants import DEMO_TENANT_UUID
+from aam_hybrid.shared.models import ConnectionStatus
+from aam_hybrid.shared.constants import DEMO_TENANT_UUID
 from connectors import (
     salesforce_adapter,
     supabase_adapter,

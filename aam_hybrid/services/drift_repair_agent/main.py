@@ -7,7 +7,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from shared import settings, get_db, init_db, HealthResponse, CatalogUpdate
+from aam_hybrid.shared import settings, get_db, init_db, HealthResponse, CatalogUpdate
 from .service import apply_catalog_update
 
 logging.basicConfig(level=logging.INFO)

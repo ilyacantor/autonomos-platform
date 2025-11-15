@@ -9,7 +9,7 @@ from openai import AsyncOpenAI
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from aam_hybrid.shared.config import settings
-from aam_hybrid.shared.models import RepairKnowledgeBase, DriftEvent, RepairProposal, ConnectionStatus, StatusUpdate
+from aam_hybrid.shared.models import RepairKnowledgeBase, AAMDriftEventPayload, RepairProposal, ConnectionStatus, StatusUpdate
 from aam_hybrid.shared.event_bus import event_bus
 from aam_hybrid.shared.database import AsyncSessionLocal
 from aam_hybrid.services.rag_engine.embedding_service import embedding_service
@@ -37,7 +37,7 @@ class RAGEngine:
         3. Publish repair proposal
         """
         try:
-            drift_event = DriftEvent(**event_data)
+            drift_event = AAMDriftEventPayload(**event_data)
             logger.info(f"🔍 Processing drift for connection: {drift_event.connection_id}")
             
             # Step 1: Retrieval - Find similar historical repairs

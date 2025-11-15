@@ -70,7 +70,7 @@ try:
     aam_path = Path(__file__).parent.parent.parent.parent / "aam_hybrid"
     sys.path.insert(0, str(aam_path))
     
-    from shared.models import Connection, JobHistory, SyncCatalogVersion, ConnectionStatus, JobStatus
+    from aam_hybrid.shared.models import Connection, JobHistory, SyncCatalogVersion, ConnectionStatus, JobStatus
     AAM_MODELS_AVAILABLE = True
     logger.info("✅ AAM models imported successfully")
 except Exception as e:

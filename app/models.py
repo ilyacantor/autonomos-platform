@@ -2,10 +2,8 @@ import uuid
 from datetime import datetime
 from sqlalchemy import Column, String, JSON, DateTime, Integer, Float, ForeignKey, func, Index
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
-
-Base = declarative_base()
+from shared.database import Base
 
 class Tenant(Base):
     __tablename__ = "tenants"

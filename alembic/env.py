@@ -4,7 +4,6 @@ import sys
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
-from sqlalchemy import MetaData
 
 from alembic import context
 
@@ -25,19 +24,15 @@ if database_url:
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Import both Base objects from our multi-Base architecture
-from app.models import Base as AppBase
-from aam_hybrid.shared.models import Base as AAMBase
+# Import the unified Base from shared.database
+from shared.database import Base
 
-# Combine metadata from both Base objects
-# This ensures all tables from both models are tracked in migrations
-combined_metadata = MetaData()
-for table in AppBase.metadata.tables.values():
-    table.to_metadata(combined_metadata)
-for table in AAMBase.metadata.tables.values():
-    table.to_metadata(combined_metadata)
+# Import all models so they register with Base.metadata
+from app.models import *
+from aam_hybrid.shared.models import *
 
-target_metadata = combined_metadata
+# Use the unified Base metadata
+target_metadata = Base.metadata
 
 
 def include_object(object, name, type_, reflected, compare_to):

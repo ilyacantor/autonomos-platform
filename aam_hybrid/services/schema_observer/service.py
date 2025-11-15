@@ -20,7 +20,7 @@ from aam_hybrid.shared.models import (
     JobHistory,
     ConnectionStatus,
     JobStatus,
-    DriftEvent,
+    AAMDriftEventPayload,
     StatusUpdate
 )
 from aam_hybrid.shared.event_bus import event_bus
@@ -293,11 +293,10 @@ class SchemaObserver:
             error_signature = error_logs[:300] if error_logs else "Unknown schema drift error"
             
             # Step 5: Publish DriftDetected event
-            drift_event = DriftEvent(
+            drift_event = AAMDriftEventPayload(
                 connection_id=connection.id,
                 last_good_catalog=last_catalog.sync_catalog,
-                error_signature=error_signature,
-                error_logs=error_logs
+                error_signature=error_signature
             )
             
             await event_bus.publish("aam:drift_detected", drift_event.model_dump())

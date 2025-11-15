@@ -14,7 +14,7 @@ from .models import (
     SyncTrigger,
     HealthResponse,
     RepairKnowledgeBase,
-    DriftEvent,
+    AAMDriftEventPayload,
     RepairProposal,
     StatusUpdate
 )
@@ -37,7 +37,7 @@ __all__ = [
     "SyncTrigger",
     "HealthResponse",
     "RepairKnowledgeBase",
-    "DriftEvent",
+    "AAMDriftEventPayload",
     "RepairProposal",
     "StatusUpdate"
 ]

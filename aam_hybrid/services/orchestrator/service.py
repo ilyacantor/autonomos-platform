@@ -11,7 +11,7 @@ from fastapi import WebSocket
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from shared import (
+from aam_hybrid.shared import (
     settings,
     airbyte_client,
     Connection,

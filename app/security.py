@@ -33,19 +33,21 @@ class MockUser:
     Mock user object for development mode when authentication is disabled.
     Provides same interface as real User model for seamless operation.
     Uses valid UUIDs for tenant_id and user_id to pass DB validation.
+    Includes created_at for response serialization compatibility.
     """
-    def __init__(self, tenant_id: Optional[str] = None, user_id: Optional[str] = None, email: str = "dev@localhost"):
+    def __init__(self, tenant_id: Optional[str] = None, user_id: Optional[str] = None, email: str = "dev@autonomos.local"):
         from uuid import uuid4
         import sys
         sys.path.insert(0, 'aam_hybrid')
-        from shared.constants import DEMO_TENANT_UUID
+        from aam_hybrid.shared.constants import DEMO_TENANT_UUID
         
         # Use valid UUIDs for DB operations (critical for AAM endpoints)
         self.tenant_id = tenant_id or str(DEMO_TENANT_UUID)  # Valid UUID
         self.user_id = user_id or str(uuid4())  # Valid UUID
-        self.email = email
+        self.email = email  # Valid email format with period after @
         self.id = self.user_id  # Alias for compatibility
         self.is_admin = True  # Dev user has admin privileges
+        self.created_at = datetime.utcnow()  # Required for response serialization
         
     def __repr__(self):
         return f"<MockUser(id='{self.id}', tenant_id='{self.tenant_id}', email='{self.email}')>"

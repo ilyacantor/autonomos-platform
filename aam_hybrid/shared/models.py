@@ -4,15 +4,13 @@ from enum import Enum
 from typing import Optional
 from sqlalchemy import Column, String, DateTime, Integer, Float, Enum as SQLEnum, ForeignKey, JSON, Text
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import declarative_base, relationship
+from sqlalchemy.orm import relationship
 from pydantic import BaseModel, Field
+from shared.database import Base
 try:
     from pgvector.sqlalchemy import Vector
 except ImportError:
     Vector = None
-
-
-Base = declarative_base()
 
 
 class ConnectionStatus(str, Enum):
@@ -173,8 +171,8 @@ class RepairKnowledgeBase(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
-class DriftEvent(BaseModel):
-    """Event model for schema drift detection"""
+class AAMDriftEventPayload(BaseModel):
+    """Pydantic payload for drift events from AAM connectors"""
     connection_id: uuid.UUID
     error_signature: str
     last_good_catalog: dict

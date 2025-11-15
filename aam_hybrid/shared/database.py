@@ -1,22 +1,19 @@
-import sys
-from pathlib import Path
+"""
+AAM database access - now uses unified shared.database module.
+This breaks the circular dependency with app/database.py.
+"""
 import logging
+from shared.database import AsyncSessionLocal, async_engine, Base
+from sqlalchemy import text
 
 logger = logging.getLogger(__name__)
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
-from app.database import AsyncSessionLocal as AppAsyncSessionLocal, async_engine
-
-AsyncSessionLocal = AppAsyncSessionLocal
-engine = async_engine
-
-logger.info("✅ AAM using shared PgBouncer-safe async session factory from app.database")
+logger.info("✅ AAM using shared database module (circular dependency broken)")
 
 
-async def get_db():
+async def get_async_db():
     """
-    Dependency for getting async database sessions
+    Async database session for AAM endpoints with auto-commit/rollback
     """
     async with AsyncSessionLocal() as session:
         try:
@@ -30,14 +27,18 @@ async def get_db():
             await session.close()
 
 
+# Backward compatibility aliases
+get_db = get_async_db  # Alias for backward compatibility
+engine = async_engine  # Alias for backward compatibility
+
+
 async def init_db():
     """
-    Initialize database tables using shared PgBouncer-safe engine
+    Initialize database tables using shared engine
     """
-    from .models import Base, ConnectionStatus, JobStatus
-    from sqlalchemy import text
+    from .models import ConnectionStatus, JobStatus
     
-    async with engine.begin() as conn:
+    async with async_engine.begin() as conn:
         logger.info("Creating AAM database tables using shared engine...")
         
         # Create enum types if they don't exist
@@ -59,3 +60,6 @@ async def init_db():
         
         await conn.run_sync(Base.metadata.create_all)
         logger.info("✅ AAM database tables created successfully (shared engine)")
+
+
+__all__ = ["AsyncSessionLocal", "async_engine", "get_async_db", "get_db", "engine", "Base", "init_db"]

@@ -12,17 +12,13 @@ All operations are async to support the async database layer.
 
 import uuid
 import logging
-import sys
 from datetime import datetime
-from pathlib import Path
 from typing import List, Optional, Dict, Any
 from sqlalchemy import select, delete, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
-from shared import Connection, ConnectionStatus
-from shared.database import AsyncSessionLocal
+from aam_hybrid.shared.models import Connection, ConnectionStatus
+from aam_hybrid.shared.database import AsyncSessionLocal
 
 logger = logging.getLogger(__name__)
 
