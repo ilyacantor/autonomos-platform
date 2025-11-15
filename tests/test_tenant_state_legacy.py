@@ -655,15 +655,25 @@ class TestNoAttributeErrorGuarantee:
 @pytest.fixture
 def redis_test_client():
     """
-    Provide fake Redis client for testing.
+    Provide fake Redis client for testing with proper TTL support.
     
-    Uses fakeredis to simulate Redis behavior without requiring
-    a real Redis server for tests.
+    Uses fakeredis.FakeRedis (not FakeStrictRedis) to simulate Redis behavior
+    without requiring a real Redis server for tests. FakeRedis provides better
+    TTL simulation support.
+    
+    Note on TTL Testing:
+    - FakeRedis simulates TTL values but may not auto-expire keys
+    - We verify TTL is SET correctly, not automatic expiry behavior
+    - Production Redis handles expiry automatically
+    - For true expiry testing, use real Redis in CI or manual simulation
     
     Returns:
-        FakeStrictRedis instance configured for testing
+        FakeRedis instance configured for testing with Redis 7.x behavior
     """
-    return fakeredis.FakeStrictRedis(decode_responses=True)
+    return fakeredis.FakeRedis(
+        decode_responses=True,
+        version=7  # Simulate Redis 7.x for better compatibility
+    )
 
 
 @pytest.fixture
@@ -788,31 +798,47 @@ class TestRedisIntegration:
     
     def test_redis_ttl_behavior(self, redis_mode, redis_test_client):
         """
-        Verify Redis keys have appropriate TTL (if configured).
+        Verify Redis keys have appropriate TTL configuration.
         
         Test Flow:
-            1. Set state via state_access
+            1. Set state via state_access (should trigger Redis write)
             2. Check Redis key exists
-            3. Verify TTL configuration
+            3. Verify TTL is properly configured
         
         Expected:
             - Redis key exists after write
-            - TTL is -1 (no expiry) or > 0 (configured TTL)
+            - TTL should be:
+              * -1 (key never expires, no TTL set) - current behavior
+              * OR positive integer (key expires in N seconds) - if TTL configured
+              * NOT -2 (key doesn't exist - would indicate bug)
+        
+        Note:
+            Currently TenantStateManager does not set TTL, so we expect -1.
+            This test validates that TTL behavior is correct and won't break
+            if TTL support is added in the future.
         """
         from app.dcl_engine import state_access
         
-        # Set state
+        # Set state (should trigger Redis write)
         state_access.set_sources("test-tenant", ["salesforce"])
         
         # Check Redis key exists (correct key format: dcl:tenant:{tenant_id}:sources_added)
         key = "dcl:tenant:test-tenant:sources_added"
-        assert redis_test_client.exists(key), f"Key '{key}' not found in Redis"
+        assert redis_test_client.exists(key), f"Key {key} should exist in Redis"
         
-        # Check TTL (if configured, otherwise -1 for no expiry)
+        # Check TTL configuration
         ttl = redis_test_client.ttl(key)
-        # Assert appropriate value (adjust based on your TTL config)
-        # -1 means no expiry, positive means TTL in seconds
-        assert ttl == -1 or ttl > 0
+        
+        # TTL should be either:
+        # - Positive integer (key expires in N seconds) - if TTL configured
+        # - -1 (key never expires, no TTL set) - current default behavior
+        # - NOT -2 (key doesn't exist - would indicate bug)
+        assert ttl != -2, f"Key {key} doesn't exist (TTL=-2 indicates missing key)"
+        assert ttl == -1 or ttl > 0, f"Invalid TTL value: {ttl}. Expected -1 (no expiry) or >0 (TTL in seconds)"
+        
+        # Currently we expect -1 (no TTL set) since TenantStateManager doesn't configure TTL
+        # If TTL support is added, update this assertion accordingly
+        assert ttl == -1, f"Expected no TTL (ttl=-1), got {ttl}. Update test if TTL support was added."
     
     def test_redis_complex_mutation_persistence(self, redis_mode):
         """

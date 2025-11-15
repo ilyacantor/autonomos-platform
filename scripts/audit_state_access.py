@@ -95,10 +95,12 @@ class StateAccessViolation:
 class StateAccessAuditor(ast.NodeVisitor):
     """AST visitor that detects direct state access violations."""
     
-    def __init__(self, file_path: str):
+    def __init__(self, file_path: str, source_code: str = ""):
         self.file_path = file_path
         self.violations: List[StateAccessViolation] = []
         self.lines: List[str] = []
+        self.source = source_code  # Store source for context extraction
+        self.aliases: Dict[str, str] = {}  # Maps alias names to original names (e.g., {'tsm': 'tenant_state_manager'})
     
     def _should_check_global_access(self) -> bool:
         """Only check files other than state_access.py for global access."""
@@ -116,6 +118,7 @@ class StateAccessAuditor(ast.NodeVisitor):
         """
         try:
             self.lines = source_code.splitlines()
+            self.source = source_code  # Store for context extraction
             tree = ast.parse(source_code, filename=self.file_path)
             self.visit(tree)
         except SyntaxError as e:
@@ -137,21 +140,86 @@ class StateAccessAuditor(ast.NodeVisitor):
             return isinstance(node.ctx, ast.Store)
         return False
     
+    def _is_allowed_context(self, node: ast.AST) -> bool:
+        """
+        Check if usage is in allowed context (e.g., app.py initialization).
+        
+        Args:
+            node: AST node to check
+        
+        Returns:
+            True if usage is allowed in current context
+        """
+        # Only check app.py for special allowlist
+        if 'app.py' not in self.file_path:
+            return False
+        
+        # Get source snippet for pattern matching
+        snippet = self._get_snippet(node)
+        if not snippet:
+            return False
+        
+        # Allowed patterns in app.py (initialization only)
+        allowed_patterns = [
+            'state_access.initialize_state_access',  # Wrapper initialization
+            'TenantStateManager(redis_client',       # Manager construction
+            'TenantStateManager(',                    # Manager construction (any arg)
+            'tenant_state_manager = TenantStateManager',  # Assignment
+            'from app.dcl_engine.tenant_state import TenantStateManager',  # Import (required for init)
+            'import app.dcl_engine.tenant_state',    # Module import (rare but valid for init)
+        ]
+        
+        # Check if snippet matches any allowed pattern
+        for pattern in allowed_patterns:
+            if pattern in snippet:
+                return True
+        
+        # Also check if this is a module-level global variable definition (not usage)
+        for var in GLOBAL_VARS:
+            # Pattern: GRAPH_STATE = ... or GRAPH_STATE: Dict = ...
+            if snippet.startswith(f"{var} =") or snippet.startswith(f"{var}:"):
+                return True
+        
+        return False
+    
     def visit_Attribute(self, node: ast.Attribute) -> None:
-        """Detect attribute access on tenant_state_manager."""
-        # Check if this is tenant_state_manager.some_method()
-        if isinstance(node.value, ast.Name) and node.value.id == "tenant_state_manager":
-            snippet = self._get_snippet(node)
-            is_write = self._is_write_context(node)
+        """Detect attribute access on tenant_state_manager (direct or aliased)."""
+        if isinstance(node.value, ast.Name):
+            var_name = node.value.id
             
-            violation = StateAccessViolation(
-                file_path=self.file_path,
-                line_number=node.lineno,
-                violation_type="Direct tenant_state_manager access",
-                snippet=snippet,
-                is_write=is_write,
-            )
-            self.violations.append(violation)
+            # Check if it's a known alias for forbidden imports
+            if var_name in self.aliases:
+                original = self.aliases[var_name]
+                
+                # Check if it's in allowed context before recording violation
+                if not self._is_allowed_context(node):
+                    snippet = self._get_snippet(node)
+                    is_write = self._is_write_context(node)
+                    
+                    violation = StateAccessViolation(
+                        file_path=self.file_path,
+                        line_number=node.lineno,
+                        violation_type=f"Aliased usage: {var_name} (alias for {original})",
+                        snippet=snippet,
+                        is_write=is_write,
+                    )
+                    self.violations.append(violation)
+            
+            # Also check direct usage (no alias)
+            elif var_name == "tenant_state_manager":
+                # Check if it's in allowed context before recording violation
+                if not self._is_allowed_context(node):
+                    snippet = self._get_snippet(node)
+                    is_write = self._is_write_context(node)
+                    
+                    violation = StateAccessViolation(
+                        file_path=self.file_path,
+                        line_number=node.lineno,
+                        violation_type="Direct tenant_state_manager access",
+                        snippet=snippet,
+                        is_write=is_write,
+                    )
+                    self.violations.append(violation)
         
         self.generic_visit(node)
     
@@ -163,17 +231,19 @@ class StateAccessAuditor(ast.NodeVisitor):
             return
         
         if node.id in GLOBAL_VARS:
-            snippet = self._get_snippet(node)
-            is_write = self._is_write_context(node)
-            
-            violation = StateAccessViolation(
-                file_path=self.file_path,
-                line_number=node.lineno,
-                violation_type=f"Direct global access ({node.id})",
-                snippet=snippet,
-                is_write=is_write,
-            )
-            self.violations.append(violation)
+            # Check if it's in allowed context before recording violation
+            if not self._is_allowed_context(node):
+                snippet = self._get_snippet(node)
+                is_write = self._is_write_context(node)
+                
+                violation = StateAccessViolation(
+                    file_path=self.file_path,
+                    line_number=node.lineno,
+                    violation_type=f"Direct global access ({node.id})",
+                    snippet=snippet,
+                    is_write=is_write,
+                )
+                self.violations.append(violation)
         
         self.generic_visit(node)
     
@@ -187,16 +257,22 @@ class StateAccessAuditor(ast.NodeVisitor):
         """
         for alias in node.names:
             if 'tenant_state' in alias.name and 'app.dcl_engine' in alias.name:
-                snippet = self._get_snippet(node)
+                # Track alias for later attribute access detection
+                alias_name = alias.asname if alias.asname else alias.name.split('.')[-1]
+                self.aliases[alias_name] = 'tenant_state_manager'
                 
-                violation = StateAccessViolation(
-                    file_path=self.file_path,
-                    line_number=node.lineno,
-                    violation_type="Direct tenant_state module import",
-                    snippet=snippet,
-                    is_write=False,
-                )
-                self.violations.append(violation)
+                # Check if it's in allowed context before recording violation
+                if not self._is_allowed_context(node):
+                    snippet = self._get_snippet(node)
+                    
+                    violation = StateAccessViolation(
+                        file_path=self.file_path,
+                        line_number=node.lineno,
+                        violation_type="Direct tenant_state module import",
+                        snippet=snippet,
+                        is_write=False,
+                    )
+                    self.violations.append(violation)
         
         self.generic_visit(node)
     
@@ -206,12 +282,22 @@ class StateAccessAuditor(ast.NodeVisitor):
         
         Catches patterns like:
             from app.dcl_engine.tenant_state import TenantStateManager
-            from app.dcl_engine import tenant_state_manager
+            from app.dcl_engine.tenant_state import TenantStateManager as TSM
+            from app.dcl_engine import tenant_state_manager as tsm
         """
-        # Check for TenantStateManager import
-        if node.module == "app.dcl_engine.tenant_state":
-            for alias in node.names:
-                if alias.name == "TenantStateManager":
+        if not node.module:
+            self.generic_visit(node)
+            return
+        
+        for alias in node.names:
+            # Check if importing TenantStateManager (from tenant_state module)
+            if node.module == "app.dcl_engine.tenant_state" and alias.name == "TenantStateManager":
+                # Track alias for later usage detection
+                alias_name = alias.asname if alias.asname else alias.name
+                self.aliases[alias_name] = "TenantStateManager"
+                
+                # Check if it's in allowed context before recording violation
+                if not self._is_allowed_context(node):
                     snippet = self._get_snippet(node)
                     
                     violation = StateAccessViolation(
@@ -222,11 +308,15 @@ class StateAccessAuditor(ast.NodeVisitor):
                         is_write=False,
                     )
                     self.violations.append(violation)
-        
-        # Check for tenant_state_manager import from app.dcl_engine
-        elif node.module and 'tenant_state' in node.module:
-            for alias in node.names:
-                if 'tenant_state_manager' in alias.name or alias.name == 'tenant_state_manager':
+            
+            # Check if importing tenant_state_manager (from app.dcl_engine or tenant_state module)
+            elif alias.name == 'tenant_state_manager':
+                # Track alias for later usage detection
+                alias_name = alias.asname if alias.asname else alias.name
+                self.aliases[alias_name] = "tenant_state_manager"
+                
+                # Check if it's in allowed context before recording violation
+                if not self._is_allowed_context(node):
                     snippet = self._get_snippet(node)
                     
                     violation = StateAccessViolation(
@@ -306,7 +396,7 @@ def audit_directory(
                 with open(file_path, "r", encoding="utf-8") as f:
                     source_code = f.read()
                 
-                auditor = StateAccessAuditor(file_path)
+                auditor = StateAccessAuditor(file_path, source_code)
                 violations = auditor.audit_file(source_code)
                 
                 if violations:
@@ -320,50 +410,20 @@ def audit_directory(
 
 def filter_app_py_violations(violations: List[StateAccessViolation]) -> List[StateAccessViolation]:
     """
-    Filter out allowed violations in app.py (initialization only).
+    Legacy filter function - now mostly handled by _is_allowed_context() in visitor.
     
-    app.py is allowed to:
-    - Import TenantStateManager: from app.dcl_engine.tenant_state import TenantStateManager
-    - Initialize state_access: state_access.initialize_state_access(tenant_state_manager)
-    - Initialize tenant_state_manager: tenant_state_manager = TenantStateManager(...)
-    
-    But NOT allowed to:
-    - Call tenant_state_manager methods directly (except passing to initialize)
-    - Access global variables directly (should use state_access wrappers)
+    This function is kept for backward compatibility but does minimal filtering
+    since the allowlist logic has been moved upstream into the AST visitor.
     
     Args:
         violations: All detected violations
     
     Returns:
-        Filtered list with allowed app.py violations removed
+        Violations (no filtering needed since visitor handles allowlist)
     """
-    filtered = []
-    
-    for v in violations:
-        if "app.py" in v.file_path:
-            # Allow TenantStateManager import (required for initialization)
-            if "from app.dcl_engine.tenant_state import TenantStateManager" in v.snippet:
-                continue
-            if "import app.dcl_engine.tenant_state" in v.snippet:
-                continue
-            
-            # Allow initialization patterns
-            if "state_access.initialize_state_access" in v.snippet:
-                continue
-            if "tenant_state_manager = TenantStateManager" in v.snippet:
-                continue
-            if "TenantStateManager(" in v.snippet:
-                continue
-            
-            # Allow global variable definitions (not usage)
-            if any(f"{var} =" in v.snippet or f"{var}:" in v.snippet for var in GLOBAL_VARS):
-                # This is a definition, not usage - check if it's at module level
-                if v.snippet.startswith(tuple(GLOBAL_VARS)):
-                    continue
-        
-        filtered.append(v)
-    
-    return filtered
+    # Allowlist logic now handled in StateAccessAuditor._is_allowed_context()
+    # This function is now a no-op but kept for backward compatibility
+    return violations
 
 
 def print_report(violations: List[StateAccessViolation], summary_only: bool = False) -> None:
