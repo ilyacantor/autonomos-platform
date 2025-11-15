@@ -319,6 +319,16 @@ def set_redis_client(client):
             in_memory_dev_mode = False
             _dev_mode_initialized = True
         
+        # Initialize TenantStateManager FIRST for multi-tenant state isolation
+        try:
+            tenant_state_manager = TenantStateManager(redis_client)
+            tenant_enabled = FeatureFlagConfig.is_enabled(FeatureFlag.TENANT_SCOPED_STATE)
+            status_msg = "ENABLED" if tenant_enabled else "DISABLED (gradual rollout)"
+            print(f"🏢 DCL Engine: TenantStateManager initialized - TENANT_SCOPED_STATE: {status_msg}", flush=True)
+        except Exception as e:
+            print(f"⚠️ DCL Engine: Failed to initialize TenantStateManager: {e}. Using global state fallback.", flush=True)
+            tenant_state_manager = TenantStateManager(None)
+        
         # Initialize GraphStateStore and load persisted graph state
         try:
             graph_store = GraphStateStore(redis_client)
@@ -355,28 +365,20 @@ def set_redis_client(client):
             
             if should_seed and demo_graph:
                 print(f"📊 DCL Engine: Seeding demo graph - {reason}", flush=True)
-                GRAPH_STATE = demo_graph
+                # Use tenant_state_manager to set initial graph state
+                tenant_state_manager.set_graph_state("default", demo_graph)
                 graph_store.save(demo_graph)
                 print(f"✅ Demo graph seeded ({len(demo_graph.get('nodes', []))} nodes, {len(demo_graph.get('edges', []))} edges)", flush=True)
             elif persisted_graph:
-                GRAPH_STATE = persisted_graph
-                print(f"📊 DCL Engine: Hydrated graph state from Redis ({len(GRAPH_STATE.get('nodes', []))} nodes)", flush=True)
+                # Use tenant_state_manager to set initial graph state
+                tenant_state_manager.set_graph_state("default", persisted_graph)
+                print(f"📊 DCL Engine: Hydrated graph state from Redis ({len(persisted_graph.get('nodes', []))} nodes)", flush=True)
             else:
                 print(f"📊 DCL Engine: Using empty graph (no demo graph available)", flush=True)
                 
         except Exception as e:
             print(f"⚠️ DCL Engine: Failed to load persisted graph state: {e}", flush=True)
-            # Keep default empty GRAPH_STATE
-        
-        # Initialize TenantStateManager for multi-tenant state isolation
-        try:
-            tenant_state_manager = TenantStateManager(redis_client)
-            tenant_enabled = FeatureFlagConfig.is_enabled(FeatureFlag.TENANT_SCOPED_STATE)
-            status_msg = "ENABLED" if tenant_enabled else "DISABLED (gradual rollout)"
-            print(f"🏢 DCL Engine: TenantStateManager initialized - TENANT_SCOPED_STATE: {status_msg}", flush=True)
-        except Exception as e:
-            print(f"⚠️ DCL Engine: Failed to initialize TenantStateManager: {e}. Using global state fallback.", flush=True)
-            tenant_state_manager = TenantStateManager(None)
+            # Keep default empty graph state via tenant_state_manager
     else:
         print(f"⚠️ DCL Engine: No Redis client provided, using in-memory state", flush=True)
         in_memory_dev_mode = False
@@ -1588,14 +1590,20 @@ def apply_plan(con, source_key: str, plan: Dict[str, Any], tenant_id: str = "def
     
     # Apply all graph state updates atomically
     with STATE_LOCK:
+        # Get current graph state for this tenant
+        current_graph = tenant_state_manager.get_graph_state(tenant_id)
+        
         # Add nodes (deduplicated)
         for node in nodes_to_add:
-            if not any(n["id"] == node["id"] for n in GRAPH_STATE["nodes"]):
-                GRAPH_STATE["nodes"].append(node)
+            if not any(n["id"] == node["id"] for n in current_graph["nodes"]):
+                current_graph["nodes"].append(node)
         
         # Add edges
         for edge in edges_to_add:
-            GRAPH_STATE["edges"].append(edge)
+            current_graph["edges"].append(edge)
+        
+        # Save updated graph state
+        tenant_state_manager.set_graph_state(tenant_id, current_graph)
         
         # Update entity sources
         for ent in entities_to_update:
@@ -1604,16 +1612,19 @@ def apply_plan(con, source_key: str, plan: Dict[str, Any], tenant_id: str = "def
     conf = sum(confs)/len(confs) if confs else 0.8
     return Scorecard(confidence=conf, blockers=blockers, issues=issues, joins=joins)
 
-def add_graph_nodes_for_source(source_key: str, tables: Dict[str, Any]):
+def add_graph_nodes_for_source(source_key: str, tables: Dict[str, Any], tenant_id: str = "default"):
     global ontology, agents_config, SELECTED_AGENTS
+    
+    # Get current graph state for this tenant
+    current_graph = tenant_state_manager.get_graph_state(tenant_id)
     
     # Create source_parent node BEFORE source nodes
     parent_node_id = f"sys_{source_key}"
     parent_label = source_key.replace('_', ' ').title()
     
     # Add source_parent node if it doesn't exist
-    if not any(n["id"] == parent_node_id for n in GRAPH_STATE["nodes"]):
-        GRAPH_STATE["nodes"].append({
+    if not any(n["id"] == parent_node_id for n in current_graph["nodes"]):
+        current_graph["nodes"].append({
             "id": parent_node_id,
             "label": parent_label,
             "type": "source_parent"
@@ -1627,7 +1638,7 @@ def add_graph_nodes_for_source(source_key: str, tables: Dict[str, Any]):
         label = f"{t} ({source_system})"
         # Extract field names from the schema
         fields = list(table_data.get("schema", {}).keys()) if isinstance(table_data, dict) else []
-        GRAPH_STATE["nodes"].append({
+        current_graph["nodes"].append({
             "id": node_id, 
             "label": label, 
             "type": "source",
@@ -1637,7 +1648,7 @@ def add_graph_nodes_for_source(source_key: str, tables: Dict[str, Any]):
         })
         
         # Create hierarchy edge from parent to source table
-        GRAPH_STATE["edges"].append({
+        current_graph["edges"].append({
             "source": parent_node_id,
             "target": node_id,
             "edgeType": "hierarchy",
@@ -1653,16 +1664,19 @@ def add_graph_nodes_for_source(source_key: str, tables: Dict[str, Any]):
         
     for agent_id in SELECTED_AGENTS:
         agent_info = agents_config.get("agents", {}).get(agent_id, {})
-        if not any(n["id"] == f"agent_{agent_id}" for n in GRAPH_STATE["nodes"]):
-            GRAPH_STATE["nodes"].append({
+        if not any(n["id"] == f"agent_{agent_id}" for n in current_graph["nodes"]):
+            current_graph["nodes"].append({
                 "id": f"agent_{agent_id}",
                 "label": agent_info.get("name", agent_id.title()),
                 "type": "agent"
             })
+    
+    # Save updated graph state
+    tenant_state_manager.set_graph_state(tenant_id, current_graph)
 
-def add_ontology_to_agent_edges():
+def add_ontology_to_agent_edges(tenant_id: str = "default"):
     """Create edges from ontology entities to agents based on agent consumption config"""
-    global agents_config, SELECTED_AGENTS, GRAPH_STATE, ontology
+    global agents_config, SELECTED_AGENTS, ontology
     
     if not agents_config:
         agents_config = load_agents_config()
@@ -1670,8 +1684,11 @@ def add_ontology_to_agent_edges():
     if not ontology:
         ontology = load_ontology()
     
+    # Get current graph state for this tenant
+    current_graph = tenant_state_manager.get_graph_state(tenant_id)
+    
     # Get all existing ontology nodes
-    ontology_nodes = [n for n in GRAPH_STATE["nodes"] if n["type"] == "ontology"]
+    ontology_nodes = [n for n in current_graph["nodes"] if n["type"] == "ontology"]
     
     # For each selected agent, create edges from consumed ontology entities
     for agent_id in SELECTED_AGENTS:
@@ -1686,13 +1703,13 @@ def add_ontology_to_agent_edges():
                 # Create edge from ontology to agent if it doesn't exist
                 edge_exists = any(
                     e["source"] == onto_node["id"] and e["target"] == f"agent_{agent_id}"
-                    for e in GRAPH_STATE["edges"]
+                    for e in current_graph["edges"]
                 )
                 if not edge_exists:
                     # Get entity fields from ontology
                     entity_fields = ontology.get("entities", {}).get(entity_name, {}).get("fields", [])
                     
-                    GRAPH_STATE["edges"].append({
+                    current_graph["edges"].append({
                         "source": onto_node["id"],
                         "target": f"agent_{agent_id}",
                         "label": "",  # No label needed - agent node already shows its name
@@ -1701,6 +1718,9 @@ def add_ontology_to_agent_edges():
                         "entity_fields": entity_fields,  # Add entity fields for tooltip
                         "entity_name": entity_name
                     })
+    
+    # Save updated graph state
+    tenant_state_manager.set_graph_state(tenant_id, current_graph)
 
 def preview_table(con, name: str, limit: int = 6) -> List[Dict[str,Any]]:
     try:
@@ -1785,7 +1805,7 @@ async def connect_source(
     
     # Add graph nodes (async-safe)
     async with ASYNC_STATE_LOCK:
-        add_graph_nodes_for_source(source_key, tables)
+        add_graph_nodes_for_source(source_key, tables, tenant_id)
     
     llm_result = await llm_propose(ontology, source_key, tables, llm_model)
     plan, skip_semantic_validation = llm_result if isinstance(llm_result, tuple) else (llm_result, False)
@@ -1824,11 +1844,14 @@ async def connect_source(
         
         # Update graph state (async-safe)
         async with ASYNC_STATE_LOCK:
-            GRAPH_STATE["confidence"] = score.confidence
-            GRAPH_STATE["last_updated"] = time.strftime("%I:%M:%S %p")
+            # Get current graph state and update confidence/timestamp
+            current_graph = tenant_state_manager.get_graph_state(tenant_id)
+            current_graph["confidence"] = score.confidence
+            current_graph["last_updated"] = time.strftime("%I:%M:%S %p")
+            tenant_state_manager.set_graph_state(tenant_id, current_graph)
             
             # Create edges from ontology entities to agents
-            add_ontology_to_agent_edges()
+            add_ontology_to_agent_edges(tenant_id)
             
             SOURCES_ADDED.append(source_key)
         
@@ -1907,15 +1930,16 @@ def reset_state(exclude_dev_mode=True, tenant_id: str = "default"):
         - When TENANT_SCOPED_STATE=True: Resets tenant-scoped Redis state
         - Both code paths work simultaneously (dual-write pattern)
     """
-    global EVENT_LOG, GRAPH_STATE, SOURCES_ADDED, ENTITY_SOURCES, ontology, SELECTED_AGENTS, SOURCE_SCHEMAS, RAG_CONTEXT
+    global EVENT_LOG, SOURCES_ADDED, ENTITY_SOURCES, ontology, SELECTED_AGENTS, SOURCE_SCHEMAS, RAG_CONTEXT
     
     # Reset tenant-scoped state via TenantStateManager
     if tenant_state_manager:
         tenant_state_manager.reset_tenant(tenant_id, exclude_dev_mode=exclude_dev_mode)
     
     # Also reset global state for backward compatibility (flag=False path)
+    # Note: GRAPH_STATE is now managed via tenant_state_manager, so we call set_graph_state
     EVENT_LOG = []
-    GRAPH_STATE = {"nodes": [], "edges": [], "confidence": None, "last_updated": None}
+    tenant_state_manager.set_graph_state(tenant_id, {"nodes": [], "edges": [], "confidence": None, "last_updated": None})
     SOURCES_ADDED = []
     ENTITY_SOURCES = {}
     SELECTED_AGENTS = []
@@ -1983,12 +2007,15 @@ async def broadcast_state_change(event_type: str = "state_update", tenant_id: st
         # AAM sources (lowercase keys as they appear in source_key)
         aam_source_keys = {"salesforce", "supabase", "mongodb", "filesource"}
         
+        # Get current graph state for this tenant
+        current_graph = tenant_state_manager.get_graph_state(tenant_id)
+        
         # Filter nodes based on mode
         if use_aam:
             # AAM mode: Only show nodes from AAM production connectors
             # source_parent node IDs are "sys_{source_key}", sourceSystem is title-cased from source_key
             filtered_nodes = []
-            for node in GRAPH_STATE["nodes"]:
+            for node in current_graph["nodes"]:
                 node_type = node.get("type")
                 
                 # Always include ontology and agent nodes
@@ -2015,7 +2042,7 @@ async def broadcast_state_change(event_type: str = "state_update", tenant_id: st
                     continue
         else:
             # Legacy mode: Show all nodes (9 demo CSV sources)
-            filtered_nodes = GRAPH_STATE["nodes"]
+            filtered_nodes = current_graph["nodes"]
         
         # Filter graph edges for Sankey rendering - exclude join edges to prevent circular references
         # Also filter edges to only include those between filtered nodes
@@ -2023,7 +2050,7 @@ async def broadcast_state_change(event_type: str = "state_update", tenant_id: st
         filtered_graph = {
             "nodes": filtered_nodes,
             "edges": [
-                edge for edge in GRAPH_STATE["edges"]
+                edge for edge in current_graph["edges"]
                 if edge.get("type") != "join"  # Only keep hierarchy and dataflow edges
                 and edge.get("source") in filtered_node_ids  # Source node must be in filtered set
                 and edge.get("target") in filtered_node_ids  # Target node must be in filtered set
@@ -2034,7 +2061,7 @@ async def broadcast_state_change(event_type: str = "state_update", tenant_id: st
         llm_stats = get_llm_stats()
         
         # Calculate blended confidence
-        blended_confidence = GRAPH_STATE.get("confidence")
+        blended_confidence = current_graph.get("confidence")
         
         # Determine source mode from feature flag
         source_mode = "aam_connectors" if FeatureFlagConfig.is_enabled(FeatureFlag.USE_AAM_AS_SOURCE) else "demo_files"
@@ -2182,7 +2209,7 @@ async def feature_flag_pubsub_listener():
                     # Handle USE_AAM_AS_SOURCE flag changes
                     if flag_name == FeatureFlag.USE_AAM_AS_SOURCE.value:
                         # Clear DCL cache to force fresh graph generation
-                        GRAPH_STATE = {"nodes": [], "edges": [], "confidence": None, "last_updated": None}
+                        tenant_state_manager.set_graph_state("default", {"nodes": [], "edges": [], "confidence": None, "last_updated": None})
                         SOURCES_ADDED = []
                         
                         # Clear persisted graph state from Redis
@@ -2238,9 +2265,9 @@ async def startup_event():
                 
                 # Handle USE_AAM_AS_SOURCE flag changes
                 if flag_name == FeatureFlag.USE_AAM_AS_SOURCE.value:
-                    global GRAPH_STATE, SOURCES_ADDED
+                    global SOURCES_ADDED
                     # Clear DCL cache to force fresh graph generation
-                    GRAPH_STATE = {"nodes": [], "edges": [], "confidence": None, "last_updated": None}
+                    tenant_state_manager.set_graph_state("default", {"nodes": [], "edges": [], "confidence": None, "last_updated": None})
                     SOURCES_ADDED = []
                     
                     # Clear persisted graph state from Redis
@@ -2381,6 +2408,9 @@ def state(current_user = Depends(get_current_user)):
     for agent_id, agent_info in agents_config.get("agents", {}).items():
         agent_consumption[agent_id] = agent_info.get("consumes", [])
     
+    # Get current graph state for this tenant
+    current_graph = tenant_state_manager.get_graph_state(tenant_id)
+    
     # Filter graph based on AAM mode - show only relevant source nodes
     use_aam = FeatureFlagConfig.is_enabled(FeatureFlag.USE_AAM_AS_SOURCE)
     # AAM sources (lowercase keys as they appear in source_key)
@@ -2391,7 +2421,7 @@ def state(current_user = Depends(get_current_user)):
         # AAM mode: Only show nodes from AAM production connectors
         # source_parent node IDs are "sys_{source_key}", sourceSystem is title-cased from source_key
         filtered_nodes = []
-        for node in GRAPH_STATE["nodes"]:
+        for node in current_graph["nodes"]:
             node_type = node.get("type")
             
             # Always include ontology and agent nodes
@@ -2418,7 +2448,7 @@ def state(current_user = Depends(get_current_user)):
                 continue
     else:
         # Legacy mode: Show all nodes (9 demo CSV sources)
-        filtered_nodes = GRAPH_STATE["nodes"]
+        filtered_nodes = current_graph["nodes"]
     
     # Filter graph edges for Sankey rendering - exclude join edges to prevent circular references
     # D3-sankey requires a directed acyclic graph (DAG), but join edges create bidirectional cycles
@@ -2427,7 +2457,7 @@ def state(current_user = Depends(get_current_user)):
     filtered_graph = {
         "nodes": filtered_nodes,
         "edges": [
-            edge for edge in GRAPH_STATE["edges"]
+            edge for edge in current_graph["edges"]
             if edge.get("type") != "join"  # Only keep hierarchy and dataflow edges
             and edge.get("source") in filtered_node_ids  # Source node must be in filtered set
             and edge.get("target") in filtered_node_ids  # Target node must be in filtered set
@@ -2439,7 +2469,7 @@ def state(current_user = Depends(get_current_user)):
     
     # Use graph confidence directly as blended confidence
     # (Graph confidence already incorporates mapping quality and completeness)
-    blended_confidence = GRAPH_STATE.get("confidence")
+    blended_confidence = current_graph.get("confidence")
     
     # Determine source mode from feature flag
     source_mode = "aam_connectors" if FeatureFlagConfig.is_enabled(FeatureFlag.USE_AAM_AS_SOURCE) else "demo_files"
@@ -2765,7 +2795,8 @@ async def connect(
     # Persist graph state to Redis after successful connection
     if graph_store:
         try:
-            graph_store.save(GRAPH_STATE, tenant_id)
+            current_graph = tenant_state_manager.get_graph_state(tenant_id)
+            graph_store.save(current_graph, tenant_id)
         except Exception as e:
             log(f"⚠️ Failed to persist graph: {e}")
     
@@ -2850,7 +2881,7 @@ async def toggle_aam_mode(
         request: FastAPI request object (for rate limiting)
         current_user: Current authenticated user (for tenant_id extraction)
     """
-    global GRAPH_STATE, SOURCES_ADDED, _active_toggle_requests
+    global SOURCES_ADDED, _active_toggle_requests
     
     # Extract tenant_id from current user
     tenant_id = get_tenant_id_from_user(current_user)
@@ -2878,7 +2909,7 @@ async def toggle_aam_mode(
     FeatureFlagConfig.set_flag(FeatureFlag.USE_AAM_AS_SOURCE, new_state)
     
     # Clear DCL cache to force fresh graph generation
-    GRAPH_STATE = {"nodes": [], "edges": [], "confidence": None, "last_updated": None}
+    tenant_state_manager.set_graph_state(tenant_id, {"nodes": [], "edges": [], "confidence": None, "last_updated": None})
     SOURCES_ADDED = []
     
     # Clear persisted graph state from Redis
@@ -3038,10 +3069,13 @@ def ontology_schema(current_user = Depends(get_current_user)):
     # Extract tenant_id (prepared for Phase 1b migration)
     tenant_id = get_tenant_id_from_user(current_user)
     
-    global ontology, GRAPH_STATE
+    global ontology
     
     if not ontology:
         ontology = load_ontology()
+    
+    # Get current graph state for this tenant
+    current_graph = tenant_state_manager.get_graph_state(tenant_id)
     
     # Build schema: entity -> {pk, fields[], source_mappings[]}
     schema = {}
@@ -3052,14 +3086,14 @@ def ontology_schema(current_user = Depends(get_current_user)):
         source_mappings = []
         
         # Find all edges that map to this ontology entity
-        for edge in GRAPH_STATE.get("edges", []):
+        for edge in current_graph.get("edges", []):
             if edge.get("edgeType") == "dataflow":
                 # Check if target node is this ontology entity
                 target_node_id = edge.get("target", "")
                 if target_node_id == f"dcl_{entity_name}":
                     # Find the source node to get source system and table info
                     source_node_id = edge.get("source", "")
-                    source_node = next((n for n in GRAPH_STATE.get("nodes", []) if n.get("id") == source_node_id), None)
+                    source_node = next((n for n in current_graph.get("nodes", []) if n.get("id") == source_node_id), None)
                     
                     if source_node:
                         source_system = source_node.get("sourceSystem", "Unknown")
