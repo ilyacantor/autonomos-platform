@@ -1144,15 +1144,16 @@ def heuristic_plan(ontology: Dict[str, Any], source_key: str, tables: Dict[str, 
     Returns:
         Mapping plan with entity mappings and joins
     """
-    global SELECTED_AGENTS, agents_config, DEV_MODE
+    global agents_config, DEV_MODE
     
     # Get available ontology entities based on selected agents
     if not agents_config:
         agents_config = load_agents_config()
     
     available_entities = set()
-    if SELECTED_AGENTS:
-        for agent_id in SELECTED_AGENTS:
+    selected_agents = tenant_state_manager.get_selected_agents(tenant_id)
+    if selected_agents:
+        for agent_id in selected_agents:
             agent_info = agents_config.get("agents", {}).get(agent_id, {})
             consumes = agent_info.get("consumes", [])
             available_entities.update(consumes)
@@ -1460,9 +1461,10 @@ def heuristic_plan(ontology: Dict[str, Any], source_key: str, tables: Dict[str, 
         log(f"✅ Heuristic filtered {len(mappings)} mappings as valid")
     
     # Filter out mappings that don't provide any useful fields for selected agents
-    if SELECTED_AGENTS:
+    selected_agents = tenant_state_manager.get_selected_agents(tenant_id)
+    if selected_agents:
         agent_key_metrics = set()
-        for agent_id in SELECTED_AGENTS:
+        for agent_id in selected_agents:
             agent_info = agents_config.get("agents", {}).get(agent_id, {})
             agent_key_metrics.update(agent_info.get("key_metrics", []))
         
@@ -1621,7 +1623,7 @@ def apply_plan(con, source_key: str, plan: Dict[str, Any], tenant_id: str = "def
     return Scorecard(confidence=conf, blockers=blockers, issues=issues, joins=joins)
 
 def add_graph_nodes_for_source(source_key: str, tables: Dict[str, Any], tenant_id: str = "default"):
-    global ontology, agents_config, SELECTED_AGENTS
+    global ontology, agents_config
     
     # Get current graph state for this tenant
     current_graph = tenant_state_manager.get_graph_state(tenant_id)
@@ -1669,8 +1671,9 @@ def add_graph_nodes_for_source(source_key: str, tables: Dict[str, Any], tenant_i
     # Add agent nodes to graph
     if not agents_config:
         agents_config = load_agents_config()
-        
-    for agent_id in SELECTED_AGENTS:
+    
+    selected_agents = tenant_state_manager.get_selected_agents(tenant_id)
+    for agent_id in selected_agents:
         agent_info = agents_config.get("agents", {}).get(agent_id, {})
         if not any(n["id"] == f"agent_{agent_id}" for n in current_graph["nodes"]):
             current_graph["nodes"].append({
@@ -1684,7 +1687,7 @@ def add_graph_nodes_for_source(source_key: str, tables: Dict[str, Any], tenant_i
 
 def add_ontology_to_agent_edges(tenant_id: str = "default"):
     """Create edges from ontology entities to agents based on agent consumption config"""
-    global agents_config, SELECTED_AGENTS, ontology
+    global agents_config, ontology
     
     if not agents_config:
         agents_config = load_agents_config()
@@ -1699,7 +1702,8 @@ def add_ontology_to_agent_edges(tenant_id: str = "default"):
     ontology_nodes = [n for n in current_graph["nodes"] if n["type"] == "ontology"]
     
     # For each selected agent, create edges from consumed ontology entities
-    for agent_id in SELECTED_AGENTS:
+    selected_agents = tenant_state_manager.get_selected_agents(tenant_id)
+    for agent_id in selected_agents:
         agent_info = agents_config.get("agents", {}).get(agent_id, {})
         consumed_entities = agent_info.get("consumes", [])
         
@@ -1891,8 +1895,9 @@ async def connect_source(
             agents_config = load_agents_config()
         
         ontology_entities = set()
-        if SELECTED_AGENTS:
-            for agent_id in SELECTED_AGENTS:
+        selected_agents = tenant_state_manager.get_selected_agents(tenant_id)
+        if selected_agents:
+            for agent_id in selected_agents:
                 agent_info = agents_config.get("agents", {}).get(agent_id, {})
                 consumes = agent_info.get("consumes", [])
                 ontology_entities.update(consumes)
@@ -1945,20 +1950,20 @@ def reset_state(exclude_dev_mode=True, tenant_id: str = "default"):
         - When TENANT_SCOPED_STATE=True: Resets tenant-scoped Redis state
         - Both code paths work simultaneously (dual-write pattern)
     """
-    global EVENT_LOG, ontology, SELECTED_AGENTS, RAG_CONTEXT
+    global EVENT_LOG, ontology, RAG_CONTEXT
     
     # Reset tenant-scoped state via TenantStateManager
     if tenant_state_manager:
         tenant_state_manager.reset_tenant(tenant_id, exclude_dev_mode=exclude_dev_mode)
     
     # Also reset global state for backward compatibility (flag=False path)
-    # Note: GRAPH_STATE, SOURCES_ADDED, ENTITY_SOURCES, and SOURCE_SCHEMAS are now managed via tenant_state_manager
+    # Note: GRAPH_STATE, SOURCES_ADDED, ENTITY_SOURCES, SOURCE_SCHEMAS, and SELECTED_AGENTS are now managed via tenant_state_manager
     EVENT_LOG = []
     tenant_state_manager.set_graph_state(tenant_id, {"nodes": [], "edges": [], "confidence": None, "last_updated": None})
     tenant_state_manager.set_sources(tenant_id, [])
     tenant_state_manager.set_entity_sources(tenant_id, {})
     tenant_state_manager.set_source_schemas(tenant_id, {})
-    SELECTED_AGENTS = []
+    tenant_state_manager.set_selected_agents(tenant_id, [])
     # LLM stats persist across runs for cumulative tracking (removed reset_llm_stats call)
     # Clear RAG retrievals so they update with fresh data on each connection
     RAG_CONTEXT["retrievals"] = []
@@ -2090,7 +2095,7 @@ async def broadcast_state_change(event_type: str = "state_update", tenant_id: st
             "timestamp": time.time(),
             "data": {
                 "sources": current_sources,
-                "agents": SELECTED_AGENTS,
+                "agents": tenant_state_manager.get_selected_agents(tenant_id),
                 "devMode": get_dev_mode(),
                 "sourceMode": source_mode,
                 "graph": filtered_graph,  # Send filtered graph instead of raw GRAPH_STATE
@@ -2509,7 +2514,7 @@ def state(current_user = Depends(get_current_user)):
         "blended_confidence": blended_confidence,
         "agent_consumption": agent_consumption,
         "selected_sources": tenant_state_manager.get_sources("default"),
-        "selected_agents": SELECTED_AGENTS,
+        "selected_agents": tenant_state_manager.get_selected_agents("default"),
         "dev_mode": get_dev_mode(),  # Read from Redis for cross-process consistency
         "auth_enabled": AUTH_ENABLED,
         "source_mode": source_mode
@@ -2744,8 +2749,6 @@ async def connect(
     Replaces both legacy /reset and /connect behavior.
     Dev mode is preserved across connection rebuilds.
     """
-    global SELECTED_AGENTS
-    
     source_list = [s.strip() for s in sources.split(',') if s.strip()]
     agent_list = [a.strip() for a in agents.split(',') if a.strip()]
     
@@ -2758,12 +2761,12 @@ async def connect(
     source_mode = "aam_connectors" if FeatureFlagConfig.is_enabled(FeatureFlag.USE_AAM_AS_SOURCE) else "demo_files"
     
     # Clear prior state (preserves dev_mode) for idempotent behavior
-    reset_state(exclude_dev_mode=True)
+    reset_state(exclude_dev_mode=True, tenant_id=tenant_id)
     log(f"🔌 Connecting {len(source_list)} source(s) with {len(agent_list)} agent(s)...")
     log(f"📂 Using {source_mode} for sources: {', '.join(source_list)} (tenant: {tenant_id})")
     
-    # Store selected agents globally
-    SELECTED_AGENTS = agent_list
+    # Store selected agents in tenant-scoped storage
+    tenant_state_manager.set_selected_agents(tenant_id, agent_list)
     
     # Log which model is being used
     log(f"🤖 Using LLM model: {llm_model}")
@@ -2993,13 +2996,14 @@ def preview(
         JSON response with preview data for sources and ontology tables
     
     Tenant Isolation:
-        - In Phase 1a: Still accesses global SELECTED_AGENTS
-        - In Phase 1b: Will use tenant-scoped state from TenantStateManager
+        - Phase 1b-5 complete: Uses tenant-scoped state from TenantStateManager
+        - When TENANT_SCOPED_STATE=False: Reads from global SELECTED_AGENTS (backward compatible)
+        - When TENANT_SCOPED_STATE=True: Reads from tenant-scoped Redis storage
     """
-    # Extract tenant_id (prepared for Phase 1b migration)
+    # Extract tenant_id
     tenant_id = get_tenant_id_from_user(current_user)
     
-    global ontology, agents_config, SELECTED_AGENTS
+    global ontology, agents_config
     # Use read-only mode for preview operations
     con = duckdb.connect(DB_PATH, read_only=True)
     sources, ontology_tables = {}, {}
@@ -3017,9 +3021,10 @@ def preview(
             agents_config = load_agents_config()
         
         ontology_entities = set()
-        if SELECTED_AGENTS:
+        selected_agents = tenant_state_manager.get_selected_agents(tenant_id)
+        if selected_agents:
             # Get entities consumed by selected agents
-            for agent_id in SELECTED_AGENTS:
+            for agent_id in selected_agents:
                 agent_info = agents_config.get("agents", {}).get(agent_id, {})
                 consumes = agent_info.get("consumes", [])
                 ontology_entities.update(consumes)
