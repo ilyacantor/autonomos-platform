@@ -840,6 +840,96 @@ class TestRedisIntegration:
         # If TTL support is added, update this assertion accordingly
         assert ttl == -1, f"Expected no TTL (ttl=-1), got {ttl}. Update test if TTL support was added."
     
+    def test_redis_ttl_expiry_behavior(self, redis_mode, redis_test_client):
+        """
+        Test TTL expiry behavior by manually simulating key expiration.
+        
+        CRITICAL: FakeRedis doesn't auto-expire keys, so we manually simulate expiry
+        by deleting the key and verifying that state_access handles it correctly.
+        
+        Test Flow:
+            1. Set state via state_access (writes to Redis)
+            2. Check TTL is set correctly
+            3. Manually expire key (simulate TTL expiry)
+            4. Verify state_access returns default/empty value after expiry
+        
+        Expected:
+            - If TTL configured (ttl > 0):
+              * After manual expiry, get_sources() should return empty list []
+              * System handles missing keys gracefully (no crashes)
+            - If no TTL configured (ttl = -1):
+              * Skip expiry test (TTL not used)
+              * This is current behavior (no TTL support)
+        
+        Limitations:
+            - FakeRedis simulates TTL values but doesn't auto-expire keys
+            - We manually delete keys to simulate expiry
+            - For true TTL expiry testing, use real Redis in CI/staging
+            - This test validates graceful handling of expired/missing keys
+        
+        Manual Verification:
+            - Deploy to staging with real Redis
+            - Set state and wait for TTL seconds
+            - Verify key disappears: redis-cli TTL <key_name>
+            - Verify app returns default values after expiry
+        """
+        from app.dcl_engine import state_access
+        
+        tenant_id = "test-tenant-ttl-expiry"
+        test_sources = ["salesforce", "mongodb"]
+        
+        # Set state (should trigger Redis write)
+        state_access.set_sources(tenant_id, test_sources)
+        
+        # Check TTL configuration
+        key = f"dcl:tenant:{tenant_id}:sources_added"
+        assert redis_test_client.exists(key), f"Key {key} should exist after write"
+        
+        ttl_before = redis_test_client.ttl(key)
+        
+        # Currently TenantStateManager doesn't set TTL, so we expect -1
+        # If TTL support is added in the future, this test will validate expiry behavior
+        if ttl_before > 0:
+            # TTL is configured - test expiry behavior
+            
+            # Manually delete key to simulate TTL expiry
+            # (FakeRedis doesn't auto-expire, so we simulate it)
+            redis_test_client.delete(key)
+            
+            # Verify key is gone (simulates post-expiry state)
+            assert not redis_test_client.exists(key), "Key should be expired/deleted"
+            
+            # Try to read after expiry - should return default empty list
+            sources_after_expiry = state_access.get_sources(tenant_id)
+            assert sources_after_expiry == [], (
+                "After TTL expiry, get_sources() should return empty list, "
+                f"got {sources_after_expiry}"
+            )
+            
+            # Verify no crash - system handles missing keys gracefully
+            # This is critical for production stability
+            
+        else:
+            # No TTL configured (ttl = -1 or -2)
+            # Skip expiry test since TTL is not used
+            assert ttl_before == -1, f"Expected no TTL (ttl=-1), got {ttl_before}"
+            
+            # Document current behavior: no TTL support
+            # If TTL support is added, update TenantStateManager and this test will validate it
+            
+            # Verify data persists without expiry
+            sources_persisted = state_access.get_sources(tenant_id)
+            assert sources_persisted == test_sources, (
+                "Without TTL, data should persist indefinitely"
+            )
+            
+            # Test manual cleanup (simulate what expiry would do)
+            redis_test_client.delete(key)
+            sources_after_delete = state_access.get_sources(tenant_id)
+            assert sources_after_delete == [], (
+                "After manual delete (simulating expiry), should return empty list"
+            )
+    
     def test_redis_complex_mutation_persistence(self, redis_mode):
         """
         Test complex state mutations persist to Redis.

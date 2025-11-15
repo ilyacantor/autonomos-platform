@@ -95,7 +95,7 @@ class StateAccessViolation:
 class StateAccessAuditor(ast.NodeVisitor):
     """AST visitor that detects direct state access violations."""
     
-    def __init__(self, file_path: str, source_code: str = ""):
+    def __init__(self, file_path: str = "", source_code: str = ""):
         self.file_path = file_path
         self.violations: List[StateAccessViolation] = []
         self.lines: List[str] = []
@@ -106,25 +106,89 @@ class StateAccessAuditor(ast.NodeVisitor):
         """Only check files other than state_access.py for global access."""
         return 'state_access.py' not in self.file_path
     
-    def audit_file(self, source_code: str) -> List[StateAccessViolation]:
+    def audit_file(self, filepath: str, source_code: Optional[str] = None) -> List[StateAccessViolation]:
         """
         Parse and audit a Python file for state access violations.
         
+        CRITICAL: This method resets per-file state (aliases, violations) to prevent
+        bleeding between files when reusing the same auditor instance.
+        
         Args:
-            source_code: Python source code as string
+            filepath: Path to the Python file being audited
+            source_code: Optional source code string. If None, reads from filepath.
         
         Returns:
-            List of detected violations
+            List of detected violations for this file
         """
+        # CRITICAL: Reset per-file state before each file
+        self.aliases.clear()  # Clear alias map from previous files
+        self.violations = []  # Clear violations from previous files
+        self.file_path = filepath  # Update current file path
+        
+        # Read source code if not provided
+        if source_code is None:
+            try:
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    source_code = f.read()
+            except Exception as e:
+                print(f"⚠️  Error reading {filepath}: {e}", file=sys.stderr)
+                return []
+        
         try:
             self.lines = source_code.splitlines()
             self.source = source_code  # Store for context extraction
             tree = ast.parse(source_code, filename=self.file_path)
+            
+            # Add parent tracking for multiline context detection
+            self._add_parent_references(tree)
+            
+            # Visit AST and detect violations
             self.visit(tree)
         except SyntaxError as e:
             print(f"⚠️  Syntax error in {self.file_path}:{e.lineno} - skipping", file=sys.stderr)
         
         return self.violations
+    
+    def _add_parent_references(self, tree: ast.AST) -> None:
+        """
+        Add parent references to all nodes in the AST.
+        
+        This enables walking up the tree to find enclosing statements,
+        which is critical for detecting multiline initialization patterns.
+        
+        Args:
+            tree: Root AST node
+        """
+        for parent in ast.walk(tree):
+            for child in ast.iter_child_nodes(parent):
+                child.parent = parent  # type: ignore
+    
+    def _get_enclosing_statement(self, node: ast.AST) -> Optional[ast.AST]:
+        """
+        Walk up AST to find enclosing statement (Assign, FunctionDef, etc.).
+        
+        This is used to detect multiline patterns where a single line doesn't
+        capture the full context (e.g., multiline TenantStateManager initialization).
+        
+        Args:
+            node: AST node to start from
+        
+        Returns:
+            Enclosing statement node, or None if not found
+        """
+        if not hasattr(node, 'parent'):
+            return None
+        
+        current = getattr(node, 'parent', None)
+        while current:
+            # Stop at statement-level nodes
+            if isinstance(current, (ast.Assign, ast.AnnAssign, ast.FunctionDef, 
+                                   ast.AsyncFunctionDef, ast.ClassDef, ast.Expr,
+                                   ast.Import, ast.ImportFrom)):
+                return current
+            current = getattr(current, 'parent', None)
+        
+        return None
     
     def _get_snippet(self, node: ast.AST) -> str:
         """Extract source code snippet for AST node."""
@@ -144,6 +208,9 @@ class StateAccessAuditor(ast.NodeVisitor):
         """
         Check if usage is in allowed context (e.g., app.py initialization).
         
+        CRITICAL: Now checks both node source AND parent context to handle
+        multiline patterns (e.g., TenantStateManager initialization split across lines).
+        
         Args:
             node: AST node to check
         
@@ -154,30 +221,51 @@ class StateAccessAuditor(ast.NodeVisitor):
         if 'app.py' not in self.file_path:
             return False
         
-        # Get source snippet for pattern matching
-        snippet = self._get_snippet(node)
-        if not snippet:
+        # Get source for THIS node
+        node_source = ast.get_source_segment(self.source, node)
+        if not node_source:
+            # Fallback to line-based snippet
+            node_source = self._get_snippet(node)
+        
+        if not node_source:
             return False
         
+        # ALSO check parent context (for multiline statements)
+        # Find the enclosing statement (Assign, FunctionDef, etc.)
+        combined_source = node_source
+        parent = self._get_enclosing_statement(node)
+        if parent:
+            parent_source = ast.get_source_segment(self.source, parent)
+            if parent_source:
+                # Check both node source AND parent source
+                combined_source = f"{parent_source}\n{node_source}"
+        
         # Allowed patterns in app.py (initialization only)
+        # Now matches across multiple lines!
         allowed_patterns = [
             'state_access.initialize_state_access',  # Wrapper initialization
-            'TenantStateManager(redis_client',       # Manager construction
-            'TenantStateManager(',                    # Manager construction (any arg)
-            'tenant_state_manager = TenantStateManager',  # Assignment
+            'TenantStateManager(',                    # Manager construction (multiline safe)
+            'tenant_state_manager = TenantStateManager',  # Assignment pattern
             'from app.dcl_engine.tenant_state import TenantStateManager',  # Import (required for init)
             'import app.dcl_engine.tenant_state',    # Module import (rare but valid for init)
+            # Global variable declarations
+            'global GRAPH_STATE',
+            'global SOURCES_ADDED',
         ]
         
-        # Check if snippet matches any allowed pattern
+        # Check if combined source matches any allowed pattern
         for pattern in allowed_patterns:
-            if pattern in snippet:
+            if pattern in combined_source:
                 return True
         
         # Also check if this is a module-level global variable definition (not usage)
         for var in GLOBAL_VARS:
             # Pattern: GRAPH_STATE = ... or GRAPH_STATE: Dict = ...
-            if snippet.startswith(f"{var} =") or snippet.startswith(f"{var}:"):
+            # Check both node and combined source
+            if (node_source.strip().startswith(f"{var} =") or 
+                node_source.strip().startswith(f"{var}:") or
+                f"{var} =" in combined_source or
+                f"{var}:" in combined_source):
                 return True
         
         return False
@@ -360,6 +448,9 @@ def audit_directory(
     """
     Recursively audit all Python files in directory for state access violations.
     
+    CRITICAL: Uses a single auditor instance with per-file state reset to prevent
+    alias bleeding between files while maintaining efficiency.
+    
     Args:
         directory: Root directory to audit
         exclude_patterns: List of patterns to exclude (e.g., __pycache__, tests)
@@ -371,6 +462,9 @@ def audit_directory(
         exclude_patterns = ["__pycache__", "test_", "migrations"]
     
     all_violations: List[StateAccessViolation] = []
+    
+    # Create single auditor instance (will reset state per file)
+    auditor = StateAccessAuditor()
     
     # Walk directory tree
     for root, dirs, files in os.walk(directory):
@@ -391,13 +485,9 @@ def audit_directory(
             if any(pattern in file for pattern in exclude_patterns):
                 continue
             
-            # Read and audit file
+            # Audit file (reads source internally, resets state per file)
             try:
-                with open(file_path, "r", encoding="utf-8") as f:
-                    source_code = f.read()
-                
-                auditor = StateAccessAuditor(file_path, source_code)
-                violations = auditor.audit_file(source_code)
+                violations = auditor.audit_file(file_path)
                 
                 if violations:
                     all_violations.extend(violations)
