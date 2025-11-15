@@ -67,9 +67,9 @@ class TestLogin:
         
         # Login with correct credentials
         response = client.post(
-            "/token",
-            data={
-                "username": unique_email,
+            "/api/v1/auth/login",
+            json={
+                "email": unique_email,
                 "password": password
             }
         )
@@ -96,9 +96,9 @@ class TestLogin:
         
         # Try to login with wrong password
         response = client.post(
-            "/token",
-            data={
-                "username": unique_email,
+            "/api/v1/auth/login",
+            json={
+                "email": unique_email,
                 "password": "wrongpassword"
             }
         )
@@ -109,9 +109,9 @@ class TestLogin:
     def test_login_with_nonexistent_user_fails(self, client):
         """Test that login with non-existent email returns 401."""
         response = client.post(
-            "/token",
-            data={
-                "username": "nonexistent@example.com",
+            "/api/v1/auth/login",
+            json={
+                "email": "nonexistent@example.com",
                 "password": "anypassword"
             }
         )

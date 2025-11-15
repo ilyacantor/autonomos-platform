@@ -72,9 +72,9 @@ def login_user(client: TestClient, email: str, password: str = "testpass123"):
     Returns the token string.
     """
     response = client.post(
-        "/token",
-        data={
-            "username": email,
+        "/api/v1/auth/login",
+        json={
+            "email": email,
             "password": password
         }
     )
