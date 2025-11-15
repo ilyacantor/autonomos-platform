@@ -252,18 +252,18 @@ async def init_async_redis():
 
 def get_tenant_id_from_user(current_user: Optional[Dict[str, Any]] = None) -> str:
     """
-    Extract tenant_id from current user JWT claims.
+    Extract tenant_id from current user JWT claims or MockUser object.
     
     Args:
-        current_user: User dict from JWT token (contains tenant_id claim)
+        current_user: User dict from JWT token or MockUser object
         
     Returns:
         tenant_id string (defaults to "default" for development)
     
     Behavior:
-        - When AUTH_ENABLED=true: Extracts tenant_id from JWT claims
-        - When AUTH_ENABLED=false: Returns "default" for local development
-        - Falls back to "default" if tenant_id not in claims
+        - When AUTH_ENABLED=true: Extracts tenant_id from JWT claims (dict)
+        - When AUTH_ENABLED=false: Extracts tenant_id from MockUser object
+        - Falls back to "default" if tenant_id not available
     
     Example:
         # In endpoint with auth
@@ -275,8 +275,14 @@ def get_tenant_id_from_user(current_user: Optional[Dict[str, Any]] = None) -> st
     if not current_user:
         return "default"
     
-    # Extract tenant_id from JWT claims (will be added when multi-tenant auth is live)
-    tenant_id = current_user.get("tenant_id", "default")
+    # Handle both dict (JWT token) and MockUser object
+    if isinstance(current_user, dict):
+        # Real JWT token - extract from claims
+        tenant_id = current_user.get("tenant_id", "default")
+    else:
+        # MockUser object - access attribute directly
+        tenant_id = getattr(current_user, "tenant_id", "default")
+    
     return tenant_id
 
 def set_redis_client(client):
@@ -1743,7 +1749,7 @@ async def connect_source(
     llm_model: str = "gemini-2.5-flash",
     tenant_id: str = "default"
 ) -> Dict[str, Any]:
-    global ontology, agents_config, SOURCE_SCHEMAS, STATE_LOCK, TIMING_LOG, ASYNC_STATE_LOCK, ws_manager
+    global ontology, agents_config, STATE_LOCK, TIMING_LOG, ASYNC_STATE_LOCK, ws_manager
     
     connect_start = time.time()
     
@@ -1775,8 +1781,10 @@ async def connect_source(
         if not ASYNC_STATE_LOCK:
             ASYNC_STATE_LOCK = asyncio.Lock()
         async with ASYNC_STATE_LOCK:
-            if source_key in SOURCE_SCHEMAS:
-                del SOURCE_SCHEMAS[source_key]
+            current_schemas = tenant_state_manager.get_source_schemas(tenant_id)
+            if source_key in current_schemas:
+                del current_schemas[source_key]
+                tenant_state_manager.set_source_schemas(tenant_id, current_schemas)
                 log(f"🗑️  Cleared SOURCE_SCHEMAS cache for AAM source: {source_key}")
         
         # Clear idempotency cache so all messages are reprocessed (fixes "0 sources" bug)
@@ -1803,7 +1811,9 @@ async def connect_source(
     
     # Store schema information for later retrieval (async-safe)
     async with ASYNC_STATE_LOCK:
-        SOURCE_SCHEMAS[source_key] = tables
+        current_schemas = tenant_state_manager.get_source_schemas(tenant_id)
+        current_schemas[source_key] = tables
+        tenant_state_manager.set_source_schemas(tenant_id, current_schemas)
     
     # Add graph nodes (async-safe)
     async with ASYNC_STATE_LOCK:
@@ -1935,20 +1945,20 @@ def reset_state(exclude_dev_mode=True, tenant_id: str = "default"):
         - When TENANT_SCOPED_STATE=True: Resets tenant-scoped Redis state
         - Both code paths work simultaneously (dual-write pattern)
     """
-    global EVENT_LOG, ontology, SELECTED_AGENTS, SOURCE_SCHEMAS, RAG_CONTEXT
+    global EVENT_LOG, ontology, SELECTED_AGENTS, RAG_CONTEXT
     
     # Reset tenant-scoped state via TenantStateManager
     if tenant_state_manager:
         tenant_state_manager.reset_tenant(tenant_id, exclude_dev_mode=exclude_dev_mode)
     
     # Also reset global state for backward compatibility (flag=False path)
-    # Note: GRAPH_STATE, SOURCES_ADDED, and ENTITY_SOURCES are now managed via tenant_state_manager
+    # Note: GRAPH_STATE, SOURCES_ADDED, ENTITY_SOURCES, and SOURCE_SCHEMAS are now managed via tenant_state_manager
     EVENT_LOG = []
     tenant_state_manager.set_graph_state(tenant_id, {"nodes": [], "edges": [], "confidence": None, "last_updated": None})
     tenant_state_manager.set_sources(tenant_id, [])
     tenant_state_manager.set_entity_sources(tenant_id, {})
+    tenant_state_manager.set_source_schemas(tenant_id, {})
     SELECTED_AGENTS = []
-    SOURCE_SCHEMAS = {}
     # LLM stats persist across runs for cumulative tracking (removed reset_llm_stats call)
     # Clear RAG retrievals so they update with fresh data on each connection
     RAG_CONTEXT["retrievals"] = []
@@ -3035,13 +3045,15 @@ def source_schemas(current_user = Depends(get_current_user)):
         JSON response with source schema metadata
     
     Tenant Isolation:
-        - In Phase 1a: Still accesses global SOURCE_SCHEMAS
-        - In Phase 1b: Will use tenant-scoped state from TenantStateManager
+        - Phase 1b-4 complete: Uses tenant-scoped state from TenantStateManager
+        - When TENANT_SCOPED_STATE=False: Reads from global SOURCE_SCHEMAS (backward compatible)
+        - When TENANT_SCOPED_STATE=True: Reads from tenant-scoped Redis storage
     """
-    # Extract tenant_id (prepared for Phase 1b migration)
+    # Extract tenant_id
     tenant_id = get_tenant_id_from_user(current_user)
     
-    global SOURCE_SCHEMAS
+    # Get tenant-scoped source schemas
+    schemas = tenant_state_manager.get_source_schemas(tenant_id)
     
     # Sanitize data for JSON serialization (replace NaN/Inf with None)
     import math
@@ -3055,7 +3067,7 @@ def source_schemas(current_user = Depends(get_current_user)):
         else:
             return obj
     
-    clean_schemas = sanitize(SOURCE_SCHEMAS)
+    clean_schemas = sanitize(schemas)
     return JSONResponse(clean_schemas)
 
 @app.get("/ontology_schema", dependencies=AUTH_DEPENDENCIES)
