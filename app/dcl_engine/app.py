@@ -14,6 +14,7 @@ from redis.asyncio import Redis as AsyncRedis
 from app.dcl_engine.source_loader import get_source_adapter, AAMSourceAdapter
 from app.config.feature_flags import FeatureFlagConfig, FeatureFlag
 from app.dcl_engine.agent_executor import AgentExecutor
+from app.dcl_engine.tenant_state import TenantStateManager
 from app.security import get_current_user, AUTH_ENABLED
 from app.middleware.rate_limit import limiter
 
@@ -152,6 +153,9 @@ class GraphStateStore:
 # Global GraphStateStore instance (initialized after Redis client is set)
 graph_store: Optional[GraphStateStore] = None
 
+# Global TenantStateManager instance (initialized after Redis client is set)
+tenant_state_manager: Optional[TenantStateManager] = None
+
 class RedisDecodeWrapper:
     """
     Wrapper to provide decode_responses=True behavior on top of a decode_responses=False client.
@@ -211,6 +215,35 @@ async def init_async_redis():
         print(f"⚠️ Failed to initialize async Redis client: {e}", flush=True)
         return None
 
+def get_tenant_id_from_user(current_user: Optional[Dict[str, Any]] = None) -> str:
+    """
+    Extract tenant_id from current user JWT claims.
+    
+    Args:
+        current_user: User dict from JWT token (contains tenant_id claim)
+        
+    Returns:
+        tenant_id string (defaults to "default" for development)
+    
+    Behavior:
+        - When AUTH_ENABLED=true: Extracts tenant_id from JWT claims
+        - When AUTH_ENABLED=false: Returns "default" for local development
+        - Falls back to "default" if tenant_id not in claims
+    
+    Example:
+        # In endpoint with auth
+        @app.get("/state", dependencies=AUTH_DEPENDENCIES)
+        async def get_state(current_user: Dict = Depends(get_current_user)):
+            tenant_id = get_tenant_id_from_user(current_user)
+            graph = tenant_state_manager.get_graph_state(tenant_id)
+    """
+    if not current_user:
+        return "default"
+    
+    # Extract tenant_id from JWT claims (will be added when multi-tenant auth is live)
+    tenant_id = current_user.get("tenant_id", "default")
+    return tenant_id
+
 def set_redis_client(client):
     """
     Set the shared Redis client from main app and initialize feature flags.
@@ -219,7 +252,7 @@ def set_redis_client(client):
     Args:
         client: Redis client instance from main app (typically with decode_responses=False)
     """
-    global redis_client, redis_available, _dev_mode_initialized, graph_store, GRAPH_STATE
+    global redis_client, redis_available, _dev_mode_initialized, graph_store, tenant_state_manager, GRAPH_STATE
     
     # Wrap the client to provide decode_responses=True behavior
     redis_client = RedisDecodeWrapper(client)
@@ -299,10 +332,22 @@ def set_redis_client(client):
         except Exception as e:
             print(f"⚠️ DCL Engine: Failed to load persisted graph state: {e}", flush=True)
             # Keep default empty GRAPH_STATE
+        
+        # Initialize TenantStateManager for multi-tenant state isolation
+        try:
+            tenant_state_manager = TenantStateManager(redis_client)
+            tenant_enabled = FeatureFlagConfig.is_enabled(FeatureFlag.TENANT_SCOPED_STATE)
+            status_msg = "ENABLED" if tenant_enabled else "DISABLED (gradual rollout)"
+            print(f"🏢 DCL Engine: TenantStateManager initialized - TENANT_SCOPED_STATE: {status_msg}", flush=True)
+        except Exception as e:
+            print(f"⚠️ DCL Engine: Failed to initialize TenantStateManager: {e}. Using global state fallback.", flush=True)
+            tenant_state_manager = TenantStateManager(None)
     else:
         print(f"⚠️ DCL Engine: No Redis client provided, using in-memory state", flush=True)
         in_memory_dev_mode = False
         _dev_mode_initialized = True
+        # Initialize TenantStateManager without Redis (will use global state fallback)
+        tenant_state_manager = TenantStateManager(None)
 
 # WebSocket connection manager
 class ConnectionManager:
@@ -468,12 +513,32 @@ def reset_llm_stats():
         LLM_CALLS = 0
         LLM_TOKENS = 0
 
-def log(msg: str):
+def log(msg: str, tenant_id: str = "default"):
+    """
+    Log a message to console and tenant-scoped event log.
+    
+    Args:
+        msg: Message to log
+        tenant_id: Tenant identifier (defaults to "default" for backward compatibility)
+    
+    Behavior:
+        - Always prints to console (cross-tenant visibility for operators)
+        - Appends to tenant-scoped event log via TenantStateManager
+        - When TENANT_SCOPED_STATE=False: Uses global EVENT_LOG
+        - When TENANT_SCOPED_STATE=True: Uses tenant-scoped Redis storage
+    """
     print(msg, flush=True)
-    if not EVENT_LOG or EVENT_LOG[-1] != msg:
-        EVENT_LOG.append(msg)
-    if len(EVENT_LOG) > 200:
-        EVENT_LOG.pop(0)
+    
+    # Use TenantStateManager for tenant-scoped event logging
+    if tenant_state_manager:
+        tenant_state_manager.append_event(tenant_id, msg, max_events=200)
+    else:
+        # Fallback to global EVENT_LOG if TenantStateManager not initialized
+        global EVENT_LOG
+        if not EVENT_LOG or EVENT_LOG[-1] != msg:
+            EVENT_LOG.append(msg)
+        if len(EVENT_LOG) > 200:
+            EVENT_LOG.pop(0)
 
 def load_ontology():
     with open(ONTOLOGY_PATH, "r") as f:
@@ -1717,18 +1782,30 @@ async def connect_source(
     finally:
         release_db_lock(lock_id)
 
-def reset_state(exclude_dev_mode=True):
+def reset_state(exclude_dev_mode=True, tenant_id: str = "default"):
     """
     Reset DCL state for idempotent /connect operations.
     By default, preserves dev_mode setting and LLM counters across resets.
     
     Args:
         exclude_dev_mode: If True, dev_mode persists across resets
+        tenant_id: Tenant identifier for tenant-scoped state reset
     
     Note: LLM counters (calls/tokens) persist across all runs for telemetry tracking,
           similar to "elapsed time until next run". Use reset_llm_stats() endpoint to manually reset.
+    
+    Behavior:
+        - When TENANT_SCOPED_STATE=False: Resets global state variables
+        - When TENANT_SCOPED_STATE=True: Resets tenant-scoped Redis state
+        - Both code paths work simultaneously (dual-write pattern)
     """
     global EVENT_LOG, GRAPH_STATE, SOURCES_ADDED, ENTITY_SOURCES, ontology, SELECTED_AGENTS, SOURCE_SCHEMAS, RAG_CONTEXT
+    
+    # Reset tenant-scoped state via TenantStateManager
+    if tenant_state_manager:
+        tenant_state_manager.reset_tenant(tenant_id, exclude_dev_mode=exclude_dev_mode)
+    
+    # Also reset global state for backward compatibility (flag=False path)
     EVENT_LOG = []
     GRAPH_STATE = {"nodes": [], "edges": [], "confidence": None, "last_updated": None}
     SOURCES_ADDED = []
@@ -1746,14 +1823,14 @@ def reset_state(exclude_dev_mode=True):
     except FileNotFoundError:
         pass
     
-    # Clear persisted graph state from Redis
+    # Clear persisted graph state from Redis (legacy GraphStateStore)
     if graph_store:
         try:
-            graph_store.reset()
+            graph_store.reset(tenant_id)
         except Exception as e:
-            log(f"⚠️ Failed to clear persisted graph: {e}")
+            log(f"⚠️ Failed to clear persisted graph: {e}", tenant_id=tenant_id)
     
-    log("🔄 DCL state cleared (dev_mode preserved). Ready for new connection.")
+    log(f"🔄 DCL state cleared for tenant {tenant_id} (dev_mode preserved). Ready for new connection.", tenant_id=tenant_id)
 
 app = FastAPI()
 

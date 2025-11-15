@@ -32,6 +32,7 @@ class FeatureFlag(str, Enum):
     ENABLE_HITL_WORKFLOW = "ENABLE_HITL_WORKFLOW"
     ENABLE_CANONICAL_EVENTS = "ENABLE_CANONICAL_EVENTS"
     ENABLE_SCHEMA_FINGERPRINTING = "ENABLE_SCHEMA_FINGERPRINTING"
+    TENANT_SCOPED_STATE = "TENANT_SCOPED_STATE"
 
 
 class FeatureFlagConfig:
@@ -69,6 +70,7 @@ class FeatureFlagConfig:
         FeatureFlag.ENABLE_HITL_WORKFLOW: True,
         FeatureFlag.ENABLE_CANONICAL_EVENTS: True,  # Phase 4: ENABLED - Normalize and validate canonical events
         FeatureFlag.ENABLE_SCHEMA_FINGERPRINTING: True,  # Phase 4: ENABLED - Track schema versions for drift
+        FeatureFlag.TENANT_SCOPED_STATE: False,  # Phase 1: DISABLED by default - Gradual rollout of tenant isolation
     }
     
     # Redis client (injected from main app)
@@ -114,7 +116,7 @@ class FeatureFlagConfig:
             Exception: Last exception after all retries exhausted
         """
         delay = initial_delay
-        last_exception = None
+        last_exception: Optional[Exception] = None
         
         for attempt in range(max_retries):
             try:
@@ -136,7 +138,9 @@ class FeatureFlagConfig:
                         f"❌ Redis operation failed after {max_retries} attempts: {e}"
                     )
         
-        raise last_exception
+        if last_exception:
+            raise last_exception
+        raise RuntimeError("Operation failed without exception")
     
     @classmethod
     def _get_from_redis(cls, flag: FeatureFlag) -> Optional[bool]:
@@ -151,6 +155,8 @@ class FeatureFlagConfig:
         
         def read_operation():
             key = cls._get_redis_key(flag)
+            if cls._redis_client is None:
+                return None
             value = cls._redis_client.get(key)
             if value is None:
                 return None
@@ -189,6 +195,8 @@ class FeatureFlagConfig:
         def write_operation():
             key = cls._get_redis_key(flag)
             value = "true" if enabled else "false"
+            if cls._redis_client is None:
+                return False
             cls._redis_client.set(key, value)
             return True
         
@@ -221,9 +229,11 @@ class FeatureFlagConfig:
             })
             
             # Get underlying Redis client if using wrapper
+            if cls._redis_client is None:
+                return False
             redis = cls._redis_client
             if hasattr(redis, '_client'):
-                redis = redis._client
+                redis = redis._client  # type: ignore[attr-defined]
             
             redis.publish(cls._pubsub_channel, message)
             logger.info(f"📡 Published flag change: {flag.value}={enabled}")
