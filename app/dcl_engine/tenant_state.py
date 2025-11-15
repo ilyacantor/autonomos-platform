@@ -86,24 +86,53 @@ class TenantStateManager:
     # Default tenant ID for development/testing
     DEFAULT_TENANT = "default"
     
-    def __init__(self, redis_client):
+    def __init__(self, redis_client, enabled: Optional[bool] = None, default_ttl: Optional[int] = None):
         """
         Initialize TenantStateManager with Redis client.
         
         Args:
             redis_client: Redis client instance (can be None for local dev)
+            enabled: Optional override for tenant-scoped state (None = use feature flag)
+                    - None (default): Respects TENANT_SCOPED_STATE feature flag
+                    - True: Force enable (for testing)
+                    - False: Force disable (for testing legacy mode)
+            default_ttl: Default TTL in seconds for all keys (None = no expiry)
+                        Example: default_ttl=3600 -> keys expire after 1 hour
         """
         self.redis = redis_client
         self.redis_available = redis_client is not None
+        self.enabled = enabled  # None = use feature flag, True/False = override
+        self.default_ttl = default_ttl  # ✅ TTL support for key expiry
     
     def _is_enabled(self) -> bool:
         """
-        Check if tenant-scoped state is enabled via feature flag.
+        Check if tenant-scoped state is enabled.
+        
+        Priority:
+        1. Instance-level enabled flag (if explicitly provided)
+        2. Global feature flag (production default)
         
         Returns:
-            True if TENANT_SCOPED_STATE flag is enabled, False otherwise
+            True if tenant-scoped state is enabled, False otherwise
+        
+        Examples:
+            # Production (uses global feature flag):
+            manager = TenantStateManager(redis_client)
+            manager._is_enabled()  # Returns FeatureFlagConfig.is_enabled("TENANT_SCOPED_STATE")
+            
+            # Test override (bypass feature flag):
+            manager = TenantStateManager(redis_client, enabled=True)
+            manager._is_enabled()  # Returns True (regardless of feature flag)
         """
-        return FeatureFlagConfig.is_enabled(FeatureFlag.TENANT_SCOPED_STATE)
+        # Check instance flag ONLY if explicitly provided (not None)
+        if hasattr(self, 'enabled') and self.enabled is not None:
+            return self.enabled
+        
+        # Default to global feature flag (production path)
+        try:
+            return FeatureFlagConfig.is_enabled(FeatureFlag.TENANT_SCOPED_STATE)
+        except:
+            return False
     
     def _get_key(self, tenant_id: str, state_type: str) -> str:
         """
@@ -117,6 +146,46 @@ class TenantStateManager:
             Redis key string (e.g., "dcl:tenant:acme_corp:graph_state")
         """
         return f"{self.KEY_PREFIX}:{tenant_id}:{state_type}"
+    
+    def _persist_state(self, key: str, value: Any) -> None:
+        """
+        Persist state to Redis with optional TTL.
+        
+        This helper method centralizes Redis write logic and handles TTL configuration.
+        
+        Args:
+            key: Redis key to write
+            value: Value to serialize and persist (will be JSON-encoded)
+        
+        Behavior:
+            - If default_ttl is configured: Use SETEX (key expires after TTL seconds)
+            - If default_ttl is None: Use SET (key persists indefinitely)
+        
+        Example:
+            # Without TTL (default behavior)
+            manager = TenantStateManager(redis_client)
+            manager._persist_state("dcl:tenant:acme:sources", ["salesforce"])
+            # → SET dcl:tenant:acme:sources '["salesforce"]'
+            
+            # With TTL (keys auto-expire)
+            manager = TenantStateManager(redis_client, default_ttl=3600)
+            manager._persist_state("dcl:tenant:acme:sources", ["salesforce"])
+            # → SETEX dcl:tenant:acme:sources 3600 '["salesforce"]'
+        """
+        if not self.redis_available:
+            return
+        
+        try:
+            serialized = json.dumps(value)
+            
+            if self.default_ttl:
+                # Use SETEX for TTL (key expires after default_ttl seconds)
+                self.redis.setex(key, self.default_ttl, serialized)
+            else:
+                # Use SET for no expiry (key persists indefinitely)
+                self.redis.set(key, serialized)
+        except Exception as e:
+            print(f"⚠️ TenantStateManager: Failed to persist key {key}: {e}", flush=True)
     
     # ===== GRAPH_STATE Management =====
     
@@ -173,17 +242,13 @@ class TenantStateManager:
             app_module.GRAPH_STATE = state
             return
         
-        # Tenant-scoped mode: Write to Redis
+        # Tenant-scoped mode: Write to Redis (with TTL support)
         if not self.redis_available:
             print(f"⚠️ TenantStateManager: Redis unavailable, cannot persist graph_state for {tenant_id}", flush=True)
             return
         
-        try:
-            key = self._get_key(tenant_id, "graph_state")
-            value = json.dumps(state)
-            self.redis.set(key, value)
-        except Exception as e:
-            print(f"⚠️ TenantStateManager: Failed to write graph_state for {tenant_id}: {e}", flush=True)
+        key = self._get_key(tenant_id, "graph_state")
+        self._persist_state(key, state)
     
     # ===== SOURCES_ADDED Management =====
     
@@ -230,17 +295,13 @@ class TenantStateManager:
             app_module.SOURCES_ADDED = sources
             return
         
-        # Tenant-scoped mode: Write to Redis
+        # Tenant-scoped mode: Write to Redis (with TTL support)
         if not self.redis_available:
             print(f"⚠️ TenantStateManager: Redis unavailable, cannot persist sources_added for {tenant_id}", flush=True)
             return
         
-        try:
-            key = self._get_key(tenant_id, "sources_added")
-            value = json.dumps(sources)
-            self.redis.set(key, value)
-        except Exception as e:
-            print(f"⚠️ TenantStateManager: Failed to write sources_added for {tenant_id}: {e}", flush=True)
+        key = self._get_key(tenant_id, "sources_added")
+        self._persist_state(key, sources)
     
     def add_source(self, tenant_id: str, source: str) -> None:
         """
@@ -301,17 +362,13 @@ class TenantStateManager:
             app_module.ENTITY_SOURCES = entity_sources
             return
         
-        # Tenant-scoped mode: Write to Redis
+        # Tenant-scoped mode: Write to Redis (with TTL support)
         if not self.redis_available:
             print(f"⚠️ TenantStateManager: Redis unavailable, cannot persist entity_sources for {tenant_id}", flush=True)
             return
         
-        try:
-            key = self._get_key(tenant_id, "entity_sources")
-            value = json.dumps(entity_sources)
-            self.redis.set(key, value)
-        except Exception as e:
-            print(f"⚠️ TenantStateManager: Failed to write entity_sources for {tenant_id}: {e}", flush=True)
+        key = self._get_key(tenant_id, "entity_sources")
+        self._persist_state(key, entity_sources)
     
     # ===== SOURCE_SCHEMAS Management =====
     
@@ -358,17 +415,13 @@ class TenantStateManager:
             app_module.SOURCE_SCHEMAS = schemas
             return
         
-        # Tenant-scoped mode: Write to Redis
+        # Tenant-scoped mode: Write to Redis (with TTL support)
         if not self.redis_available:
             print(f"⚠️ TenantStateManager: Redis unavailable, cannot persist source_schemas for {tenant_id}", flush=True)
             return
         
-        try:
-            key = self._get_key(tenant_id, "source_schemas")
-            value = json.dumps(schemas)
-            self.redis.set(key, value)
-        except Exception as e:
-            print(f"⚠️ TenantStateManager: Failed to write source_schemas for {tenant_id}: {e}", flush=True)
+        key = self._get_key(tenant_id, "source_schemas")
+        self._persist_state(key, schemas)
     
     # ===== SELECTED_AGENTS Management =====
     
@@ -415,17 +468,13 @@ class TenantStateManager:
             app_module.SELECTED_AGENTS = agents
             return
         
-        # Tenant-scoped mode: Write to Redis
+        # Tenant-scoped mode: Write to Redis (with TTL support)
         if not self.redis_available:
             print(f"⚠️ TenantStateManager: Redis unavailable, cannot persist selected_agents for {tenant_id}", flush=True)
             return
         
-        try:
-            key = self._get_key(tenant_id, "selected_agents")
-            value = json.dumps(agents)
-            self.redis.set(key, value)
-        except Exception as e:
-            print(f"⚠️ TenantStateManager: Failed to write selected_agents for {tenant_id}: {e}", flush=True)
+        key = self._get_key(tenant_id, "selected_agents")
+        self._persist_state(key, agents)
     
     # ===== EVENT_LOG Management =====
     
@@ -472,17 +521,13 @@ class TenantStateManager:
             app_module.EVENT_LOG = events
             return
         
-        # Tenant-scoped mode: Write to Redis
+        # Tenant-scoped mode: Write to Redis (with TTL support)
         if not self.redis_available:
             print(f"⚠️ TenantStateManager: Redis unavailable, cannot persist event_log for {tenant_id}", flush=True)
             return
         
-        try:
-            key = self._get_key(tenant_id, "event_log")
-            value = json.dumps(events)
-            self.redis.set(key, value)
-        except Exception as e:
-            print(f"⚠️ TenantStateManager: Failed to write event_log for {tenant_id}: {e}", flush=True)
+        key = self._get_key(tenant_id, "event_log")
+        self._persist_state(key, events)
     
     def append_event(self, tenant_id: str, event: str, max_events: int = 200) -> None:
         """

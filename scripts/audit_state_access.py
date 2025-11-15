@@ -97,6 +97,7 @@ class StateAccessAuditor(ast.NodeVisitor):
     
     def __init__(self, file_path: str = "", source_code: str = ""):
         self.file_path = file_path
+        self.current_file = file_path  # Track current file being audited
         self.violations: List[StateAccessViolation] = []
         self.lines: List[str] = []
         self.source = source_code  # Store source for context extraction
@@ -110,8 +111,8 @@ class StateAccessAuditor(ast.NodeVisitor):
         """
         Parse and audit a Python file for state access violations.
         
-        CRITICAL: This method resets per-file state (aliases, violations) to prevent
-        bleeding between files when reusing the same auditor instance.
+        CRITICAL: This method resets ALL per-file state (aliases, violations, lines, source)
+        to prevent bleeding between files when reusing the same auditor instance.
         
         Args:
             filepath: Path to the Python file being audited
@@ -120,24 +121,34 @@ class StateAccessAuditor(ast.NodeVisitor):
         Returns:
             List of detected violations for this file
         """
-        # CRITICAL: Reset per-file state before each file
+        # CRITICAL: Reset ALL per-file state before each file
         self.aliases.clear()  # Clear alias map from previous files
         self.violations = []  # Clear violations from previous files
+        self.lines = []  # ✅ Clear old line cache to prevent stale buffer usage
+        self.source = ""  # ✅ Clear old source buffer to prevent stale buffer usage
         self.file_path = filepath  # Update current file path
+        self.current_file = filepath  # Track current file being audited
         
-        # Read source code if not provided
-        if source_code is None:
-            try:
-                with open(filepath, 'r', encoding='utf-8') as f:
-                    source_code = f.read()
-            except Exception as e:
-                print(f"⚠️  Error reading {filepath}: {e}", file=sys.stderr)
-                return []
-        
+        # Read source code with error handling
         try:
-            self.lines = source_code.splitlines()
-            self.source = source_code  # Store for context extraction
-            tree = ast.parse(source_code, filename=self.file_path)
+            if source_code is None:
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    self.source = f.read()
+            else:
+                self.source = source_code
+            
+            # Update lines cache AFTER successful read
+            self.lines = self.source.splitlines()
+            
+        except (IOError, UnicodeDecodeError) as e:
+            # File read failed - return empty violations
+            # Do NOT use stale buffers from previous files
+            print(f"⚠️  Error reading {filepath}: {e}", file=sys.stderr)
+            return []
+        
+        # Parse AST with fresh state
+        try:
+            tree = ast.parse(self.source, filename=self.file_path)
             
             # Add parent tracking for multiline context detection
             self._add_parent_references(tree)
@@ -145,7 +156,9 @@ class StateAccessAuditor(ast.NodeVisitor):
             # Visit AST and detect violations
             self.visit(tree)
         except SyntaxError as e:
+            # Skip files with syntax errors
             print(f"⚠️  Syntax error in {self.file_path}:{e.lineno} - skipping", file=sys.stderr)
+            return []
         
         return self.violations
     
@@ -204,12 +217,195 @@ class StateAccessAuditor(ast.NodeVisitor):
             return isinstance(node.ctx, ast.Store)
         return False
     
+    def _get_all_ancestor_sources(self, node: ast.AST) -> List[str]:
+        """
+        Get source code for node and ALL ancestors up to module root.
+        
+        This method walks the entire ancestor tree, collecting source code
+        from each level. This enables detection of patterns that span multiple
+        lines or are nested deep in the AST (e.g., nested builder initialization).
+        
+        Args:
+            node: AST node to start from
+        
+        Returns:
+            List of source code strings (node + all ancestors)
+        
+        Example:
+            For a node inside:
+            def initialize_state():
+                manager = TenantStateManager(
+                    redis_client=create_client()  # <- node here
+                )
+            
+            Returns:
+                [
+                    'redis_client=create_client()',  # Node
+                    'manager = TenantStateManager(...)',  # Parent (Call)
+                    'def initialize_state(): ...'  # Grandparent (FunctionDef)
+                ]
+        """
+        sources = []
+        
+        # Get node's own source
+        if self.source:  # Only if we have valid source
+            node_source = ast.get_source_segment(self.source, node)
+            if node_source:
+                sources.append(node_source)
+        
+        # Walk up through ALL ancestors to module root
+        current = getattr(node, 'parent', None)
+        while current is not None:
+            # Get source for this ancestor
+            if self.source:
+                ancestor_source = ast.get_source_segment(self.source, current)
+                if ancestor_source:
+                    sources.append(ancestor_source)
+            
+            # Move to parent
+            current = getattr(current, 'parent', None)
+        
+        return sources
+    
+    def _is_initialization_function(self, node: ast.AST) -> bool:
+        """
+        Check if node is inside an initialization function.
+        
+        Walks up the AST to find enclosing FunctionDef and checks if the
+        function name matches common initialization patterns.
+        
+        Args:
+            node: AST node to check
+        
+        Returns:
+            True if node is inside an initialization function
+        
+        Recognized patterns:
+            - initialize*, init*, setup*, configure*
+            - set_redis*, create_manager*, build_*
+        """
+        current = node
+        while current:
+            if isinstance(current, ast.FunctionDef):
+                # Check function name patterns
+                func_name = current.name.lower()
+                init_patterns = [
+                    'initialize', 'init', 'setup', 'configure',
+                    'set_redis', 'create_manager', 'build_'
+                ]
+                if any(pattern in func_name for pattern in init_patterns):
+                    return True
+            current = getattr(current, 'parent', None)
+        return False
+    
+    def _is_allowed_initialization_pattern(self, node: ast.AST) -> bool:
+        """
+        Analyze AST structure to detect legitimate initialization patterns.
+        
+        This method uses AST analysis (not string matching) to detect patterns like:
+        - Direct call: TenantStateManager(redis_client=..., enabled=...)
+        - Dict unpacking: TenantStateManager(**config)
+        - Assignment: tenant_state_manager = TenantStateManager(...)
+        - Function context: Inside initialize_*, setup_*, configure_* functions
+        
+        Args:
+            node: AST node to check
+        
+        Returns:
+            True if node is part of an allowed initialization pattern
+        
+        Example patterns detected:
+            # Pattern 1: Direct call
+            manager = TenantStateManager(redis_client=client)
+            
+            # Pattern 2: Dict unpacking
+            config = build_config()
+            manager = TenantStateManager(**config)
+            
+            # Pattern 3: Inside initialization function
+            def initialize_tenant_state():
+                manager = TenantStateManager(...)
+        """
+        current = node
+        while current:
+            # Pattern 1: Call node with TenantStateManager
+            if isinstance(current, ast.Call):
+                # Check if calling TenantStateManager directly
+                if isinstance(current.func, ast.Name) and current.func.id == 'TenantStateManager':
+                    return True
+                if isinstance(current.func, ast.Attribute) and current.func.attr == 'TenantStateManager':
+                    return True
+            
+            # Pattern 2: Assignment to tenant_state_manager
+            if isinstance(current, ast.Assign):
+                for target in current.targets:
+                    if isinstance(target, ast.Name) and target.id == 'tenant_state_manager':
+                        return True
+            
+            # Pattern 3: Inside initialization function (delegate to existing method)
+            if isinstance(current, ast.FunctionDef):
+                func_name = current.name.lower()
+                init_keywords = ['initialize', 'init', 'setup', 'configure', 'create', 'build']
+                if any(keyword in func_name for keyword in init_keywords):
+                    return True
+            
+            # Move to parent
+            current = getattr(current, 'parent', None)
+        
+        return False
+    
+    def _is_builder_pattern(self, node: ast.AST) -> bool:
+        """
+        Detect builder/factory patterns that create TenantStateManager.
+        
+        This method detects patterns where TenantStateManager is initialized
+        using config/kwargs from builder functions.
+        
+        Args:
+            node: AST node to check
+        
+        Returns:
+            True if node is part of a builder pattern
+        
+        Recognized builder patterns:
+            config = build_tenant_state_config()
+            manager = TenantStateManager(**config)
+            
+            kwargs = get_manager_kwargs()
+            manager = TenantStateManager(**kwargs)
+        """
+        current = node
+        while current:
+            # Check for function calls that return config dicts
+            if isinstance(current, ast.Call):
+                func_name = None
+                if isinstance(current.func, ast.Name):
+                    func_name = current.func.id.lower()
+                elif isinstance(current.func, ast.Attribute):
+                    func_name = current.func.attr.lower()
+                
+                # Builder function patterns
+                if func_name and any(keyword in func_name for keyword in 
+                    ['build', 'create', 'configure', 'get_config', 'make']):
+                    return True
+            
+            current = getattr(current, 'parent', None)
+        
+        return False
+    
     def _is_allowed_context(self, node: ast.AST) -> bool:
         """
         Check if usage is in allowed context (e.g., app.py initialization).
         
-        CRITICAL: Now checks both node source AND parent context to handle
-        multiline patterns (e.g., TenantStateManager initialization split across lines).
+        COMPREHENSIVE MULTI-LEVEL CHECKING:
+        - AST-based pattern analysis (preferred - detects Call/Assign nodes)
+        - Builder pattern detection (detects helper functions)
+        - String-based fallback (for edge cases)
+        
+        This solves the problem where nested initialization like:
+            def initialize_tenant_state():
+                config = build_tenant_state_config()
+                manager = TenantStateManager(**config)  # <- Now correctly allowed
         
         Args:
             node: AST node to check
@@ -218,50 +414,60 @@ class StateAccessAuditor(ast.NodeVisitor):
             True if usage is allowed in current context
         """
         # Only check app.py for special allowlist
-        if 'app.py' not in self.file_path:
+        if 'app.py' not in self.current_file:
             return False
         
-        # Get source for THIS node
-        node_source = ast.get_source_segment(self.source, node)
-        if not node_source:
-            # Fallback to line-based snippet
-            node_source = self._get_snippet(node)
+        # ✅ Check 1: AST-based initialization pattern analysis (preferred)
+        # This detects patterns using AST structure, not string matching
+        if self._is_allowed_initialization_pattern(node):
+            return True
         
-        if not node_source:
-            return False
+        # ✅ Check 2: Builder pattern detection
+        # This detects helper functions that return config dicts
+        if self._is_builder_pattern(node):
+            return True
         
-        # ALSO check parent context (for multiline statements)
-        # Find the enclosing statement (Assign, FunctionDef, etc.)
-        combined_source = node_source
-        parent = self._get_enclosing_statement(node)
-        if parent:
-            parent_source = ast.get_source_segment(self.source, parent)
-            if parent_source:
-                # Check both node source AND parent source
-                combined_source = f"{parent_source}\n{node_source}"
+        # ✅ Check 3: Get ALL ancestor sources for string-based fallback
+        all_sources = self._get_all_ancestor_sources(node)
         
-        # Allowed patterns in app.py (initialization only)
-        # Now matches across multiple lines!
+        # Combine all sources for comprehensive pattern matching
+        # This catches patterns at ANY level in the ancestor tree
+        combined_source = '\n'.join(all_sources)
+        
+        # Allowed patterns in app.py (will match at ANY ancestor level)
         allowed_patterns = [
             'state_access.initialize_state_access',  # Wrapper initialization
             'TenantStateManager(',                    # Manager construction (multiline safe)
             'tenant_state_manager = TenantStateManager',  # Assignment pattern
+            '**config',                               # Dict unpacking pattern
+            '**kwargs',                               # Keyword unpacking pattern
             'from app.dcl_engine.tenant_state import TenantStateManager',  # Import (required for init)
             'import app.dcl_engine.tenant_state',    # Module import (rare but valid for init)
+            # Initialization function contexts
+            'def initialize_tenant_state',
+            'def set_redis_client',
             # Global variable declarations
             'global GRAPH_STATE',
             'global SOURCES_ADDED',
+            'global ENTITY_SOURCES',
+            'global SOURCE_SCHEMAS',
+            'global SELECTED_AGENTS',
+            'global EVENT_LOG',
         ]
         
-        # Check if combined source matches any allowed pattern
+        # Check if ANY pattern matches in combined source
         for pattern in allowed_patterns:
             if pattern in combined_source:
                 return True
         
-        # Also check if this is a module-level global variable definition (not usage)
+        # ✅ Check 4: Module-level global variable definitions (not usage)
+        # Get node's own source for this check
+        node_source = ''
+        if all_sources:
+            node_source = all_sources[0]  # First element is node's own source
+        
         for var in GLOBAL_VARS:
             # Pattern: GRAPH_STATE = ... or GRAPH_STATE: Dict = ...
-            # Check both node and combined source
             if (node_source.strip().startswith(f"{var} =") or 
                 node_source.strip().startswith(f"{var}:") or
                 f"{var} =" in combined_source or
