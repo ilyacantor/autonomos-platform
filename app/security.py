@@ -99,7 +99,7 @@ async def get_current_user(
     # Development mode - return mock user for frictionless local dev
     if not AUTH_ENABLED:
         logger.warning("⚠️  Authentication disabled (DCL_AUTH_ENABLED=false). Using MockUser for development.")
-        return MockUser()
+        return MockUser()  # type: ignore[return-value]  # MockUser duck-types User for development
     
     # Production mode - require valid JWT token
     if credentials is None:
@@ -112,7 +112,7 @@ async def get_current_user(
     token = credentials.credentials
     payload = decode_access_token(token)
     
-    user_id: str = payload.get("user_id")
+    user_id: Optional[str] = payload.get("user_id")
     if user_id is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -135,6 +135,6 @@ def authenticate_user(db: Session, email: str, password: str) -> Optional[models
     user = db.query(models.User).filter(models.User.email == email).first()
     if not user:
         return None
-    if not verify_password(password, user.hashed_password):
+    if not verify_password(password, str(user.hashed_password)):  # type: ignore[arg-type]  # SQLAlchemy Column resolved to str at runtime
         return None
     return user
