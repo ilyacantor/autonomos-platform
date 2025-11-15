@@ -1853,7 +1853,10 @@ async def connect_source(
             # Create edges from ontology entities to agents
             add_ontology_to_agent_edges(tenant_id)
             
-            SOURCES_ADDED.append(source_key)
+            # Add source to tenant-scoped sources list
+            current_sources = tenant_state_manager.get_sources(tenant_id)
+            current_sources.append(source_key)
+            tenant_state_manager.set_sources(tenant_id, current_sources)
         
         ents = ", ".join(sorted(tables.keys()))
         log(f"I found these entities: {ents}.")
@@ -1930,17 +1933,17 @@ def reset_state(exclude_dev_mode=True, tenant_id: str = "default"):
         - When TENANT_SCOPED_STATE=True: Resets tenant-scoped Redis state
         - Both code paths work simultaneously (dual-write pattern)
     """
-    global EVENT_LOG, SOURCES_ADDED, ENTITY_SOURCES, ontology, SELECTED_AGENTS, SOURCE_SCHEMAS, RAG_CONTEXT
+    global EVENT_LOG, ENTITY_SOURCES, ontology, SELECTED_AGENTS, SOURCE_SCHEMAS, RAG_CONTEXT
     
     # Reset tenant-scoped state via TenantStateManager
     if tenant_state_manager:
         tenant_state_manager.reset_tenant(tenant_id, exclude_dev_mode=exclude_dev_mode)
     
     # Also reset global state for backward compatibility (flag=False path)
-    # Note: GRAPH_STATE is now managed via tenant_state_manager, so we call set_graph_state
+    # Note: GRAPH_STATE and SOURCES_ADDED are now managed via tenant_state_manager
     EVENT_LOG = []
     tenant_state_manager.set_graph_state(tenant_id, {"nodes": [], "edges": [], "confidence": None, "last_updated": None})
-    SOURCES_ADDED = []
+    tenant_state_manager.set_sources(tenant_id, [])
     ENTITY_SOURCES = {}
     SELECTED_AGENTS = []
     SOURCE_SCHEMAS = {}
@@ -2066,12 +2069,15 @@ async def broadcast_state_change(event_type: str = "state_update", tenant_id: st
         # Determine source mode from feature flag
         source_mode = "aam_connectors" if FeatureFlagConfig.is_enabled(FeatureFlag.USE_AAM_AS_SOURCE) else "demo_files"
         
+        # Get tenant-scoped sources list
+        current_sources = tenant_state_manager.get_sources(tenant_id)
+        
         # Send complete data (frontend has scrolling for unlimited display)
         state_payload = {
             "type": event_type,
             "timestamp": time.time(),
             "data": {
-                "sources": SOURCES_ADDED,
+                "sources": current_sources,
                 "agents": SELECTED_AGENTS,
                 "devMode": get_dev_mode(),
                 "sourceMode": source_mode,
@@ -2093,7 +2099,7 @@ async def broadcast_state_change(event_type: str = "state_update", tenant_id: st
         }
         
         # Debug log to verify events are included
-        log(f"📡 Broadcasting {event_type}: {len(EVENT_LOG)} events, {len(SOURCES_ADDED)} sources, {RAG_CONTEXT.get('total_mappings', 0)} RAG mappings", tenant_id)
+        log(f"📡 Broadcasting {event_type}: {len(EVENT_LOG)} events, {len(current_sources)} sources, {RAG_CONTEXT.get('total_mappings', 0)} RAG mappings", tenant_id)
         
         # Broadcast to WebSocket clients (filtered by tenant_id)
         await ws_manager.broadcast(state_payload, tenant_id=tenant_id)
@@ -2173,7 +2179,7 @@ async def feature_flag_pubsub_listener():
     Provides cross-worker cache invalidation when flags are toggled.
     When Worker A toggles a flag, Worker B receives the change and clears its cache.
     """
-    global GRAPH_STATE, SOURCES_ADDED, async_redis_client
+    global async_redis_client
     
     # Initialize async Redis client if not already done
     if async_redis_client is None:
@@ -2210,7 +2216,7 @@ async def feature_flag_pubsub_listener():
                     if flag_name == FeatureFlag.USE_AAM_AS_SOURCE.value:
                         # Clear DCL cache to force fresh graph generation
                         tenant_state_manager.set_graph_state("default", {"nodes": [], "edges": [], "confidence": None, "last_updated": None})
-                        SOURCES_ADDED = []
+                        tenant_state_manager.set_sources("default", [])
                         
                         # Clear persisted graph state from Redis
                         if graph_store:
@@ -2265,10 +2271,9 @@ async def startup_event():
                 
                 # Handle USE_AAM_AS_SOURCE flag changes
                 if flag_name == FeatureFlag.USE_AAM_AS_SOURCE.value:
-                    global SOURCES_ADDED
                     # Clear DCL cache to force fresh graph generation
                     tenant_state_manager.set_graph_state("default", {"nodes": [], "edges": [], "confidence": None, "last_updated": None})
-                    SOURCES_ADDED = []
+                    tenant_state_manager.set_sources("default", [])
                     
                     # Clear persisted graph state from Redis
                     if graph_store:
@@ -2491,7 +2496,7 @@ def state(current_user = Depends(get_current_user)):
         },
         "blended_confidence": blended_confidence,
         "agent_consumption": agent_consumption,
-        "selected_sources": SOURCES_ADDED,
+        "selected_sources": tenant_state_manager.get_sources("default"),
         "selected_agents": SELECTED_AGENTS,
         "dev_mode": get_dev_mode(),  # Read from Redis for cross-process consistency
         "auth_enabled": AUTH_ENABLED,
@@ -2802,7 +2807,7 @@ async def connect(
     
     return JSONResponse({
         "ok": True, 
-        "sources": SOURCES_ADDED, 
+        "sources": tenant_state_manager.get_sources(tenant_id), 
         "agents": agent_list,
         "source_mode": source_mode,
         "tenant_id": tenant_id
@@ -2881,7 +2886,7 @@ async def toggle_aam_mode(
         request: FastAPI request object (for rate limiting)
         current_user: Current authenticated user (for tenant_id extraction)
     """
-    global SOURCES_ADDED, _active_toggle_requests
+    global _active_toggle_requests
     
     # Extract tenant_id from current user
     tenant_id = get_tenant_id_from_user(current_user)
@@ -2910,7 +2915,7 @@ async def toggle_aam_mode(
     
     # Clear DCL cache to force fresh graph generation
     tenant_state_manager.set_graph_state(tenant_id, {"nodes": [], "edges": [], "confidence": None, "last_updated": None})
-    SOURCES_ADDED = []
+    tenant_state_manager.set_sources(tenant_id, [])
     
     # Clear persisted graph state from Redis
     if graph_store:
