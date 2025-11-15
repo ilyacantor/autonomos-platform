@@ -1,4 +1,39 @@
 
+"""
+DCL Engine: Data Connection Layer with Multi-Tenant State Isolation
+
+================================================================================
+TENANT ID CONTRACT (Phase 1a: Foundation for State Migration)
+================================================================================
+
+All DCL endpoints and service functions accept tenant_id to ensure
+multi-tenant data isolation. The tenant_id is extracted from:
+- JWT claims (current_user.tenant_id) when AUTH_ENABLED=true
+- Default value "default" when AUTH_ENABLED=false (development)
+
+Helper function:
+    get_tenant_id_from_user(current_user) -> str
+
+All state operations MUST use:
+    tenant_state_manager.get_*_state(tenant_id)
+    tenant_state_manager.set_*_state(tenant_id, value)
+
+Never access global variables directly (GRAPH_STATE, SOURCES_ADDED, etc.)
+
+Example - Endpoint with tenant_id:
+    @app.get("/state", dependencies=AUTH_DEPENDENCIES)
+    def state(current_user = Depends(get_current_user)):
+        tenant_id = get_tenant_id_from_user(current_user)
+        return tenant_state_manager.get_graph_state(tenant_id)
+
+Example - Service function with tenant_id:
+    async def connect_source(source_id: str, tenant_id: str = "default"):
+        sources = tenant_state_manager.get_sources(tenant_id)
+        # ... operate on tenant-scoped state
+
+================================================================================
+"""
+
 import os, time, json, glob, duckdb, pandas as pd, yaml, warnings, threading, re, traceback, asyncio
 from pathlib import Path
 from fastapi import FastAPI, Query, Request, WebSocket, WebSocketDisconnect, Depends
@@ -349,35 +384,83 @@ def set_redis_client(client):
         # Initialize TenantStateManager without Redis (will use global state fallback)
         tenant_state_manager = TenantStateManager(None)
 
-# WebSocket connection manager
+# WebSocket connection manager with tenant isolation
 class ConnectionManager:
-    def __init__(self):
-        self.active_connections: List[WebSocket] = []
+    """
+    Manages WebSocket connections with tenant_id tagging for multi-tenant isolation.
     
-    async def connect(self, websocket: WebSocket):
+    Each connection is stored with its associated tenant_id, allowing
+    filtered broadcasts to only send updates to connections for a specific tenant.
+    
+    Connection Structure:
+        {"websocket": WebSocket, "tenant_id": str}
+    """
+    def __init__(self):
+        self.active_connections: List[Dict[str, Any]] = []  # [{"websocket": ws, "tenant_id": str}]
+    
+    async def connect(self, websocket: WebSocket, tenant_id: str = "default"):
+        """
+        Accept and register a new WebSocket connection with tenant_id tag.
+        
+        Args:
+            websocket: WebSocket connection instance
+            tenant_id: Tenant identifier for isolation (defaults to "default")
+        """
         await websocket.accept()
-        self.active_connections.append(websocket)
-        log(f"🔌 WebSocket client connected ({len(self.active_connections)} active)")
+        self.active_connections.append({"websocket": websocket, "tenant_id": tenant_id})
+        log(f"🔌 WebSocket client connected (tenant: {tenant_id}, total active: {len(self.active_connections)})", tenant_id)
     
     def disconnect(self, websocket: WebSocket):
-        if websocket in self.active_connections:
-            self.active_connections.remove(websocket)
-        log(f"🔌 WebSocket client disconnected ({len(self.active_connections)} active)")
+        """
+        Remove a WebSocket connection from active connections.
+        
+        Args:
+            websocket: WebSocket connection instance to remove
+        """
+        # Find and remove connection by websocket instance
+        conn_to_remove = None
+        for conn in self.active_connections:
+            if conn["websocket"] == websocket:
+                conn_to_remove = conn
+                break
+        
+        if conn_to_remove:
+            self.active_connections.remove(conn_to_remove)
+            tenant_id = conn_to_remove.get("tenant_id", "unknown")
+            log(f"🔌 WebSocket client disconnected (tenant: {tenant_id}, remaining: {len(self.active_connections)})", tenant_id)
     
-    async def broadcast(self, message: dict):
-        """Broadcast message to all connected WebSocket clients"""
+    async def broadcast(self, message: dict, tenant_id: Optional[str] = None):
+        """
+        Broadcast message to WebSocket clients, optionally filtered by tenant_id.
+        
+        Args:
+            message: JSON-serializable message to broadcast
+            tenant_id: If provided, only broadcast to connections with matching tenant_id.
+                      If None, broadcast to all connections (backward compatibility).
+        
+        Example:
+            # Broadcast to specific tenant
+            await ws_manager.broadcast(state_update, tenant_id="acme_corp")
+            
+            # Broadcast to all tenants (legacy mode)
+            await ws_manager.broadcast(system_announcement)
+        """
         disconnected = []
-        for connection in self.active_connections:
+        for conn in self.active_connections:
+            # Filter by tenant_id if provided
+            if tenant_id is not None and conn.get("tenant_id") != tenant_id:
+                continue  # Skip connections for other tenants
+            
             try:
-                await connection.send_json(message)
+                await conn["websocket"].send_json(message)
             except Exception:
                 # Client disconnected - mark for removal
-                disconnected.append(connection)
+                disconnected.append(conn)
         
         # Remove disconnected clients
-        for connection in disconnected:
-            if connection in self.active_connections:
-                self.active_connections.remove(connection)
+        for conn in disconnected:
+            if conn in self.active_connections:
+                self.active_connections.remove(conn)
 
 ws_manager = ConnectionManager()
 
@@ -1039,7 +1122,20 @@ Answer with ONLY a JSON object:
         log(f"⚠️ LLM semantic validation failed: {e}, defaulting to allow")
         return True
 
-def heuristic_plan(ontology: Dict[str, Any], source_key: str, tables: Dict[str, Any], skip_llm_validation: bool = False) -> Dict[str, Any]:
+def heuristic_plan(ontology: Dict[str, Any], source_key: str, tables: Dict[str, Any], skip_llm_validation: bool = False, tenant_id: str = "default") -> Dict[str, Any]:
+    """
+    Generate heuristic field mappings based on pattern matching.
+    
+    Args:
+        ontology: Ontology schema definition
+        source_key: Source system identifier
+        tables: Source table schemas
+        skip_llm_validation: If True, skip LLM semantic validation
+        tenant_id: Tenant identifier for tenant-scoped operations
+    
+    Returns:
+        Mapping plan with entity mappings and joins
+    """
     global SELECTED_AGENTS, agents_config, DEV_MODE
     
     # Get available ontology entities based on selected agents
@@ -1386,7 +1482,19 @@ def heuristic_plan(ontology: Dict[str, Any], source_key: str, tables: Dict[str, 
                 joins.append({"left": f"{T[i]}.{key}", "right": f"{T[i+1]}.{key}", "reason": f"shared key {key}"})
     return {"mappings": mappings, "joins": joins}
 
-def apply_plan(con, source_key: str, plan: Dict[str, Any]) -> Scorecard:
+def apply_plan(con, source_key: str, plan: Dict[str, Any], tenant_id: str = "default") -> Scorecard:
+    """
+    Apply mapping plan to create unified DCL views in DuckDB.
+    
+    Args:
+        con: DuckDB connection
+        source_key: Source system identifier
+        plan: Mapping plan with entity mappings and joins
+        tenant_id: Tenant identifier for tenant-scoped operations
+    
+    Returns:
+        Scorecard with confidence, issues, and blockers
+    """
     global STATE_LOCK, ontology
     issues, blockers, joins = [], [], []
     confs = []
@@ -1835,10 +1943,20 @@ def reset_state(exclude_dev_mode=True, tenant_id: str = "default"):
 app = FastAPI()
 
 # State broadcasting function
-async def broadcast_state_change(event_type: str = "state_update"):
+async def broadcast_state_change(event_type: str = "state_update", tenant_id: str = "default"):
     """
     Broadcast DCL state changes to WebSocket clients and Redis pub/sub.
     This eliminates polling by pushing updates when state changes.
+    
+    Args:
+        event_type: Type of state update event (e.g., "state_update", "mapping_complete")
+        tenant_id: Tenant identifier for filtering broadcasts to tenant-scoped connections
+    
+    Behavior:
+        - Broadcasts to WebSocket connections matching tenant_id (filtered by ws_manager)
+        - Publishes to Redis pub/sub for cross-process synchronization
+        - In Phase 1a: Still reads from global state (TENANT_SCOPED_STATE=False)
+        - In Phase 1b: Will read from tenant-scoped state via TenantStateManager
     """
     try:
         # Build state payload (same structure as /state endpoint)
@@ -1948,10 +2066,10 @@ async def broadcast_state_change(event_type: str = "state_update"):
         }
         
         # Debug log to verify events are included
-        log(f"📡 Broadcasting {event_type}: {len(EVENT_LOG)} events, {len(SOURCES_ADDED)} sources, {RAG_CONTEXT.get('total_mappings', 0)} RAG mappings")
+        log(f"📡 Broadcasting {event_type}: {len(EVENT_LOG)} events, {len(SOURCES_ADDED)} sources, {RAG_CONTEXT.get('total_mappings', 0)} RAG mappings", tenant_id)
         
-        # Broadcast to WebSocket clients
-        await ws_manager.broadcast(state_payload)
+        # Broadcast to WebSocket clients (filtered by tenant_id)
+        await ws_manager.broadcast(state_payload, tenant_id=tenant_id)
         
         # Publish to Redis pub/sub for cross-process broadcast (if available)
         if redis_available and redis_client:
@@ -1961,7 +2079,7 @@ async def broadcast_state_change(event_type: str = "state_update"):
                 pass  # Redis unavailable, skip pub/sub
         
     except Exception as e:
-        log(f"⚠️ Error broadcasting state change: {e}")
+        log(f"⚠️ Error broadcasting state change: {e}", tenant_id)
 
 # Middleware for API usage logging
 @app.middleware("http")
@@ -2177,35 +2295,74 @@ async def startup_event():
 
 
 @app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
+async def websocket_endpoint(
+    websocket: WebSocket,
+    token: Optional[str] = Query(None, description="Auth token (optional)")
+):
     """
-    WebSocket endpoint for real-time DCL state updates.
+    WebSocket endpoint for real-time DCL state updates with tenant isolation.
     Eliminates polling by pushing state changes to connected clients.
     
-    Note: WebSocket authentication is handled at the application level (frontend already authenticated).
-    FastAPI Depends() is incompatible with WebSocket endpoints due to ASGI spec differences.
-    For production, consider token-based auth via query params or initial handshake message.
+    Tenant ID Extraction:
+        - If token provided: Extract from JWT and use for tenant-scoped broadcasts
+        - If no token (AUTH_ENABLED=false): Use "default" tenant
+    
+    Connection Tagging:
+        - WebSocket connection is tagged with tenant_id
+        - Broadcasts are filtered to only reach connections with matching tenant_id
+    
+    Note: WebSocket authentication uses token query param instead of Depends()
+          due to ASGI spec incompatibility with WebSocket upgrade handshake.
     """
-    await ws_manager.connect(websocket)
+    # Extract tenant_id from token (if provided)
+    tenant_id = "default"
+    if token and AUTH_ENABLED:
+        try:
+            from app.security import decode_access_token
+            payload = decode_access_token(token)
+            tenant_id = payload.get("tenant_id", "default")
+        except Exception:
+            # Invalid token - use default tenant (graceful fallback)
+            tenant_id = "default"
+    
+    # Connect with tenant_id tagging
+    await ws_manager.connect(websocket, tenant_id=tenant_id)
     try:
         # Send initial state on connection
-        await broadcast_state_change("connection_established")
+        await broadcast_state_change("connection_established", tenant_id)
         
         # Keep connection alive and listen for client messages (if needed)
         while True:
             data = await websocket.receive_text()
             # Client can request state refresh by sending "refresh"
             if data == "refresh":
-                await broadcast_state_change("state_refresh")
+                await broadcast_state_change("state_refresh", tenant_id)
     except WebSocketDisconnect:
         ws_manager.disconnect(websocket)
     except Exception as e:
-        log(f"⚠️ WebSocket error: {e}")
+        log(f"⚠️ WebSocket error: {e}", tenant_id)
         ws_manager.disconnect(websocket)
 
 
 @app.get("/state", dependencies=AUTH_DEPENDENCIES)
-def state():
+def state(current_user = Depends(get_current_user)):
+    """
+    Get current DCL state including graph, sources, agents, and metrics.
+    
+    Args:
+        current_user: Current authenticated user (contains tenant_id in JWT claims)
+    
+    Returns:
+        JSON response with complete DCL state for the tenant
+    
+    Tenant Isolation:
+        - Extracts tenant_id from current_user JWT claims
+        - In Phase 1a: Still reads from global state (TENANT_SCOPED_STATE=False)
+        - In Phase 1b: Will read from tenant-scoped state via TenantStateManager
+    """
+    # Extract tenant_id from current user
+    tenant_id = get_tenant_id_from_user(current_user)
+    
     global RAG_CONTEXT, rag_engine, agents_config
     
     # Update total mappings count from RAG engine
@@ -2630,7 +2787,23 @@ async def connect(
 #     return JSONResponse({"ok": True})
 
 @app.get("/toggle_dev_mode", dependencies=AUTH_DEPENDENCIES)
-async def toggle_dev_mode(enabled: Optional[bool] = None):
+async def toggle_dev_mode(
+    enabled: Optional[bool] = None,
+    current_user = Depends(get_current_user)
+):
+    """
+    Toggle Dev Mode (AI/RAG mapping vs heuristic-only).
+    
+    Args:
+        enabled: If provided, set dev mode to this value. If None, toggle current state.
+        current_user: Current authenticated user (for tenant_id extraction)
+    
+    Returns:
+        JSON response with new dev mode state
+    """
+    # Extract tenant_id for tenant-scoped broadcasting
+    tenant_id = get_tenant_id_from_user(current_user)
+    
     global DEV_MODE, rag_engine
     # Update both local and Redis state for backward compatibility
     current_dev_mode = get_dev_mode()
@@ -2644,17 +2817,20 @@ async def toggle_dev_mode(enabled: Optional[bool] = None):
     # Clear RAG cache when dev mode toggles
     if rag_engine:
         rag_engine.clear_cache()
-        log("🗑️ Cleared RAG cache due to dev mode toggle")
+        log("🗑️ Cleared RAG cache due to dev mode toggle", tenant_id)
     
     status = "enabled" if DEV_MODE else "disabled"
-    log(f"🔧 Dev Mode {status} - {'AI/RAG mapping active' if DEV_MODE else 'Using heuristic-only mapping'}")
+    log(f"🔧 Dev Mode {status} - {'AI/RAG mapping active' if DEV_MODE else 'Using heuristic-only mapping'}", tenant_id)
     # Broadcast state change to WebSocket clients
-    await broadcast_state_change("dev_mode_toggled")
+    await broadcast_state_change("dev_mode_toggled", tenant_id)
     return JSONResponse({"dev_mode": DEV_MODE, "status": status})
 
 @app.post("/dcl/toggle_aam_mode", dependencies=AUTH_DEPENDENCIES)
 @limiter.limit("5/minute")  # Max 5 mode toggles per minute
-async def toggle_aam_mode(request: Request):
+async def toggle_aam_mode(
+    request: Request,
+    current_user = Depends(get_current_user)
+):
     """
     Toggle USE_AAM_AS_SOURCE feature flag and clear DCL cache.
     
@@ -2669,11 +2845,15 @@ async def toggle_aam_mode(request: Request):
     - AAM mode ON: Uses 4 AAM sources (Salesforce, MongoDB, Supabase, FilesSource)
     - AAM mode OFF: Uses 9 Legacy file sources (Salesforce, Dynamics, HubSpot, etc.)
     - Flag change broadcasts to all workers via Redis pub/sub
+    
+    Args:
+        request: FastAPI request object (for rate limiting)
+        current_user: Current authenticated user (for tenant_id extraction)
     """
     global GRAPH_STATE, SOURCES_ADDED, _active_toggle_requests
     
-    # Deduplicate concurrent toggle requests (prevent rapid-fire)
-    tenant_id = "default"  # TODO: Get from current_user when multi-tenant auth is live
+    # Extract tenant_id from current user
+    tenant_id = get_tenant_id_from_user(current_user)
     now = time.time()
     last_toggle = _active_toggle_requests.get(tenant_id, 0)
     
@@ -2723,15 +2903,25 @@ async def toggle_aam_mode(request: Request):
     })
 
 @app.post("/reset_llm_stats", dependencies=AUTH_DEPENDENCIES)
-async def reset_llm_stats_endpoint():
+async def reset_llm_stats_endpoint(current_user = Depends(get_current_user)):
     """
     Manual endpoint to reset LLM call counters.
+    
+    Args:
+        current_user: Current authenticated user (for tenant_id extraction)
+    
+    Returns:
+        JSON response with reset confirmation
+    
     Note: LLM stats persist across all runs by default for cumulative tracking.
     Use this endpoint only when you want to reset the counters manually.
     """
+    # Extract tenant_id for tenant-scoped logging
+    tenant_id = get_tenant_id_from_user(current_user)
+    
     reset_llm_stats()
     stats = get_llm_stats()
-    log("🔄 LLM stats manually reset to 0")
+    log("🔄 LLM stats manually reset to 0", tenant_id)
     return JSONResponse({
         "ok": True,
         "message": "LLM stats reset successfully",
@@ -2740,7 +2930,27 @@ async def reset_llm_stats_endpoint():
     })
 
 @app.get("/preview", dependencies=AUTH_DEPENDENCIES)
-def preview(node: Optional[str] = None):
+def preview(
+    node: Optional[str] = None,
+    current_user = Depends(get_current_user)
+):
+    """
+    Preview table data for source or ontology tables.
+    
+    Args:
+        node: Optional node ID to preview (e.g., "src_salesforce_account", "dcl_account")
+        current_user: Current authenticated user (for tenant_id extraction)
+    
+    Returns:
+        JSON response with preview data for sources and ontology tables
+    
+    Tenant Isolation:
+        - In Phase 1a: Still accesses global SELECTED_AGENTS
+        - In Phase 1b: Will use tenant-scoped state from TenantStateManager
+    """
+    # Extract tenant_id (prepared for Phase 1b migration)
+    tenant_id = get_tenant_id_from_user(current_user)
+    
     global ontology, agents_config, SELECTED_AGENTS
     # Use read-only mode for preview operations
     con = duckdb.connect(DB_PATH, read_only=True)
@@ -2776,8 +2986,23 @@ def preview(node: Optional[str] = None):
     return JSONResponse({"sources": sources, "ontology": ontology_tables})
 
 @app.get("/source_schemas", dependencies=AUTH_DEPENDENCIES)
-def source_schemas():
-    """Return complete schema information for all connected sources."""
+def source_schemas(current_user = Depends(get_current_user)):
+    """
+    Return complete schema information for all connected sources.
+    
+    Args:
+        current_user: Current authenticated user (for tenant_id extraction)
+    
+    Returns:
+        JSON response with source schema metadata
+    
+    Tenant Isolation:
+        - In Phase 1a: Still accesses global SOURCE_SCHEMAS
+        - In Phase 1b: Will use tenant-scoped state from TenantStateManager
+    """
+    # Extract tenant_id (prepared for Phase 1b migration)
+    tenant_id = get_tenant_id_from_user(current_user)
+    
     global SOURCE_SCHEMAS
     
     # Sanitize data for JSON serialization (replace NaN/Inf with None)
@@ -2796,8 +3021,23 @@ def source_schemas():
     return JSONResponse(clean_schemas)
 
 @app.get("/ontology_schema", dependencies=AUTH_DEPENDENCIES)
-def ontology_schema():
-    """Return ontology entity definitions with all fields and source mappings."""
+def ontology_schema(current_user = Depends(get_current_user)):
+    """
+    Return ontology entity definitions with all fields and source mappings.
+    
+    Args:
+        current_user: Current authenticated user (for tenant_id extraction)
+    
+    Returns:
+        JSON response with ontology schema including field definitions and source mappings
+    
+    Tenant Isolation:
+        - In Phase 1a: Still accesses global GRAPH_STATE
+        - In Phase 1b: Will use tenant-scoped state from TenantStateManager
+    """
+    # Extract tenant_id (prepared for Phase 1b migration)
+    tenant_id = get_tenant_id_from_user(current_user)
+    
     global ontology, GRAPH_STATE
     
     if not ontology:
