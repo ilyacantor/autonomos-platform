@@ -65,11 +65,6 @@ AAM_CONNECTORS_SYNC = os.getenv("AAM_CONNECTORS_SYNC", "true").lower() in ("true
 # Import AAM models - with fallback
 AAM_MODELS_AVAILABLE = False
 try:
-    import sys
-    from pathlib import Path
-    aam_path = Path(__file__).parent.parent.parent.parent / "aam_hybrid"
-    sys.path.insert(0, str(aam_path))
-    
     from aam_hybrid.shared.models import Connection, JobHistory, SyncCatalogVersion, ConnectionStatus, JobStatus
     AAM_MODELS_AVAILABLE = True
     logger.info("✅ AAM models imported successfully")

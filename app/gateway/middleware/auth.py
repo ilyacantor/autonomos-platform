@@ -15,7 +15,18 @@ async def tenant_auth_middleware(request: Request, call_next: Callable):
     - Extract tenant_id, agent_id, scopes from claims
     - Set request.state.tenant_id, request.state.agent_id
     - Return 401 if invalid
+    
+    Respects DCL_AUTH_ENABLED environment variable - when false, bypasses all auth checks.
     """
+    # FIRST: Check if authentication is disabled (development mode)
+    AUTH_ENABLED_RAW = os.getenv('DCL_AUTH_ENABLED', 'true')
+    AUTH_ENABLED = AUTH_ENABLED_RAW.lower() == 'true'
+    
+    if not AUTH_ENABLED:
+        # Authentication disabled - pass through without checking token
+        # The get_current_user dependency will return MockUser
+        return await call_next(request)
+    
     # Bypass auth for public endpoints
     public_paths = [
         "/docs",

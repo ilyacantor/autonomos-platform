@@ -22,7 +22,11 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 pwd_context = CryptContext(schemes=["argon2", "bcrypt"], deprecated="auto")
 
 # Configuration check - enable/disable authentication
-AUTH_ENABLED = os.getenv('DCL_AUTH_ENABLED', 'true').lower() == 'true'
+DCL_AUTH_ENABLED_RAW = os.getenv('DCL_AUTH_ENABLED', 'true')
+AUTH_ENABLED = DCL_AUTH_ENABLED_RAW.lower() == 'true'
+
+# DIAGNOSTIC: Log the auth configuration at startup
+logger.warning(f"🔍 STARTUP DIAGNOSTIC: DCL_AUTH_ENABLED='{DCL_AUTH_ENABLED_RAW}' → AUTH_ENABLED={AUTH_ENABLED}")
 
 # auto_error=False allows us to handle missing tokens manually
 security_scheme = HTTPBearer(auto_error=False)
@@ -37,8 +41,6 @@ class MockUser:
     """
     def __init__(self, tenant_id: Optional[str] = None, user_id: Optional[str] = None, email: str = "dev@autonomos.local"):
         from uuid import uuid4
-        import sys
-        sys.path.insert(0, 'aam_hybrid')
         from aam_hybrid.shared.constants import DEMO_TENANT_UUID
         
         # Use valid UUIDs for DB operations (critical for AAM endpoints)

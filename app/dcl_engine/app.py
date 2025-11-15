@@ -7,8 +7,8 @@ from fastapi.staticfiles import StaticFiles
 from typing import Dict, Any, List, Optional, Union
 from dataclasses import dataclass
 import google.generativeai as genai  # type: ignore
-from rag_engine import RAGEngine
-from llm_service import get_llm_service
+from app.dcl_engine.rag_engine import RAGEngine
+from app.dcl_engine.llm_service import get_llm_service
 import redis
 from redis.asyncio import Redis as AsyncRedis
 from app.dcl_engine.source_loader import get_source_adapter, AAMSourceAdapter
@@ -617,7 +617,7 @@ async def llm_propose(
     # Initialize RAG engine if not already initialized (for worker processes)
     if rag_engine is None and os.getenv("PINECONE_API_KEY"):
         try:
-            from rag_engine import RAGEngine
+            from app.dcl_engine.rag_engine import RAGEngine
             rag_engine = RAGEngine()
             log("✅ RAG Engine initialized in worker process")
         except Exception as e:
