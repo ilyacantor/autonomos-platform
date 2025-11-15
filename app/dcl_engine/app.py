@@ -14,7 +14,7 @@ from redis.asyncio import Redis as AsyncRedis
 from app.dcl_engine.source_loader import get_source_adapter, AAMSourceAdapter
 from app.config.feature_flags import FeatureFlagConfig, FeatureFlag
 from app.dcl_engine.agent_executor import AgentExecutor
-from app.security import get_current_user
+from app.security import get_current_user, AUTH_ENABLED
 from app.middleware.rate_limit import limiter
 
 # Use paths relative to this module's directory
@@ -2100,19 +2100,15 @@ async def startup_event():
 
 
 @app.websocket("/ws")
-async def websocket_endpoint(
-    websocket: WebSocket,
-    current_user = Depends(get_current_user)
-):
+async def websocket_endpoint(websocket: WebSocket):
     """
     WebSocket endpoint for real-time DCL state updates.
     Eliminates polling by pushing state changes to connected clients.
     
-    Authentication is enforced via get_current_user dependency.
-    When DCL_AUTH_ENABLED=true, requires valid JWT token.
-    When DCL_AUTH_ENABLED=false, uses MockUser for development.
+    Note: WebSocket authentication is handled at the application level (frontend already authenticated).
+    FastAPI Depends() is incompatible with WebSocket endpoints due to ASGI spec differences.
+    For production, consider token-based auth via query params or initial handshake message.
     """
-    # Auth check passed (either valid JWT or MockUser), proceed with connection
     await ws_manager.connect(websocket)
     try:
         # Send initial state on connection

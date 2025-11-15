@@ -37,7 +37,17 @@ async def rate_limit_middleware(request: Request, call_next: Callable):
     if not REDIS_AVAILABLE:
         return await call_next(request)
     
-    if request.url.path in ["/api/v1/health", "/docs", "/openapi.json"]:
+    # Exempt critical read-only endpoints from rate limiting
+    exempt_paths = [
+        "/api/v1/health",
+        "/docs",
+        "/openapi.json",
+        "/state",  # DCL graph state (read-only, frequently polled)
+        "/ws",  # WebSocket endpoint (persistent connection)
+        "/dcl/state",  # DCL state endpoint (read-only)
+        "/dcl/ws",  # DCL WebSocket with mount prefix
+    ]
+    if request.url.path in exempt_paths or request.url.path.startswith("/static/"):
         return await call_next(request)
     
     tenant_id = getattr(request.state, "tenant_id", "anonymous")
