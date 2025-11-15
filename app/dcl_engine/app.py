@@ -14,21 +14,23 @@ multi-tenant data isolation. The tenant_id is extracted from:
 Helper function:
     get_tenant_id_from_user(current_user) -> str
 
-All state operations MUST use:
-    tenant_state_manager.get_*_state(tenant_id)
-    tenant_state_manager.set_*_state(tenant_id, value)
+All state operations MUST use state_access helpers:
+    from app.dcl_engine import state_access
+    
+    graph = state_access.get_graph_state(tenant_id)
+    state_access.set_graph_state(tenant_id, updated_graph)
 
-Never access global variables directly (GRAPH_STATE, SOURCES_ADDED, etc.)
+Never access global variables or tenant_state_manager directly.
 
 Example - Endpoint with tenant_id:
     @app.get("/state", dependencies=AUTH_DEPENDENCIES)
     def state(current_user = Depends(get_current_user)):
         tenant_id = get_tenant_id_from_user(current_user)
-        return tenant_state_manager.get_graph_state(tenant_id)
+        return state_access.get_graph_state(tenant_id)
 
 Example - Service function with tenant_id:
     async def connect_source(source_id: str, tenant_id: str = "default"):
-        sources = tenant_state_manager.get_sources(tenant_id)
+        sources = state_access.get_sources(tenant_id)
         # ... operate on tenant-scoped state
 
 ================================================================================
@@ -50,6 +52,7 @@ from app.dcl_engine.source_loader import get_source_adapter, AAMSourceAdapter
 from app.config.feature_flags import FeatureFlagConfig, FeatureFlag
 from app.dcl_engine.agent_executor import AgentExecutor
 from app.dcl_engine.tenant_state import TenantStateManager
+from app.dcl_engine import state_access
 from app.security import get_current_user, AUTH_ENABLED
 from app.middleware.rate_limit import limiter
 
@@ -270,7 +273,7 @@ def get_tenant_id_from_user(current_user: Optional[Dict[str, Any]] = None) -> st
         @app.get("/state", dependencies=AUTH_DEPENDENCIES)
         async def get_state(current_user: Dict = Depends(get_current_user)):
             tenant_id = get_tenant_id_from_user(current_user)
-            graph = tenant_state_manager.get_graph_state(tenant_id)
+            graph = state_access.get_graph_state(tenant_id)
     """
     if not current_user:
         return "default"
@@ -335,6 +338,9 @@ def set_redis_client(client):
             print(f"⚠️ DCL Engine: Failed to initialize TenantStateManager: {e}. Using global state fallback.", flush=True)
             tenant_state_manager = TenantStateManager(None)
         
+        # Initialize state_access wrapper module with TenantStateManager
+        state_access.initialize_state_access(tenant_state_manager)
+        
         # Initialize GraphStateStore and load persisted graph state
         try:
             graph_store = GraphStateStore(redis_client)
@@ -372,12 +378,12 @@ def set_redis_client(client):
             if should_seed and demo_graph:
                 print(f"📊 DCL Engine: Seeding demo graph - {reason}", flush=True)
                 # Use tenant_state_manager to set initial graph state
-                tenant_state_manager.set_graph_state("default", demo_graph)
+                state_access.set_graph_state("default", demo_graph)
                 graph_store.save(demo_graph)
                 print(f"✅ Demo graph seeded ({len(demo_graph.get('nodes', []))} nodes, {len(demo_graph.get('edges', []))} edges)", flush=True)
             elif persisted_graph:
                 # Use tenant_state_manager to set initial graph state
-                tenant_state_manager.set_graph_state("default", persisted_graph)
+                state_access.set_graph_state("default", persisted_graph)
                 print(f"📊 DCL Engine: Hydrated graph state from Redis ({len(persisted_graph.get('nodes', []))} nodes)", flush=True)
             else:
                 print(f"📊 DCL Engine: Using empty graph (no demo graph available)", flush=True)
@@ -391,6 +397,9 @@ def set_redis_client(client):
         _dev_mode_initialized = True
         # Initialize TenantStateManager without Redis (will use global state fallback)
         tenant_state_manager = TenantStateManager(None)
+        
+        # Initialize state_access wrapper module with TenantStateManager
+        state_access.initialize_state_access(tenant_state_manager)
 
 # WebSocket connection manager with tenant isolation
 class ConnectionManager:
@@ -620,16 +629,8 @@ def log(msg: str, tenant_id: str = "default"):
     """
     print(msg, flush=True)
     
-    # Use TenantStateManager for tenant-scoped event logging
-    if tenant_state_manager:
-        tenant_state_manager.append_event(tenant_id, msg, max_events=200)
-    else:
-        # Fallback to global EVENT_LOG if TenantStateManager not initialized
-        global EVENT_LOG
-        if not EVENT_LOG or EVENT_LOG[-1] != msg:
-            EVENT_LOG.append(msg)
-        if len(EVENT_LOG) > 200:
-            EVENT_LOG.pop(0)
+    # Append to tenant-scoped event log (state_access handles dual-path internally)
+    state_access.append_event(tenant_id, msg)
 
 def load_ontology():
     with open(ONTOLOGY_PATH, "r") as f:
@@ -1151,12 +1152,8 @@ def heuristic_plan(ontology: Dict[str, Any], source_key: str, tables: Dict[str, 
         agents_config = load_agents_config()
     
     available_entities = set()
-    # Get selected agents (with guard)
-    if tenant_state_manager:
-        selected_agents = tenant_state_manager.get_selected_agents(tenant_id)
-    else:
-        global SELECTED_AGENTS
-        selected_agents = SELECTED_AGENTS
+    # Get selected agents (state_access handles dual-path internally)
+    selected_agents = state_access.get_selected_agents(tenant_id)
     
     if selected_agents:
         for agent_id in selected_agents:
@@ -1467,7 +1464,7 @@ def heuristic_plan(ontology: Dict[str, Any], source_key: str, tables: Dict[str, 
         log(f"✅ Heuristic filtered {len(mappings)} mappings as valid")
     
     # Filter out mappings that don't provide any useful fields for selected agents
-    selected_agents = tenant_state_manager.get_selected_agents(tenant_id)
+    selected_agents = state_access.get_selected_agents(tenant_id)
     if selected_agents:
         agent_key_metrics = set()
         for agent_id in selected_agents:
@@ -1604,12 +1601,8 @@ def apply_plan(con, source_key: str, plan: Dict[str, Any], tenant_id: str = "def
     
     # Apply all graph state updates atomically
     with STATE_LOCK:
-        # Get current graph state for this tenant (with guard)
-        if tenant_state_manager:
-            current_graph = tenant_state_manager.get_graph_state(tenant_id)
-        else:
-            global GRAPH_STATE
-            current_graph = GRAPH_STATE
+        # Get current graph state for this tenant (state_access handles dual-path)
+        current_graph = state_access.get_graph_state(tenant_id)
         
         # Add nodes (deduplicated)
         for node in nodes_to_add:
@@ -1620,22 +1613,14 @@ def apply_plan(con, source_key: str, plan: Dict[str, Any], tenant_id: str = "def
         for edge in edges_to_add:
             current_graph["edges"].append(edge)
         
-        # Save updated graph state (with guard)
-        if tenant_state_manager:
-            tenant_state_manager.set_graph_state(tenant_id, current_graph)
-        else:
-            GRAPH_STATE = current_graph
+        # Save updated graph state (state_access handles dual-path)
+        state_access.set_graph_state(tenant_id, current_graph)
         
-        # Update entity sources (tenant-scoped, with guard)
-        if tenant_state_manager:
-            current_entity_sources = tenant_state_manager.get_entity_sources(tenant_id)
-            for ent in entities_to_update:
-                current_entity_sources.setdefault(ent, []).append(source_key)
-            tenant_state_manager.set_entity_sources(tenant_id, current_entity_sources)
-        else:
-            global ENTITY_SOURCES
-            for ent in entities_to_update:
-                ENTITY_SOURCES.setdefault(ent, []).append(source_key)
+        # Update entity sources (state_access handles dual-path)
+        current_entity_sources = state_access.get_entity_sources(tenant_id)
+        for ent in entities_to_update:
+            current_entity_sources.setdefault(ent, []).append(source_key)
+        state_access.set_entity_sources(tenant_id, current_entity_sources)
     
     conf = sum(confs)/len(confs) if confs else 0.8
     return Scorecard(confidence=conf, blockers=blockers, issues=issues, joins=joins)
@@ -1643,12 +1628,8 @@ def apply_plan(con, source_key: str, plan: Dict[str, Any], tenant_id: str = "def
 def add_graph_nodes_for_source(source_key: str, tables: Dict[str, Any], tenant_id: str = "default"):
     global ontology, agents_config
     
-    # Get current graph state for this tenant (with guard)
-    if tenant_state_manager:
-        current_graph = tenant_state_manager.get_graph_state(tenant_id)
-    else:
-        global GRAPH_STATE
-        current_graph = GRAPH_STATE
+    # Get current graph state for this tenant (state_access handles dual-path)
+    current_graph = state_access.get_graph_state(tenant_id)
     
     # Create source_parent node BEFORE source nodes
     parent_node_id = f"sys_{source_key}"
@@ -1694,12 +1675,8 @@ def add_graph_nodes_for_source(source_key: str, tables: Dict[str, Any], tenant_i
     if not agents_config:
         agents_config = load_agents_config()
     
-    # Get selected agents (with guard)
-    if tenant_state_manager:
-        selected_agents = tenant_state_manager.get_selected_agents(tenant_id)
-    else:
-        global SELECTED_AGENTS
-        selected_agents = SELECTED_AGENTS
+    # Get selected agents (state_access handles dual-path internally)
+    selected_agents = state_access.get_selected_agents(tenant_id)
     
     for agent_id in selected_agents:
         agent_info = agents_config.get("agents", {}).get(agent_id, {})
@@ -1710,11 +1687,8 @@ def add_graph_nodes_for_source(source_key: str, tables: Dict[str, Any], tenant_i
                 "type": "agent"
             })
     
-    # Save updated graph state (with guard)
-    if tenant_state_manager:
-        tenant_state_manager.set_graph_state(tenant_id, current_graph)
-    else:
-        GRAPH_STATE = current_graph
+    # Save updated graph state (state_access handles dual-path)
+    state_access.set_graph_state(tenant_id, current_graph)
 
 def add_ontology_to_agent_edges(tenant_id: str = "default"):
     """Create edges from ontology entities to agents based on agent consumption config"""
@@ -1726,22 +1700,14 @@ def add_ontology_to_agent_edges(tenant_id: str = "default"):
     if not ontology:
         ontology = load_ontology()
     
-    # Get current graph state for this tenant (with guard)
-    if tenant_state_manager:
-        current_graph = tenant_state_manager.get_graph_state(tenant_id)
-    else:
-        global GRAPH_STATE
-        current_graph = GRAPH_STATE
+    # Get current graph state for this tenant (state_access handles dual-path)
+    current_graph = state_access.get_graph_state(tenant_id)
     
     # Get all existing ontology nodes
     ontology_nodes = [n for n in current_graph["nodes"] if n["type"] == "ontology"]
     
-    # For each selected agent, create edges from consumed ontology entities (with guard)
-    if tenant_state_manager:
-        selected_agents = tenant_state_manager.get_selected_agents(tenant_id)
-    else:
-        global SELECTED_AGENTS
-        selected_agents = SELECTED_AGENTS
+    # For each selected agent, create edges from consumed ontology entities (state_access handles dual-path)
+    selected_agents = state_access.get_selected_agents(tenant_id)
     for agent_id in selected_agents:
         agent_info = agents_config.get("agents", {}).get(agent_id, {})
         consumed_entities = agent_info.get("consumes", [])
@@ -1770,11 +1736,8 @@ def add_ontology_to_agent_edges(tenant_id: str = "default"):
                         "entity_name": entity_name
                     })
     
-    # Save updated graph state (with guard)
-    if tenant_state_manager:
-        tenant_state_manager.set_graph_state(tenant_id, current_graph)
-    else:
-        GRAPH_STATE = current_graph
+    # Save updated graph state (state_access handles dual-path)
+    state_access.set_graph_state(tenant_id, current_graph)
 
 def preview_table(con, name: str, limit: int = 6) -> List[Dict[str,Any]]:
     try:
@@ -1827,16 +1790,12 @@ async def connect_source(
         if not ASYNC_STATE_LOCK:
             ASYNC_STATE_LOCK = asyncio.Lock()
         async with ASYNC_STATE_LOCK:
-            if tenant_state_manager:
-                current_schemas = tenant_state_manager.get_source_schemas(tenant_id)
-                if source_key in current_schemas:
-                    del current_schemas[source_key]
-                    tenant_state_manager.set_source_schemas(tenant_id, current_schemas)
-                    log(f"🗑️  Cleared SOURCE_SCHEMAS cache for AAM source: {source_key}")
-            else:
-                if source_key in SOURCE_SCHEMAS:
-                    del SOURCE_SCHEMAS[source_key]
-                    log(f"🗑️  Cleared SOURCE_SCHEMAS cache for AAM source: {source_key}")
+            # Clear SOURCE_SCHEMAS cache for AAM source (state_access handles dual-path)
+            current_schemas = state_access.get_source_schemas(tenant_id)
+            if source_key in current_schemas:
+                del current_schemas[source_key]
+                state_access.set_source_schemas(tenant_id, current_schemas)
+                log(f"🗑️  Cleared SOURCE_SCHEMAS cache for AAM source: {source_key}")
         
         # Clear idempotency cache so all messages are reprocessed (fixes "0 sources" bug)
         # SAFE: /dcl/connect is user-initiated and synchronous (no concurrent ingestion)
@@ -1860,14 +1819,11 @@ async def connect_source(
         "timestamp": time.time()
     })
     
-    # Store schema information for later retrieval (async-safe)
+    # Store schema information for later retrieval (async-safe, state_access handles dual-path)
     async with ASYNC_STATE_LOCK:
-        if tenant_state_manager:
-            current_schemas = tenant_state_manager.get_source_schemas(tenant_id)
-            current_schemas[source_key] = tables
-            tenant_state_manager.set_source_schemas(tenant_id, current_schemas)
-        else:
-            SOURCE_SCHEMAS[source_key] = tables
+        current_schemas = state_access.get_source_schemas(tenant_id)
+        current_schemas[source_key] = tables
+        state_access.set_source_schemas(tenant_id, current_schemas)
     
     # Add graph nodes (async-safe)
     async with ASYNC_STATE_LOCK:
@@ -1910,26 +1866,19 @@ async def connect_source(
         
         # Update graph state (async-safe)
         async with ASYNC_STATE_LOCK:
-            # Get current graph state and update confidence/timestamp (with guard)
-            if tenant_state_manager:
-                current_graph = tenant_state_manager.get_graph_state(tenant_id)
-                current_graph["confidence"] = score.confidence
-                current_graph["last_updated"] = time.strftime("%I:%M:%S %p")
-                tenant_state_manager.set_graph_state(tenant_id, current_graph)
-            else:
-                GRAPH_STATE["confidence"] = score.confidence
-                GRAPH_STATE["last_updated"] = time.strftime("%I:%M:%S %p")
+            # Get current graph state and update confidence/timestamp (state_access handles dual-path)
+            current_graph = state_access.get_graph_state(tenant_id)
+            current_graph["confidence"] = score.confidence
+            current_graph["last_updated"] = time.strftime("%I:%M:%S %p")
+            state_access.set_graph_state(tenant_id, current_graph)
             
             # Create edges from ontology entities to agents
             add_ontology_to_agent_edges(tenant_id)
             
-            # Add source to tenant-scoped sources list (with guard)
-            if tenant_state_manager:
-                current_sources = tenant_state_manager.get_sources(tenant_id)
-                current_sources.append(source_key)
-                tenant_state_manager.set_sources(tenant_id, current_sources)
-            else:
-                SOURCES_ADDED.append(source_key)
+            # Add source to tenant-scoped sources list (state_access handles dual-path)
+            current_sources = state_access.get_sources(tenant_id)
+            current_sources.append(source_key)
+            state_access.set_sources(tenant_id, current_sources)
         
         ents = ", ".join(sorted(tables.keys()))
         log(f"I found these entities: {ents}.")
@@ -1952,12 +1901,8 @@ async def connect_source(
             agents_config = load_agents_config()
         
         ontology_entities = set()
-        # Get selected agents (with guard)
-        if tenant_state_manager:
-            selected_agents = tenant_state_manager.get_selected_agents(tenant_id)
-        else:
-            global SELECTED_AGENTS
-            selected_agents = SELECTED_AGENTS
+        # Get selected agents (state_access handles dual-path internally)
+        selected_agents = state_access.get_selected_agents(tenant_id)
         
         if selected_agents:
             for agent_id in selected_agents:
@@ -2015,24 +1960,13 @@ def reset_state(exclude_dev_mode=True, tenant_id: str = "default"):
     """
     global ontology, RAG_CONTEXT
     
-    # Reset tenant-scoped state via TenantStateManager
-    if tenant_state_manager:
-        # Use TenantStateManager when available (dual-path support)
-        tenant_state_manager.set_event_log(tenant_id, [])
-        tenant_state_manager.set_graph_state(tenant_id, {"nodes": [], "edges": [], "confidence": None, "last_updated": None})
-        tenant_state_manager.set_sources(tenant_id, [])
-        tenant_state_manager.set_entity_sources(tenant_id, {})
-        tenant_state_manager.set_source_schemas(tenant_id, {})
-        tenant_state_manager.set_selected_agents(tenant_id, [])
-    else:
-        # Fallback to legacy globals when TenantStateManager unavailable
-        global GRAPH_STATE, SOURCES_ADDED, ENTITY_SOURCES, SOURCE_SCHEMAS, SELECTED_AGENTS, EVENT_LOG
-        GRAPH_STATE = {"nodes": [], "edges": [], "confidence": None, "last_updated": None}
-        SOURCES_ADDED = []
-        ENTITY_SOURCES = {}
-        SOURCE_SCHEMAS = {}
-        SELECTED_AGENTS = []
-        EVENT_LOG = []
+    # Reset tenant-scoped state (state_access handles dual-path internally)
+    state_access.set_event_log(tenant_id, [])
+    state_access.set_graph_state(tenant_id, {"nodes": [], "edges": [], "confidence": None, "last_updated": None})
+    state_access.set_sources(tenant_id, [])
+    state_access.set_entity_sources(tenant_id, {})
+    state_access.set_source_schemas(tenant_id, {})
+    state_access.set_selected_agents(tenant_id, [])
     # LLM stats persist across runs for cumulative tracking (removed reset_llm_stats call)
     # Clear RAG retrievals so they update with fresh data on each connection
     RAG_CONTEXT["retrievals"] = []
@@ -2096,13 +2030,8 @@ async def broadcast_state_change(event_type: str = "state_update", tenant_id: st
         # AAM sources (lowercase keys as they appear in source_key)
         aam_source_keys = {"salesforce", "supabase", "mongodb", "filesource"}
         
-        # Get current graph state for this tenant (with guard for Redis unavailable)
-        if tenant_state_manager:
-            current_graph = tenant_state_manager.get_graph_state(tenant_id)
-        else:
-            # Fallback to global GRAPH_STATE when TenantStateManager unavailable
-            global GRAPH_STATE
-            current_graph = GRAPH_STATE
+        # Get current graph state for this tenant (state_access handles dual-path)
+        current_graph = state_access.get_graph_state(tenant_id)
         
         # Filter nodes based on mode
         if use_aam:
@@ -2160,19 +2089,11 @@ async def broadcast_state_change(event_type: str = "state_update", tenant_id: st
         # Determine source mode from feature flag
         source_mode = "aam_connectors" if FeatureFlagConfig.is_enabled(FeatureFlag.USE_AAM_AS_SOURCE) else "demo_files"
         
-        # Get tenant-scoped state with fallback to globals when manager unavailable
-        if tenant_state_manager:
-            current_sources = tenant_state_manager.get_sources(tenant_id)
-            current_events = tenant_state_manager.get_event_log(tenant_id)
-            current_agents = tenant_state_manager.get_selected_agents(tenant_id)
-            current_entity_sources = tenant_state_manager.get_entity_sources(tenant_id)
-        else:
-            # Fallback to global state when TenantStateManager unavailable
-            global SOURCES_ADDED, EVENT_LOG, SELECTED_AGENTS, ENTITY_SOURCES
-            current_sources = SOURCES_ADDED
-            current_events = EVENT_LOG
-            current_agents = SELECTED_AGENTS
-            current_entity_sources = ENTITY_SOURCES
+        # Get tenant-scoped state (state_access handles dual-path internally)
+        current_sources = state_access.get_sources(tenant_id)
+        current_events = state_access.get_event_log(tenant_id)
+        current_agents = state_access.get_selected_agents(tenant_id)
+        current_entity_sources = state_access.get_entity_sources(tenant_id)
         
         # Send complete data (frontend has scrolling for unlimited display)
         state_payload = {
@@ -2316,15 +2237,9 @@ async def feature_flag_pubsub_listener():
                     
                     # Handle USE_AAM_AS_SOURCE flag changes
                     if flag_name == FeatureFlag.USE_AAM_AS_SOURCE.value:
-                        # Clear DCL cache to force fresh graph generation (with guard)
-                        if tenant_state_manager:
-                            tenant_state_manager.set_graph_state("default", {"nodes": [], "edges": [], "confidence": None, "last_updated": None})
-                            tenant_state_manager.set_sources("default", [])
-                        else:
-                            # Fallback to global state when TenantStateManager unavailable
-                            global GRAPH_STATE, SOURCES_ADDED
-                            GRAPH_STATE = {"nodes": [], "edges": [], "confidence": None, "last_updated": None}
-                            SOURCES_ADDED = []
+                        # Clear DCL cache to force fresh graph generation (state_access handles dual-path)
+                        state_access.set_graph_state("default", {"nodes": [], "edges": [], "confidence": None, "last_updated": None})
+                        state_access.set_sources("default", [])
                         
                         # Clear persisted graph state from Redis
                         if graph_store:
@@ -2379,15 +2294,9 @@ async def startup_event():
                 
                 # Handle USE_AAM_AS_SOURCE flag changes
                 if flag_name == FeatureFlag.USE_AAM_AS_SOURCE.value:
-                    # Clear DCL cache to force fresh graph generation (with guard)
-                    if tenant_state_manager:
-                        tenant_state_manager.set_graph_state("default", {"nodes": [], "edges": [], "confidence": None, "last_updated": None})
-                        tenant_state_manager.set_sources("default", [])
-                    else:
-                        # Fallback to global state when TenantStateManager unavailable
-                        global GRAPH_STATE, SOURCES_ADDED
-                        GRAPH_STATE = {"nodes": [], "edges": [], "confidence": None, "last_updated": None}
-                        SOURCES_ADDED = []
+                    # Clear DCL cache to force fresh graph generation (state_access handles dual-path)
+                    state_access.set_graph_state("default", {"nodes": [], "edges": [], "confidence": None, "last_updated": None})
+                    state_access.set_sources("default", [])
                     
                     # Clear persisted graph state from Redis
                     if graph_store:
@@ -2538,12 +2447,8 @@ def state(current_user = Depends(get_current_user)):
     for agent_id, agent_info in agents_config.get("agents", {}).items():
         agent_consumption[agent_id] = agent_info.get("consumes", [])
     
-    # Get current graph state for this tenant (with guard)
-    if tenant_state_manager:
-        current_graph = tenant_state_manager.get_graph_state(tenant_id)
-    else:
-        global GRAPH_STATE
-        current_graph = GRAPH_STATE
+    # Get current graph state for this tenant (state_access handles dual-path)
+    current_graph = state_access.get_graph_state(tenant_id)
     
     # Filter graph based on AAM mode - show only relevant source nodes
     use_aam = FeatureFlagConfig.is_enabled(FeatureFlag.USE_AAM_AS_SOURCE)
@@ -2608,16 +2513,10 @@ def state(current_user = Depends(get_current_user)):
     # Determine source mode from feature flag
     source_mode = "aam_connectors" if FeatureFlagConfig.is_enabled(FeatureFlag.USE_AAM_AS_SOURCE) else "demo_files"
     
-    # Get tenant-scoped state with fallback to globals
-    if tenant_state_manager:
-        current_events = tenant_state_manager.get_event_log(tenant_id)
-        selected_sources = tenant_state_manager.get_sources(tenant_id)
-        selected_agents = tenant_state_manager.get_selected_agents(tenant_id)
-    else:
-        global EVENT_LOG, SOURCES_ADDED, SELECTED_AGENTS
-        current_events = EVENT_LOG
-        selected_sources = SOURCES_ADDED
-        selected_agents = SELECTED_AGENTS
+    # Get tenant-scoped state (state_access handles dual-path internally)
+    current_events = state_access.get_event_log(tenant_id)
+    selected_sources = state_access.get_sources(tenant_id)
+    selected_agents = state_access.get_selected_agents(tenant_id)
     
     return JSONResponse({
         "events": current_events,
@@ -2888,12 +2787,8 @@ async def connect(
     log(f"🔌 Connecting {len(source_list)} source(s) with {len(agent_list)} agent(s)...")
     log(f"📂 Using {source_mode} for sources: {', '.join(source_list)} (tenant: {tenant_id})")
     
-    # Store selected agents in tenant-scoped storage (with guard)
-    if tenant_state_manager:
-        tenant_state_manager.set_selected_agents(tenant_id, agent_list)
-    else:
-        global SELECTED_AGENTS
-        SELECTED_AGENTS = agent_list
+    # Store selected agents in tenant-scoped storage (state_access handles dual-path)
+    state_access.set_selected_agents(tenant_id, agent_list)
     
     # Log which model is being used
     log(f"🤖 Using LLM model: {llm_model}")
@@ -2942,17 +2837,13 @@ async def connect(
     # Persist graph state to Redis after successful connection
     if graph_store and tenant_state_manager:
         try:
-            current_graph = tenant_state_manager.get_graph_state(tenant_id)
+            current_graph = state_access.get_graph_state(tenant_id)
             graph_store.save(current_graph, tenant_id)
         except Exception as e:
             log(f"⚠️ Failed to persist graph: {e}")
     
-    # Get sources for response (with guard)
-    if tenant_state_manager:
-        response_sources = tenant_state_manager.get_sources(tenant_id)
-    else:
-        global SOURCES_ADDED
-        response_sources = SOURCES_ADDED
+    # Get sources for response (state_access handles dual-path)
+    response_sources = state_access.get_sources(tenant_id)
     
     return JSONResponse({
         "ok": True, 
@@ -3062,15 +2953,9 @@ async def toggle_aam_mode(
     # Set the flag (writes to Redis and publishes to pub/sub)
     FeatureFlagConfig.set_flag(FeatureFlag.USE_AAM_AS_SOURCE, new_state)
     
-    # Clear DCL cache to force fresh graph generation (with guard)
-    if tenant_state_manager:
-        tenant_state_manager.set_graph_state(tenant_id, {"nodes": [], "edges": [], "confidence": None, "last_updated": None})
-        tenant_state_manager.set_sources(tenant_id, [])
-    else:
-        # Fallback to global state when TenantStateManager unavailable
-        global GRAPH_STATE, SOURCES_ADDED
-        GRAPH_STATE = {"nodes": [], "edges": [], "confidence": None, "last_updated": None}
-        SOURCES_ADDED = []
+    # Clear DCL cache to force fresh graph generation (state_access handles dual-path)
+    state_access.set_graph_state(tenant_id, {"nodes": [], "edges": [], "confidence": None, "last_updated": None})
+    state_access.set_sources(tenant_id, [])
     
     # Clear persisted graph state from Redis
     if graph_store:
@@ -3161,12 +3046,8 @@ def preview(
             agents_config = load_agents_config()
         
         ontology_entities = set()
-        # Get selected agents (with guard)
-        if tenant_state_manager:
-            selected_agents = tenant_state_manager.get_selected_agents(tenant_id)
-        else:
-            global SELECTED_AGENTS
-            selected_agents = SELECTED_AGENTS
+        # Get selected agents (state_access handles dual-path internally)
+        selected_agents = state_access.get_selected_agents(tenant_id)
         
         if selected_agents:
             # Get entities consumed by selected agents
@@ -3203,12 +3084,8 @@ def source_schemas(current_user = Depends(get_current_user)):
     # Extract tenant_id
     tenant_id = get_tenant_id_from_user(current_user)
     
-    # Get tenant-scoped source schemas (with guard)
-    if tenant_state_manager:
-        schemas = tenant_state_manager.get_source_schemas(tenant_id)
-    else:
-        global SOURCE_SCHEMAS
-        schemas = SOURCE_SCHEMAS
+    # Get tenant-scoped source schemas (state_access handles dual-path)
+    schemas = state_access.get_source_schemas(tenant_id)
     
     # Sanitize data for JSON serialization (replace NaN/Inf with None)
     import math
@@ -3248,12 +3125,8 @@ def ontology_schema(current_user = Depends(get_current_user)):
     if not ontology:
         ontology = load_ontology()
     
-    # Get current graph state for this tenant (with guard)
-    if tenant_state_manager:
-        current_graph = tenant_state_manager.get_graph_state(tenant_id)
-    else:
-        global GRAPH_STATE
-        current_graph = GRAPH_STATE
+    # Get current graph state for this tenant (state_access handles dual-path)
+    current_graph = state_access.get_graph_state(tenant_id)
     
     # Build schema: entity -> {pk, fields[], source_mappings[]}
     schema = {}
