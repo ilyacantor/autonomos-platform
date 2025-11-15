@@ -68,6 +68,12 @@ AutonomOS is a production-ready, multi-tenant SaaS backend system in Python for 
 ## User Preferences
 I prefer clear, concise explanations and direct answers. I value iterative development with frequent, small updates. Please ask for my approval before implementing major architectural changes or significant feature additions. I prefer detailed explanations for complex concepts but require brevity for straightforward ones. Do not make changes to folder `Z` and file `Y`.
 
+**CRITICAL: Task Planning Guidelines**
+- NEVER reference duration/time estimates in task descriptions or plans
+- NEVER organize plans around time-based phases (Week 1, Week 2, etc.)
+- Organize by logical phases, dependencies, and priorities only
+- Use priority levels (P0/Critical, High, Medium, Low) instead of timelines
+
 ## System Architecture
 AutonomOS is a full-stack SaaS platform built around a multi-tenant architecture with UUID-based `tenant_id` scoping and JWT authentication for data isolation.
 
