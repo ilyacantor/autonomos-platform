@@ -11,8 +11,6 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import CanonicalStream

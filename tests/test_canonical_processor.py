@@ -27,12 +27,6 @@ class TestEventNormalization:
         - Data types are properly inferred
         - Event structure is preserved
         """
-        from pathlib import Path
-        import sys
-        
-        current_dir = Path(__file__).parent.parent
-        sys.path.insert(0, str(current_dir))
-        
         from aam_hybrid.core.canonical_processor import CanonicalProcessor
         
         processor = CanonicalProcessor(mock_redis)
@@ -51,12 +45,6 @@ class TestEventNormalization:
         This is a critical bug fix - numeric strings should NOT be
         converted to integers during normalization.
         """
-        from pathlib import Path
-        import sys
-        
-        current_dir = Path(__file__).parent.parent
-        sys.path.insert(0, str(current_dir))
-        
         from aam_hybrid.core.canonical_processor import CanonicalProcessor
         
         processor = CanonicalProcessor(mock_redis)
@@ -99,12 +87,6 @@ class TestEventNormalization:
         Ensures the processor gracefully handles events that don't
         have drift_status, repair_summary, or data_lineage.
         """
-        from pathlib import Path
-        import sys
-        
-        current_dir = Path(__file__).parent.parent
-        sys.path.insert(0, str(current_dir))
-        
         from aam_hybrid.core.canonical_processor import CanonicalProcessor
         
         processor = CanonicalProcessor(mock_redis)
@@ -150,12 +132,6 @@ class TestEventValidation:
         - Field types are correct
         - Schema fingerprint is valid
         """
-        from pathlib import Path
-        import sys
-        
-        current_dir = Path(__file__).parent.parent
-        sys.path.insert(0, str(current_dir))
-        
         from aam_hybrid.core.canonical_processor import CanonicalProcessor
         
         processor = CanonicalProcessor(mock_redis)
@@ -170,12 +146,6 @@ class TestEventValidation:
         
         Schema fingerprints are required for drift detection.
         """
-        from pathlib import Path
-        import sys
-        
-        current_dir = Path(__file__).parent.parent
-        sys.path.insert(0, str(current_dir))
-        
         from aam_hybrid.core.canonical_processor import CanonicalProcessor
         
         processor = CanonicalProcessor(mock_redis)
@@ -201,12 +171,6 @@ class TestMetadataEnrichment:
         - Confidence scores are calculated
         - Data lineage is tracked
         """
-        from pathlib import Path
-        import sys
-        
-        current_dir = Path(__file__).parent.parent
-        sys.path.insert(0, str(current_dir))
-        
         from aam_hybrid.core.canonical_processor import CanonicalProcessor
         
         processor = CanonicalProcessor(mock_redis)
@@ -226,12 +190,6 @@ class TestMetadataEnrichment:
         - Transformations are tracked
         - Timestamps are accurate
         """
-        from pathlib import Path
-        import sys
-        
-        current_dir = Path(__file__).parent.parent
-        sys.path.insert(0, str(current_dir))
-        
         from aam_hybrid.core.canonical_processor import CanonicalProcessor
         
         processor = CanonicalProcessor(mock_redis)
@@ -250,12 +208,6 @@ class TestMetadataEnrichment:
         - Overall confidence is average of field mapping confidences
         - Confidence scores are between 0.0 and 1.0
         """
-        from pathlib import Path
-        import sys
-        
-        current_dir = Path(__file__).parent.parent
-        sys.path.insert(0, str(current_dir))
-        
         from aam_hybrid.core.canonical_processor import CanonicalProcessor
         
         processor = CanonicalProcessor(mock_redis)
@@ -328,12 +280,6 @@ class TestProcessingPipeline:
         - Events are enriched
         - Invalid events are filtered out
         """
-        from pathlib import Path
-        import sys
-        
-        current_dir = Path(__file__).parent.parent
-        sys.path.insert(0, str(current_dir))
-        
         from aam_hybrid.core.canonical_processor import CanonicalProcessor
         
         processor = CanonicalProcessor(mock_redis)
@@ -351,12 +297,6 @@ class TestProcessingPipeline:
         """
         Test that processing an empty list returns empty list.
         """
-        from pathlib import Path
-        import sys
-        
-        current_dir = Path(__file__).parent.parent
-        sys.path.insert(0, str(current_dir))
-        
         from aam_hybrid.core.canonical_processor import CanonicalProcessor
         
         processor = CanonicalProcessor(mock_redis)
@@ -372,12 +312,6 @@ class TestCanonicalProcessorUnit:
     
     def test_processor_initialization(self, mock_redis):
         """Test that processor initializes correctly"""
-        from pathlib import Path
-        import sys
-        
-        current_dir = Path(__file__).parent.parent
-        sys.path.insert(0, str(current_dir))
-        
         from aam_hybrid.core.canonical_processor import CanonicalProcessor
         
         processor = CanonicalProcessor(mock_redis)

@@ -8,7 +8,6 @@ import csv
 import tempfile
 import shutil
 from pathlib import Path
-sys.path.insert(0, os.getcwd())
 
 from sqlalchemy import text
 from app.database import SessionLocal

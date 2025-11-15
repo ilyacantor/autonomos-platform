@@ -31,9 +31,7 @@ async def heal_connections():
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     
     async with async_session() as session:
-        # Import here to avoid circular imports
-        sys.path.insert(0, 'aam_hybrid')
-        from shared.models import Connection
+        from aam_hybrid.shared.models import Connection
         
         # Find HEALING connections
         result = await session.execute(

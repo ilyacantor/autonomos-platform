@@ -44,7 +44,7 @@ dev = [
 ]
 
 [tool.setuptools]
-packages = ["app", "shared", "aam_hybrid"]
+packages = ["app", "shared", "aam_hybrid", "services", "scripts"]
 
 [tool.setuptools.package-data]
 "*" = ["*.yaml", "*.yml", "*.json"]

@@ -13,9 +13,6 @@ import sys
 import uuid
 from datetime import datetime, timedelta
 
-# Add parent directory to path for imports
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from sqlalchemy.orm import Session
 from app.database import engine, get_db
 from app import models

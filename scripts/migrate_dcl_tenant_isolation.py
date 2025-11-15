@@ -6,8 +6,6 @@ This is a critical security fix for multi-tenant data isolation
 import os
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from sqlalchemy import text
 from app.database import SessionLocal, engine
 from app.models import Base, DCLUnifiedContact, DCLUnifiedContactLink
