@@ -1,6 +1,14 @@
 """
 Shared pytest fixtures for AutonomOS multi-tenant testing.
 """
+import os
+import uuid
+
+# CRITICAL: Enable authentication for tests BEFORE importing app modules
+# This must be set before app.security is loaded to properly validate JWT tokens
+# Without this, all requests use MockUser and security tests cannot function
+os.environ['DCL_AUTH_ENABLED'] = 'true'
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -9,13 +17,11 @@ from app.main import app
 from app.database import get_db
 from app.models import Base
 from app.config import settings
-import uuid
 
 # Create a test database engine
 # NOTE: On Replit, DATABASE_URL points to the development database (not production)
 # Tests use unique tenant names (UUID-based) to avoid conflicts with manual testing
 # For true production isolation, set TEST_DATABASE_URL environment variable
-import os
 TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL", settings.DATABASE_URL)
 engine = create_engine(TEST_DATABASE_URL)
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

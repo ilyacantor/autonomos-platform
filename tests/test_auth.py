@@ -151,7 +151,7 @@ class TestCurrentUser:
         response = client.get("/users/me")
         
         # Should fail - no authorization header
-        assert response.status_code == 403
+        assert response.status_code == 401
     
     def test_get_current_user_with_invalid_token_fails(self, client):
         """Test that /users/me with invalid token returns 401."""
@@ -163,11 +163,11 @@ class TestCurrentUser:
         assert response.status_code == 401
     
     def test_get_current_user_with_malformed_token_fails(self, client):
-        """Test that /users/me with malformed token returns 403."""
+        """Test that /users/me with malformed token returns 401."""
         response = client.get(
             "/users/me",
             headers={"Authorization": "Bearer"}  # Missing token
         )
         
-        # FastAPI returns 403 when the bearer token is missing/malformed
-        assert response.status_code == 403
+        # FastAPI returns 401 when the bearer token is missing/malformed
+        assert response.status_code == 401
