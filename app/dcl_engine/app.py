@@ -1605,9 +1605,11 @@ def apply_plan(con, source_key: str, plan: Dict[str, Any], tenant_id: str = "def
         # Save updated graph state
         tenant_state_manager.set_graph_state(tenant_id, current_graph)
         
-        # Update entity sources
+        # Update entity sources (tenant-scoped)
+        current_entity_sources = tenant_state_manager.get_entity_sources(tenant_id)
         for ent in entities_to_update:
-            ENTITY_SOURCES.setdefault(ent, []).append(source_key)
+            current_entity_sources.setdefault(ent, []).append(source_key)
+        tenant_state_manager.set_entity_sources(tenant_id, current_entity_sources)
     
     conf = sum(confs)/len(confs) if confs else 0.8
     return Scorecard(confidence=conf, blockers=blockers, issues=issues, joins=joins)
@@ -1933,18 +1935,18 @@ def reset_state(exclude_dev_mode=True, tenant_id: str = "default"):
         - When TENANT_SCOPED_STATE=True: Resets tenant-scoped Redis state
         - Both code paths work simultaneously (dual-write pattern)
     """
-    global EVENT_LOG, ENTITY_SOURCES, ontology, SELECTED_AGENTS, SOURCE_SCHEMAS, RAG_CONTEXT
+    global EVENT_LOG, ontology, SELECTED_AGENTS, SOURCE_SCHEMAS, RAG_CONTEXT
     
     # Reset tenant-scoped state via TenantStateManager
     if tenant_state_manager:
         tenant_state_manager.reset_tenant(tenant_id, exclude_dev_mode=exclude_dev_mode)
     
     # Also reset global state for backward compatibility (flag=False path)
-    # Note: GRAPH_STATE and SOURCES_ADDED are now managed via tenant_state_manager
+    # Note: GRAPH_STATE, SOURCES_ADDED, and ENTITY_SOURCES are now managed via tenant_state_manager
     EVENT_LOG = []
     tenant_state_manager.set_graph_state(tenant_id, {"nodes": [], "edges": [], "confidence": None, "last_updated": None})
     tenant_state_manager.set_sources(tenant_id, [])
-    ENTITY_SOURCES = {}
+    tenant_state_manager.set_entity_sources(tenant_id, {})
     SELECTED_AGENTS = []
     SOURCE_SCHEMAS = {}
     # LLM stats persist across runs for cumulative tracking (removed reset_llm_stats call)
@@ -2093,7 +2095,7 @@ async def broadcast_state_change(event_type: str = "state_update", tenant_id: st
                 },
                 "blendedConfidence": blended_confidence,
                 "events": EVENT_LOG,  # All events (no limit - frontend has scrolling)
-                "entitySources": ENTITY_SOURCES,
+                "entitySources": tenant_state_manager.get_entity_sources(tenant_id),
                 "agentConsumption": agent_consumption
             }
         }
