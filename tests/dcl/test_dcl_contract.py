@@ -203,10 +203,14 @@ class TestDCLConnectEndpointContract:
         """
         client, headers, tenant_id = dcl_reset_state
         
-        # Connect a source
+        # Connect a source using NEW API signature
         response = client.get(
             "/dcl/connect",
-            params={"source_id": "salesforce"},
+            params={
+                "sources": "salesforce",
+                "agents": "revops_pilot",
+                "llm_model": "gemini-2.5-flash"
+            },
             headers=headers
         )
         

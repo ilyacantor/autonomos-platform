@@ -307,6 +307,7 @@ def get_tenant_id_from_user(current_user: Optional[Dict[str, Any]] = None) -> st
         - When AUTH_ENABLED=true: Extracts tenant_id from JWT claims (dict)
         - When AUTH_ENABLED=false: Extracts tenant_id from MockUser object
         - Falls back to "default" if tenant_id not available
+        - CRITICAL: Always returns str, converting UUID objects to strings for JSON serialization
     
     Example:
         # In endpoint with auth
@@ -326,7 +327,9 @@ def get_tenant_id_from_user(current_user: Optional[Dict[str, Any]] = None) -> st
         # MockUser object - access attribute directly
         tenant_id = getattr(current_user, "tenant_id", "default")
     
-    return tenant_id
+    # CRITICAL: Convert to string to handle UUID objects from JWT/database
+    # Prevents TypeError: Object of type UUID is not JSON serializable
+    return str(tenant_id)
 
 def set_redis_client(client):
     """
@@ -2853,13 +2856,25 @@ async def connect(
     sources: str = Query(...),
     agents: str = Query(...),
     llm_model: str = Query("gemini-2.5-flash", description="LLM model: gemini-2.5-flash, gpt-4o-mini, gpt-4o"),
-    tenant_id: str = Query("default", description="Tenant identifier for multi-tenant isolation")
+    current_user = Depends(get_current_user)
 ):
     """
     Idempotent connection endpoint - clears prior state and rebuilds from scratch.
     Replaces both legacy /reset and /connect behavior.
     Dev mode is preserved across connection rebuilds.
+    
+    Args:
+        current_user: Current authenticated user (contains tenant_id in JWT claims)
+        sources: Comma-separated list of source IDs
+        agents: Comma-separated list of agent IDs
+        llm_model: LLM model to use for entity mapping
+    
+    Tenant Isolation:
+        - Extracts tenant_id from current_user JWT claims via get_tenant_id_from_user()
+        - All state operations are tenant-scoped via TenantStateManager
     """
+    # Extract tenant_id from current user (CRITICAL for multi-tenant isolation)
+    tenant_id = get_tenant_id_from_user(current_user)
     source_list = [s.strip() for s in sources.split(',') if s.strip()]
     agent_list = [a.strip() for a in agents.split(',') if a.strip()]
     

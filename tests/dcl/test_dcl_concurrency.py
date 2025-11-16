@@ -113,7 +113,15 @@ class TestDCLConcurrentWrites:
             """Async helper to connect a source"""
             # CRITICAL: Bind AsyncClient to ASGI app
             async with httpx.AsyncClient(app=app, base_url="http://test") as async_client:
-                response = await async_client.get(f"/dcl/connect?source_id={source_id}", headers=headers)
+                response = await async_client.get(
+                    "/dcl/connect",
+                    params={
+                        "sources": source_id,
+                        "agents": "revops_pilot",
+                        "llm_model": "gemini-2.5-flash"
+                    },
+                    headers=headers
+                )
                 assert response.status_code == 200, \
                     f"Connect {source_id} failed: {response.text}"
                 return {"source": source_id, "success": True}
@@ -168,7 +176,15 @@ class TestDCLConcurrentWrites:
             """Connect salesforce"""
             # CRITICAL: Bind AsyncClient to ASGI app
             async with httpx.AsyncClient(app=app, base_url="http://test") as async_client:
-                response = await async_client.get(f"/dcl/connect?source_id={source_id}", headers=headers)
+                response = await async_client.get(
+                    "/dcl/connect",
+                    params={
+                        "sources": source_id,
+                        "agents": "revops_pilot",
+                        "llm_model": "gemini-2.5-flash"
+                    },
+                    headers=headers
+                )
                 return response.status_code == 200
         
         # Connect salesforce 10 times concurrently
@@ -226,7 +242,15 @@ class TestDCLMixedConcurrency:
             """Connect a source (write)"""
             # CRITICAL: Bind AsyncClient to ASGI app
             async with httpx.AsyncClient(app=app, base_url="http://test") as async_client:
-                response = await async_client.get(f"/dcl/connect?source_id={source_id}", headers=headers)
+                response = await async_client.get(
+                    "/dcl/connect",
+                    params={
+                        "sources": source_id,
+                        "agents": "revops_pilot",
+                        "llm_model": "gemini-2.5-flash"
+                    },
+                    headers=headers
+                )
                 return {"type": "write", "source": source_id, "ok": response.status_code == 200}
         
         async def read_operation(index: int):
@@ -329,7 +353,15 @@ class TestDCLTenantIsolationUnderLoad:
             """Connect source for specific tenant"""
             # CRITICAL: Bind AsyncClient to ASGI app
             async with httpx.AsyncClient(app=app, base_url="http://test") as async_client:
-                response = await async_client.get(f"/dcl/connect?source_id={source_id}", headers=headers)
+                response = await async_client.get(
+                    "/dcl/connect",
+                    params={
+                        "sources": source_id,
+                        "agents": "revops_pilot",
+                        "llm_model": "gemini-2.5-flash"
+                    },
+                    headers=headers
+                )
                 return {
                     "tenant": tenant_name,
                     "source": source_id,

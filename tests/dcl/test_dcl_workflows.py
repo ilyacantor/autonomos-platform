@@ -119,7 +119,11 @@ class TestDCLConstruction:
         # Connect salesforce
         connect_response = client.get(
             "/dcl/connect",
-            params={"source_id": "salesforce"},
+            params={
+                "sources": "salesforce",
+                "agents": "revops_pilot",
+                "llm_model": "gemini-2.5-flash"
+            },
             headers=headers
         )
         assert connect_response.status_code == 200, f"Connect failed: {connect_response.text}"
@@ -155,7 +159,11 @@ class TestDCLConstruction:
         # Connect salesforce
         sf_response = client.get(
             "/dcl/connect",
-            params={"source_id": "salesforce"},
+            params={
+                "sources": "salesforce",
+                "agents": "revops_pilot",
+                "llm_model": "gemini-2.5-flash"
+            },
             headers=headers
         )
         assert sf_response.status_code == 200
@@ -168,7 +176,11 @@ class TestDCLConstruction:
         # Connect hubspot
         hs_response = client.get(
             "/dcl/connect",
-            params={"source_id": "hubspot"},
+            params={
+                "sources": "hubspot",
+                "agents": "revops_pilot",
+                "llm_model": "gemini-2.5-flash"
+            },
             headers=headers
         )
         assert hs_response.status_code == 200
@@ -202,7 +214,11 @@ class TestDCLConstruction:
         # Connect salesforce first time
         response1 = client.get(
             "/dcl/connect",
-            params={"source_id": "salesforce"},
+            params={
+                "sources": "salesforce",
+                "agents": "revops_pilot",
+                "llm_model": "gemini-2.5-flash"
+            },
             headers=headers
         )
         assert response1.status_code == 200
@@ -213,7 +229,11 @@ class TestDCLConstruction:
         # Connect salesforce second time
         response2 = client.get(
             "/dcl/connect",
-            params={"source_id": "salesforce"},
+            params={
+                "sources": "salesforce",
+                "agents": "revops_pilot",
+                "llm_model": "gemini-2.5-flash"
+            },
             headers=headers
         )
         assert response2.status_code == 200
@@ -322,7 +342,11 @@ class TestDCLReset:
         # Reconnect salesforce
         reconnect_response = client.get(
             "/dcl/connect",
-            params={"source_id": "salesforce"},
+            params={
+                "sources": "salesforce",
+                "agents": "revops_pilot",
+                "llm_model": "gemini-2.5-flash"
+            },
             headers=headers
         )
         assert reconnect_response.status_code == 200
@@ -352,16 +376,20 @@ class TestDCLEdgeCases:
         """
         client, headers, tenant_id = dcl_reset_state
         
-        # Try connecting invalid source
+        # Try connecting invalid source using NEW API signature
         response = client.get(
             "/dcl/connect",
-            params={"source_id": "invalid_source_xyz"},
+            params={
+                "sources": "invalid_source_xyz",
+                "agents": "revops_pilot",
+                "llm_model": "gemini-2.5-flash"
+            },
             headers=headers
         )
         
         # Should either return error or handle gracefully
-        # (Accept both 404 and 200 with error message)
-        assert response.status_code in [200, 404, 400], \
+        # (Accept both 207/404/400 - 207 is partial failure response)
+        assert response.status_code in [200, 207, 404, 400], \
             f"Unexpected status code: {response.status_code}"
         
         # Verify graph state not corrupted
