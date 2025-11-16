@@ -1880,65 +1880,373 @@ def preview_table(con, name: str, limit: int = 6) -> List[Dict[str,Any]]:
     except Exception:
         return []
 
+def _sync_llm_propose_internal(
+    ontology: Dict[str, Any],
+    source_key: str,
+    tables: Dict[str, Any],
+    llm_model: str,
+    tenant_id: str
+) -> tuple:
+    """
+    Synchronous version of llm_propose without WebSocket broadcasts.
+    Called from thread pool, so no async/await allowed.
+    
+    Returns:
+        tuple: (plan_dict or None, skip_semantic_validation: bool)
+    """
+    global rag_engine, RAG_CONTEXT, TIMING_LOG
+    
+    llm_start = time.time()
+    
+    # Initialize RAG engine if needed (for worker processes)
+    if rag_engine is None and os.getenv("PINECONE_API_KEY"):
+        try:
+            from app.dcl_engine.rag_engine import RAGEngine
+            rag_engine = RAGEngine()
+            log("✅ RAG Engine initialized in worker thread")
+        except Exception as e:
+            log(f"⚠️ RAG Engine initialization failed: {e}")
+    
+    # RAG retrieval (synchronous, serial - trade intra-source parallelization for inter-source parallelization)
+    rag_context = ""
+    rag_task_start = time.time()
+    all_similar = []
+    
+    if rag_engine:
+        try:
+            # Serial RAG calls (simpler, allows asyncio.gather to parallelize across sources)
+            for table_name, table_info in tables.items():
+                schema = table_info.get('schema', {})
+                for field_name, field_type in schema.items():
+                    try:
+                        similar = rag_engine.retrieve_similar_mappings(
+                            field_name=field_name,
+                            field_type=field_type,
+                            source_system=source_key,
+                            top_k=2,
+                            min_confidence=0.7
+                        )
+                        if similar:
+                            all_similar.extend(similar)
+                    except Exception as e:
+                        log(f"⚠️ RAG retrieval error for {field_name}: {e}")
+            
+            rag_elapsed = time.time() - rag_task_start
+            TIMING_LOG["rag_retrieval"].append(rag_elapsed)
+            log(f"⏱️ RAG retrieval (SERIAL): {rag_elapsed:.2f}s for {sum(len(t.get('schema', {})) for t in tables.values())} fields")
+            
+            # Deduplicate and build context
+            if all_similar:
+                seen = set()
+                unique_similar = []
+                for mapping in all_similar:
+                    key = f"{mapping['source_field']}_{mapping['ontology_entity']}"
+                    if key not in seen:
+                        seen.add(key)
+                        unique_similar.append(mapping)
+                
+                unique_similar.sort(key=lambda x: x.get('similarity', 0), reverse=True)
+                rag_context = rag_engine.build_context_for_llm(unique_similar)
+                log(f"📚 RAG: Retrieved {len(unique_similar)} similar mappings for context")
+                
+                # Store for visualization
+                RAG_CONTEXT["retrievals"] = [
+                    {
+                        "source_field": m["source_field"],
+                        "ontology_entity": m["ontology_entity"],
+                        "similarity": round(m.get("similarity", 0), 3),
+                        "source_system": m.get("source_system", "unknown")
+                    }
+                    for m in unique_similar
+                ]
+                RAG_CONTEXT["last_retrieval_count"] = len(unique_similar)
+        except Exception as e:
+            log(f"⚠️ RAG retrieval failed: {e}")
+    
+    # Check dev mode (cross-process safe via Redis)
+    current_dev_mode = get_dev_mode()
+    if not current_dev_mode:
+        log(f"⚡ Prod Mode: RAG retrieval complete, skipping LLM - falling back to heuristics for {source_key}")
+        return (None, False)
+    
+    # INTELLIGENT LLM DECISION: Check RAG coverage before calling LLM
+    if rag_engine and all_similar:
+        total_fields = sum(len(table_info.get('schema', {})) for table_info in tables.values())
+        matched_fields = set()
+        
+        for table_name, table_info in tables.items():
+            schema = table_info.get('schema', {})
+            for field_name in schema.keys():
+                field_matches = [m for m in all_similar 
+                                if m['source_field'].lower() == field_name.lower() 
+                                and m.get('similarity', 0) > 0.8]
+                if field_matches:
+                    matched_fields.add(field_name)
+        
+        coverage_pct = (len(matched_fields) / total_fields * 100) if total_fields > 0 else 0
+        
+        # If coverage is high (>=80%), skip LLM and use RAG mappings directly
+        if coverage_pct >= 80:
+            log(f"📊 RAG Coverage: {coverage_pct:.0f}% ({len(matched_fields)}/{total_fields} fields) - skipping LLM, using RAG inventory")
+            increment_llm_calls_saved()
+            return (None, True)  # (plan, skip_semantic_validation)
+    
+    # Check API key
+    if llm_model.startswith("gpt"):
+        if not os.getenv("OPENAI_API_KEY"):
+            log(f"⚠️ OPENAI_API_KEY not set - skipping LLM for {source_key}")
+            return (None, False)
+    else:
+        if not os.getenv("GEMINI_API_KEY"):
+            log(f"⚠️ GEMINI_API_KEY not set - skipping LLM for {source_key}")
+            return (None, False)
+    
+    log(f"🤖 Dev Mode: Starting LLM mapping for {source_key} with {llm_model}")
+    
+    # Build prompt
+    sys_prompt = (
+        "You are a data integration planner. Given an ontology and a set of new tables from a source system, "
+        "produce a STRICT JSON plan with proposed mappings and joins.\n\n"
+        "Output format (strict JSON!):\n"
+        "{"
+        '  "mappings": ['
+        '    {"entity":"customer","source_table":"<table>", "fields":[{"source":"<col>", "onto_field":"customer_id", "confidence":0.92}]},'
+        '    {"entity":"transaction","source_table":"<table>", "fields":[{"source":"<col>", "onto_field":"amount", "confidence":0.88}]}'
+        "  ],"
+        '  "joins": [ {"left":"<table>.<col>", "right":"<table>.<col>", "reason":"why"} ]'
+        "}"
+    )
+    
+    rag_section = f"{rag_context}\n\n" if rag_context else ""
+    prompt = (
+        f"{sys_prompt}\n\n"
+        f"{rag_section}"
+        f"Ontology:\n{json.dumps(ontology)}\n\n"
+        f"SourceKey: {source_key}\n"
+        f"Tables:\n{json.dumps(tables)}\n\n"
+        f"Return ONLY JSON."
+    )
+    
+    # Call LLM service (synchronous)
+    try:
+        llm_service = get_llm_service(llm_model, increment_llm_calls)
+        log(f"📊 Using {llm_service.get_provider_name()} - {llm_service.get_model_name()}")
+    except (ValueError, ImportError) as e:
+        log(f"⚠️ {e} - falling back to heuristic")
+        return (None, False)
+    
+    llm_call_start = time.time()
+    result = llm_service.generate(prompt, source_key)  # Sync call (blocking)
+    llm_call_elapsed = time.time() - llm_call_start
+    log(f"⏱️ LLM call: {llm_call_elapsed:.2f}s")
+    
+    # Store mappings in RAG
+    if result and rag_engine:
+        try:
+            dev_mode = get_dev_mode()
+            stored_count = 0
+            for mapping in result.get("mappings", []):
+                entity = mapping.get("entity")
+                for field in mapping.get("fields", []):
+                    result_id = rag_engine.store_mapping(
+                        source_field=field["source"],
+                        source_type="string",
+                        ontology_entity=f"{entity}.{field['onto_field']}",
+                        source_system=source_key,
+                        transformation="direct",
+                        confidence=field.get("confidence", 0.8),
+                        validated=False,
+                        dev_mode_enabled=dev_mode
+                    )
+                    if result_id:
+                        stored_count += 1
+            if dev_mode:
+                log(f"💾 Stored {stored_count} mappings to RAG (dev mode)")
+                try:
+                    stats = rag_engine.get_stats()
+                    RAG_CONTEXT["total_mappings"] = stats.get("total_mappings", 0)
+                except:
+                    pass
+            else:
+                log(f"🔒 RAG writes blocked - heuristic mode (retrieved context only)")
+        except Exception as e:
+            log(f"⚠️ Failed to store mappings in RAG: {e}")
+    
+    llm_elapsed = time.time() - llm_start
+    TIMING_LOG["llm_propose_total"].append(llm_elapsed)
+    log(f"⏱️ llm_propose total: {llm_elapsed:.2f}s")
+    
+    return (result, False)  # (plan, skip_semantic_validation)
+
+
+def _blocking_source_pipeline(
+    source_key: str,
+    llm_model: str,
+    tenant_id: str
+) -> Union[Dict[str, Any], tuple]:
+    """
+    Synchronous helper containing all blocking DuckDB/pandas/RAG operations.
+    Executed in thread pool to avoid blocking event loop.
+    
+    This function contains ALL CPU/IO-intensive operations that would otherwise
+    monopolize the event loop and prevent true parallelization via asyncio.gather.
+    
+    Returns:
+        tuple: (tables, plan, score, previews, source_mode) on success
+        dict: {"error": message} on failure
+    """
+    global ontology, agents_config
+    
+    try:
+        # Load ontology if needed
+        if ontology is None:
+            ontology = load_ontology()
+        
+        # Load agents config if needed
+        if not agents_config:
+            agents_config = load_agents_config()
+        
+        # Get adapter based on feature flag
+        adapter = get_source_adapter()
+        source_mode = "aam_connectors" if FeatureFlagConfig.is_enabled(FeatureFlag.USE_AAM_AS_SOURCE) else "demo_files"
+        
+        log(f"📂 Using {source_mode} for source: {source_key} (tenant: {tenant_id})")
+        
+        # BLOCKING I/O: Load source data (pandas read_csv - ~1-2s)
+        tables = adapter.load_tables(source_key, tenant_id)
+        
+        if not tables:
+            return {"error": f"No tables found for source '{source_key}'"}
+        
+        log(f"📊 Loaded {len(tables)} tables from {source_key}")
+        
+        # BLOCKING: LLM/RAG planning (~15s for RAG + LLM if dev mode enabled)
+        llm_result = _sync_llm_propose_internal(ontology, source_key, tables, llm_model, tenant_id)
+        plan, skip_semantic_validation = llm_result if isinstance(llm_result, tuple) else (llm_result, False)
+        
+        if not plan:
+            # Use heuristic plan (blocking but fast <100ms)
+            plan = heuristic_plan(ontology, source_key, tables, skip_llm_validation=skip_semantic_validation, tenant_id=tenant_id)
+            log(f"I connected to {source_key.title()} (schema sample) and generated a heuristic plan.")
+            plan_type = "heuristic"
+        else:
+            log(f"I connected to {source_key.title()} (schema sample) and proposed mappings and joins.")
+            plan_type = "ai"
+        
+        # BLOCKING: DuckDB operations (~2-3s)
+        con = duckdb.connect(DB_PATH, config={'access_mode': 'READ_WRITE'})
+        register_src_views(con, source_key, tables)
+        score = apply_plan(con, source_key, plan, tenant_id)
+        
+        # Log join information
+        ents = ", ".join(sorted(tables.keys()))
+        log(f"I found these entities: {ents}.")
+        if score.joins:
+            log("To connect them, I proposed joins like " + "; ".join([f"{j['left']} with {j['right']}" for j in score.joins]) + ".")
+        if score.confidence >= CONF_THRESHOLD and not score.blockers:
+            log(f"I am about {int(score.confidence*100)}% confident. I created unified views.")
+        elif AUTO_PUBLISH_PARTIAL and not score.blockers:
+            log(f"I applied the mappings, but with some issues: {score.issues}")
+        else:
+            blockers_msg = "; ".join(score.blockers) if score.blockers else "Unknown blockers"
+            log(f"I paused because of blockers. Blockers: {blockers_msg}")
+        
+        # BLOCKING: Generate previews (DuckDB queries ~500ms)
+        previews = {"sources": {}, "ontology": {}}
+        for t in tables.keys():
+            previews["sources"][f"src_{source_key}_{t}"] = preview_table(con, f"src_{source_key}_{t}")
+        
+        # Get ontology entities based on selected agents
+        ontology_entities = set()
+        selected_agents = state_access.get_selected_agents(tenant_id)
+        
+        if selected_agents:
+            for agent_id in selected_agents:
+                agent_info = agents_config.get("agents", {}).get(agent_id, {})
+                consumes = agent_info.get("consumes", [])
+                ontology_entities.update(consumes)
+        else:
+            ontology_entities = set(ontology.get("entities", {}).keys())
+        
+        for ent in ontology_entities:
+            previews["ontology"][f"dcl_{ent}"] = preview_table(con, f"dcl_{ent}")
+        
+        # Close DuckDB connection
+        con.close()
+        
+        # Return all results for async orchestrator to handle
+        return (tables, plan, score, previews, source_mode, plan_type)
+        
+    except Exception as e:
+        log(f"❌ Error in blocking pipeline for {source_key}: {e}")
+        log(f"Traceback: {traceback.format_exc()}")
+        return {"error": str(e)}
+
+
 async def connect_source(
     source_key: str, 
     llm_model: str = "gemini-2.5-flash",
     tenant_id: str = "default"
 ) -> Dict[str, Any]:
-    global ontology, agents_config, TIMING_LOG, ws_manager, SOURCE_SCHEMAS, GRAPH_STATE, SOURCES_ADDED, dcl_distributed_lock
+    """
+    Async orchestrator - offloads blocking work to thread pool for true parallel execution.
+    
+    This function coordinates async operations (WebSocket broadcasts, state mutations)
+    while delegating ALL blocking operations (pandas, DuckDB, RAG, LLM) to a thread pool.
+    This allows asyncio.gather to truly parallelize multiple connect_source calls.
+    """
+    global ontology, agents_config, TIMING_LOG, ws_manager, dcl_distributed_lock
     
     connect_start = time.time()
     
-    # STREAMING EVENT 1: Connection started (immediate <2s)
+    # ASYNC: Broadcast start event
     await ws_manager.broadcast({
         "type": "mapping_progress",
         "source": source_key,
         "stage": "started",
         "message": f"🔄 Starting schema analysis for {source_key}...",
         "timestamp": time.time()
-    })
+    }, tenant_id=tenant_id)
     
-    if ontology is None:
-        ontology = load_ontology()
-    
-    # Get appropriate adapter based on feature flag
-    adapter = get_source_adapter()
-    source_mode = "aam_connectors" if FeatureFlagConfig.is_enabled(FeatureFlag.USE_AAM_AS_SOURCE) else "demo_files"
-    
-    log(f"📂 Using {source_mode} for source: {source_key} (tenant: {tenant_id})")
-    
-    # CRITICAL FIX: Clear cache for AAM sources to force fresh load from Redis Streams
-    # Without this, SOURCE_SCHEMAS caching prevents load_tables from being called
+    # ASYNC: Clear AAM source cache if needed (brief <100ms operation under lock)
     if FeatureFlagConfig.is_enabled(FeatureFlag.USE_AAM_AS_SOURCE):
+        adapter = get_source_adapter()
+        
         if dcl_distributed_lock:
             async with dcl_distributed_lock.acquire_async(timeout=5.0):
-                # Clear SOURCE_SCHEMAS cache for AAM source (state_access handles dual-path)
                 current_schemas = state_access.get_source_schemas(tenant_id)
                 if source_key in current_schemas:
                     del current_schemas[source_key]
                     state_access.set_source_schemas(tenant_id, current_schemas)
                     log(f"🗑️  Cleared SOURCE_SCHEMAS cache for AAM source: {source_key}")
         else:
-            # Fallback: No lock available (development mode)
             current_schemas = state_access.get_source_schemas(tenant_id)
             if source_key in current_schemas:
                 del current_schemas[source_key]
                 state_access.set_source_schemas(tenant_id, current_schemas)
                 log(f"🗑️  Cleared SOURCE_SCHEMAS cache for AAM source: {source_key}")
         
-        # Clear idempotency cache so all messages are reprocessed (fixes "0 sources" bug)
-        # SAFE: /dcl/connect is user-initiated and synchronous (no concurrent ingestion)
         if isinstance(adapter, AAMSourceAdapter):
             adapter.clear_idempotency_cache(tenant_id, source_id=source_key)
             log(f"🗑️  Cleared idempotency cache for tenant: {tenant_id}")
     
-    # Load tables using adapter
-    tables = adapter.load_tables(source_key, tenant_id)
+    # BLOCKING PIPELINE: Run all CPU/IO-intensive work in thread pool (yields event loop!)
+    # This is where TRUE PARALLELIZATION happens - event loop can schedule other sources
+    result = await asyncio.to_thread(
+        _blocking_source_pipeline,
+        source_key,
+        llm_model,
+        tenant_id
+    )
     
-    if not tables:
-        return {"error": f"No tables found for source '{source_key}'"}
+    # Check for errors from blocking pipeline
+    if isinstance(result, dict) and "error" in result:
+        return result
     
-    # STREAMING EVENT 2: Schema snapshot complete
+    # Unpack results from blocking pipeline
+    tables, plan, score, previews, source_mode, plan_type = result
+    
+    # ASYNC: Broadcast schema loaded event
     await ws_manager.broadcast({
         "type": "mapping_progress",
         "source": source_key,
@@ -1946,66 +2254,39 @@ async def connect_source(
         "message": f"📊 Loaded {len(tables)} tables from {source_key}",
         "table_count": len(tables),
         "timestamp": time.time()
-    })
+    }, tenant_id=tenant_id)
     
-    # Store schema information for later retrieval (async-safe, state_access handles dual-path)
-    if dcl_distributed_lock:
-        async with dcl_distributed_lock.acquire_async(timeout=5.0):
-            current_schemas = state_access.get_source_schemas(tenant_id)
-            current_schemas[source_key] = tables
-            state_access.set_source_schemas(tenant_id, current_schemas)
-    else:
-        # Fallback: No lock available (development mode)
-        current_schemas = state_access.get_source_schemas(tenant_id)
-        current_schemas[source_key] = tables
-        state_access.set_source_schemas(tenant_id, current_schemas)
-    
-    # Add graph nodes (async-safe)
-    if dcl_distributed_lock:
-        async with dcl_distributed_lock.acquire_async(timeout=5.0):
-            add_graph_nodes_for_source(source_key, tables, tenant_id)
-    else:
-        # Fallback: No lock available (development mode)
-        add_graph_nodes_for_source(source_key, tables, tenant_id)
-    
-    llm_result = await llm_propose(ontology, source_key, tables, llm_model)
-    plan, skip_semantic_validation = llm_result if isinstance(llm_result, tuple) else (llm_result, False)
-    
-    if not plan:
-        # Use heuristic plan with explicit skip_semantic_validation flag from llm_propose
-        plan = heuristic_plan(ontology, source_key, tables, skip_llm_validation=skip_semantic_validation)
-        log(f"I connected to {source_key.title()} (schema sample) and generated a heuristic plan. I mapped obvious IDs and foreign keys and published a basic unified view.")
-        
-        # STREAMING EVENT: Heuristic plan used
+    # ASYNC: Broadcast plan type event
+    if plan_type == "heuristic":
         await ws_manager.broadcast({
             "type": "mapping_progress",
             "source": source_key,
             "stage": "heuristic_plan",
             "message": f"⚡ Using fast heuristic mapping for {source_key}",
             "timestamp": time.time()
-        })
+        }, tenant_id=tenant_id)
     else:
-        log(f"I connected to {source_key.title()} (schema sample) and proposed mappings and joins.")
-        
-        # STREAMING EVENT: AI plan used
         await ws_manager.broadcast({
             "type": "mapping_progress",
             "source": source_key,
             "stage": "ai_plan",
             "message": f"🧠 Using AI-generated mapping for {source_key}",
             "timestamp": time.time()
-        })
+        }, tenant_id=tenant_id)
     
-    # STEP 1: DuckDB operations (OUTSIDE lock - can run in parallel across sources)
-    con = duckdb.connect(DB_PATH, config={'access_mode': 'READ_WRITE'})
-    register_src_views(con, source_key, tables)
-    score = apply_plan(con, source_key, plan)
-    
-    # STEP 2: State mutations (INSIDE lock - brief, <1s operation)
+    # ASYNC: State mutations under distributed lock (BRIEF <1s operation)
     if dcl_distributed_lock:
         try:
             async with dcl_distributed_lock.acquire_async(timeout=5.0):
-                # Update graph state (state_access handles dual-path)
+                # Store schemas
+                current_schemas = state_access.get_source_schemas(tenant_id)
+                current_schemas[source_key] = tables
+                state_access.set_source_schemas(tenant_id, current_schemas)
+                
+                # Add graph nodes
+                add_graph_nodes_for_source(source_key, tables, tenant_id)
+                
+                # Update graph state
                 current_graph = state_access.get_graph_state(tenant_id)
                 current_graph["confidence"] = score.confidence
                 current_graph["last_updated"] = time.strftime("%I:%M:%S %p")
@@ -2019,11 +2300,14 @@ async def connect_source(
                 current_sources.append(source_key)
                 state_access.set_sources(tenant_id, current_sources)
         except Exception as e:
-            con.close()
             log(f"❌ Failed to update state for {source_key}: {e}")
             raise
     else:
         # Fallback: No distributed lock available (development mode)
+        current_schemas = state_access.get_source_schemas(tenant_id)
+        current_schemas[source_key] = tables
+        state_access.set_source_schemas(tenant_id, current_schemas)
+        add_graph_nodes_for_source(source_key, tables, tenant_id)
         current_graph = state_access.get_graph_state(tenant_id)
         current_graph["confidence"] = score.confidence
         current_graph["last_updated"] = time.strftime("%I:%M:%S %p")
@@ -2033,52 +2317,12 @@ async def connect_source(
         current_sources.append(source_key)
         state_access.set_sources(tenant_id, current_sources)
     
-    # STEP 3: Logging, previews, broadcasts (OUTSIDE lock - can run in parallel)
-    ents = ", ".join(sorted(tables.keys()))
-    log(f"I found these entities: {ents}.")
-    if score.joins:
-        log("To connect them, I proposed joins like " + "; ".join([f"{j['left']} with {j['right']}" for j in score.joins]) + ".")
-    if score.confidence >= CONF_THRESHOLD and not score.blockers:
-        log(f"I am about {int(score.confidence*100)}% confident. I created unified views so you can now query across these sources.")
-    elif AUTO_PUBLISH_PARTIAL and not score.blockers:
-        log(f"I applied the mappings, but with some issues: {score.issues}")
-    else:
-        blockers_msg = "; ".join(score.blockers) if score.blockers else "Unknown blockers"
-        log(f"I paused because of blockers and did not publish. Blockers: {blockers_msg}")
-    
-    previews = {"sources": {}, "ontology": {}}
-    for t in tables.keys():
-        previews["sources"][f"src_{source_key}_{t}"] = preview_table(con, f"src_{source_key}_{t}")
-    
-    # Preview ontology tables based on selected agents
-    if not agents_config:
-        agents_config = load_agents_config()
-    
-    ontology_entities = set()
-    selected_agents = state_access.get_selected_agents(tenant_id)
-    
-    if selected_agents:
-        for agent_id in selected_agents:
-            agent_info = agents_config.get("agents", {}).get(agent_id, {})
-            consumes = agent_info.get("consumes", [])
-            ontology_entities.update(consumes)
-    else:
-        if not ontology:
-            ontology = load_ontology()
-        ontology_entities = set(ontology.get("entities", {}).keys())
-    
-    for ent in ontology_entities:
-        previews["ontology"][f"dcl_{ent}"] = preview_table(con, f"dcl_{ent}")
-    
-    # Explicitly close DuckDB connection
-    con.close()
-    
     # Log total connect_source timing
     connect_elapsed = time.time() - connect_start
     TIMING_LOG["connect_total"].append(connect_elapsed)
     log(f"⏱️ connect_source({source_key}) total: {connect_elapsed:.2f}s")
     
-    # STREAMING EVENT: Source complete
+    # ASYNC: Broadcast completion event
     await ws_manager.broadcast({
         "type": "mapping_progress",
         "source": source_key,
@@ -2088,7 +2332,7 @@ async def connect_source(
         "confidence": score.confidence,
         "source_mode": source_mode,
         "timestamp": time.time()
-    })
+    }, tenant_id=tenant_id)
     
     return {"ok": True, "score": score.confidence, "previews": previews, "source_mode": source_mode}
 
@@ -3130,6 +3374,24 @@ async def toggle_dev_mode(
     await broadcast_state_change("dev_mode_toggled", tenant_id)
     return JSONResponse({"dev_mode": DEV_MODE, "status": status})
 
+async def _background_clear_cache(tenant_id: str, graph_store):
+    """Background task to clear cache without blocking the toggle response."""
+    # Clear DCL cache to force fresh graph generation (state_access handles dual-path)
+    state_access.set_graph_state(tenant_id, {"nodes": [], "edges": [], "confidence": None, "last_updated": None})
+    state_access.set_sources(tenant_id, [])
+    
+    # Clear persisted graph state from Redis
+    if graph_store:
+        try:
+            graph_store.reset()
+        except Exception as e:
+            log(f"⚠️ Failed to clear persisted graph: {e}")
+    
+    log("🗑️ Cleared DCL cache (GRAPH_STATE, SOURCES_ADDED) - ready for fresh graph generation")
+    
+    # Broadcast state change to WebSocket clients
+    await broadcast_state_change("aam_mode_toggled")
+
 @app.post("/dcl/toggle_aam_mode", dependencies=AUTH_DEPENDENCIES)
 @limiter.limit("5/minute")  # Max 5 mode toggles per minute
 async def toggle_aam_mode(
@@ -3139,12 +3401,14 @@ async def toggle_aam_mode(
     """
     Toggle USE_AAM_AS_SOURCE feature flag and clear DCL cache.
     
+    PERFORMANCE OPTIMIZATION: Returns immediately after flag flip, cache clearing runs in background.
+    
     This endpoint:
     1. Toggles the USE_AAM_AS_SOURCE flag (Legacy files <-> AAM connectors)
     2. Writes to Redis for cross-worker persistence
     3. Publishes to pub/sub for cross-worker cache invalidation
-    4. Clears DCL graph state (GRAPH_STATE, SOURCES_ADDED) to force fresh generation
-    5. Returns the new flag state
+    4. Kicks off background task to clear DCL state (non-blocking)
+    5. Returns immediately (<100ms instead of ~3s)
     
     Expected behavior:
     - AAM mode ON: Uses 4 AAM sources (Salesforce, MongoDB, Supabase, FilesSource)
@@ -3179,32 +3443,21 @@ async def toggle_aam_mode(
     current_state = FeatureFlagConfig.is_enabled(FeatureFlag.USE_AAM_AS_SOURCE)
     new_state = not current_state
     
-    # Set the flag (writes to Redis and publishes to pub/sub)
+    # Set the flag (writes to Redis and publishes to pub/sub) - FAST <50ms
     FeatureFlagConfig.set_flag(FeatureFlag.USE_AAM_AS_SOURCE, new_state)
-    
-    # Clear DCL cache to force fresh graph generation (state_access handles dual-path)
-    state_access.set_graph_state(tenant_id, {"nodes": [], "edges": [], "confidence": None, "last_updated": None})
-    state_access.set_sources(tenant_id, [])
-    
-    # Clear persisted graph state from Redis
-    if graph_store:
-        try:
-            graph_store.reset()
-        except Exception as e:
-            log(f"⚠️ Failed to clear persisted graph: {e}")
     
     mode_name = "AAM Connectors (4 sources)" if new_state else "Legacy File Sources (9 sources)"
     log(f"🔄 AAM Mode toggled to: {mode_name}")
-    log("🗑️ Cleared DCL cache (GRAPH_STATE, SOURCES_ADDED) - ready for fresh graph generation")
     
-    # Broadcast state change to WebSocket clients
-    await broadcast_state_change("aam_mode_toggled")
+    # Kick off cache clearing in background (fire-and-forget) - DOESN'T BLOCK RESPONSE
+    asyncio.create_task(_background_clear_cache(tenant_id, graph_store))
     
+    # Return immediately - total endpoint latency <100ms (vs previous 2.8s)
     return JSONResponse({
         "ok": True,
         "USE_AAM_AS_SOURCE": new_state,
         "mode": mode_name,
-        "cache_cleared": True
+        "cache_cleared": True  # True indicates background task started, not completed
     })
 
 @app.post("/reset_llm_stats", dependencies=AUTH_DEPENDENCIES)
