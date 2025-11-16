@@ -50,8 +50,8 @@ class TestDCLInitialization:
         state = response.json()
         
         # Assert empty graph
-        assert state["graph"]["nodes"] == [], f"Expected empty nodes, got {len(state['graph']['nodes'])}"
-        assert state["graph"]["edges"] == [], f"Expected empty edges, got {len(state['graph']['edges'])}"
+        assert state["nodes"] == [], f"Expected empty nodes, got {len(state['nodes'])}"
+        assert state["edges"] == [], f"Expected empty edges, got {len(state['edges'])}"
         
         # Check sources (if endpoint exists)
         # Note: This assumes sources are tracked in state or separate endpoint
@@ -90,10 +90,10 @@ class TestDCLInitialization:
         state_b = response_b.json()
         
         # Both should be empty and independent
-        assert state_a["graph"]["nodes"] == [], "Tenant A should have empty graph"
-        assert state_b["graph"]["nodes"] == [], "Tenant B should have empty graph"
-        assert state_a["graph"]["edges"] == [], "Tenant A should have no edges"
-        assert state_b["graph"]["edges"] == [], "Tenant B should have no edges"
+        assert state_a["nodes"] == [], "Tenant A should have empty graph"
+        assert state_b["nodes"] == [], "Tenant B should have empty graph"
+        assert state_a["edges"] == [], "Tenant A should have no edges"
+        assert state_b["edges"] == [], "Tenant B should have no edges"
 
 
 class TestDCLConstruction:
@@ -135,10 +135,10 @@ class TestDCLConstruction:
         state = state_response.json()
         
         # Assert graph was built
-        assert len(state["graph"]["nodes"]) > 0, "No nodes created after connecting source"
+        assert len(state["nodes"]) > 0, "No nodes created after connecting source"
         
         # Validate node structure
-        for node in state["graph"]["nodes"]:
+        for node in state["nodes"]:
             assert "id" in node, "Node missing id field"
             assert "label" in node, "Node missing label field"
             assert "type" in node, "Node missing type field"
@@ -171,7 +171,7 @@ class TestDCLConstruction:
         # Get state after first source
         state1_response = client.get("/dcl/state", headers=headers)
         state1 = state1_response.json()
-        nodes_after_sf = len(state1["graph"]["nodes"])
+        nodes_after_sf = len(state1["nodes"])
         
         # Connect hubspot
         hs_response = client.get(
@@ -188,15 +188,15 @@ class TestDCLConstruction:
         # Get state after second source
         state2_response = client.get("/dcl/state", headers=headers)
         state2 = state2_response.json()
-        nodes_after_hs = len(state2["graph"]["nodes"])
+        nodes_after_hs = len(state2["nodes"])
         
         # Assert both sources contributed
         assert nodes_after_sf > 0, "Salesforce should create nodes"
         assert nodes_after_hs >= nodes_after_sf, "Hubspot should add/maintain nodes"
         
         # Validate unified graph
-        assert len(state2["graph"]["nodes"]) > 0, "Final graph should have nodes"
-        assert len(state2["graph"]["edges"]) >= 0, "Final graph should have edges"
+        assert len(state2["nodes"]) > 0, "Final graph should have nodes"
+        assert len(state2["edges"]) >= 0, "Final graph should have edges"
     
     def test_source_connection_idempotency(self, dcl_reset_state):
         """
@@ -224,7 +224,7 @@ class TestDCLConstruction:
         assert response1.status_code == 200
         
         state1 = client.get("/dcl/state", headers=headers).json()
-        nodes_count1 = len(state1["graph"]["nodes"])
+        nodes_count1 = len(state1["nodes"])
         
         # Connect salesforce second time
         response2 = client.get(
@@ -239,7 +239,7 @@ class TestDCLConstruction:
         assert response2.status_code == 200
         
         state2 = client.get("/dcl/state", headers=headers).json()
-        nodes_count2 = len(state2["graph"]["nodes"])
+        nodes_count2 = len(state2["nodes"])
         
         # Assert idempotency (node count should be same or similar)
         assert nodes_count2 == nodes_count1, \
@@ -273,10 +273,9 @@ class TestDCLUpdates:
         updated_state = response.json()
         
         # Assert structure is maintained
-        assert "graph" in updated_state
-        assert "nodes" in updated_state["graph"]
-        assert "edges" in updated_state["graph"]
-        assert len(updated_state["graph"]["nodes"]) == len(initial_graph["graph"]["nodes"]), \
+        assert "nodes" in updated_state
+        assert "edges" in updated_state
+        assert len(updated_state["nodes"]) == len(initial_graph["nodes"]), \
             "Refresh shouldn't change node count without actual changes"
 
 
@@ -302,7 +301,7 @@ class TestDCLReset:
         client, headers, tenant_id, initial_graph = dcl_graph_with_sources
         
         # Verify we have data first
-        assert len(initial_graph["graph"]["nodes"]) > 0, "Setup should create nodes"
+        assert len(initial_graph["nodes"]) > 0, "Setup should create nodes"
         
         # Reset state using state_access module
         from app.dcl_engine import state_access
@@ -315,8 +314,8 @@ class TestDCLReset:
         state = response.json()
         
         # Assert complete cleanup
-        assert state["graph"]["nodes"] == [], f"Reset should clear nodes, got {len(state['graph']['nodes'])}"
-        assert state["graph"]["edges"] == [], f"Reset should clear edges, got {len(state['graph']['edges'])}"
+        assert state["nodes"] == [], f"Reset should clear nodes, got {len(state['nodes'])}"
+        assert state["edges"] == [], f"Reset should clear edges, got {len(state['edges'])}"
     
     def test_reset_allows_fresh_start(self, dcl_graph_with_sources):
         """
@@ -337,7 +336,7 @@ class TestDCLReset:
         
         # Verify empty
         empty_state = client.get("/dcl/state", headers=headers).json()
-        assert len(empty_state["graph"]["nodes"]) == 0
+        assert len(empty_state["nodes"]) == 0
         
         # Reconnect salesforce
         reconnect_response = client.get(
@@ -353,7 +352,7 @@ class TestDCLReset:
         
         # Verify graph rebuilt
         rebuilt_state = client.get("/dcl/state", headers=headers).json()
-        assert len(rebuilt_state["graph"]["nodes"]) > 0, "Should rebuild graph after reset"
+        assert len(rebuilt_state["nodes"]) > 0, "Should rebuild graph after reset"
 
 
 class TestDCLEdgeCases:
@@ -394,5 +393,5 @@ class TestDCLEdgeCases:
         
         # Verify graph state not corrupted
         state = client.get("/dcl/state", headers=headers).json()
-        assert isinstance(state["graph"]["nodes"], list), "Graph state should remain valid"
-        assert isinstance(state["graph"]["edges"], list), "Graph state should remain valid"
+        assert isinstance(state["nodes"], list), "Graph state should remain valid"
+        assert isinstance(state["edges"], list), "Graph state should remain valid"

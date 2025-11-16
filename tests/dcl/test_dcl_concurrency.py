@@ -73,10 +73,9 @@ class TestDCLConcurrentReads:
                 f"Read {i} differs from first read (race condition detected)"
         
         # Validate structure
-        assert "graph" in first_result
-        assert "nodes" in first_result["graph"]
-        assert "edges" in first_result["graph"]
-        assert len(first_result["graph"]["nodes"]) > 0, "Should have nodes from fixture"
+        assert "nodes" in first_result
+        assert "edges" in first_result
+        assert len(first_result["nodes"]) > 0, "Should have nodes from fixture"
 
 
 class TestDCLConcurrentWrites:
@@ -141,14 +140,13 @@ class TestDCLConcurrentWrites:
             final_state = response.json()
         
         # Validate final state integrity
-        assert "graph" in final_state
-        assert "nodes" in final_state["graph"]
-        assert "edges" in final_state["graph"]
-        assert len(final_state["graph"]["nodes"]) > 0, \
+        assert "nodes" in final_state
+        assert "edges" in final_state
+        assert len(final_state["nodes"]) > 0, \
             "Graph should have nodes from all sources"
         
         # Check no duplicate nodes (would indicate race condition)
-        node_ids = [node["id"] for node in final_state["graph"]["nodes"]]
+        node_ids = [node["id"] for node in final_state["nodes"]]
         assert len(node_ids) == len(set(node_ids)), \
             f"Duplicate nodes detected (race condition): {len(node_ids)} vs {len(set(node_ids))}"
     
@@ -199,7 +197,7 @@ class TestDCLConcurrentWrites:
             final_state = response.json()
         
         # Check for duplicates (would indicate non-idempotent behavior)
-        node_ids = [node["id"] for node in final_state["graph"]["nodes"]]
+        node_ids = [node["id"] for node in final_state["nodes"]]
         unique_count = len(set(node_ids))
         total_count = len(node_ids)
         
@@ -289,11 +287,10 @@ class TestDCLMixedConcurrency:
         # Validate read consistency
         for read in reads:
             state = read["state"]
-            assert "graph" in state, f"Read {read['index']} missing graph field"
-            assert "nodes" in state["graph"], f"Read {read['index']} missing nodes field"
-            assert "edges" in state["graph"], f"Read {read['index']} missing edges field"
-            assert isinstance(state["graph"]["nodes"], list), "Nodes must be list"
-            assert isinstance(state["graph"]["edges"], list), "Edges must be list"
+            assert "nodes" in state, f"Read {read['index']} missing nodes field"
+            assert "edges" in state, f"Read {read['index']} missing edges field"
+            assert isinstance(state["nodes"], list), "Nodes must be list"
+            assert isinstance(state["edges"], list), "Edges must be list"
         
         # Fetch final state
         async with httpx.AsyncClient(app=app, base_url="http://test") as async_client:
@@ -301,10 +298,10 @@ class TestDCLMixedConcurrency:
             final_state = response.json()
         
         # Validate final state integrity
-        assert len(final_state["graph"]["nodes"]) > 0, "Should have nodes after writes"
+        assert len(final_state["nodes"]) > 0, "Should have nodes after writes"
         
         # Check for duplicates (race condition indicator)
-        node_ids = [node["id"] for node in final_state["graph"]["nodes"]]
+        node_ids = [node["id"] for node in final_state["nodes"]]
         assert len(node_ids) == len(set(node_ids)), \
             f"Duplicate nodes detected: {len(node_ids)} vs {len(set(node_ids))}"
 
@@ -392,14 +389,14 @@ class TestDCLTenantIsolationUnderLoad:
             state_b = response_b.json()
         
         # Validate isolation
-        assert len(state_a["graph"]["nodes"]) > 0, "Tenant A should have nodes"
-        assert len(state_b["graph"]["nodes"]) > 0, "Tenant B should have nodes"
+        assert len(state_a["nodes"]) > 0, "Tenant A should have nodes"
+        assert len(state_b["nodes"]) > 0, "Tenant B should have nodes"
         
         # States should be different (different sources)
         # This is a basic isolation check - in production, would validate
         # that specific entities match the tenant's connected sources
-        nodes_a = set(node["id"] for node in state_a["graph"]["nodes"])
-        nodes_b = set(node["id"] for node in state_b["graph"]["nodes"])
+        nodes_a = set(node["id"] for node in state_a["nodes"])
+        nodes_b = set(node["id"] for node in state_b["nodes"])
         
         # If tenants connected different sources, nodes should differ
         # (This assumes source-specific node IDs)

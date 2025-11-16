@@ -55,13 +55,12 @@ class TestDCLStateContract:
         assert state == snapshot
         
         # Critical assertions (structure validation)
-        assert "graph" in state, "Missing 'graph' field"
-        assert "nodes" in state["graph"], "Missing 'nodes' field in graph"
-        assert "edges" in state["graph"], "Missing 'edges' field in graph"
-        assert isinstance(state["graph"]["nodes"], list), "nodes must be a list"
-        assert isinstance(state["graph"]["edges"], list), "edges must be a list"
-        assert len(state["graph"]["nodes"]) == 0, "Empty graph should have 0 nodes"
-        assert len(state["graph"]["edges"]) == 0, "Empty graph should have 0 edges"
+        assert "nodes" in state, "Missing 'nodes' field"
+        assert "edges" in state, "Missing 'edges' field"
+        assert isinstance(state["nodes"], list), "nodes must be a list"
+        assert isinstance(state["edges"], list), "edges must be a list"
+        assert len(state["nodes"]) == 0, "Empty graph should have 0 nodes"
+        assert len(state["edges"]) == 0, "Empty graph should have 0 edges"
     
     def test_graph_state_with_sources_structure(self, dcl_graph_with_sources, snapshot: SnapshotAssertion):
         """
@@ -87,14 +86,13 @@ class TestDCLStateContract:
         assert state == snapshot
         
         # Critical assertions (non-empty graph validation)
-        assert "graph" in state, "Missing 'graph' field"
-        assert "nodes" in state["graph"], "Missing 'nodes' field in graph"
-        assert "edges" in state["graph"], "Missing 'edges' field in graph"
-        assert len(state["graph"]["nodes"]) > 0, "Graph should have nodes after connecting sources"
+        assert "nodes" in state, "Missing 'nodes' field"
+        assert "edges" in state, "Missing 'edges' field"
+        assert len(state["nodes"]) > 0, "Graph should have nodes after connecting sources"
         
         # Validate node structure (first node as example)
-        if len(state["graph"]["nodes"]) > 0:
-            node = state["graph"]["nodes"][0]
+        if len(state["nodes"]) > 0:
+            node = state["nodes"][0]
             assert "id" in node, "Node missing 'id' field"
             assert "label" in node, "Node missing 'label' field"
             assert "type" in node, "Node missing 'type' field"

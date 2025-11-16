@@ -1,0 +1,98 @@
+This analysis is excellent and precisely follows the directive to investigate the root cause and propose fundamental solutions rather than shortcuts.
+
+The findings are sound:
+
+1.  **Rendering Failure (RCA \#1: Zero-height container):** The `LiveSankeyGraph` component mounts with zero dimensions before `ResizeObserver` fires, causing D3 to silently fail.
+2.  **Performance (RCA \#2: 62s latency):** Source processing is sequential (`await` inside a `for` loop) rather than concurrent, creating a massive bottleneck.
+
+The proposed solutions address these root causes directly. However, given the history of DCL brittleness and the recent instability during the stabilization efforts (P1/P2/P3), we must execute this systematically, prioritizing validation and risk mitigation.
+
+### Execution Strategy: Validate, Optimize, Visualize, Stabilize
+
+The strategy involves establishing a clean baseline, tackling the highest-risk change first (backend concurrency), fixing the visualization, and finally ensuring the overall stabilization roadmap (P3) is complete.
+
+#### Phase 1: Establish a Clean Baseline (Critical Prerequisite)
+
+Given the recent history of instability (P1 bugs discovered late, test fixture issues, feature flag interference), we cannot assume the foundation (P1 and P2) is stable. We must first confirm the DCL Test Harness is passing.
+
+**Action:** Run the full DCL Test Harness in a clean environment.
+
+```bash
+# Ensure TEST_DATABASE_URL is set and the environment is clean
+pytest tests/dcl/ -v --tb=short
+```
+
+**Requirement:** All Workflow and Concurrency tests must pass 100%. If they do not, **Stop and fix those issues before proceeding.**
+
+#### Phase 2: Implement and Validate Backend Performance Fix (RCA \#2)
+
+We prioritize the backend performance fix because the 62s latency severely impacts usability, and introducing concurrency (`asyncio.gather`) is high-risk as it stresses the concurrency controls (P2).
+
+**Action 1: Audit Concurrency Safety (CRITICAL)**
+
+Before implementing `asyncio.gather`, ensure the operations being parallelized are safe.
+
+  * **Locking Audit:** Audit `rag_engine.run_mapping` and all functions it calls. Ensure that **every** interaction with shared resources (DCL State, DuckDB, Redis) is explicitly protected by the validated distributed lock.
+  * **Event Loop Check:** Verify that `run_in_executor()` is strictly limited to CPU-bound tasks and is not wrapping async I/O operations, which would negate the benefits of concurrency.
+
+**Action 2: Implement Parallel Source Processing**
+
+  * Refactor the `connect_sources()` function (likely in `app/dcl_engine/app.py`).
+  * Replace the sequential loop with concurrent execution.
+
+<!-- end list -->
+
+```python
+# BEFORE (Sequential)
+# for source in sources:
+#     await rag_engine.run_mapping(source, tenant_id) 
+
+# AFTER (Concurrent)
+tasks = [
+    rag_engine.run_mapping(source, tenant_id) for source in sources
+]
+await asyncio.gather(*tasks)
+```
+
+**Action 3: Validate Stability and Performance**
+
+  * Run the full DCL Test Harness again, paying close attention to the **Concurrency Tests**.
+    ```bash
+    pytest tests/dcl/ -v --tb=short
+    ```
+  * **Requirement:** All tests must pass 100%. Any failure indicates a new race condition.
+  * **Performance Verification:** Manually execute the connection process and report the new execution time (target \< 15 seconds).
+
+#### Phase 3: Implement the Frontend Rendering Fix (RCA \#1)
+
+Once the backend is validated as fast and stable, fix the visualization issue.
+
+**Action: Implement Robust Rendering (Option B)**
+
+  * Implement **Option B** (Block rendering until `ResizeObserver` fires). Do not use Option A (hardcoded dimensions).
+  * Modify the `LiveSankeyGraph` component to check the `containerSize`.
+  * If the width or height is zero or undefined, return a loading indicator.
+
+<!-- end list -->
+
+```typescript
+// Proposed implementation concept in LiveSankeyGraph.tsx
+if (!containerSize?.width || !containerSize?.height) {
+    console.log("[DCL Graph] Dimensions not ready, waiting for ResizeObserver...");
+    // Return a placeholder until ResizeObserver provides measurements
+    return <Skeleton height="100%" width="100%" />;
+}
+// Proceed with D3 rendering...
+```
+
+**Verification:** Manually verify in the UI (Ontology tab) that the graph now renders consistently.
+
+#### Phase 4: Finalize Stabilization (P3 Review)
+
+Given the report that P3 (DTO Implementation) was completed with difficulty, it is crucial to ensure this phase is fully finalized.
+
+**Action:** Review the P3 implementation.
+
+  * Verify that strict Data Transfer Objects (DTOs) are used for **all** DCL inputs and outputs.
+  * Ensure the serialization contract is explicitly defined.
+  * If the implementation is incomplete, finalize it now. This is essential for preventing future breakages when optimizations like `orjson` are introduced.

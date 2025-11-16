@@ -606,8 +606,9 @@ class TestDTOSerialization:
         assert req2.tenant_id == req.tenant_id
     
     def test_state_response_json_serialization(self):
-        """Test StateResponse with complex nested structures serializes correctly"""
-        graph = GraphState(
+        """Test StateResponse with flat structure serializes correctly"""
+        resp = StateResponse(
+            tenant_id="tenant_123",
             nodes=[
                 GraphNode(id="n1", label="Node 1", type="entity"),
                 GraphNode(id="n2", label="Node 2", type="source")
@@ -616,12 +617,7 @@ class TestDTOSerialization:
                 GraphEdge(source="n1", target="n2")
             ],
             confidence=0.85,
-            last_updated=datetime.now()
-        )
-        
-        resp = StateResponse(
-            tenant_id="tenant_123",
-            graph=graph,
+            last_updated=datetime.now(),
             sources_added=["salesforce"],
             entity_sources={"account": ["salesforce"]},
             metadata={"complex": {"nested": {"data": [1, 2, 3]}}}
@@ -630,7 +626,7 @@ class TestDTOSerialization:
         # Should serialize without errors
         json_dict = resp.model_dump()
         assert json_dict["tenant_id"] == "tenant_123"
-        assert len(json_dict["graph"]["nodes"]) == 2
+        assert len(json_dict["nodes"]) == 2
         assert json_dict["metadata"]["complex"]["nested"]["data"] == [1, 2, 3]
         
         # Should handle datetime serialization
