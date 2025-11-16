@@ -8,6 +8,12 @@ from typing import List, Optional, Literal
 from datetime import datetime
 import uuid
 import os
+import json
+import logging
+
+from shared.redis_client import redis_client, REDIS_AVAILABLE
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/nlp/v1", tags=["NLP Gateway"])
 
@@ -387,16 +393,37 @@ async def classify_persona(request: PersonaClassifyRequest):
 
 @router.get("/persona/summary", response_model=PersonaSummaryResponse)
 async def get_persona_summary(persona: PersonaSlug = Query(..., description="Persona type")):
-    """Get persona-specific dashboard summary."""
+    """Get persona-specific dashboard summary with Redis caching (60s TTL)."""
     trace_id = f"nlp_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{str(uuid.uuid4())[:8]}"
+    
+    # Check Redis cache first
+    cache_key = f"persona_summary:{persona}"
+    
+    if REDIS_AVAILABLE and redis_client:
+        try:
+            cached_data = redis_client.get(cache_key)
+            if cached_data:
+                logger.info(f"Cache HIT for persona={persona}, key={cache_key}")
+                cached_response = json.loads(cached_data)
+                # Update trace_id for tracking
+                cached_response["trace_id"] = trace_id
+                return PersonaSummaryResponse(**cached_response)
+            else:
+                logger.info(f"Cache MISS for persona={persona}, key={cache_key}")
+        except Exception as e:
+            logger.warning(f"Cache read error for {cache_key}: {e}")
+    
+    # Generate fresh response
     now_iso = datetime.utcnow().isoformat() + "Z"
     
     # TODO: Try fetching real data from live endpoints
     # For now, we'll use DEMO_MODE to determine stub vs demo data
     
+    response = None
+    
     if persona == "coo":
         if DEMO_MODE:
-            return PersonaSummaryResponse(
+            response = PersonaSummaryResponse(
                 persona="coo",
                 tiles=[
                     PersonaTile(key="cloud_spend", title="Cloud Spend (MTD)", value="$184k", delta=None, timeframe="MTD vs Budget", last_updated=now_iso, href="/finops", mock=True),
@@ -423,7 +450,7 @@ async def get_persona_summary(persona: PersonaSlug = Query(..., description="Per
                 trace_id=trace_id
             )
         else:
-            return PersonaSummaryResponse(
+            response = PersonaSummaryResponse(
                 persona="coo",
                 tiles=[
                     PersonaTile(key="cloud_spend", title="Cloud Spend (MTD)", value=None, delta=None, timeframe="MTD vs Budget", last_updated=None, href="/finops", note="stub"),
@@ -436,7 +463,7 @@ async def get_persona_summary(persona: PersonaSlug = Query(..., description="Per
             )
     elif persona == "cfo":
         if DEMO_MODE:
-            return PersonaSummaryResponse(
+            response = PersonaSummaryResponse(
                 persona="cfo",
                 tiles=[
                     PersonaTile(key="revenue_mtd", title="Revenue (MTD)", value="$2.4M", delta=None, timeframe="MTD/QTD/YTD", last_updated=now_iso, href="#", mock=True),
@@ -463,7 +490,7 @@ async def get_persona_summary(persona: PersonaSlug = Query(..., description="Per
                 trace_id=trace_id
             )
         else:
-            return PersonaSummaryResponse(
+            response = PersonaSummaryResponse(
                 persona="cfo",
                 tiles=[
                     PersonaTile(key="revenue_mtd", title="Revenue (MTD)", value=None, delta=None, timeframe="MTD/QTD/YTD", last_updated=None, href="#", note="stub"),
@@ -478,7 +505,7 @@ async def get_persona_summary(persona: PersonaSlug = Query(..., description="Per
             )
     elif persona == "cro":
         if DEMO_MODE:
-            return PersonaSummaryResponse(
+            response = PersonaSummaryResponse(
                 persona="cro",
                 tiles=[
                     PersonaTile(key="pipeline_value", title="Pipeline Value", value="$12.4M", delta=None, timeframe="Current Quarter", last_updated=now_iso, href="#", mock=True),
@@ -502,7 +529,7 @@ async def get_persona_summary(persona: PersonaSlug = Query(..., description="Per
                 trace_id=trace_id
             )
         else:
-            return PersonaSummaryResponse(
+            response = PersonaSummaryResponse(
                 persona="cro",
                 tiles=[
                     PersonaTile(key="pipeline_value", title="Pipeline Value", value=None, delta=None, timeframe="Current Quarter", last_updated=None, href="#", note="stub"),
@@ -514,7 +541,7 @@ async def get_persona_summary(persona: PersonaSlug = Query(..., description="Per
             )
     else:  # cto
         if DEMO_MODE:
-            return PersonaSummaryResponse(
+            response = PersonaSummaryResponse(
                 persona="cto",
                 tiles=[
                     PersonaTile(key="connectors_healthy", title="Connectors Healthy", value="97", delta=None, timeframe="Last 24h", last_updated=now_iso, href="#", mock=True),
@@ -536,7 +563,7 @@ async def get_persona_summary(persona: PersonaSlug = Query(..., description="Per
                 trace_id=trace_id
             )
         else:
-            return PersonaSummaryResponse(
+            response = PersonaSummaryResponse(
                 persona="cto",
                 tiles=[
                     PersonaTile(key="services_healthy", title="Services Healthy", value=None, delta=None, timeframe="Last 24h", last_updated=None, href="#", note="stub"),
@@ -546,3 +573,15 @@ async def get_persona_summary(persona: PersonaSlug = Query(..., description="Per
                 table=PersonaTable(title="Service Health", columns=["Service", "Status", "Latency", "Error Rate"], rows=[], href="#", note="stub"),
                 trace_id=trace_id
             )
+    
+    # Cache the response before returning (60s TTL)
+    if REDIS_AVAILABLE and redis_client and response:
+        try:
+            # Serialize response to JSON for caching
+            cache_data = response.model_dump_json()
+            redis_client.setex(cache_key, 60, cache_data)
+            logger.info(f"Cached persona summary: key={cache_key}, ttl=60s")
+        except Exception as e:
+            logger.warning(f"Cache write error for {cache_key}: {e}")
+    
+    return response

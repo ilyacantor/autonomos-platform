@@ -3,36 +3,48 @@ import time
 from fastapi import Request
 from fastapi.responses import JSONResponse
 from typing import Callable
-from redis import Redis
+from shared.redis_client import redis_client, REDIS_AVAILABLE
 
-RATE_LIMIT_RPM = int(os.getenv("RATE_LIMIT_RPM", "60"))
-RATE_LIMIT_BURST = int(os.getenv("RATE_LIMIT_BURST", "10"))
+# Updated defaults for better performance
+RATE_LIMIT_READ_RPM = int(os.getenv("RATE_LIMIT_READ_RPM", "300"))
+RATE_LIMIT_READ_BURST = int(os.getenv("RATE_LIMIT_READ_BURST", "60"))
+RATE_LIMIT_WRITE_RPM = int(os.getenv("RATE_LIMIT_WRITE_RPM", "100"))
+RATE_LIMIT_WRITE_BURST = int(os.getenv("RATE_LIMIT_WRITE_BURST", "30"))
 
-REDIS_URL = os.getenv("REDIS_URL")
-try:
-    if REDIS_URL:
-        redis_client = Redis.from_url(REDIS_URL, decode_responses=True)
-    else:
-        redis_client = Redis(
-            host=os.getenv("REDIS_HOST", "localhost"),
-            port=int(os.getenv("REDIS_PORT", "6379")),
-            db=int(os.getenv("REDIS_DB", "0")),
-            decode_responses=True
-        )
-    redis_client.ping()
-    REDIS_AVAILABLE = True
-except Exception:
-    redis_client = None
-    REDIS_AVAILABLE = False
+# Legacy env vars (mapped to READ limits for backward compatibility)
+RATE_LIMIT_RPM = int(os.getenv("RATE_LIMIT_RPM", "300"))
+RATE_LIMIT_BURST = int(os.getenv("RATE_LIMIT_BURST", "60"))
+
+
+def get_client_ip(request: Request) -> str:
+    """Extract real client IP from proxy headers or fallback to direct connection."""
+    # Check X-Forwarded-For header (standard for proxies)
+    forwarded_for = request.headers.get("X-Forwarded-For")
+    if forwarded_for:
+        # X-Forwarded-For can have multiple IPs (client, proxy1, proxy2...)
+        # First IP is the real client
+        client_ip = forwarded_for.split(",")[0].strip()
+        if client_ip:
+            return client_ip
+    
+    # Fallback to direct connection IP
+    if request.client:
+        return request.client.host
+    
+    # Ultimate fallback
+    return "unknown"
 
 
 async def rate_limit_middleware(request: Request, call_next: Callable):
     """
-    Rate Limit Middleware - Redis token-bucket
-    - Key: f"ratelimit:{tenant_id}:{agent_id}:{route}"
-    - 60 requests per minute, burst 10
-    - Use Redis INCR with TTL
-    - Return 429 Too Many Requests if exceeded
+    Rate Limit Middleware - Redis token-bucket with tiered limits
+    
+    - Authenticated users: ratelimit:{tenant_id}:{user_id}:{route}
+    - Anonymous users: ratelimit:{ip_address}:{route}
+    - READ (GET): 300 req/min, 60 burst
+    - WRITE (POST/PUT/DELETE): 100 req/min, 30 burst
+    - Uses Redis INCR with TTL
+    - Returns 429 Too Many Requests if exceeded
     """
     if not REDIS_AVAILABLE:
         return await call_next(request)
@@ -47,41 +59,63 @@ async def rate_limit_middleware(request: Request, call_next: Callable):
         "/dcl/state",  # DCL state endpoint (read-only)
         "/dcl/ws",  # DCL WebSocket with mount prefix
     ]
-    if (request.url.path in exempt_paths or 
-        request.url.path.startswith("/static/") or 
-        request.url.path.startswith("/nlp/")):
+    if request.url.path in exempt_paths or request.url.path.startswith("/static/"):
         return await call_next(request)
     
-    tenant_id = getattr(request.state, "tenant_id", "anonymous")
-    agent_id = getattr(request.state, "agent_id", "unknown")
+    # Determine user identifier
+    tenant_id = getattr(request.state, "tenant_id", None)
+    user_id = getattr(request.state, "user_id", None)
+    
+    if tenant_id and user_id:
+        # Authenticated user: use tenant + user ID
+        identifier = f"{tenant_id}:{user_id}"
+    else:
+        # Anonymous user: use IP address from proxy headers
+        client_ip = get_client_ip(request)
+        identifier = f"ip:{client_ip}"
+    
     route = request.url.path
     
-    rate_key = f"ratelimit:{tenant_id}:{agent_id}:{route}"
-    window_key = f"{rate_key}:window"
+    # Determine rate limits based on HTTP method
+    http_method = request.method.upper()
+    if http_method == "GET":
+        # READ operations: higher limits
+        rpm_limit = RATE_LIMIT_READ_RPM
+        burst_limit = RATE_LIMIT_READ_BURST
+    else:
+        # WRITE operations (POST, PUT, DELETE, PATCH): lower limits
+        rpm_limit = RATE_LIMIT_WRITE_RPM
+        burst_limit = RATE_LIMIT_WRITE_BURST
+    
+    rate_key = f"ratelimit:{identifier}:{route}"
     
     try:
         current_count = redis_client.get(rate_key)
         
         if current_count is None:
+            # First request in this window
             redis_client.setex(rate_key, 60, 1)
-            redis_client.setex(window_key, 60, int(time.time()))
         else:
             current_count = int(current_count)
             
-            if current_count >= RATE_LIMIT_RPM + RATE_LIMIT_BURST:
+            # Check if limit exceeded
+            if current_count >= rpm_limit + burst_limit:
                 return JSONResponse(
                     status_code=429,
                     content={
                         "detail": "Rate limit exceeded",
-                        "limit": RATE_LIMIT_RPM,
-                        "burst": RATE_LIMIT_BURST
+                        "limit": rpm_limit,
+                        "burst": burst_limit,
+                        "method": http_method
                     },
                     headers={"Retry-After": "60"}
                 )
             
+            # Increment counter
             redis_client.incr(rate_key)
     
     except Exception:
+        # Fail open - don't block requests if Redis has issues
         pass
     
     response = await call_next(request)
