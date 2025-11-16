@@ -29,7 +29,7 @@ class TestDCLInitialization:
     Ensures new tenants start with clean slate.
     """
     
-    def test_fresh_tenant_has_empty_graph(self, dcl_reset_state):
+    def test_fresh_tenant_has_empty_graph(self, dcl_reset_state, demo_files_mode):
         """
         Test: Fresh tenant has completely empty graph state.
         
@@ -56,7 +56,7 @@ class TestDCLInitialization:
         # Check sources (if endpoint exists)
         # Note: This assumes sources are tracked in state or separate endpoint
     
-    def test_multiple_fresh_tenants_isolated(self, two_tenants):
+    def test_multiple_fresh_tenants_isolated(self, two_tenants, demo_files_mode):
         """
         Test: Multiple fresh tenants have isolated empty graphs.
         
@@ -103,7 +103,7 @@ class TestDCLConstruction:
     Validates correct node/edge creation and structure.
     """
     
-    def test_single_source_creates_graph(self, dcl_reset_state):
+    def test_single_source_creates_graph(self, dcl_reset_state, demo_files_mode):
         """
         Test: Connecting single source creates graph nodes/edges.
         
@@ -143,7 +143,7 @@ class TestDCLConstruction:
             assert "label" in node, "Node missing label field"
             assert "type" in node, "Node missing type field"
     
-    def test_multiple_sources_integrate_correctly(self, dcl_reset_state):
+    def test_multiple_sources_integrate_correctly(self, dcl_reset_state, demo_files_mode):
         """
         Test: Connecting multiple sources integrates into unified graph.
         
@@ -198,7 +198,7 @@ class TestDCLConstruction:
         assert len(state2["nodes"]) > 0, "Final graph should have nodes"
         assert len(state2["edges"]) >= 0, "Final graph should have edges"
     
-    def test_source_connection_idempotency(self, dcl_reset_state):
+    def test_source_connection_idempotency(self, dcl_reset_state, demo_files_mode):
         """
         Test: Connecting same source twice is idempotent.
         
@@ -253,7 +253,7 @@ class TestDCLUpdates:
     Validates correct propagation of schema/data changes.
     """
     
-    def test_graph_reflects_source_changes(self, dcl_graph_with_sources):
+    def test_graph_reflects_source_changes(self, dcl_graph_with_sources, demo_files_mode):
         """
         Test: Graph updates when source data changes.
         
@@ -286,7 +286,7 @@ class TestDCLReset:
     Validates complete state teardown.
     """
     
-    def test_reset_clears_all_state(self, dcl_graph_with_sources):
+    def test_reset_clears_all_state(self, dcl_graph_with_sources, demo_files_mode):
         """
         Test: Resetting state clears all graph data.
         
@@ -317,7 +317,7 @@ class TestDCLReset:
         assert state["nodes"] == [], f"Reset should clear nodes, got {len(state['nodes'])}"
         assert state["edges"] == [], f"Reset should clear edges, got {len(state['edges'])}"
     
-    def test_reset_allows_fresh_start(self, dcl_graph_with_sources):
+    def test_reset_allows_fresh_start(self, dcl_graph_with_sources, demo_files_mode):
         """
         Test: After reset, can rebuild graph from scratch.
         
@@ -362,7 +362,7 @@ class TestDCLEdgeCases:
     Validates robust error handling.
     """
     
-    def test_invalid_source_id_handling(self, dcl_reset_state):
+    def test_invalid_source_id_handling(self, dcl_reset_state, demo_files_mode):
         """
         Test: Connecting invalid source ID handles gracefully.
         

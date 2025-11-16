@@ -1,6 +1,18 @@
 # AutonomOS - Multi-Tenant AI Orchestration Platform
 
 ## Recent Changes
+**November 16, 2025 - Test Infrastructure: Schema & Rate Limiting Fixes:**
+- **✅ StateResponse Schema Refactor:** Flattened StateResponse DTO to match frontend expectations and actual /state endpoint behavior:
+  - Removed nested `graph: GraphState` field
+  - Moved `nodes`, `edges`, `confidence`, `last_updated` to top level
+  - Aligns with frontend LiveSankeyGraph.tsx expecting `state.nodes`, `state.edges`
+  - **Key Finding**: /state endpoint already returned flat dict structure (no response_model=StateResponse), so schema change is safe
+- **✅ Authentication Test Fix:** Resolved 429 rate limit errors blocking test authentication by disabling DUAL rate limiting systems for test environment:
+  1. **SlowAPI Rate Limiter** (`app/middleware/rate_limit.py`): Disabled via `app.state.limiter` override in test fixture
+  2. **Custom Gateway Middleware** (`app/gateway/middleware/rate_limit.py`): Disabled via `TESTING=true` environment check (set in conftest.py before app imports)
+- **Test Infrastructure:** Set `TESTING=true` and `PYTEST_CURRENT_TEST` detection in both middleware systems to prevent automated testing from triggering production rate limits
+- **Test Results:** 37/37 DTO tests passing (100% pass rate!), 1/9 workflow tests confirmed passing, contract tests working but assertions need update
+
 **November 16, 2025 - Complete DCL Performance & Rendering Remediation:**
 - **✅ Performance (3x-7x improvement):** Replaced synchronous `acquire_db_lock()` with async `dcl_distributed_lock.acquire_async()` in `connect_source()`, enabling true parallel source processing. Measured improvement: 62s → 9s for 9-source connection.
 - **✅ Backend Filtering Fix:** Modified `/state` endpoint filtering logic to always return ontology/agent nodes and seed demo graph (33 nodes, 37 edges) when no user sources connected. Fixed tenant_id mismatch in `get_tenant_id_from_user()` to return "default" when AUTH_ENABLED=false.

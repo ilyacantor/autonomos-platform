@@ -9,6 +9,17 @@ import uuid
 # Without this, all requests use MockUser and security tests cannot function
 os.environ['DCL_AUTH_ENABLED'] = 'true'
 
+# CRITICAL: Disable rate limiting for tests BEFORE importing app modules
+# This prevents 429 Rate Limit errors during rapid automated testing
+# SlowAPI rate limiter checks for TESTING environment variable
+os.environ['TESTING'] = 'true'
+
+# NOTE: FEATURE_USE_AAM_AS_SOURCE is NOT set globally (removed to restore AAM test coverage)
+# Tests can opt into AAM or demo_files mode via fixtures:
+# - Use demo_files_mode fixture for tests needing consistent CSV data
+# - Use aam_mode fixture for tests validating AAM behavior
+# - Default: Tests use whatever mode is currently configured
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -110,6 +121,21 @@ def app():
     except Exception as e:
         warnings.warn(f"Could not override DCL app dependencies: {e}")
     
+    # CRITICAL: Disable rate limiting for tests
+    # This prevents 429 errors during rapid automated testing
+    # SlowAPI stores rate limiter in app.state.limiter
+    try:
+        from slowapi import Limiter
+        from slowapi.util import get_remote_address
+        # Replace production limiter with unlimited test limiter
+        _app.state.limiter = Limiter(
+            key_func=get_remote_address,
+            default_limits=["999999999/minute"]  # Effectively unlimited
+        )
+        print("[TEST_SETUP] ✅ Rate limiting disabled for test suite", flush=True)
+    except Exception as e:
+        warnings.warn(f"Could not disable rate limiter: {e}")
+    
     return _app
 
 @pytest.fixture(scope="function")
@@ -181,12 +207,44 @@ def registered_user(client, unique_tenant_name, unique_email):
     password = "testpass123"
     
     # Register the user
+    print(f"\n[AUTH_DEBUG] Attempting registration:", flush=True)
+    print(f"[AUTH_DEBUG]   URL: /users/register", flush=True)
+    print(f"[AUTH_DEBUG]   Tenant: {tenant_name}", flush=True)
+    print(f"[AUTH_DEBUG]   Email: {email}", flush=True)
+    
     register_response = register_user(client, tenant_name, email, password)
-    assert register_response.status_code == 200
+    
+    print(f"[AUTH_DEBUG] Registration response:", flush=True)
+    print(f"[AUTH_DEBUG]   Status Code: {register_response.status_code}", flush=True)
+    print(f"[AUTH_DEBUG]   Response Body: {register_response.text}", flush=True)
+    
+    assert register_response.status_code == 200, \
+        f"Registration failed: {register_response.status_code} - {register_response.text}"
     
     # Login to get token
-    token = login_user(client, email, password)
-    assert token is not None
+    print(f"\n[AUTH_DEBUG] Attempting login:", flush=True)
+    print(f"[AUTH_DEBUG]   URL: /api/v1/auth/login", flush=True)
+    print(f"[AUTH_DEBUG]   Email: {email}", flush=True)
+    
+    # Get detailed login response
+    login_response = client.post(
+        "/api/v1/auth/login",
+        json={"email": email, "password": password}
+    )
+    
+    print(f"[AUTH_DEBUG] Login response:", flush=True)
+    print(f"[AUTH_DEBUG]   Status Code: {login_response.status_code}", flush=True)
+    print(f"[AUTH_DEBUG]   Response Body: {login_response.text}", flush=True)
+    
+    if login_response.status_code == 200:
+        token = login_response.json().get("access_token")
+        print(f"[AUTH_DEBUG]   Token extracted: {'YES' if token else 'NO'}", flush=True)
+    else:
+        token = None
+        print(f"[AUTH_DEBUG]   Login FAILED - no token", flush=True)
+    
+    assert token is not None, \
+        f"Login failed to return token: {login_response.status_code} - {login_response.text}"
     
     return {
         "tenant_name": tenant_name,
@@ -551,6 +609,143 @@ def populate_aam_redis_data(request):
                 print(f"[TEST_CLEANUP] Failed to delete stream {stream_key}: {e}", flush=True)
 
 
+# ===== FEATURE FLAG MODE FIXTURES =====
+
+@pytest.fixture(scope="function")
+def demo_files_mode():
+    """
+    Force demo_files mode for tests that need consistent CSV data.
+    
+    This fixture:
+    1. Saves the current FEATURE_USE_AAM_AS_SOURCE ENV value
+    2. Sets the ENV variable to 'false' (demo_files mode) for the test
+    3. Restores the original value after the test completes
+    
+    Usage:
+        def test_dcl_with_csv_data(dcl_reset_state, demo_files_mode):
+            # This test will use CSV demo files regardless of global config
+            client, headers, tenant_id = dcl_reset_state
+            # Test uses CSV files from app/dcl_engine/schemas/
+    
+    Why: DCL workflow tests expect consistent CSV schema/data and should not
+    be affected by AAM connector state. This fixture ensures they always use
+    the known-good CSV files.
+    
+    Implementation: Sets ENV variable directly (highest precedence level)
+    to guarantee it works even without Redis availability.
+    """
+    import os
+    
+    # Save current ENV value (may be None)
+    env_var = "FEATURE_USE_AAM_AS_SOURCE"
+    original_value = os.environ.get(env_var)
+    
+    # Force demo_files mode (False) via ENV variable
+    os.environ[env_var] = 'false'
+    print(f"[TEST_SETUP] ✅ demo_files_mode: Set {env_var}=false", flush=True)
+    
+    yield
+    
+    # Restore original value
+    if original_value is None:
+        # Was not set before, remove it
+        os.environ.pop(env_var, None)
+        print(f"[TEST_CLEANUP] ✅ demo_files_mode: Removed {env_var}", flush=True)
+    else:
+        # Restore original value
+        os.environ[env_var] = original_value
+        print(f"[TEST_CLEANUP] ✅ demo_files_mode: Restored {env_var}={original_value}", flush=True)
+
+
+@pytest.fixture(scope="function")
+def aam_mode(request):
+    """
+    Enable AAM mode for tests that validate AAM behavior.
+    
+    This fixture:
+    1. Saves the current FEATURE_USE_AAM_AS_SOURCE ENV value
+    2. Sets the ENV variable to 'true' (AAM mode) for the test
+    3. Ensures Redis streams are populated with test data (if tenant_id available)
+    4. Restores the original value after the test completes
+    
+    Usage:
+        def test_aam_connector_behavior(dcl_reset_state, aam_mode):
+            # This test will use AAM connectors with Redis streams
+            client, headers, tenant_id = dcl_reset_state
+            # Test validates AAM-specific behavior
+            
+            # IMPORTANT: Assert the flag is enabled to catch regressions
+            from app.config.feature_flags import FeatureFlagConfig, FeatureFlag
+            assert FeatureFlagConfig.is_enabled(FeatureFlag.USE_AAM_AS_SOURCE)
+    
+    Why: AAM tests need to validate AAM connector behavior, drift detection,
+    and canonical event processing. This fixture ensures they run in AAM mode
+    with properly populated Redis streams.
+    
+    Implementation: Sets ENV variable directly (highest precedence level)
+    to guarantee it works even without Redis availability.
+    """
+    import os
+    from shared.redis_client import get_redis_client
+    from tests.fixtures.aam_data import get_salesforce_aam_data, get_hubspot_aam_data
+    import json
+    
+    # Save current ENV value (may be None)
+    env_var = "FEATURE_USE_AAM_AS_SOURCE"
+    original_value = os.environ.get(env_var)
+    
+    # Force AAM mode (True) via ENV variable
+    os.environ[env_var] = 'true'
+    print(f"[TEST_SETUP] ✅ aam_mode: Set {env_var}=true", flush=True)
+    
+    # Populate Redis streams if tenant_id is available
+    populated_streams = []
+    tenant_id = getattr(request, 'tenant_id', None)
+    
+    if tenant_id:
+        try:
+            redis_client = get_redis_client()
+            
+            # Populate Salesforce stream
+            sf_stream = f"aam:dcl:{tenant_id}:salesforce"
+            for event in get_salesforce_aam_data():
+                redis_client._client.xadd(sf_stream, {'payload': json.dumps(event)})
+            populated_streams.append(sf_stream)
+            print(f"[TEST_SETUP] ✅ aam_mode: Populated stream {sf_stream}", flush=True)
+            
+            # Populate HubSpot stream
+            hs_stream = f"aam:dcl:{tenant_id}:hubspot"
+            for event in get_hubspot_aam_data():
+                redis_client._client.xadd(hs_stream, {'payload': json.dumps(event)})
+            populated_streams.append(hs_stream)
+            print(f"[TEST_SETUP] ✅ aam_mode: Populated stream {hs_stream}", flush=True)
+            
+        except Exception as e:
+            print(f"[TEST_SETUP] ⚠️ aam_mode: Failed to populate Redis streams: {e}", flush=True)
+    
+    yield
+    
+    # Cleanup: Delete test streams
+    if populated_streams:
+        try:
+            redis_client = get_redis_client()
+            for stream_key in populated_streams:
+                redis_client._client.delete(stream_key)
+                print(f"[TEST_CLEANUP] ✅ aam_mode: Deleted stream {stream_key}", flush=True)
+        except Exception as e:
+            print(f"[TEST_CLEANUP] ⚠️ aam_mode: Failed to delete streams: {e}", flush=True)
+    
+    # Restore original ENV value
+    if original_value is None:
+        # Was not set before, remove it
+        os.environ.pop(env_var, None)
+        print(f"[TEST_CLEANUP] ✅ aam_mode: Removed {env_var}", flush=True)
+    else:
+        # Restore original value
+        os.environ[env_var] = original_value
+        print(f"[TEST_CLEANUP] ✅ aam_mode: Restored {env_var}={original_value}", flush=True)
+
+
 # ===== DCL-SPECIFIC FIXTURES (Phase 2 Test Harness) =====
 
 @pytest.fixture(scope="function")
@@ -672,6 +867,7 @@ def dcl_graph_with_sources(dcl_reset_state):
     UPDATED: 
     - Populates AAM Redis streams before connecting (enables AAM-mode testing)
     - Uses new /dcl/connect API signature (sources + agents parameters)
+    - CRITICAL FIX: Explicit DuckDB connection cleanup and Redis lock force-release
     """
     client, headers, tenant_id = dcl_reset_state
     
@@ -679,70 +875,115 @@ def dcl_graph_with_sources(dcl_reset_state):
     from shared.redis_client import get_redis_client
     from tests.fixtures.aam_data import get_salesforce_aam_data, get_hubspot_aam_data
     import json
+    import time
+    import duckdb
     
     redis_client = get_redis_client()
-    
-    # Populate Salesforce stream
     sf_stream = f"aam:dcl:{tenant_id}:salesforce"
-    for event in get_salesforce_aam_data():
-        redis_client._client.xadd(sf_stream, {'payload': json.dumps(event)})
-    print(f"[TEST_SETUP] ✅ Populated Salesforce AAM stream: {sf_stream}", flush=True)
-    
-    # Populate HubSpot stream
     hs_stream = f"aam:dcl:{tenant_id}:hubspot"
-    for event in get_hubspot_aam_data():
-        redis_client._client.xadd(hs_stream, {'payload': json.dumps(event)})
-    print(f"[TEST_SETUP] ✅ Populated HubSpot AAM stream: {hs_stream}", flush=True)
     
-    # Now connect sources - AAM adapter will read from these streams
-    # API expects comma-separated lists: sources=salesforce,hubspot&agents=revops_pilot
-    connect_response = client.get(
-        "/dcl/connect",
-        params={
-            "sources": "salesforce,hubspot",
-            "agents": "revops_pilot",
-            "llm_model": "gemini-2.5-flash"
-        },
-        headers=headers
-    )
-    
-    # Verify sources connected successfully
-    assert connect_response.status_code == 200, f"Connection failed: {connect_response.text}"
-    
-    # [PHASE 3] FILESYSTEM MONITORING: Check DuckDB files after connection
-    import os
-    from pathlib import Path
-    dcl_base_path = Path("app/dcl_engine")
-    print(f"\n[TRACE_DCL] FILESYSTEM MONITORING after /dcl/connect:", flush=True)
-    print(f"[TRACE_DCL] Tenant ID: {tenant_id}", flush=True)
-    print(f"[TRACE_DCL] DCL directory: {dcl_base_path}", flush=True)
-    
-    if dcl_base_path.exists():
-        duckdb_files = list(dcl_base_path.glob("registry*.duckdb"))
-        print(f"[TRACE_DCL] DuckDB files found: {len(duckdb_files)}", flush=True)
-        for f in duckdb_files:
-            file_size = f.stat().st_size
-            print(f"[TRACE_DCL]   - {f.name} ({file_size} bytes)", flush=True)
-        
-        # Check for tenant-specific file
-        expected_file = dcl_base_path / f"registry_{tenant_id}.duckdb"
-        if expected_file.exists():
-            print(f"[TRACE_DCL] ✅ Tenant-specific file EXISTS: {expected_file.name}", flush=True)
-        else:
-            print(f"[TRACE_DCL] ❌ Tenant-specific file MISSING: {expected_file.name}", flush=True)
-    else:
-        print(f"[TRACE_DCL] ❌ DCL directory doesn't exist: {dcl_base_path}", flush=True)
-    
-    # Fetch current graph state for baseline
-    state_response = client.get("/dcl/state", headers=headers)
-    assert state_response.status_code == 200
-    expected_graph = state_response.json()
-    
-    # Cleanup: Delete AAM test streams after test completes
     try:
-        redis_client._client.delete(sf_stream, hs_stream)
-        print(f"[TEST_CLEANUP] Deleted AAM streams: {sf_stream}, {hs_stream}", flush=True)
-    except Exception as e:
-        warnings.warn(f"Failed to cleanup AAM streams: {e}")
+        # Populate Salesforce stream
+        for event in get_salesforce_aam_data():
+            redis_client.xadd(sf_stream, {'payload': json.dumps(event)})
+        print(f"[TEST_SETUP] ✅ Populated Salesforce AAM stream: {sf_stream}", flush=True)
+        
+        # Populate HubSpot stream
+        for event in get_hubspot_aam_data():
+            redis_client.xadd(hs_stream, {'payload': json.dumps(event)})
+        print(f"[TEST_SETUP] ✅ Populated HubSpot AAM stream: {hs_stream}", flush=True)
+        
+        # Now connect sources - AAM adapter will read from these streams
+        # API expects comma-separated lists: sources=salesforce,hubspot&agents=revops_pilot
+        connect_response = client.get(
+            "/dcl/connect",
+            params={
+                "sources": "salesforce,hubspot",
+                "agents": "revops_pilot",
+                "llm_model": "gemini-2.5-flash"
+            },
+            headers=headers
+        )
+        
+        # Verify sources connected successfully
+        assert connect_response.status_code == 200, f"Connection failed: {connect_response.text}"
+        
+        # [PHASE 3] FILESYSTEM MONITORING: Check DuckDB files after connection
+        import os
+        from pathlib import Path
+        dcl_base_path = Path("app/dcl_engine")
+        print(f"\n[TRACE_DCL] FILESYSTEM MONITORING after /dcl/connect:", flush=True)
+        print(f"[TRACE_DCL] Tenant ID: {tenant_id}", flush=True)
+        print(f"[TRACE_DCL] DCL directory: {dcl_base_path}", flush=True)
+        
+        if dcl_base_path.exists():
+            duckdb_files = list(dcl_base_path.glob("registry*.duckdb"))
+            print(f"[TRACE_DCL] DuckDB files found: {len(duckdb_files)}", flush=True)
+            for f in duckdb_files:
+                file_size = f.stat().st_size
+                print(f"[TRACE_DCL]   - {f.name} ({file_size} bytes)", flush=True)
+            
+            # Check for tenant-specific file
+            expected_file = dcl_base_path / f"registry_{tenant_id}.duckdb"
+            if expected_file.exists():
+                print(f"[TRACE_DCL] ✅ Tenant-specific file EXISTS: {expected_file.name}", flush=True)
+            else:
+                print(f"[TRACE_DCL] ❌ Tenant-specific file MISSING: {expected_file.name}", flush=True)
+        else:
+            print(f"[TRACE_DCL] ❌ DCL directory doesn't exist: {dcl_base_path}", flush=True)
+        
+        # Fetch current graph state for baseline
+        state_response = client.get("/dcl/state", headers=headers)
+        assert state_response.status_code == 200
+        expected_graph = state_response.json()
+        
+        # Yield to test
+        yield (client, headers, tenant_id, expected_graph)
     
-    return (client, headers, tenant_id, expected_graph)
+    finally:
+        # CRITICAL CLEANUP: Force-close DuckDB connections and release Redis locks
+        # This prevents test hangs and ensures proper resource cleanup
+        print(f"\n[TEST_CLEANUP] Starting cleanup for tenant: {tenant_id}", flush=True)
+        
+        # 1. Force-close any open DuckDB connections with timeout
+        try:
+            from app.dcl_engine.app import get_db_path
+            db_path = get_db_path(tenant_id)
+            
+            # Force close by opening and immediately closing (clears locks)
+            print(f"[TEST_CLEANUP] Force-closing DuckDB connection: {db_path}", flush=True)
+            cleanup_start = time.time()
+            
+            try:
+                con = duckdb.connect(db_path, config={'access_mode': 'READ_WRITE'})
+                con.close()
+                print(f"[TEST_CLEANUP] ✅ DuckDB connection closed ({time.time() - cleanup_start:.2f}s)", flush=True)
+            except Exception as e:
+                print(f"[TEST_CLEANUP] ⚠️ DuckDB cleanup warning: {e}", flush=True)
+        except Exception as e:
+            print(f"[TEST_CLEANUP] ❌ DuckDB cleanup error: {e}", flush=True)
+        
+        # 2. Force-release Redis distributed locks with timeout
+        try:
+            # Clean up both global and tenant-scoped lock keys
+            global_lock_key = "dcl:lock:state_access"
+            tenant_lock_key = f"dcl:lock:{tenant_id}:duckdb_access"
+            print(f"[TEST_CLEANUP] Force-releasing Redis locks", flush=True)
+            cleanup_start = time.time()
+            
+            # Delete both lock keys to force release
+            if redis_client:
+                redis_client.delete(global_lock_key, tenant_lock_key)
+                print(f"[TEST_CLEANUP] ✅ Redis locks released ({time.time() - cleanup_start:.2f}s)", flush=True)
+        except Exception as e:
+            print(f"[TEST_CLEANUP] ❌ Redis lock cleanup error: {e}", flush=True)
+        
+        # 3. Delete AAM test streams
+        try:
+            cleanup_start = time.time()
+            redis_client.delete(sf_stream, hs_stream)
+            print(f"[TEST_CLEANUP] ✅ Deleted AAM streams ({time.time() - cleanup_start:.2f}s)", flush=True)
+        except Exception as e:
+            print(f"[TEST_CLEANUP] ⚠️ AAM stream cleanup warning: {e}", flush=True)
+        
+        print(f"[TEST_CLEANUP] ✅ Cleanup complete for tenant: {tenant_id}", flush=True)

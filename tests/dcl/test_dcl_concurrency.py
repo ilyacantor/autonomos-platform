@@ -105,6 +105,23 @@ class TestDCLConcurrentWrites:
         """
         client, headers, tenant_id = dcl_reset_state
         
+        # Populate AAM Redis streams with test data
+        from shared.redis_client import get_redis_client
+        from tests.fixtures.aam_data import get_salesforce_aam_data, get_hubspot_aam_data
+        import json
+        
+        redis_client = get_redis_client()
+        sf_stream = f"aam:dcl:{tenant_id}:salesforce"
+        hs_stream = f"aam:dcl:{tenant_id}:hubspot"
+        dy_stream = f"aam:dcl:{tenant_id}:dynamics"
+        
+        for event in get_salesforce_aam_data():
+            redis_client.xadd(sf_stream, {'payload': json.dumps(event)})
+        for event in get_hubspot_aam_data():
+            redis_client.xadd(hs_stream, {'payload': json.dumps(event)})
+        for event in get_salesforce_aam_data():  # Reuse salesforce data for dynamics
+            redis_client.xadd(dy_stream, {'payload': json.dumps(event)})
+        
         # List of sources to connect concurrently
         sources = ["salesforce", "hubspot", "dynamics"]
         
@@ -167,6 +184,16 @@ class TestDCLConcurrentWrites:
             dcl_reset_state: Fixture with clean state
         """
         client, headers, tenant_id = dcl_reset_state
+        
+        # Populate AAM Redis stream for salesforce
+        from shared.redis_client import get_redis_client
+        from tests.fixtures.aam_data import get_salesforce_aam_data
+        import json
+        
+        redis_client = get_redis_client()
+        sf_stream = f"aam:dcl:{tenant_id}:salesforce"
+        for event in get_salesforce_aam_data():
+            redis_client.xadd(sf_stream, {'payload': json.dumps(event)})
         
         source_id = "salesforce"
         
@@ -235,6 +262,25 @@ class TestDCLMixedConcurrency:
             dcl_reset_state: Fixture with clean state
         """
         client, headers, tenant_id = dcl_reset_state
+        
+        # Populate AAM Redis streams for all sources
+        from shared.redis_client import get_redis_client
+        from tests.fixtures.aam_data import get_salesforce_aam_data, get_hubspot_aam_data
+        import json
+        
+        redis_client = get_redis_client()
+        sources_data = {
+            "salesforce": get_salesforce_aam_data(),
+            "hubspot": get_hubspot_aam_data(),
+            "dynamics": get_salesforce_aam_data(),  # Reuse salesforce data
+            "mongodb": get_hubspot_aam_data(),  # Reuse hubspot data
+            "supabase": get_salesforce_aam_data()  # Reuse salesforce data
+        }
+        
+        for source, data in sources_data.items():
+            stream = f"aam:dcl:{tenant_id}:{source}"
+            for event in data:
+                redis_client.xadd(stream, {'payload': json.dumps(event)})
         
         async def write_operation(source_id: str):
             """Connect a source (write)"""

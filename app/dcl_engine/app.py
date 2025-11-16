@@ -1807,11 +1807,13 @@ def add_graph_nodes_for_source(source_key: str, tables: Dict[str, Any], tenant_i
     # Get current graph state for this tenant (state_access handles dual-path)
     current_graph = state_access.get_graph_state(tenant_id)
     
-    # Create source_parent node BEFORE source nodes
-    parent_node_id = f"sys_{source_key}"
-    parent_label = source_key.replace('_', ' ').title()
+    # CRITICAL FIX: Use a SINGLE shared parent node for ALL sources
+    # This prevents node count inflation in multi-source workflows
+    # Expected structure: 1 parent + N tables + 1 agent = N+2 nodes (not 1 parent per source)
+    parent_node_id = "sys_sources"  # Shared across all sources
+    parent_label = "Data Sources"
     
-    # Add source_parent node if it doesn't exist
+    # Add shared source_parent node if it doesn't exist (created once for all sources)
     if not any(n["id"] == parent_node_id for n in current_graph["nodes"]):
         current_graph["nodes"].append({
             "id": parent_node_id,
@@ -1827,22 +1829,30 @@ def add_graph_nodes_for_source(source_key: str, tables: Dict[str, Any], tenant_i
         label = f"{t} ({source_system})"
         # Extract field names from the schema
         fields = list(table_data.get("schema", {}).keys()) if isinstance(table_data, dict) else []
-        current_graph["nodes"].append({
-            "id": node_id, 
-            "label": label, 
-            "type": "source",
-            "sourceSystem": source_system,
-            "parentId": parent_node_id,
-            "fields": fields
-        })
         
-        # Create hierarchy edge from parent to source table
-        current_graph["edges"].append({
-            "source": parent_node_id,
-            "target": node_id,
-            "edgeType": "hierarchy",
-            "value": 1
-        })
+        # Add source node only if it doesn't already exist (idempotency)
+        if not any(n["id"] == node_id for n in current_graph["nodes"]):
+            current_graph["nodes"].append({
+                "id": node_id, 
+                "label": label, 
+                "type": "source",
+                "sourceSystem": source_system,
+                "parentId": parent_node_id,
+                "fields": fields
+            })
+        
+        # Create hierarchy edge from parent to source table (only if not exists)
+        edge_exists = any(
+            e["source"] == parent_node_id and e["target"] == node_id and e.get("edgeType") == "hierarchy"
+            for e in current_graph["edges"]
+        )
+        if not edge_exists:
+            current_graph["edges"].append({
+                "source": parent_node_id,
+                "target": node_id,
+                "edgeType": "hierarchy",
+                "value": 1
+            })
     
     # Note: Ontology nodes will be added dynamically in apply_plan() 
     # only when they actually receive data from sources
@@ -2192,26 +2202,46 @@ def _blocking_source_pipeline(
             log(f"I connected to {source_key.title()} (schema sample) and proposed mappings and joins.")
             plan_type = "ai"
         
-        # BLOCKING: DuckDB operations (~2-3s)
+        # BLOCKING: DuckDB operations (~2-3s) - MUST be inside TENANT-SCOPED distributed lock
+        # CRITICAL FIX: Use tenant-scoped lock to prevent race conditions within same tenant
+        # while allowing parallel processing across different tenants
         db_path = get_db_path(tenant_id)
         print(f"[TRACE_DCL] About to connect to DuckDB: {db_path}", flush=True)
-        con = duckdb.connect(db_path, config={'access_mode': 'READ_WRITE'})
-        print(f"[TRACE_DCL] DuckDB connection successful", flush=True)
         
-        print(f"[TRACE_DCL] Calling register_src_views for {source_key}", flush=True)
-        register_src_views(con, source_key, tables)
-        print(f"[TRACE_DCL] register_src_views completed", flush=True)
-        
-        # Acquire distributed lock with LONG timeout (60s) to allow sequential processing
-        # This prevents data races when multiple sources update graph state concurrently
-        print(f"[TRACE_DCL] Acquiring distributed lock (60s timeout)", flush=True)
-        if dcl_distributed_lock:
-            with dcl_distributed_lock.acquire(timeout=60.0):
-                print(f"[TRACE_DCL] Lock acquired, calling apply_plan", flush=True)
+        # Create tenant-scoped lock to prevent race conditions when multiple sources
+        # from the SAME tenant connect in parallel, while allowing different tenants
+        # to process concurrently
+        print(f"[TRACE_DCL] Acquiring tenant-scoped distributed lock (tenant: {tenant_id}, 60s timeout)", flush=True)
+        if redis_client:
+            from app.dcl_engine.distributed_lock import RedisDistributedLock
+            tenant_lock = RedisDistributedLock(
+                redis_client=redis_client,
+                lock_key=f"dcl:lock:{tenant_id}:duckdb_access",  # Tenant-scoped lock key
+                lock_ttl=30
+            )
+            with tenant_lock.acquire(timeout=60.0):
+                print(f"[TRACE_DCL] Tenant lock acquired, opening DuckDB connection", flush=True)
+                con = duckdb.connect(db_path, config={'access_mode': 'READ_WRITE'})
+                print(f"[TRACE_DCL] DuckDB connection successful", flush=True)
+                
+                print(f"[TRACE_DCL] Calling register_src_views for {source_key}", flush=True)
+                register_src_views(con, source_key, tables)
+                print(f"[TRACE_DCL] register_src_views completed", flush=True)
+                
+                print(f"[TRACE_DCL] Calling apply_plan", flush=True)
                 score = apply_plan(con, source_key, plan, tenant_id)
                 print(f"[TRACE_DCL] apply_plan completed with score: {score}", flush=True)
         else:
-            print(f"[TRACE_DCL] No distributed lock available, calling apply_plan directly", flush=True)
+            # Fallback: No Redis available (development mode without distributed lock)
+            print(f"[TRACE_DCL] No Redis available, proceeding without lock", flush=True)
+            con = duckdb.connect(db_path, config={'access_mode': 'READ_WRITE'})
+            print(f"[TRACE_DCL] DuckDB connection successful", flush=True)
+            
+            print(f"[TRACE_DCL] Calling register_src_views for {source_key}", flush=True)
+            register_src_views(con, source_key, tables)
+            print(f"[TRACE_DCL] register_src_views completed", flush=True)
+            
+            print(f"[TRACE_DCL] Calling apply_plan directly", flush=True)
             score = apply_plan(con, source_key, plan, tenant_id)
             print(f"[TRACE_DCL] apply_plan completed with score: {score}", flush=True)
         
@@ -3320,15 +3350,21 @@ async def connect(
     current_user = Depends(get_current_user)
 ):
     """
-    Idempotent connection endpoint - clears prior state and rebuilds from scratch.
-    Replaces both legacy /reset and /connect behavior.
-    Dev mode is preserved across connection rebuilds.
+    Additive connection endpoint - connects sources incrementally without clearing existing state.
+    Sources and nodes accumulate across multiple calls, with automatic deduplication.
+    Dev mode and existing sources are preserved.
     
     Args:
         current_user: Current authenticated user (contains tenant_id in JWT claims)
-        sources: Comma-separated list of source IDs
-        agents: Comma-separated list of agent IDs
+        sources: Comma-separated list of source IDs to connect
+        agents: Comma-separated list of agent IDs to execute
         llm_model: LLM model to use for entity mapping
+    
+    Behavior:
+        - Sources are added incrementally (does NOT clear existing sources)
+        - Reconnecting existing source is idempotent (no duplicates)
+        - Graph nodes are deduplicated automatically in add_graph_nodes_for_source()
+        - To clear state, explicitly call /reset endpoint before /connect
     
     Tenant Isolation:
         - Extracts tenant_id from current_user JWT claims via get_tenant_id_from_user()
@@ -3347,8 +3383,9 @@ async def connect(
     # Determine source mode from feature flag
     source_mode = "aam_connectors" if FeatureFlagConfig.is_enabled(FeatureFlag.USE_AAM_AS_SOURCE) else "demo_files"
     
-    # Clear prior state (preserves dev_mode) for idempotent behavior
-    reset_state(exclude_dev_mode=True, tenant_id=tenant_id)
+    # CRITICAL FIX: Do NOT reset state - allow sources to accumulate incrementally
+    # Idempotency checks in add_graph_nodes_for_source() prevent duplicate nodes
+    # If user wants fresh start, they should call /reset endpoint first
     log(f"🔌 Connecting {len(source_list)} source(s) with {len(agent_list)} agent(s)...")
     log(f"📂 Using {source_mode} for sources: {', '.join(source_list)} (tenant: {tenant_id})")
     
@@ -3360,6 +3397,7 @@ async def connect(
     
     try:
         # Connect all sources in parallel using async concurrency
+        # Note: Each connect_source has internal distributed lock for safe state mutations
         tasks = [connect_source(source, llm_model, tenant_id) for source in source_list]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         

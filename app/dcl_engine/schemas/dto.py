@@ -258,17 +258,15 @@ class StateResponse(BaseDTO):
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "graph": {
-                    "nodes": [
-                        {"id": "account_1", "label": "Acme Corp", "type": "entity"},
-                        {"id": "salesforce", "label": "Salesforce", "type": "source"}
-                    ],
-                    "edges": [
-                        {"source": "salesforce", "target": "account_1", "label": "provides"}
-                    ],
-                    "confidence": 0.85,
-                    "last_updated": "2024-01-15T10:30:00Z"
-                },
+                "nodes": [
+                    {"id": "account_1", "label": "Acme Corp", "type": "entity"},
+                    {"id": "salesforce", "label": "Salesforce", "type": "source"}
+                ],
+                "edges": [
+                    {"source": "salesforce", "target": "account_1", "label": "provides"}
+                ],
+                "confidence": 0.85,
+                "last_updated": "2024-01-15T10:30:00Z",
                 "sources_added": ["salesforce", "hubspot"],
                 "entity_sources": {
                     "account": ["salesforce", "hubspot"],
@@ -283,7 +281,10 @@ class StateResponse(BaseDTO):
         }
     )
     
-    graph: GraphState = Field(..., description="Current graph state")
+    nodes: List[GraphNode] = Field([], description="Graph nodes")
+    edges: List[GraphEdge] = Field([], description="Graph edges")
+    confidence: Optional[float] = Field(None, ge=0.0, le=1.0, description="Overall graph confidence")
+    last_updated: Optional[datetime] = Field(None, description="Last update timestamp")
     sources_added: List[str] = Field([], description="List of connected sources")
     entity_sources: Dict[str, List[str]] = Field({}, description="Mapping of entities to their sources")
     selected_agents: Optional[List[str]] = Field([], description="Currently selected agents")

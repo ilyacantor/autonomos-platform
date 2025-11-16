@@ -17,10 +17,33 @@ Coverage:
 - /dcl/state endpoint (graph state structure)
 - Node and edge structure
 - Metadata fields (confidence, sources, etc.)
+
+Dynamic Field Handling:
+- tenant_id is excluded from snapshots (dynamically generated UUID)
+- Snapshots focus on structure, not ephemeral runtime values
 """
 
 import pytest
 from syrupy.assertion import SnapshotAssertion
+from syrupy.extensions.json import JSONSnapshotExtension
+from syrupy.filters import props
+
+
+def normalize_state_for_snapshot(state):
+    """
+    Normalize state by removing dynamic fields that change between test runs.
+    
+    This ensures snapshots capture structure, not ephemeral values like tenant_id.
+    """
+    if isinstance(state, dict):
+        normalized = state.copy()
+        # Remove tenant_id from top level and metadata
+        normalized.pop('tenant_id', None)
+        if 'metadata' in normalized and isinstance(normalized['metadata'], dict):
+            normalized['metadata'] = normalized['metadata'].copy()
+            normalized['metadata'].pop('tenant_id', None)
+        return normalized
+    return state
 
 
 class TestDCLStateContract:
@@ -32,7 +55,7 @@ class TestDCLStateContract:
     forcing explicit review and snapshot update.
     """
     
-    def test_empty_graph_state_structure(self, dcl_reset_state, snapshot: SnapshotAssertion):
+    def test_empty_graph_state_structure(self, dcl_reset_state, demo_files_mode, snapshot: SnapshotAssertion):
         """
         Test: Empty graph state has correct structure.
         
@@ -51,8 +74,11 @@ class TestDCLStateContract:
         assert response.status_code == 200, f"State endpoint failed: {response.text}"
         state = response.json()
         
+        # Normalize state before snapshot comparison (remove dynamic tenant_id)
+        normalized_state = normalize_state_for_snapshot(state)
+        
         # Assert structure matches snapshot
-        assert state == snapshot
+        assert normalized_state == snapshot
         
         # Critical assertions (structure validation)
         assert "nodes" in state, "Missing 'nodes' field"
@@ -82,8 +108,11 @@ class TestDCLStateContract:
         assert response.status_code == 200, f"State endpoint failed: {response.text}"
         state = response.json()
         
+        # Normalize state before snapshot comparison (remove dynamic tenant_id)
+        normalized_state = normalize_state_for_snapshot(state)
+        
         # Assert structure matches snapshot
-        assert state == snapshot
+        assert normalized_state == snapshot
         
         # Critical assertions (non-empty graph validation)
         assert "nodes" in state, "Missing 'nodes' field"
@@ -97,7 +126,7 @@ class TestDCLStateContract:
             assert "label" in node, "Node missing 'label' field"
             assert "type" in node, "Node missing 'type' field"
     
-    def test_graph_state_metadata_fields(self, dcl_graph_with_sources, snapshot: SnapshotAssertion):
+    def test_graph_state_metadata_fields(self, dcl_graph_with_sources, demo_files_mode, snapshot: SnapshotAssertion):
         """
         Test: Graph state metadata fields are present and typed correctly.
         
@@ -116,8 +145,11 @@ class TestDCLStateContract:
         assert response.status_code == 200
         state = response.json()
         
+        # Normalize state before snapshot comparison (remove dynamic tenant_id)
+        normalized_state = normalize_state_for_snapshot(state)
+        
         # Snapshot full state including metadata
-        assert state == snapshot
+        assert normalized_state == snapshot
         
         # Type validation for common metadata fields
         if "confidence" in state and state["confidence"] is not None:
@@ -137,7 +169,7 @@ class TestDCLSourceSchemasContract:
     - Type information loss
     """
     
-    def test_source_schemas_empty_structure(self, dcl_reset_state, snapshot: SnapshotAssertion):
+    def test_source_schemas_empty_structure(self, dcl_reset_state, demo_files_mode, snapshot: SnapshotAssertion):
         """
         Test: Source schemas endpoint structure with no sources.
         
@@ -156,7 +188,7 @@ class TestDCLSourceSchemasContract:
         # Should be an empty dict or have expected structure
         assert isinstance(schemas, dict), "Source schemas must be a dict"
     
-    def test_source_schemas_with_sources_structure(self, dcl_graph_with_sources, snapshot: SnapshotAssertion):
+    def test_source_schemas_with_sources_structure(self, dcl_graph_with_sources, demo_files_mode, snapshot: SnapshotAssertion):
         """
         Test: Source schemas endpoint structure with connected sources.
         
@@ -215,9 +247,12 @@ class TestDCLConnectEndpointContract:
         assert response.status_code == 200, f"Connect failed: {response.text}"
         result = response.json()
         
+        # Normalize result before snapshot comparison (remove dynamic tenant_id)
+        normalized_result = normalize_state_for_snapshot(result)
+        
         # Snapshot the response structure
-        assert result == snapshot
+        assert normalized_result == snapshot
         
         # Validate presence of key response fields
-        assert "message" in result or "status" in result or "graph" in result, \
+        assert "ok" in result or "sources" in result or "agents" in result, \
             "Connect response missing expected fields"

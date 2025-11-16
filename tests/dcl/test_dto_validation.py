@@ -274,15 +274,11 @@ class TestStateDTOs:
     
     def test_state_response_creation(self):
         """Test StateResponse DTO creation"""
-        graph = GraphState(
-            nodes=[],
-            edges=[],
-            confidence=0.8
-        )
-        
         resp = StateResponse(
             tenant_id="tenant_123",
-            graph=graph,
+            nodes=[],
+            edges=[],
+            confidence=0.8,
             sources_added=["salesforce", "hubspot"],
             entity_sources={"account": ["salesforce"], "contact": ["hubspot"]},
             selected_agents=["revops_pilot"],
@@ -292,6 +288,9 @@ class TestStateDTOs:
         assert len(resp.sources_added) == 2
         assert "account" in resp.entity_sources
         assert resp.metadata["llm_calls"] == 10
+        assert resp.confidence == 0.8
+        assert len(resp.nodes) == 0
+        assert len(resp.edges) == 0
 
 
 class TestToggleDTOs:
@@ -539,8 +538,6 @@ class TestBackwardCompatibility:
     
     def test_state_response_backward_compatible(self):
         """Test StateResponse maintains backward compatibility with metadata field"""
-        graph = GraphState(nodes=[], edges=[])
-        
         # Old clients might expect these fields in metadata
         legacy_metadata = {
             "events": ["event1", "event2"],
@@ -550,7 +547,8 @@ class TestBackwardCompatibility:
         }
         
         resp = StateResponse(
-            graph=graph,
+            nodes=[],
+            edges=[],
             sources_added=[],
             entity_sources={},
             metadata=legacy_metadata
@@ -570,7 +568,8 @@ class TestBackwardCompatibility:
         
         # StateResponse with minimal fields
         resp1 = StateResponse(
-            graph=GraphState(nodes=[], edges=[]),
+            nodes=[],
+            edges=[],
             sources_added=[],
             entity_sources={}
         )
