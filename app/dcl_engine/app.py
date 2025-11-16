@@ -2544,8 +2544,8 @@ async def websocket_endpoint(
         ws_manager.disconnect(websocket)
 
 
-@app.get("/state", dependencies=AUTH_DEPENDENCIES, response_model=StateResponse)
-def state(current_user = Depends(get_current_user)) -> StateResponse:
+@app.get("/state", dependencies=AUTH_DEPENDENCIES)
+def state(current_user = Depends(get_current_user)):
     """
     Get current DCL state including graph, sources, agents, and metrics.
     
@@ -2717,15 +2717,35 @@ def state(current_user = Depends(get_current_user)) -> StateResponse:
         "source_mode": source_mode
     }
     
-    # Return StateResponse DTO
-    return StateResponse(
-        tenant_id=tenant_id,
-        graph=graph_state,
-        sources_added=selected_sources,
-        entity_sources=entity_sources,
-        selected_agents=selected_agents,
-        metadata=metadata
-    )
+    # Return backward-compatible response
+    # Frontend expects nodes and edges at root level, not nested in graph object
+    return {
+        "nodes": filtered_graph["nodes"],  # Use original nodes format for frontend
+        "edges": filtered_graph["edges"],  # Use original edges format for frontend
+        "confidence": blended_confidence,
+        "sources_added": selected_sources,
+        "entity_sources": entity_sources,
+        "selected_agents": selected_agents,
+        "tenant_id": tenant_id,
+        "metadata": metadata,
+        # Additional fields for backward compatibility
+        "events": current_events,
+        "timeline": current_events[-5:] if current_events else [],
+        "llm": {
+            "calls": llm_stats["calls"], 
+            "tokens": llm_stats["tokens"],
+            "calls_saved": llm_stats["calls_saved"]
+        },
+        "auto_ingest_unmapped": AUTO_INGEST_UNMAPPED,
+        "rag": {
+            **RAG_CONTEXT,
+            "mappings_retrieved": RAG_CONTEXT.get("last_retrieval_count", 0)
+        },
+        "agent_consumption": agent_consumption,
+        "dev_mode": get_dev_mode(),
+        "auth_enabled": AUTH_ENABLED,
+        "source_mode": source_mode
+    }
 
 @app.get("/dcl/agents/{agent_id}/results", dependencies=AUTH_DEPENDENCIES)
 async def get_agent_results(
