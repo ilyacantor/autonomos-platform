@@ -796,10 +796,41 @@ def snapshot_tables_from_dir(source_key: str, dir_path: str) -> Dict[str, Any]:
     return tables
 
 def register_src_views(con, source_key: str, tables: Dict[str, Any]):
+    """
+    Register source tables as DuckDB views.
+    
+    Supports both:
+    - File-based sources (legacy): tables with "path" field → load from CSV
+    - AAM sources: tables with "samples" field → create from in-memory data
+    
+    Args:
+        con: DuckDB connection
+        source_key: Source identifier
+        tables: Dictionary mapping table names to table metadata
+    """
     for tname, info in tables.items():
-        path = info["path"]
         view_name = f"src_{source_key}_{tname}"
-        con.sql(f"CREATE OR REPLACE VIEW {view_name} AS SELECT * FROM read_csv_auto('{path}')")
+        
+        # Check if this is a file-based source (has "path") or AAM source (has "samples")
+        if "path" in info:
+            # Legacy file-based source: Load from CSV file
+            path = info["path"]
+            con.sql(f"CREATE OR REPLACE VIEW {view_name} AS SELECT * FROM read_csv_auto('{path}')")
+        elif "samples" in info and info["samples"]:
+            # AAM source: Create from in-memory data (samples list)
+            # Convert samples list to pandas DataFrame
+            df = pd.DataFrame(info["samples"])
+            
+            # Register DataFrame as a temporary table in DuckDB
+            temp_table_name = f"_temp_{source_key}_{tname}"
+            con.register(temp_table_name, df)
+            
+            # Create view from the temporary table
+            con.sql(f"CREATE OR REPLACE VIEW {view_name} AS SELECT * FROM {temp_table_name}")
+        else:
+            # Unknown format - log warning and skip
+            log(f"⚠️ Table '{tname}' has unknown format (no 'path' or 'samples'), skipping view creation")
+            continue
 
 def mk_sql_expr(src: Any, transform: str):
     if isinstance(src, list):
