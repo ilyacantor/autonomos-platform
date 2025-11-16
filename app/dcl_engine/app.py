@@ -333,13 +333,26 @@ def get_tenant_id_from_user(current_user: Optional[Dict[str, Any]] = None) -> st
 
 def set_redis_client(client):
     """
-    Set the shared Redis client from main app and initialize feature flags.
+    Set the shared Redis client from main app and initialize all DCL components.
     This avoids creating multiple Redis connections and hitting Upstash connection limits.
+    
+    CRITICAL: This function is called when mounting the DCL sub-app to main app.
+    Since mounted sub-apps don't trigger startup events, ALL initialization
+    must happen here instead of @app.on_event("startup").
+    
+    Initializes:
+        - Feature flags (Redis-backed)
+        - Dev mode persistence
+        - Tenant state manager (multi-tenant isolation)
+        - Distributed locks (concurrency control)
+        - Graph state store (persistence layer)
+        - RAG engine (entity mapping intelligence)
+        - Agent executor (agentic orchestration)
     
     Args:
         client: Redis client instance from main app (typically with decode_responses=False)
     """
-    global redis_client, redis_available, _dev_mode_initialized, graph_store, tenant_state_manager, GRAPH_STATE, dcl_distributed_lock
+    global redis_client, redis_available, _dev_mode_initialized, graph_store, tenant_state_manager, GRAPH_STATE, dcl_distributed_lock, rag_engine, agents_config, agent_executor
     
     # Wrap the client to provide decode_responses=True behavior
     redis_client = RedisDecodeWrapper(client)
@@ -455,6 +468,23 @@ def set_redis_client(client):
         
         # Initialize state_access wrapper module with TenantStateManager
         state_access.initialize_state_access(tenant_state_manager)
+    
+    # Initialize RAG engine for entity mapping intelligence (required for both AAM and demo modes)
+    try:
+        rag_engine = RAGEngine()
+        print("✅ RAG Engine initialized successfully", flush=True)
+    except Exception as e:
+        print(f"⚠️ RAG Engine initialization failed: {e}. Continuing without RAG.", flush=True)
+        rag_engine = None
+    
+    # Initialize AgentExecutor for agentic orchestration (Phase 4)
+    try:
+        agents_config = load_agents_config()
+        agent_executor = AgentExecutor(DB_PATH, agents_config, AGENT_RESULTS_CACHE, redis_client)
+        print("✅ AgentExecutor initialized successfully", flush=True)
+    except Exception as e:
+        print(f"⚠️ AgentExecutor initialization failed: {e}. Continuing without agent execution.", flush=True)
+        agent_executor = None
 
 # WebSocket connection manager with tenant isolation
 class ConnectionManager:

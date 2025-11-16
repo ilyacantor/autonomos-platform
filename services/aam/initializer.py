@@ -53,8 +53,9 @@ class AAMInitializer:
                     connector_name = connector.__class__.__name__.replace('Connector', '')
                     logger.info(f"  Initializing {connector_name}...")
                     
-                    # Seed data in external system
-                    connector.seed_data()
+                    # Seed data in external system (only for connectors that support it)
+                    if hasattr(connector, 'seed_data') and callable(getattr(connector, 'seed_data')):
+                        connector.seed_data()
                     
                     # Fetch and emit canonical events
                     events_count = await self._emit_connector_events(connector)
