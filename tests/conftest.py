@@ -13,18 +13,59 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from app.main import app
 from app.database import get_db
 from app.models import Base
 from app.config import settings
+import warnings
 
-# Create a test database engine
-# NOTE: On Replit, DATABASE_URL points to the development database (not production)
-# Tests use unique tenant names (UUID-based) to avoid conflicts with manual testing
-# For true production isolation, set TEST_DATABASE_URL environment variable
-TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL", settings.DATABASE_URL)
-engine = create_engine(TEST_DATABASE_URL)
+
+# ===== CRITICAL DATABASE SAFETY =====
+# Tests MUST use isolated database to prevent production data corruption.
+# Set TEST_DATABASE_URL environment variable to a separate test database.
+# If not set, tests will use in-memory SQLite with limited functionality.
+
+TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL")
+
+if TEST_DATABASE_URL is None:
+    warnings.warn(
+        "\n"
+        "=" * 80 + "\n"
+        "CRITICAL WARNING: TEST_DATABASE_URL not set!\n"
+        "=" * 80 + "\n"
+        "Many tests will SKIP or FAIL due to missing database.\n"
+        "For full PostgreSQL testing, set TEST_DATABASE_URL to an isolated database.\n"
+        "\n"
+        "Example:\n"
+        "  export TEST_DATABASE_URL='postgresql://user:pass@localhost/test_db'\n"
+        "\n"
+        "NEVER point TEST_DATABASE_URL at production DATABASE_URL!\n"
+        "Running tests against shared data WILL cause corruption.\n"
+        "=" * 80 + "\n",
+        UserWarning,
+        stacklevel=2
+    )
+    # Use in-memory SQLite as safe fallback
+    # NOTE: SQLite has limited compatibility with PostgreSQL-specific features
+    # (e.g., UUID columns). Many tests will skip or fail.
+    TEST_DATABASE_URL = "sqlite:///:memory:"
+    engine = create_engine(
+        TEST_DATABASE_URL,
+        connect_args={"check_same_thread": False}  # Required for SQLite
+    )
+    # Skip table creation for SQLite - models use PostgreSQL-specific types (UUID)
+    # Tests requiring database will fail gracefully
+else:
+    # Verify TEST_DATABASE_URL is not accidentally pointing at production
+    if TEST_DATABASE_URL == settings.DATABASE_URL:
+        raise RuntimeError(
+            "FATAL: TEST_DATABASE_URL points to production DATABASE_URL!\n"
+            "Running tests would corrupt shared data.\n"
+            "Set TEST_DATABASE_URL to a separate isolated test database."
+        )
+    engine = create_engine(TEST_DATABASE_URL)
+
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
 
 def override_get_db():
     """Override database dependency for testing."""
@@ -36,14 +77,36 @@ def override_get_db():
         if db is not None:
             db.close()
 
-# Override the dependency
-app.dependency_overrides[get_db] = override_get_db
+
+# ===== LAZY APP LOADING FIXTURE =====
+# App is loaded lazily to prevent module-level import hangs during test collection.
+# This ensures pytest --collect-only works without starting the full FastAPI app.
+
+@pytest.fixture(scope="session")
+def app():
+    """
+    Lazy-load FastAPI app for testing.
+    
+    CRITICAL: App is loaded at fixture execution time, NOT at module import time.
+    This prevents hangs during test collection (pytest --collect-only).
+    
+    The app is loaded once per test session and reused across all tests.
+    """
+    from app.main import app as _app
+    
+    # Override database dependency
+    _app.dependency_overrides[get_db] = override_get_db
+    
+    return _app
 
 @pytest.fixture(scope="function")
-def client():
+def client(app):
     """
     Create a test client for making API requests.
     Each test gets a fresh client.
+    
+    Args:
+        app: Lazy-loaded FastAPI app fixture
     """
     return TestClient(app)
 
@@ -391,3 +454,148 @@ def mock_llm_response():
             "reasoning": "Field name suggests a date field for opportunity closure. Standard snake_case conversion."
         }
     }
+
+
+# ===== DCL-SPECIFIC FIXTURES (Phase 2 Test Harness) =====
+
+@pytest.fixture(scope="function")
+def dcl_client(app, registered_user):
+    """
+    Fixture that provides a TestClient configured for DCL endpoint testing.
+    
+    Returns a tuple: (client, auth_headers, tenant_id)
+    - client: FastAPI TestClient instance
+    - auth_headers: Authorization headers with JWT token
+    - tenant_id: Tenant ID extracted from registered user
+    
+    Args:
+        app: Lazy-loaded FastAPI app fixture
+        registered_user: Registered user fixture
+    
+    Usage:
+        def test_dcl_state(dcl_client):
+            client, headers, tenant_id = dcl_client
+            response = client.get("/dcl/state", headers=headers)
+            assert response.status_code == 200
+    """
+    client = TestClient(app)
+    token = registered_user["token"]
+    headers = get_auth_headers(token)
+    
+    # Extract tenant_id from user_data (UUID)
+    user_data = registered_user["user_data"]
+    tenant_id = str(user_data["tenant_id"])
+    
+    return (client, headers, tenant_id)
+
+
+@pytest.fixture(scope="function")
+def dcl_reset_state(dcl_client):
+    """
+    Fixture that resets DCL graph state before and after each test.
+    
+    This ensures test isolation and prevents state leakage between tests.
+    Clears all DCL state including:
+    - Graph nodes and edges
+    - Source connections
+    - Entity mappings
+    - Agent state
+    - Redis keys for tenant
+    
+    CRITICAL: This fixture must be used for all DCL state tests to prevent
+    race conditions and ensure reproducibility.
+    
+    Usage:
+        def test_something(dcl_reset_state):
+            client, headers, tenant_id = dcl_reset_state
+            # Test runs with clean slate
+            # State automatically cleared after test completes
+    """
+    client, headers, tenant_id = dcl_client
+    
+    # Reset state before test
+    from app.dcl_engine import state_access
+    state_access.reset_all_state(tenant_id)
+    
+    # Clear Redis keys for this tenant (prevent cross-test state bleed)
+    try:
+        from shared.redis_client import get_redis_client
+        redis_client = get_redis_client()
+        
+        # Clear all tenant-scoped Redis keys
+        # Pattern: dcl:{tenant_id}:*
+        pattern = f"dcl:{tenant_id}:*"
+        cursor = 0
+        while True:
+            cursor, keys = redis_client.scan(cursor, match=pattern, count=100)
+            if keys:
+                redis_client.delete(*keys)
+            if cursor == 0:
+                break
+    except Exception as e:
+        # If Redis is unavailable, log warning but don't fail test
+        # (tests may run without Redis in some environments)
+        warnings.warn(f"Failed to clear Redis keys for tenant {tenant_id}: {e}")
+    
+    # Yield to test
+    yield (client, headers, tenant_id)
+    
+    # Reset state after test (cleanup)
+    state_access.reset_all_state(tenant_id)
+    
+    # Clear Redis keys after test
+    try:
+        from shared.redis_client import get_redis_client
+        redis_client = get_redis_client()
+        pattern = f"dcl:{tenant_id}:*"
+        cursor = 0
+        while True:
+            cursor, keys = redis_client.scan(cursor, match=pattern, count=100)
+            if keys:
+                redis_client.delete(*keys)
+            if cursor == 0:
+                break
+    except Exception:
+        pass  # Silent cleanup failure
+
+
+@pytest.fixture(scope="function")
+def dcl_graph_with_sources(dcl_reset_state):
+    """
+    Fixture that provides a DCL client with known working graph state.
+    
+    Creates a reproducible graph state with:
+    - 2 connected sources (salesforce, hubspot)
+    - Graph nodes and edges representing entity mappings
+    - Known entity sources for validation
+    
+    This is the baseline state used for contract/snapshot testing.
+    
+    Returns: (client, headers, tenant_id, expected_graph)
+    """
+    client, headers, tenant_id = dcl_reset_state
+    
+    # Connect two sources to build graph state
+    # Using /dcl/connect endpoint (from app.dcl_engine.app.py)
+    salesforce_response = client.get(
+        "/dcl/connect",
+        params={"source_id": "salesforce"},
+        headers=headers
+    )
+    
+    hubspot_response = client.get(
+        "/dcl/connect",
+        params={"source_id": "hubspot"},
+        headers=headers
+    )
+    
+    # Verify sources connected successfully
+    assert salesforce_response.status_code == 200, f"Salesforce connection failed: {salesforce_response.text}"
+    assert hubspot_response.status_code == 200, f"Hubspot connection failed: {hubspot_response.text}"
+    
+    # Fetch current graph state for baseline
+    state_response = client.get("/dcl/state", headers=headers)
+    assert state_response.status_code == 200
+    expected_graph = state_response.json()
+    
+    return (client, headers, tenant_id, expected_graph)

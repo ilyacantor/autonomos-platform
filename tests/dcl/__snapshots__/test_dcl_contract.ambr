@@ -1,0 +1,54 @@
+# serializer version: 1
+# name: TestDCLStateContract.test_empty_graph_state_structure
+  dict({
+    'agent_consumption': dict({
+      'finops_pilot': list([
+        'aws_resources',
+        'cost_reports',
+      ]),
+      'revops_pilot': list([
+        'account',
+        'opportunity',
+        'health',
+        'usage',
+      ]),
+    }),
+    'auth_enabled': True,
+    'auto_ingest_unmapped': False,
+    'blended_confidence': None,
+    'dev_mode': False,
+    'events': list([
+    ]),
+    'graph': dict({
+      'edges': list([
+      ]),
+      'nodes': list([
+      ]),
+    }),
+    'llm': dict({
+      'calls': 7,
+      'calls_saved': 0,
+      'tokens': 81855,
+    }),
+    'preview': dict({
+      'ontology': dict({
+      }),
+      'sources': dict({
+      }),
+    }),
+    'rag': dict({
+      'last_retrieval_count': 0,
+      'mappings_retrieved': 0,
+      'retrievals': list([
+      ]),
+      'total_mappings': 0,
+    }),
+    'selected_agents': list([
+    ]),
+    'selected_sources': list([
+    ]),
+    'source_mode': 'demo_files',
+    'timeline': list([
+    ]),
+  })
+# ---
