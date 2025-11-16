@@ -91,11 +91,24 @@ def app():
     This prevents hangs during test collection (pytest --collect-only).
     
     The app is loaded once per test session and reused across all tests.
+    
+    IMPORTANT: Overrides database dependency on BOTH main app and DCL sub-app.
+    The DCL endpoints are mounted as a sub-application at /dcl, which has its own
+    dependency injection context. Without overriding both, DCL endpoints will use
+    production database while other endpoints use test database.
     """
     from app.main import app as _app
     
-    # Override database dependency
+    # Override database dependency on main app
     _app.dependency_overrides[get_db] = override_get_db
+    
+    # Override database dependency on DCL sub-app (mounted at /dcl)
+    # DCL is a mounted FastAPI sub-application with separate dependency context
+    try:
+        from app.dcl_engine.app import app as dcl_app
+        dcl_app.dependency_overrides[get_db] = override_get_db
+    except Exception as e:
+        warnings.warn(f"Could not override DCL app dependencies: {e}")
     
     return _app
 
@@ -572,26 +585,25 @@ def dcl_graph_with_sources(dcl_reset_state):
     This is the baseline state used for contract/snapshot testing.
     
     Returns: (client, headers, tenant_id, expected_graph)
+    
+    UPDATED: Uses new /dcl/connect API signature (sources + agents parameters).
     """
     client, headers, tenant_id = dcl_reset_state
     
-    # Connect two sources to build graph state
-    # Using /dcl/connect endpoint (from app.dcl_engine.app.py)
-    salesforce_response = client.get(
+    # Connect sources using NEW API signature (sources + agents)
+    # API expects comma-separated lists: sources=salesforce,hubspot&agents=revops_pilot
+    connect_response = client.get(
         "/dcl/connect",
-        params={"source_id": "salesforce"},
-        headers=headers
-    )
-    
-    hubspot_response = client.get(
-        "/dcl/connect",
-        params={"source_id": "hubspot"},
+        params={
+            "sources": "salesforce,hubspot",
+            "agents": "revops_pilot",
+            "llm_model": "gemini-2.5-flash"
+        },
         headers=headers
     )
     
     # Verify sources connected successfully
-    assert salesforce_response.status_code == 200, f"Salesforce connection failed: {salesforce_response.text}"
-    assert hubspot_response.status_code == 200, f"Hubspot connection failed: {hubspot_response.text}"
+    assert connect_response.status_code == 200, f"Connection failed: {connect_response.text}"
     
     # Fetch current graph state for baseline
     state_response = client.get("/dcl/state", headers=headers)
