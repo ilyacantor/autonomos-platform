@@ -1612,6 +1612,10 @@ def apply_plan(con, source_key: str, plan: Dict[str, Any], tenant_id: str = "def
     """
     Apply mapping plan to create unified DCL views in DuckDB.
     
+    IMPORTANT: Caller must hold distributed lock before calling this function.
+    This ensures atomic graph state updates when multiple sources are processing concurrently.
+    The lock prevents data races where sources overwrite each other's graph updates.
+    
     Args:
         con: DuckDB connection
         source_key: Source system identifier
@@ -1712,42 +1716,26 @@ def apply_plan(con, source_key: str, plan: Dict[str, Any], tenant_id: str = "def
             "type": "join"
         })
     
-    # Apply all graph state updates atomically using distributed lock
-    if dcl_distributed_lock:
-        with dcl_distributed_lock.acquire(timeout=5.0):
-            # Get current graph state for this tenant (state_access handles dual-path)
-            current_graph = state_access.get_graph_state(tenant_id)
-            
-            # Add nodes (deduplicated)
-            for node in nodes_to_add:
-                if not any(n["id"] == node["id"] for n in current_graph["nodes"]):
-                    current_graph["nodes"].append(node)
-            
-            # Add edges
-            for edge in edges_to_add:
-                current_graph["edges"].append(edge)
-            
-            # Save updated graph state (state_access handles dual-path)
-            state_access.set_graph_state(tenant_id, current_graph)
-            
-            # Update entity sources (state_access handles dual-path)
-            current_entity_sources = state_access.get_entity_sources(tenant_id)
-            for ent in entities_to_update:
-                current_entity_sources.setdefault(ent, []).append(source_key)
-            state_access.set_entity_sources(tenant_id, current_entity_sources)
-    else:
-        # Fallback: No lock available (development mode)
-        current_graph = state_access.get_graph_state(tenant_id)
-        for node in nodes_to_add:
-            if not any(n["id"] == node["id"] for n in current_graph["nodes"]):
-                current_graph["nodes"].append(node)
-        for edge in edges_to_add:
-            current_graph["edges"].append(edge)
-        state_access.set_graph_state(tenant_id, current_graph)
-        current_entity_sources = state_access.get_entity_sources(tenant_id)
-        for ent in entities_to_update:
-            current_entity_sources.setdefault(ent, []).append(source_key)
-        state_access.set_entity_sources(tenant_id, current_entity_sources)
+    # Apply all graph state updates atomically (caller holds distributed lock)
+    current_graph = state_access.get_graph_state(tenant_id)
+    
+    # Add nodes (deduplicated)
+    for node in nodes_to_add:
+        if not any(n["id"] == node["id"] for n in current_graph["nodes"]):
+            current_graph["nodes"].append(node)
+    
+    # Add edges
+    for edge in edges_to_add:
+        current_graph["edges"].append(edge)
+    
+    # Save updated graph state (state_access handles dual-path)
+    state_access.set_graph_state(tenant_id, current_graph)
+    
+    # Update entity sources (state_access handles dual-path)
+    current_entity_sources = state_access.get_entity_sources(tenant_id)
+    for ent in entities_to_update:
+        current_entity_sources.setdefault(ent, []).append(source_key)
+    state_access.set_entity_sources(tenant_id, current_entity_sources)
     
     conf = sum(confs)/len(confs) if confs else 0.8
     return Scorecard(confidence=conf, blockers=blockers, issues=issues, joins=joins)
@@ -2136,7 +2124,14 @@ def _blocking_source_pipeline(
         # BLOCKING: DuckDB operations (~2-3s)
         con = duckdb.connect(DB_PATH, config={'access_mode': 'READ_WRITE'})
         register_src_views(con, source_key, tables)
-        score = apply_plan(con, source_key, plan, tenant_id)
+        
+        # Acquire distributed lock with LONG timeout (60s) to allow sequential processing
+        # This prevents data races when multiple sources update graph state concurrently
+        if dcl_distributed_lock:
+            with dcl_distributed_lock.acquire(timeout=60.0):
+                score = apply_plan(con, source_key, plan, tenant_id)
+        else:
+            score = apply_plan(con, source_key, plan, tenant_id)
         
         # Log join information
         ents = ", ".join(sorted(tables.keys()))
