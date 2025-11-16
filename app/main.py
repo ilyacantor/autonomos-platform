@@ -8,7 +8,7 @@ from typing import Optional
 from fastapi import FastAPI, Depends, HTTPException, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, ORJSONResponse
 # OAUTH DISABLED - from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from redis import Redis
@@ -241,7 +241,8 @@ app = FastAPI(
     title="AutonomOS", 
     description="AI Orchestration Platform - Multi-Tenant Edition", 
     version="2.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
+    default_response_class=ORJSONResponse  # ⚡ Performance: 3-5x faster JSON serialization
 )
 
 # Register slowapi rate limiter with the app
