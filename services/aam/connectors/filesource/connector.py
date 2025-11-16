@@ -94,6 +94,71 @@ class FileSourceConnector:
         
         return discovered
     
+    def get_latest_files(self, limit: int = 10) -> List[Dict[str, Any]]:
+        """
+        Get latest file metadata (for AAM initializer compatibility)
+        
+        Args:
+            limit: Maximum number of files to return
+        
+        Returns:
+            List of file metadata dictionaries
+        """
+        discovered_files = self.discover_csv_files()
+        
+        # Convert to simple metadata format for initializer
+        file_list = []
+        for file_info in discovered_files[:limit]:
+            file_list.append({
+                'id': file_info['filename'],
+                'name': file_info['filename'],
+                'entity': file_info['entity'],
+                'system': file_info['system'],
+                'filepath': file_info['filepath']
+            })
+        
+        logger.info(f"FileSource: Returning {len(file_list)} discovered files")
+        return file_list
+    
+    def normalize_file(self, file_metadata: Dict[str, Any], trace_id: str) -> CanonicalEvent:
+        """
+        Normalize file metadata to canonical format (for AAM initializer compatibility)
+        
+        Args:
+            file_metadata: File metadata dict from get_latest_files()
+            trace_id: Trace ID for tracking
+        
+        Returns:
+            CanonicalEvent wrapping the file metadata
+        """
+        # Build metadata
+        meta = CanonicalMeta(
+            version="1.0.0",
+            tenant=self.tenant_id,
+            trace_id=trace_id,
+            emitted_at=datetime.utcnow()
+        )
+        
+        # Build source metadata
+        source = CanonicalSource(
+            system=file_metadata.get('system', 'filesource'),
+            connection_id="filesource-local",
+            schema_version="v1"
+        )
+        
+        # For file metadata, we don't have a typed canonical model
+        # Just wrap the raw metadata
+        event = CanonicalEvent(
+            meta=meta,
+            source=source,
+            entity="file",
+            op="upsert",
+            data=file_metadata,  # Raw metadata
+            unknown_fields=[]
+        )
+        
+        return event
+    
     def read_csv(self, filepath: str) -> List[Dict[str, Any]]:
         """Read CSV file and return list of dictionaries"""
         data = []

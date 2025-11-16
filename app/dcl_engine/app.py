@@ -322,7 +322,18 @@ def get_tenant_id_from_user(current_user: Optional[Dict[str, Any]] = None) -> st
     # Handle both dict (JWT token) and MockUser object
     if isinstance(current_user, dict):
         # Real JWT token - extract from claims
-        tenant_id = current_user.get("tenant_id", "default")
+        # Support both new format (top-level tenant_id) and legacy format (tenants array)
+        tenant_id = current_user.get("tenant_id")
+        
+        if not tenant_id:
+            # Legacy format: tenants[0].tenant_id (backward compatibility)
+            tenants = current_user.get("tenants", [])
+            if tenants and len(tenants) > 0:
+                tenant_id = tenants[0].get("tenant_id")
+        
+        # Fall back to "default" if neither format provides tenant_id
+        if not tenant_id:
+            tenant_id = "default"
     else:
         # MockUser object - access attribute directly
         tenant_id = getattr(current_user, "tenant_id", "default")

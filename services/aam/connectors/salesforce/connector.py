@@ -6,7 +6,7 @@ import os
 import logging
 import uuid
 from datetime import datetime
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 import httpx
 from sqlalchemy.orm import Session
 from app.models import CanonicalStream
@@ -132,6 +132,58 @@ class SalesforceConnector:
         except Exception as e:
             logger.error(f"Failed to fetch Salesforce opportunity: {e}")
             return None
+    
+    def get_latest_opportunities(self, limit: int = 10) -> List[Dict[str, Any]]:
+        """
+        Fetch multiple recent Salesforce Opportunities (sync wrapper for AAM initializer)
+        
+        Args:
+            limit: Maximum number of opportunities to fetch
+        
+        Returns:
+            List of opportunity dictionaries
+        """
+        if not self.access_token or not self.instance_url:
+            logger.error("Salesforce credentials not configured")
+            return []
+        
+        soql = (
+            f"SELECT Id, AccountId, Name, StageName, Amount, "
+            f"CloseDate, OwnerId, Probability, LastModifiedDate "
+            f"FROM Opportunity "
+            f"ORDER BY LastModifiedDate DESC "
+            f"LIMIT {limit}"
+        )
+        
+        url = f"{self.instance_url}/services/data/{self.api_version}/query/"
+        headers = {
+            "Authorization": f"Bearer {self.access_token}",
+            "Content-Type": "application/json"
+        }
+        params = {"q": soql}
+        
+        try:
+            import httpx
+            with httpx.Client(timeout=30.0) as client:
+                response = client.get(url, headers=headers, params=params)
+                
+                # Handle 401 - try to refresh token
+                if response.status_code == 401:
+                    logger.warning("Received 401, attempting to refresh token")
+                    if self._refresh_token_if_needed():
+                        headers["Authorization"] = f"Bearer {self.access_token}"
+                        response = client.get(url, headers=headers, params=params)
+                
+                response.raise_for_status()
+                data = response.json()
+                records = data.get("records", [])
+                
+                logger.info(f"Fetched {len(records)} Salesforce opportunities")
+                return records
+                
+        except Exception as e:
+            logger.error(f"Failed to fetch Salesforce opportunities: {e}")
+            return []
     
     def normalize_opportunity(
         self,
