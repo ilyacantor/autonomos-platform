@@ -7,9 +7,8 @@ from datetime import timedelta
 from typing import Optional
 from fastapi import FastAPI, Depends, HTTPException, status, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse, ORJSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 # OAUTH DISABLED - from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from redis import Redis
@@ -242,8 +241,7 @@ app = FastAPI(
     title="AutonomOS", 
     description="AI Orchestration Platform - Multi-Tenant Edition", 
     version="2.0.0",
-    lifespan=lifespan,
-    default_response_class=ORJSONResponse  # ⚡ Performance: 3-5x faster JSON serialization
+    lifespan=lifespan
 )
 
 # Register slowapi rate limiter with the app
@@ -273,9 +271,6 @@ allowed_origins = [
 if os.getenv("REPL_SLUG"):  # Running on Replit
     # Allow all Replit domains (dev and production)
     allowed_origins.append("*")  # Simplest for Replit deployments
-
-# ⚡ Performance: GZip compression for large payloads (>1KB)
-app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 app.add_middleware(
     CORSMiddleware,
