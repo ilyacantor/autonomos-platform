@@ -38,6 +38,7 @@ Example - Service function with tenant_id:
 
 import os, time, json, glob, duckdb, pandas as pd, yaml, warnings, threading, re, traceback, asyncio
 from pathlib import Path
+from datetime import datetime
 from fastapi import FastAPI, Query, Request, WebSocket, WebSocketDisconnect, Depends
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -56,6 +57,17 @@ from app.dcl_engine import state_access
 from app.security import get_current_user, AUTH_ENABLED
 from app.middleware.rate_limit import limiter
 from app.dcl_engine.distributed_lock import RedisDistributedLock
+
+# Import DTOs for API contracts (Phase 3 Priority 3)
+from app.dcl_engine.schemas.dto import (
+    ConnectRequest, ConnectResponse,
+    StateResponse, GraphState, GraphNode, GraphEdge,
+    ResetRequest, ResetResponse,
+    ToggleRequest, ToggleResponse,
+    SourceSchemasResponse, SourceSchema,
+    FeatureFlag as DTOFeatureFlag,
+    DevMode
+)
 
 # Use paths relative to this module's directory
 DCL_BASE_PATH = Path(__file__).parent
@@ -2532,8 +2544,8 @@ async def websocket_endpoint(
         ws_manager.disconnect(websocket)
 
 
-@app.get("/state", dependencies=AUTH_DEPENDENCIES)
-def state(current_user = Depends(get_current_user)):
+@app.get("/state", dependencies=AUTH_DEPENDENCIES, response_model=StateResponse)
+def state(current_user = Depends(get_current_user)) -> StateResponse:
     """
     Get current DCL state including graph, sources, agents, and metrics.
     
@@ -2541,7 +2553,7 @@ def state(current_user = Depends(get_current_user)):
         current_user: Current authenticated user (contains tenant_id)
     
     Returns:
-        JSON response with tenant-scoped DCL state
+        StateResponse with tenant-scoped DCL state
     
     Behavior:
         - Extracts tenant_id from current_user
@@ -2552,7 +2564,7 @@ def state(current_user = Depends(get_current_user)):
         current_user: Current authenticated user (contains tenant_id in JWT claims)
     
     Returns:
-        JSON response with complete DCL state for the tenant
+        StateResponse with complete DCL state for the tenant
     
     Tenant Isolation:
         - Extracts tenant_id from current_user JWT claims
@@ -2651,11 +2663,44 @@ def state(current_user = Depends(get_current_user)):
     selected_sources = state_access.get_sources(tenant_id)
     selected_agents = state_access.get_selected_agents(tenant_id)
     
-    return JSONResponse({
+    # Convert nodes to GraphNode DTOs
+    graph_nodes = [
+        GraphNode(
+            id=node.get("id", ""),
+            label=node.get("label", ""),
+            type=node.get("type", ""),
+            metadata=node  # Include full node data as metadata for backward compatibility
+        )
+        for node in filtered_nodes
+    ]
+    
+    # Convert edges to GraphEdge DTOs
+    graph_edges = [
+        GraphEdge(
+            source=edge.get("source", ""),
+            target=edge.get("target", ""),
+            label=edge.get("label"),
+            weight=edge.get("weight")
+        )
+        for edge in filtered_graph["edges"]
+    ]
+    
+    # Build GraphState
+    graph_state = GraphState(
+        nodes=graph_nodes,
+        edges=graph_edges,
+        confidence=blended_confidence,
+        last_updated=datetime.now() if current_graph.get("nodes") else None
+    )
+    
+    # Get entity sources mapping
+    entity_sources = state_access.get_entity_sources(tenant_id)
+    
+    # Build metadata with backward compatibility
+    metadata = {
+        "tenant_id": tenant_id,
         "events": current_events,
         "timeline": current_events[-5:] if current_events else [],
-        "graph": filtered_graph,  # Send filtered graph instead of raw GRAPH_STATE
-        "preview": {"sources": {}, "ontology": {}},
         "llm": {
             "calls": llm_stats["calls"], 
             "tokens": llm_stats["tokens"],
@@ -2666,14 +2711,21 @@ def state(current_user = Depends(get_current_user)):
             **RAG_CONTEXT,
             "mappings_retrieved": RAG_CONTEXT.get("last_retrieval_count", 0)
         },
-        "blended_confidence": blended_confidence,
         "agent_consumption": agent_consumption,
-        "selected_sources": selected_sources,
-        "selected_agents": selected_agents,
-        "dev_mode": get_dev_mode(),  # Read from Redis for cross-process consistency
+        "dev_mode": get_dev_mode(),
         "auth_enabled": AUTH_ENABLED,
         "source_mode": source_mode
-    })
+    }
+    
+    # Return StateResponse DTO
+    return StateResponse(
+        tenant_id=tenant_id,
+        graph=graph_state,
+        sources_added=selected_sources,
+        entity_sources=entity_sources,
+        selected_agents=selected_agents,
+        metadata=metadata
+    )
 
 @app.get("/dcl/agents/{agent_id}/results", dependencies=AUTH_DEPENDENCIES)
 async def get_agent_results(
