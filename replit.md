@@ -1,5 +1,11 @@
 # AutonomOS - Multi-Tenant AI Orchestration Platform
 
+## Recent Changes
+**November 16, 2025:**
+- Fixed DCL ontology graph WebSocket URL issue: removed hardcoded `ws://127.0.0.1:5000` by rebuilding frontend without VITE_BASE_URL environment variable to use dynamic URL construction from window.location
+- WebSocket now correctly connects to Replit proxy domain using wss:// protocol
+- Graph rendering issue persists despite successful WebSocket connection - requires further investigation of graph component
+
 ## Overview
 AutonomOS is a production-ready, multi-tenant SaaS backend system in Python for AI-driven task orchestration. It provides advanced AI-powered data orchestration, including a Data Connection Layer (DCL) engine for AI-driven data source connection, entity mapping, and unified view creation. The platform ensures complete data isolation with JWT authentication and user management, offering secure, scalable, and enterprise-grade task processing. Key features include an Adaptive API Mesh with operational connectors, drift detection with schema fingerprinting, autonomous auto-repair with confidence scoring, and canonical event normalization, aiming to deliver a robust, AI-enhanced data integration and orchestration solution.
 
