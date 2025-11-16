@@ -267,6 +267,12 @@ function renderSankey(
   const totalNodeCount = sankeyNodes.length;
   const calculatedHeight = Math.min(validHeight, 100 + (totalNodeCount * 40));
 
+  // Set SVG dimensions (critical for rendering with h-auto class)
+  svg
+    .attr('width', validWidth)
+    .attr('height', calculatedHeight)
+    .attr('viewBox', `0 0 ${validWidth} ${calculatedHeight}`);
+
   const sankey = d3Sankey<SankeyNode, SankeyLink>()
     .nodeWidth(8)
     .nodePadding(18)
