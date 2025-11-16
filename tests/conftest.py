@@ -605,6 +605,30 @@ def dcl_graph_with_sources(dcl_reset_state):
     # Verify sources connected successfully
     assert connect_response.status_code == 200, f"Connection failed: {connect_response.text}"
     
+    # [PHASE 3] FILESYSTEM MONITORING: Check DuckDB files after connection
+    import os
+    from pathlib import Path
+    dcl_base_path = Path("app/dcl_engine")
+    print(f"\n[TRACE_DCL] FILESYSTEM MONITORING after /dcl/connect:", flush=True)
+    print(f"[TRACE_DCL] Tenant ID: {tenant_id}", flush=True)
+    print(f"[TRACE_DCL] DCL directory: {dcl_base_path}", flush=True)
+    
+    if dcl_base_path.exists():
+        duckdb_files = list(dcl_base_path.glob("registry*.duckdb"))
+        print(f"[TRACE_DCL] DuckDB files found: {len(duckdb_files)}", flush=True)
+        for f in duckdb_files:
+            file_size = f.stat().st_size
+            print(f"[TRACE_DCL]   - {f.name} ({file_size} bytes)", flush=True)
+        
+        # Check for tenant-specific file
+        expected_file = dcl_base_path / f"registry_{tenant_id}.duckdb"
+        if expected_file.exists():
+            print(f"[TRACE_DCL] ✅ Tenant-specific file EXISTS: {expected_file.name}", flush=True)
+        else:
+            print(f"[TRACE_DCL] ❌ Tenant-specific file MISSING: {expected_file.name}", flush=True)
+    else:
+        print(f"[TRACE_DCL] ❌ DCL directory doesn't exist: {dcl_base_path}", flush=True)
+    
     # Fetch current graph state for baseline
     state_response = client.get("/dcl/state", headers=headers)
     assert state_response.status_code == 200
