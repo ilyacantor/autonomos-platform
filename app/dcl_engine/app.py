@@ -316,8 +316,8 @@ def get_tenant_id_from_user(current_user: Optional[Dict[str, Any]] = None) -> st
         tenant_id string (defaults to "default" for development)
     
     Behavior:
+        - When AUTH_ENABLED=false (development): Always returns "default" for single-tenant demo mode
         - When AUTH_ENABLED=true: Extracts tenant_id from JWT claims (dict)
-        - When AUTH_ENABLED=false: Extracts tenant_id from MockUser object
         - Falls back to "default" if tenant_id not available
         - CRITICAL: Always returns str, converting UUID objects to strings for JSON serialization
     
@@ -328,6 +328,11 @@ def get_tenant_id_from_user(current_user: Optional[Dict[str, Any]] = None) -> st
             tenant_id = get_tenant_id_from_user(current_user)
             graph = state_access.get_graph_state(tenant_id)
     """
+    # CRITICAL: In development mode (AUTH_ENABLED=false), always use "default" tenant
+    # This ensures demo graph loaded at startup is accessible to MockUser
+    if not AUTH_ENABLED:
+        return "default"
+    
     if not current_user:
         return "default"
     
@@ -2664,10 +2669,14 @@ def state(current_user = Depends(get_current_user)):
     # AAM sources (lowercase keys as they appear in source_key)
     aam_source_keys = {"salesforce", "supabase", "mongodb", "filesource"}
     
+    # Check if user has connected any sources (vs still viewing seed demo graph)
+    selected_sources = state_access.get_sources(tenant_id)
+    user_has_connected_sources = len(selected_sources) > 0
+    
     # Filter nodes based on mode
-    if use_aam:
-        # AAM mode: Only show nodes from AAM production connectors
-        # source_parent node IDs are "sys_{source_key}", sourceSystem is title-cased from source_key
+    if use_aam and user_has_connected_sources:
+        # AAM mode with user connections: Filter to show only AAM sources + ontology + agents
+        # This optimizes the graph view when users have actively connected AAM sources
         filtered_nodes = []
         for node in current_graph["nodes"]:
             node_type = node.get("type")
@@ -2695,7 +2704,9 @@ def state(current_user = Depends(get_current_user)):
                         filtered_nodes.append(node)
                 continue
     else:
-        # Legacy mode: Show all nodes (9 demo CSV sources)
+        # AAM mode with NO user connections: Show full seed demo graph (33 nodes)
+        # Legacy mode: Show all nodes (9 demo CSV sources + ontology + agents)
+        # This ensures users see a complete graph visualization even without connections
         filtered_nodes = current_graph["nodes"]
     
     # Filter graph edges for Sankey rendering - exclude join edges to prevent circular references
