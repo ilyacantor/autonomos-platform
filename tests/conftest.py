@@ -9,12 +9,6 @@ import uuid
 # Without this, all requests use MockUser and security tests cannot function
 os.environ['DCL_AUTH_ENABLED'] = 'true'
 
-# CRITICAL P0 FIX: Disable AAM mode for tests
-# AAM connector mode is incomplete - doesn't create graph nodes/edges (no DuckDB materialized views)
-# Tests expect legacy file source mode which creates proper graph structures via agents
-# Environment variables have highest precedence in FeatureFlagConfig (app/config/feature_flags.py)
-os.environ['FEATURE_USE_AAM_AS_SOURCE'] = 'false'
-
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
