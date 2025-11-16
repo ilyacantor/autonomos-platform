@@ -469,6 +469,88 @@ def mock_llm_response():
     }
 
 
+@pytest.fixture(scope="function")
+def populate_aam_redis_data(request):
+    """
+    Populate Redis with AAM test data for the test tenant.
+    
+    This fixture enables tests to run with AAM-mode data by populating
+    Redis streams before the test executes.
+    
+    Usage:
+        @pytest.mark.parametrize("populate_aam_redis_data", [["salesforce", "hubspot"]], indirect=True)
+        def test_with_aam_data(dcl_reset_state, populate_aam_redis_data):
+            # Test will have AAM data in Redis streams
+            client, headers, tenant_id = dcl_reset_state
+            # ... test code ...
+    
+    Args:
+        request: Pytest request object with:
+            - request.param: List of source IDs to populate (default: ['salesforce', 'hubspot'])
+            - request.tenant_id: Tenant ID (set by dcl_reset_state fixture)
+    
+    Yields:
+        List of populated stream keys
+    """
+    from shared.redis_client import get_redis_client
+    from tests.fixtures.aam_data import (
+        get_salesforce_aam_data,
+        get_hubspot_aam_data,
+        get_dynamics_aam_data
+    )
+    import json
+    
+    # Get tenant_id from test context (set by dcl_reset_state fixture)
+    tenant_id = getattr(request, 'tenant_id', 'test-tenant-default')
+    
+    # Map source names to data functions
+    data_functions = {
+        'salesforce': get_salesforce_aam_data,
+        'hubspot': get_hubspot_aam_data,
+        'dynamics': get_dynamics_aam_data
+    }
+    
+    # Get sources to populate (passed as parameter)
+    sources = getattr(request, 'param', ['salesforce', 'hubspot'])
+    
+    redis_client = get_redis_client()
+    populated_streams = []
+    
+    try:
+        # Populate each source
+        for source_id in sources:
+            if source_id not in data_functions:
+                warnings.warn(f"Unknown source '{source_id}' - skipping AAM data population")
+                continue
+                
+            stream_key = f"aam:dcl:{tenant_id}:{source_id}"
+            
+            # Get test data for this source
+            events = data_functions[source_id]()
+            
+            # Add each event to Redis stream
+            for event in events:
+                message_id = redis_client._client.xadd(
+                    stream_key,
+                    {'payload': json.dumps(event)}
+                )
+                print(f"[TEST_SETUP] Added AAM event to {stream_key}: {message_id}", flush=True)
+            
+            populated_streams.append(stream_key)
+            print(f"[TEST_SETUP] ✅ Populated {len(events)} events in stream {stream_key}", flush=True)
+        
+        yield populated_streams
+        
+    finally:
+        # Cleanup: Delete test streams
+        for stream_key in populated_streams:
+            try:
+                redis_client._client.delete(stream_key)
+                print(f"[TEST_CLEANUP] Deleted stream {stream_key}", flush=True)
+            except Exception as e:
+                print(f"[TEST_CLEANUP] Failed to delete stream {stream_key}: {e}", flush=True)
+
+
 # ===== DCL-SPECIFIC FIXTURES (Phase 2 Test Harness) =====
 
 @pytest.fixture(scope="function")
@@ -578,6 +660,7 @@ def dcl_graph_with_sources(dcl_reset_state):
     Fixture that provides a DCL client with known working graph state.
     
     Creates a reproducible graph state with:
+    - AAM Redis streams populated with salesforce + hubspot data
     - 2 connected sources (salesforce, hubspot)
     - Graph nodes and edges representing entity mappings
     - Known entity sources for validation
@@ -586,11 +669,32 @@ def dcl_graph_with_sources(dcl_reset_state):
     
     Returns: (client, headers, tenant_id, expected_graph)
     
-    UPDATED: Uses new /dcl/connect API signature (sources + agents parameters).
+    UPDATED: 
+    - Populates AAM Redis streams before connecting (enables AAM-mode testing)
+    - Uses new /dcl/connect API signature (sources + agents parameters)
     """
     client, headers, tenant_id = dcl_reset_state
     
-    # Connect sources using NEW API signature (sources + agents)
+    # POPULATE AAM REDIS DATA BEFORE CONNECTING
+    from shared.redis_client import get_redis_client
+    from tests.fixtures.aam_data import get_salesforce_aam_data, get_hubspot_aam_data
+    import json
+    
+    redis_client = get_redis_client()
+    
+    # Populate Salesforce stream
+    sf_stream = f"aam:dcl:{tenant_id}:salesforce"
+    for event in get_salesforce_aam_data():
+        redis_client._client.xadd(sf_stream, {'payload': json.dumps(event)})
+    print(f"[TEST_SETUP] ✅ Populated Salesforce AAM stream: {sf_stream}", flush=True)
+    
+    # Populate HubSpot stream
+    hs_stream = f"aam:dcl:{tenant_id}:hubspot"
+    for event in get_hubspot_aam_data():
+        redis_client._client.xadd(hs_stream, {'payload': json.dumps(event)})
+    print(f"[TEST_SETUP] ✅ Populated HubSpot AAM stream: {hs_stream}", flush=True)
+    
+    # Now connect sources - AAM adapter will read from these streams
     # API expects comma-separated lists: sources=salesforce,hubspot&agents=revops_pilot
     connect_response = client.get(
         "/dcl/connect",
@@ -633,5 +737,12 @@ def dcl_graph_with_sources(dcl_reset_state):
     state_response = client.get("/dcl/state", headers=headers)
     assert state_response.status_code == 200
     expected_graph = state_response.json()
+    
+    # Cleanup: Delete AAM test streams after test completes
+    try:
+        redis_client._client.delete(sf_stream, hs_stream)
+        print(f"[TEST_CLEANUP] Deleted AAM streams: {sf_stream}, {hs_stream}", flush=True)
+    except Exception as e:
+        warnings.warn(f"Failed to cleanup AAM streams: {e}")
     
     return (client, headers, tenant_id, expected_graph)
