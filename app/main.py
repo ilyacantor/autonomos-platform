@@ -92,11 +92,11 @@ async def lifespan(app: FastAPI):
     # Initialize DCL Agent Executor
     if dcl_app and redis_conn:
         from app.dcl_engine.agent_executor import AgentExecutor
-        from app.dcl_engine.app import AGENT_RESULTS_CACHE, load_agents_config, DB_PATH
+        from app.dcl_engine.app import AGENT_RESULTS_CACHE, load_agents_config, get_db_path
         import app.dcl_engine.app as dcl_app_module
         try:
             agents_config = load_agents_config()
-            dcl_app.agent_executor = AgentExecutor(DB_PATH, agents_config, AGENT_RESULTS_CACHE, redis_conn)
+            dcl_app.agent_executor = AgentExecutor(get_db_path, agents_config, AGENT_RESULTS_CACHE, redis_conn)
             dcl_app_module.agent_executor = dcl_app.agent_executor
             logger.info("✅ DCL Agent Executor initialized successfully with Phase 4 metadata support")
         except Exception as e:

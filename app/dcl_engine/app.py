@@ -71,7 +71,27 @@ from app.dcl_engine.schemas.dto import (
 
 # Use paths relative to this module's directory
 DCL_BASE_PATH = Path(__file__).parent
-DB_PATH = str(DCL_BASE_PATH / "registry.duckdb")
+
+def get_db_path(tenant_id: str = "default") -> str:
+    """
+    Get tenant-scoped DuckDB path to prevent cross-tenant race conditions.
+    
+    Each tenant gets an isolated DuckDB file, preventing race conditions where:
+    1. Tenant A connects → creates registry.duckdb → closes connection
+    2. Tenant B cleanup → deletes registry.duckdb
+    3. Tenant A agent execution → file missing → skip agents
+    
+    Args:
+        tenant_id: Tenant identifier (defaults to "default")
+    
+    Returns:
+        Path to tenant-scoped DuckDB file (e.g., "registry_default.duckdb")
+    
+    Example:
+        con = duckdb.connect(get_db_path(tenant_id), config={'access_mode': 'READ_WRITE'})
+    """
+    return str(DCL_BASE_PATH / f"registry_{tenant_id}.duckdb")
+
 ONTOLOGY_PATH = str(DCL_BASE_PATH / "ontology" / "catalog.yml")
 AGENTS_CONFIG_PATH = str(DCL_BASE_PATH / "agents" / "config.yml")
 SCHEMAS_DIR = str(DCL_BASE_PATH / "schemas")
@@ -508,7 +528,7 @@ def set_redis_client(client):
     # Initialize AgentExecutor for agentic orchestration (Phase 4)
     try:
         agents_config = load_agents_config()
-        agent_executor = AgentExecutor(DB_PATH, agents_config, AGENT_RESULTS_CACHE, redis_client)
+        agent_executor = AgentExecutor(get_db_path, agents_config, AGENT_RESULTS_CACHE, redis_client)
         print("✅ AgentExecutor initialized successfully", flush=True)
     except Exception as e:
         print(f"⚠️ AgentExecutor initialization failed: {e}. Continuing without agent execution.", flush=True)
@@ -2153,7 +2173,7 @@ def _blocking_source_pipeline(
             plan_type = "ai"
         
         # BLOCKING: DuckDB operations (~2-3s)
-        con = duckdb.connect(DB_PATH, config={'access_mode': 'READ_WRITE'})
+        con = duckdb.connect(get_db_path(tenant_id), config={'access_mode': 'READ_WRITE'})
         register_src_views(con, source_key, tables)
         
         # Acquire distributed lock with LONG timeout (60s) to allow sequential processing
@@ -2395,7 +2415,7 @@ def reset_state(exclude_dev_mode=True, tenant_id: str = "default"):
     # NOTE: Dev mode and total_mappings are preserved - they persist across connection rebuilds
     ontology = load_ontology()
     try:
-        os.remove(DB_PATH)
+        os.remove(get_db_path(tenant_id))
     except FileNotFoundError:
         pass
     
@@ -2764,7 +2784,7 @@ async def startup_event():
     # Initialize AgentExecutor
     try:
         agents_config = load_agents_config()
-        agent_executor = AgentExecutor(DB_PATH, agents_config, AGENT_RESULTS_CACHE, redis_client)
+        agent_executor = AgentExecutor(get_db_path, agents_config, AGENT_RESULTS_CACHE, redis_client)
         log("✅ AgentExecutor initialized successfully with Phase 4 metadata support")
     except Exception as e:
         log(f"⚠️ AgentExecutor initialization failed: {e}. Continuing without agent execution.")
@@ -3315,7 +3335,7 @@ async def connect(
     # Execute agents after all sources have completed and materialized views are ready
     if agent_list and agent_executor:
         # Check if DuckDB database exists before attempting agent execution
-        if os.path.exists(DB_PATH):
+        if os.path.exists(get_db_path(tenant_id)):
             try:
                 log(f"🚀 Executing {len(agent_list)} agent(s) on unified DCL views (tenant: {tenant_id})")
                 await agent_executor.execute_agents_async(agent_list, tenant_id, ws_manager)
@@ -3538,7 +3558,7 @@ def preview(
     
     global ontology, agents_config
     # Use read-only mode for preview operations
-    con = duckdb.connect(DB_PATH, read_only=True)
+    con = duckdb.connect(get_db_path(tenant_id), read_only=True)
     sources, ontology_tables = {}, {}
     if node:
         try:
@@ -3956,10 +3976,11 @@ def decrypt_password(encrypted: str) -> str:
         return encrypted
 
 @app.get("/api/connections", dependencies=AUTH_DEPENDENCIES)
-def get_connections():
+def get_connections(current_user = Depends(get_current_user)):
     """Get all database connections"""
+    tenant_id = get_tenant_id_from_user(current_user)
     try:
-        con = duckdb.connect(DB_PATH, read_only=True)
+        con = duckdb.connect(get_db_path(tenant_id), read_only=True)
         result = con.execute("""
             SELECT id, created_at, connection_name, connection_type, 
                    host, port, database_name, db_user
@@ -4048,8 +4069,9 @@ async def test_connection(request: Request):
         }, status_code=500)
 
 @app.post("/api/connections/create", dependencies=AUTH_DEPENDENCIES)
-async def create_connection(request: Request):
+async def create_connection(request: Request, current_user = Depends(get_current_user)):
     """Create and save a new database connection"""
+    tenant_id = get_tenant_id_from_user(current_user)
     try:
         data = await request.json()
         connection_name = data.get("connection_name", "").strip()
@@ -4092,7 +4114,7 @@ async def create_connection(request: Request):
         lock_id = acquire_db_lock()
         try:
             # Save to database
-            con = duckdb.connect(DB_PATH, config={'access_mode': 'READ_WRITE'})
+            con = duckdb.connect(get_db_path(tenant_id), config={'access_mode': 'READ_WRITE'})
             
             # Get next ID
             next_id = con.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM connections").fetchone()[0]
@@ -4132,13 +4154,14 @@ async def create_connection(request: Request):
         }, status_code=500)
 
 @app.get("/api/connections/{connection_id}/logs", dependencies=AUTH_DEPENDENCIES)
-def get_connection_logs(connection_id: int):
+def get_connection_logs(connection_id: int, current_user = Depends(get_current_user)):
     """Get logs for a specific connection"""
     from datetime import datetime
+    tenant_id = get_tenant_id_from_user(current_user)
     
     # Get connection details for context
     try:
-        con = duckdb.connect(DB_PATH, read_only=True)
+        con = duckdb.connect(get_db_path(tenant_id), read_only=True)
         result = con.execute("""
             SELECT connection_name, host, database_name
             FROM connections

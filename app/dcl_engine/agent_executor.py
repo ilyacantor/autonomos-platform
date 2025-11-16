@@ -34,37 +34,39 @@ class AgentExecutor:
     3. store_results(): Cache results in tenant-scoped storage
     """
     
-    def __init__(self, db_path: str, agents_config: Dict[str, Any], results_cache: Dict[str, Dict], redis_client=None):
+    def __init__(self, get_db_path_fn, agents_config: Dict[str, Any], results_cache: Dict[str, Dict], redis_client=None):
         """
-        Initialize AgentExecutor.
+        Initialize AgentExecutor with tenant-scoped DuckDB support.
         
         Args:
-            db_path: Path to DuckDB database
+            get_db_path_fn: Callable function that accepts tenant_id and returns DB path
+                           Example: get_db_path(tenant_id) -> "registry_{tenant_id}.duckdb"
             agents_config: Loaded agents configuration from config.yml
             results_cache: In-memory dict for storing results (tenant_id -> {agent_id -> results})
             redis_client: Redis client for accessing Phase 4 metadata (optional)
         """
-        self.db_path = db_path
+        self.get_db_path = get_db_path_fn
         self.agents_config = agents_config
         self.results_cache = results_cache
         self.redis_client = redis_client
         self.logger = logging.getLogger(__name__)
-        
-        # Initialize DuckDB metadata table
-        self._initialize_metadata_table()
     
-    def _initialize_metadata_table(self):
+    def _ensure_metadata_table(self, tenant_id: str):
         """
-        Initialize DuckDB metadata table for historical Phase 4 metadata tracking.
+        Ensure DuckDB metadata table exists for a given tenant.
         
         Creates dcl_metadata table if it doesn't exist with schema:
         - tenant_id: Tenant identifier
         - source_id: Source connector identifier
         - metadata_json: JSON column containing Phase 4 metadata
         - created_at: Timestamp of metadata storage
+        
+        Args:
+            tenant_id: Tenant identifier for scoped DB file
         """
         try:
-            con = duckdb.connect(self.db_path)
+            db_path = self.get_db_path(tenant_id)
+            con = duckdb.connect(db_path)
             
             con.execute("""
                 CREATE TABLE IF NOT EXISTS dcl_metadata (
@@ -77,10 +79,10 @@ class AgentExecutor:
             """)
             
             con.close()
-            self.logger.info("✅ Initialized dcl_metadata table in DuckDB")
+            self.logger.debug(f"✅ Ensured dcl_metadata table exists (tenant: {tenant_id})")
             
         except Exception as e:
-            self.logger.warning(f"Failed to initialize metadata table: {e}")
+            self.logger.warning(f"Failed to ensure metadata table for tenant {tenant_id}: {e}")
     
     def store_metadata_in_duckdb(self, tenant_id: str, source_id: str, metadata: dict):
         """
@@ -92,7 +94,12 @@ class AgentExecutor:
             metadata: Aggregated metadata dictionary
         """
         try:
-            con = duckdb.connect(self.db_path)
+            # Ensure metadata table exists for this tenant
+            self._ensure_metadata_table(tenant_id)
+            
+            # Connect to tenant-scoped DB file
+            db_path = self.get_db_path(tenant_id)
+            con = duckdb.connect(db_path)
             
             # Convert metadata to JSON string
             metadata_json = json.dumps(metadata)
@@ -205,7 +212,9 @@ class AgentExecutor:
                 # Fallback to DuckDB if Redis unavailable
                 self.logger.info("Redis unavailable, fetching metadata from DuckDB")
                 
-                con = duckdb.connect(self.db_path, read_only=True)
+                # Connect to tenant-scoped DB file
+                db_path = self.get_db_path(tenant_id)
+                con = duckdb.connect(db_path, read_only=True)
                 
                 # Query latest metadata for each source
                 if source_ids:
@@ -311,7 +320,9 @@ class AgentExecutor:
         self.logger.info(f"📊 Data quality metadata: drift={data_quality_metadata.get('drift_detected')}, repairs={data_quality_metadata.get('auto_applied_repairs')}, sources={len(data_quality_metadata.get('sources', {}))}")
         
         try:
-            con = duckdb.connect(self.db_path, read_only=True)
+            # Connect to tenant-scoped DB file
+            db_path = self.get_db_path(tenant_id)
+            con = duckdb.connect(db_path, read_only=True)
             
             for entity_name in consumes:
                 table_name = f"dcl_{entity_name}"
