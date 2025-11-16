@@ -142,8 +142,8 @@ export default function LiveSankeyGraph({ isActive = true }: LiveSankeyGraphProp
       animationFrameId = requestAnimationFrame(() => {
         for (const entry of entries) {
           const { width, height } = entry.contentRect;
-          if (width > 0 && height > 0) {
-            setContainerSize({ width, height });
+          if (width > 0) {
+            setContainerSize({ width, height: height || 400 });
           }
         }
       });

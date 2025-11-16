@@ -8,6 +8,7 @@ from typing import Optional
 from fastapi import FastAPI, Depends, HTTPException, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.responses import Response
 from fastapi.responses import FileResponse, JSONResponse
 # OAUTH DISABLED - from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
@@ -366,11 +367,20 @@ app.include_router(events.router, prefix="/api/v1/events", tags=["Event Stream"]
 app.include_router(platform_stubs.router, prefix="/api/v1", tags=["Platform Stubs"])
 app.include_router(aod_mock.router, prefix="", tags=["AOD Mock (Testing)"])
 
+class NoCacheStaticFiles(StaticFiles):
+    """StaticFiles with no-cache headers to prevent Replit CDN caching"""
+    def file_response(self, *args, **kwargs) -> Response:
+        response = super().file_response(*args, **kwargs)
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        return response
+
 STATIC_DIR = "static"
 if os.path.exists(STATIC_DIR) and os.path.isdir(STATIC_DIR):
     assets_dir = os.path.join(STATIC_DIR, "assets")
     if os.path.exists(assets_dir):
-        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+        app.mount("/assets", NoCacheStaticFiles(directory=assets_dir), name="assets")
 
     @app.get("/")
     def serve_frontend(request: Request):
