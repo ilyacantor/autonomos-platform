@@ -1,0 +1,62 @@
+This is a critical P0 situation. The platform has a 0% test pass rate, and a core functionality (AAM mode) is failing silently despite multiple attempted fixes, including significant architectural changes like tenant-scoped DuckDB files.
+
+The persistent symptom—"No materialized views available - skipping agent execution"—indicates that the DuckDB file is either not being created, is being created in the wrong location, or is being deleted prematurely. Since there are no error messages, we must implement a rigorous, systematic debugging strategy to gain visibility into the AAM execution path.
+
+### Diagnostic Strategy: Trace, Audit, and Monitor
+
+We will use a combination of detailed trace logging, exception auditing, and active filesystem monitoring to pinpoint the root cause.
+
+#### Phase 1: Audit Exception Handling (The Silent Failure Search)
+
+Silent failures are often caused by swallowed exceptions.
+
+1.  **Audit the Pipeline:** Review the core functions involved in the AAM connection process:
+      * `/dcl/connect` endpoint (and `connect_sources` orchestration).
+      * AAM connector data loading logic.
+      * `register_src_views()`
+      * `apply_plan()`
+2.  **Identify Broad `try...except` Blocks:** Look for any instances of `except Exception:` that do not log the full stack trace or do not re-raise the exception.
+3.  **Enhance Exception Logging:** Modify these handlers to log the full traceback using `logger.exception("CRITICAL: Exception during DCL operation")`.
+
+#### Phase 2: Implement Granular Trace Logging
+
+We must track the `tenant_id` and the generated `db_path` throughout the entire lifecycle. Add detailed debug logs (using a distinct tag like `[TRACE_DCL]`) to the following functions:
+
+1.  **`get_db_path(tenant_id)`:**
+      * Log the input `tenant_id` and the exact returned file path.
+2.  **`/dcl/connect` (Entry Point):**
+      * Log the start of the process, the `tenant_id`, the requested `sources`, and confirmation that AAM mode is active.
+3.  **`register_src_views(tenant_id, sources)` (The Critical Function):**
+      * Log entry: `[TRACE_DCL] Entered register_src_views. Tenant: {tenant_id}`.
+      * Log the `db_path` being used.
+      * Log the state of the data loaded from AAM (is it empty?).
+      * Log immediately before and after acquiring the distributed lock.
+      * Log immediately before DuckDB connection: `[TRACE_DCL] Connecting to DuckDB at {db_path}`.
+      * Log after connection and view creation: `[TRACE_DCL] DuckDB views registered successfully.`
+4.  **Agent Execution/Plan Application (The Failure Point):**
+      * Log the `db_path` being checked: `[TRACE_DCL] Checking for materialized views at {db_path}`.
+      * Log the result of `os.path.exists(db_path)`.
+5.  **Test Fixture Cleanup (`conftest.py`):**
+      * Log when cleanup occurs: `[TRACE_DCL] TEST CLEANUP: Deleting DuckDB file for tenant {tenant_id}`.
+
+#### Phase 3: Active Filesystem Monitoring
+
+We need definitive proof of whether the file is created and when it disappears.
+
+1.  **Modify the Test Case:** In the failing test case (e.g., `test_concurrent_state_reads_no_corruption`), add steps to explicitly list the contents of the directory where DuckDB files are stored.
+2.  **Timing:** Perform this listing immediately after the `/dcl/connect` call returns, and before the `/dcl/state` call.
+
+#### Phase 4: Execute and Analyze
+
+1.  **Execute the Isolated Test:** Run the single failing test case with verbose output enabled (`-v -s` to show logs/print statements).
+    ```bash
+    cd /home/runner/workspace && timeout 90 python -m pytest tests/dcl/test_dcl_concurrency.py::TestDCLConcurrentReads::test_concurrent_state_reads_no_corruption -v -s
+    ```
+2.  **Analyze the Output:** Review the trace logs and filesystem output to identify the deviation point:
+      * **Tenant ID/Path Mismatch:** Is the `tenant_id` or `db_path` inconsistent between creation and checking?
+      * **Silent Exception:** Did the exception audit reveal any hidden errors during DuckDB initialization?
+      * **Data Loading Failure:** Was the data from AAM empty, causing initialization to be skipped?
+      * **Premature Cleanup:** Does the `TEST CLEANUP` trace appear before the agent execution check?
+      * **Filesystem Proof:** Does the active monitoring show the file being created?
+
+This systematic approach will isolate the root cause of the AAM failure and allow for a targeted resolution.

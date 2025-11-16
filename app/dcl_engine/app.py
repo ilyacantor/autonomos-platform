@@ -90,7 +90,9 @@ def get_db_path(tenant_id: str = "default") -> str:
     Example:
         con = duckdb.connect(get_db_path(tenant_id), config={'access_mode': 'READ_WRITE'})
     """
-    return str(DCL_BASE_PATH / f"registry_{tenant_id}.duckdb")
+    path = str(DCL_BASE_PATH / f"registry_{tenant_id}.duckdb")
+    print(f"[TRACE_DCL] get_db_path(tenant_id={tenant_id}) -> {path}", flush=True)
+    return path
 
 ONTOLOGY_PATH = str(DCL_BASE_PATH / "ontology" / "catalog.yml")
 AGENTS_CONFIG_PATH = str(DCL_BASE_PATH / "agents" / "config.yml")
@@ -828,16 +830,22 @@ def register_src_views(con, source_key: str, tables: Dict[str, Any]):
         source_key: Source identifier
         tables: Dictionary mapping table names to table metadata
     """
+    print(f"[TRACE_DCL] register_src_views ENTRY: source_key={source_key}, tables={list(tables.keys())}", flush=True)
+    
     for tname, info in tables.items():
         view_name = f"src_{source_key}_{tname}"
+        print(f"[TRACE_DCL] Processing table '{tname}', view_name='{view_name}'", flush=True)
         
         # Check if this is a file-based source (has "path") or AAM source (has "samples")
         if "path" in info:
             # Legacy file-based source: Load from CSV file
             path = info["path"]
+            print(f"[TRACE_DCL] Using file-based path: {info['path']}", flush=True)
             con.sql(f"CREATE OR REPLACE VIEW {view_name} AS SELECT * FROM read_csv_auto('{path}')")
+            print(f"[TRACE_DCL] ✅ File-based view '{view_name}' created successfully", flush=True)
         elif "samples" in info and info["samples"]:
             # AAM source: Create from in-memory data (samples list)
+            print(f"[TRACE_DCL] Using AAM samples: {len(info['samples'])} rows", flush=True)
             # Convert samples list to pandas DataFrame
             df = pd.DataFrame(info["samples"])
             
@@ -847,8 +855,10 @@ def register_src_views(con, source_key: str, tables: Dict[str, Any]):
             
             # Create view from the temporary table
             con.sql(f"CREATE OR REPLACE VIEW {view_name} AS SELECT * FROM {temp_table_name}")
+            print(f"[TRACE_DCL] ✅ AAM view '{view_name}' created successfully", flush=True)
         else:
             # Unknown format - log warning and skip
+            print(f"[TRACE_DCL] ⚠️ Unknown format for table '{tname}'", flush=True)
             log(f"⚠️ Table '{tname}' has unknown format (no 'path' or 'samples'), skipping view creation")
             continue
 
@@ -2136,6 +2146,8 @@ def _blocking_source_pipeline(
     """
     global ontology, agents_config
     
+    print(f"[TRACE_DCL] _blocking_source_pipeline ENTRY: source_key={source_key}, tenant_id={tenant_id}", flush=True)
+    
     try:
         # Load ontology if needed
         if ontology is None:
@@ -2149,13 +2161,21 @@ def _blocking_source_pipeline(
         adapter = get_source_adapter()
         source_mode = "aam_connectors" if FeatureFlagConfig.is_enabled(FeatureFlag.USE_AAM_AS_SOURCE) else "demo_files"
         
+        print(f"[TRACE_DCL] Using adapter mode: {source_mode}", flush=True)
         log(f"📂 Using {source_mode} for source: {source_key} (tenant: {tenant_id})")
         
         # BLOCKING I/O: Load source data (pandas read_csv - ~1-2s)
         tables = adapter.load_tables(source_key, tenant_id)
         
         if not tables:
+            print(f"[TRACE_DCL] ❌ No tables found for source '{source_key}'", flush=True)
             return {"error": f"No tables found for source '{source_key}'"}
+        
+        print(f"[TRACE_DCL] Loaded {len(tables)} tables: {list(tables.keys())}", flush=True)
+        if tables:
+            first_table = list(tables.values())[0]
+            sample_count = len(first_table.get('samples', []))
+            print(f"[TRACE_DCL] Sample data check - first table has {sample_count} rows", flush=True)
         
         log(f"📊 Loaded {len(tables)} tables from {source_key}")
         
@@ -2173,16 +2193,27 @@ def _blocking_source_pipeline(
             plan_type = "ai"
         
         # BLOCKING: DuckDB operations (~2-3s)
-        con = duckdb.connect(get_db_path(tenant_id), config={'access_mode': 'READ_WRITE'})
+        db_path = get_db_path(tenant_id)
+        print(f"[TRACE_DCL] About to connect to DuckDB: {db_path}", flush=True)
+        con = duckdb.connect(db_path, config={'access_mode': 'READ_WRITE'})
+        print(f"[TRACE_DCL] DuckDB connection successful", flush=True)
+        
+        print(f"[TRACE_DCL] Calling register_src_views for {source_key}", flush=True)
         register_src_views(con, source_key, tables)
+        print(f"[TRACE_DCL] register_src_views completed", flush=True)
         
         # Acquire distributed lock with LONG timeout (60s) to allow sequential processing
         # This prevents data races when multiple sources update graph state concurrently
+        print(f"[TRACE_DCL] Acquiring distributed lock (60s timeout)", flush=True)
         if dcl_distributed_lock:
             with dcl_distributed_lock.acquire(timeout=60.0):
+                print(f"[TRACE_DCL] Lock acquired, calling apply_plan", flush=True)
                 score = apply_plan(con, source_key, plan, tenant_id)
+                print(f"[TRACE_DCL] apply_plan completed with score: {score}", flush=True)
         else:
+            print(f"[TRACE_DCL] No distributed lock available, calling apply_plan directly", flush=True)
             score = apply_plan(con, source_key, plan, tenant_id)
+            print(f"[TRACE_DCL] apply_plan completed with score: {score}", flush=True)
         
         # Log join information
         ents = ", ".join(sorted(tables.keys()))
@@ -2218,12 +2249,23 @@ def _blocking_source_pipeline(
             previews["ontology"][f"dcl_{ent}"] = preview_table(con, f"dcl_{ent}")
         
         # Close DuckDB connection
+        print(f"[TRACE_DCL] Closing DuckDB connection", flush=True)
         con.close()
+        print(f"[TRACE_DCL] DuckDB connection closed", flush=True)
+        
+        # Check file existence IMMEDIATELY after close
+        if os.path.exists(db_path):
+            file_size = os.path.getsize(db_path)
+            print(f"[TRACE_DCL] ✅ DuckDB file EXISTS after close: {db_path} ({file_size} bytes)", flush=True)
+        else:
+            print(f"[TRACE_DCL] ❌ DuckDB file MISSING after close: {db_path}", flush=True)
         
         # Return all results for async orchestrator to handle
         return (tables, plan, score, previews, source_mode, plan_type)
         
     except Exception as e:
+        print(f"[TRACE_DCL] ❌ EXCEPTION in _blocking_source_pipeline: {e}", flush=True)
+        print(f"[TRACE_DCL] Traceback: {traceback.format_exc()}", flush=True)
         log(f"❌ Error in blocking pipeline for {source_key}: {e}")
         log(f"Traceback: {traceback.format_exc()}")
         return {"error": str(e)}
@@ -2242,6 +2284,10 @@ async def connect_source(
     This allows asyncio.gather to truly parallelize multiple connect_source calls.
     """
     global ontology, agents_config, TIMING_LOG, ws_manager, dcl_distributed_lock
+    
+    print(f"[TRACE_DCL] connect_source ENTRY: source_key={source_key}, tenant_id={tenant_id}", flush=True)
+    db_path = get_db_path(tenant_id)
+    print(f"[TRACE_DCL] Expected db_path: {db_path}", flush=True)
     
     connect_start = time.time()
     
@@ -3335,15 +3381,23 @@ async def connect(
     # Execute agents after all sources have completed and materialized views are ready
     if agent_list and agent_executor:
         # Check if DuckDB database exists before attempting agent execution
-        if os.path.exists(get_db_path(tenant_id)):
+        db_path = get_db_path(tenant_id)
+        print(f"[TRACE_DCL] Agent execution check - db_path: {db_path}", flush=True)
+        print(f"[TRACE_DCL] os.path.exists({db_path}): {os.path.exists(db_path)}", flush=True)
+        
+        if os.path.exists(db_path):
+            print(f"[TRACE_DCL] ✅ DuckDB file exists, executing agents", flush=True)
             try:
                 log(f"🚀 Executing {len(agent_list)} agent(s) on unified DCL views (tenant: {tenant_id})")
                 await agent_executor.execute_agents_async(agent_list, tenant_id, ws_manager)
                 log(f"✅ Agent results stored in cache - accessible via /dcl/agents/{{agent_id}}/results")
             except Exception as e:
+                print(f"[TRACE_DCL] ❌ EXCEPTION in agent execution: {e}", flush=True)
+                print(f"[TRACE_DCL] Traceback: {traceback.format_exc()}", flush=True)
                 log(f"❌ Agent execution failed: {e}")
                 # Don't fail the entire connection if agents fail - log and continue
         else:
+            print(f"[TRACE_DCL] ❌ DuckDB file missing, skipping agents", flush=True)
             log(f"ℹ️ No materialized views available - skipping agent execution (DuckDB not created)")
     elif not agent_list:
         log(f"ℹ️ No agents selected for execution")
