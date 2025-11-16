@@ -566,15 +566,18 @@ export default function DCLGraphContainer({ useAamSource, onModeChange, selected
                   No events yet. Start mapping to see the narration.
                 </div>
               ) : (
-                typingEvents.slice().reverse().map((event, idx) => {
-                  const originalIdx = typingEvents.length - idx;
-                  return (
+                typingEvents
+                  .map((event, idx) => ({
+                    ...event,
+                    eventNumber: idx + 1
+                  }))
+                  .reverse()
+                  .map((event) => (
                     <div key={event.key} className="text-gray-300 leading-relaxed">
-                      <span className="text-purple-400 mr-1">[{originalIdx}]</span>
+                      <span className="text-purple-400 mr-1">[{event.eventNumber}]</span>
                       {event.isTyping ? <TypingText text={event.text} speed={30} /> : event.text}
                     </div>
-                  );
-                })
+                  ))
               )}
             </div>
           </div>
