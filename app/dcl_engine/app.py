@@ -55,6 +55,7 @@ from app.dcl_engine.tenant_state import TenantStateManager
 from app.dcl_engine import state_access
 from app.security import get_current_user, AUTH_ENABLED
 from app.middleware.rate_limit import limiter
+from app.dcl_engine.distributed_lock import RedisDistributedLock
 
 # Use paths relative to this module's directory
 DCL_BASE_PATH = Path(__file__).parent
@@ -90,8 +91,14 @@ rag_engine = None
 RAG_CONTEXT = {"retrievals": [], "total_mappings": 0, "last_retrieval_count": 0}
 SOURCE_SCHEMAS: Dict[str, Dict[str, Any]] = {}
 DEV_MODE = False  # When True, uses AI/RAG for mapping; when False, uses only heuristics
-STATE_LOCK = threading.Lock()  # Lock for thread-safe global state updates (sync contexts)
-ASYNC_STATE_LOCK = None  # Will be initialized as asyncio.Lock in async contexts
+
+# DEPRECATED: Replaced by dcl_distributed_lock (Redis-based distributed locking)
+# STATE_LOCK = threading.Lock()  # ❌ REMOVED - caused race conditions with async code
+# ASYNC_STATE_LOCK = None  # ❌ REMOVED - uncoordinated with sync lock
+
+# Redis distributed lock for safe concurrent access across all workers/processes
+# Replaces brittle dual-lock system (STATE_LOCK + ASYNC_STATE_LOCK)
+dcl_distributed_lock: Optional[RedisDistributedLock] = None
 
 # Performance timing storage
 TIMING_LOG: Dict[str, List[float]] = {
@@ -222,6 +229,39 @@ class RedisDecodeWrapper:
     
     def ping(self):
         return self._client.ping()
+    
+    def compare_and_delete(self, key: str, expected_value: str) -> bool:
+        """
+        Atomically compare key's value and delete if it matches (byte-safe).
+        
+        Uses Lua script to ensure atomic operation and consistent encoding.
+        This is critical for distributed lock release to prevent race conditions.
+        
+        Args:
+            key: Redis key to check
+            expected_value: Expected value (string will be encoded to bytes)
+        
+        Returns:
+            True if value matched and was deleted, False otherwise
+        """
+        # Lua script for atomic compare-and-delete (operates at byte level)
+        lua_script = """
+        if redis.call("get", KEYS[1]) == ARGV[1] then
+            redis.call("del", KEYS[1])
+            return 1
+        else
+            return 0
+        end
+        """
+        # Encode expected_value to bytes to match Redis storage format
+        if isinstance(expected_value, str):
+            expected_value_bytes = expected_value.encode('utf-8')
+        else:
+            expected_value_bytes = expected_value
+        
+        # Execute Lua script using raw client (byte-level operations)
+        result = self._client.eval(lua_script, 1, key.encode('utf-8') if isinstance(key, str) else key, expected_value_bytes)
+        return result == 1
 
 async def init_async_redis():
     """
@@ -296,7 +336,7 @@ def set_redis_client(client):
     Args:
         client: Redis client instance from main app (typically with decode_responses=False)
     """
-    global redis_client, redis_available, _dev_mode_initialized, graph_store, tenant_state_manager, GRAPH_STATE
+    global redis_client, redis_available, _dev_mode_initialized, graph_store, tenant_state_manager, GRAPH_STATE, dcl_distributed_lock
     
     # Wrap the client to provide decode_responses=True behavior
     redis_client = RedisDecodeWrapper(client)
@@ -340,6 +380,18 @@ def set_redis_client(client):
         
         # Initialize state_access wrapper module with TenantStateManager
         state_access.initialize_state_access(tenant_state_manager)
+        
+        # Initialize Redis distributed lock for safe concurrent state access
+        try:
+            dcl_distributed_lock = RedisDistributedLock(
+                redis_client=redis_client,
+                lock_key="dcl:lock:state_access",
+                lock_ttl=30
+            )
+            print(f"🔒 DCL Engine: Redis distributed lock initialized (replaces dual STATE_LOCK + ASYNC_STATE_LOCK)", flush=True)
+        except Exception as e:
+            print(f"⚠️ DCL Engine: Failed to initialize distributed lock: {e}. Locking disabled.", flush=True)
+            dcl_distributed_lock = None
         
         # Initialize GraphStateStore and load persisted graph state
         try:
@@ -1599,24 +1651,38 @@ def apply_plan(con, source_key: str, plan: Dict[str, Any], tenant_id: str = "def
             "type": "join"
         })
     
-    # Apply all graph state updates atomically
-    with STATE_LOCK:
-        # Get current graph state for this tenant (state_access handles dual-path)
+    # Apply all graph state updates atomically using distributed lock
+    if dcl_distributed_lock:
+        with dcl_distributed_lock.acquire(timeout=5.0):
+            # Get current graph state for this tenant (state_access handles dual-path)
+            current_graph = state_access.get_graph_state(tenant_id)
+            
+            # Add nodes (deduplicated)
+            for node in nodes_to_add:
+                if not any(n["id"] == node["id"] for n in current_graph["nodes"]):
+                    current_graph["nodes"].append(node)
+            
+            # Add edges
+            for edge in edges_to_add:
+                current_graph["edges"].append(edge)
+            
+            # Save updated graph state (state_access handles dual-path)
+            state_access.set_graph_state(tenant_id, current_graph)
+            
+            # Update entity sources (state_access handles dual-path)
+            current_entity_sources = state_access.get_entity_sources(tenant_id)
+            for ent in entities_to_update:
+                current_entity_sources.setdefault(ent, []).append(source_key)
+            state_access.set_entity_sources(tenant_id, current_entity_sources)
+    else:
+        # Fallback: No lock available (development mode)
         current_graph = state_access.get_graph_state(tenant_id)
-        
-        # Add nodes (deduplicated)
         for node in nodes_to_add:
             if not any(n["id"] == node["id"] for n in current_graph["nodes"]):
                 current_graph["nodes"].append(node)
-        
-        # Add edges
         for edge in edges_to_add:
             current_graph["edges"].append(edge)
-        
-        # Save updated graph state (state_access handles dual-path)
         state_access.set_graph_state(tenant_id, current_graph)
-        
-        # Update entity sources (state_access handles dual-path)
         current_entity_sources = state_access.get_entity_sources(tenant_id)
         for ent in entities_to_update:
             current_entity_sources.setdefault(ent, []).append(source_key)
@@ -1758,7 +1824,7 @@ async def connect_source(
     llm_model: str = "gemini-2.5-flash",
     tenant_id: str = "default"
 ) -> Dict[str, Any]:
-    global ontology, agents_config, STATE_LOCK, TIMING_LOG, ASYNC_STATE_LOCK, ws_manager, SOURCE_SCHEMAS, GRAPH_STATE, SOURCES_ADDED
+    global ontology, agents_config, TIMING_LOG, ws_manager, SOURCE_SCHEMAS, GRAPH_STATE, SOURCES_ADDED, dcl_distributed_lock
     
     connect_start = time.time()
     
@@ -1770,10 +1836,6 @@ async def connect_source(
         "message": f"🔄 Starting schema analysis for {source_key}...",
         "timestamp": time.time()
     })
-    
-    # Initialize async lock if needed
-    if ASYNC_STATE_LOCK is None:
-        ASYNC_STATE_LOCK = asyncio.Lock()
     
     if ontology is None:
         ontology = load_ontology()
@@ -1787,10 +1849,16 @@ async def connect_source(
     # CRITICAL FIX: Clear cache for AAM sources to force fresh load from Redis Streams
     # Without this, SOURCE_SCHEMAS caching prevents load_tables from being called
     if FeatureFlagConfig.is_enabled(FeatureFlag.USE_AAM_AS_SOURCE):
-        if not ASYNC_STATE_LOCK:
-            ASYNC_STATE_LOCK = asyncio.Lock()
-        async with ASYNC_STATE_LOCK:
-            # Clear SOURCE_SCHEMAS cache for AAM source (state_access handles dual-path)
+        if dcl_distributed_lock:
+            async with dcl_distributed_lock.acquire_async(timeout=5.0):
+                # Clear SOURCE_SCHEMAS cache for AAM source (state_access handles dual-path)
+                current_schemas = state_access.get_source_schemas(tenant_id)
+                if source_key in current_schemas:
+                    del current_schemas[source_key]
+                    state_access.set_source_schemas(tenant_id, current_schemas)
+                    log(f"🗑️  Cleared SOURCE_SCHEMAS cache for AAM source: {source_key}")
+        else:
+            # Fallback: No lock available (development mode)
             current_schemas = state_access.get_source_schemas(tenant_id)
             if source_key in current_schemas:
                 del current_schemas[source_key]
@@ -1820,13 +1888,23 @@ async def connect_source(
     })
     
     # Store schema information for later retrieval (async-safe, state_access handles dual-path)
-    async with ASYNC_STATE_LOCK:
+    if dcl_distributed_lock:
+        async with dcl_distributed_lock.acquire_async(timeout=5.0):
+            current_schemas = state_access.get_source_schemas(tenant_id)
+            current_schemas[source_key] = tables
+            state_access.set_source_schemas(tenant_id, current_schemas)
+    else:
+        # Fallback: No lock available (development mode)
         current_schemas = state_access.get_source_schemas(tenant_id)
         current_schemas[source_key] = tables
         state_access.set_source_schemas(tenant_id, current_schemas)
     
     # Add graph nodes (async-safe)
-    async with ASYNC_STATE_LOCK:
+    if dcl_distributed_lock:
+        async with dcl_distributed_lock.acquire_async(timeout=5.0):
+            add_graph_nodes_for_source(source_key, tables, tenant_id)
+    else:
+        # Fallback: No lock available (development mode)
         add_graph_nodes_for_source(source_key, tables, tenant_id)
     
     llm_result = await llm_propose(ontology, source_key, tables, llm_model)
@@ -1864,18 +1942,29 @@ async def connect_source(
         register_src_views(con, source_key, tables)
         score = apply_plan(con, source_key, plan)
         
-        # Update graph state (async-safe)
-        async with ASYNC_STATE_LOCK:
-            # Get current graph state and update confidence/timestamp (state_access handles dual-path)
+        # Update graph state (async-safe using distributed lock)
+        if dcl_distributed_lock:
+            async with dcl_distributed_lock.acquire_async(timeout=5.0):
+                # Get current graph state and update confidence/timestamp (state_access handles dual-path)
+                current_graph = state_access.get_graph_state(tenant_id)
+                current_graph["confidence"] = score.confidence
+                current_graph["last_updated"] = time.strftime("%I:%M:%S %p")
+                state_access.set_graph_state(tenant_id, current_graph)
+                
+                # Create edges from ontology entities to agents
+                add_ontology_to_agent_edges(tenant_id)
+                
+                # Add source to tenant-scoped sources list (state_access handles dual-path)
+                current_sources = state_access.get_sources(tenant_id)
+                current_sources.append(source_key)
+                state_access.set_sources(tenant_id, current_sources)
+        else:
+            # Fallback: No lock available (development mode)
             current_graph = state_access.get_graph_state(tenant_id)
             current_graph["confidence"] = score.confidence
             current_graph["last_updated"] = time.strftime("%I:%M:%S %p")
             state_access.set_graph_state(tenant_id, current_graph)
-            
-            # Create edges from ontology entities to agents
             add_ontology_to_agent_edges(tenant_id)
-            
-            # Add source to tenant-scoped sources list (state_access handles dual-path)
             current_sources = state_access.get_sources(tenant_id)
             current_sources.append(source_key)
             state_access.set_sources(tenant_id, current_sources)
@@ -3580,29 +3669,34 @@ async def create_connection(request: Request):
         # Encrypt password
         encrypted_password = encrypt_password(password)
         
-        # Save to database
-        con = duckdb.connect(DB_PATH, config={'access_mode': 'READ_WRITE'})
-        
-        # Get next ID
-        next_id = con.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM connections").fetchone()[0]
-        
-        con.execute("""
-            INSERT INTO connections (
-                id, connection_name, connection_type, host, port, 
-                database_name, db_user, encrypted_password
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, [
-            next_id,
-            connection_name,
-            "PostgreSQL",
-            host,
-            port,
-            database_name,
-            db_user,
-            encrypted_password
-        ])
-        
-        con.close()
+        # Acquire distributed lock for DuckDB write operations (prevents race conditions)
+        lock_id = acquire_db_lock()
+        try:
+            # Save to database
+            con = duckdb.connect(DB_PATH, config={'access_mode': 'READ_WRITE'})
+            
+            # Get next ID
+            next_id = con.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM connections").fetchone()[0]
+            
+            con.execute("""
+                INSERT INTO connections (
+                    id, connection_name, connection_type, host, port, 
+                    database_name, db_user, encrypted_password
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, [
+                next_id,
+                connection_name,
+                "PostgreSQL",
+                host,
+                port,
+                database_name,
+                db_user,
+                encrypted_password
+            ])
+            
+            con.close()
+        finally:
+            release_db_lock(lock_id)
         
         log(f"✅ New PostgreSQL connection '{connection_name}' saved successfully")
         
