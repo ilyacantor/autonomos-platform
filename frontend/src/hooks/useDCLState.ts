@@ -26,22 +26,18 @@ interface GraphNode {
   label: string;
   type: string;
   fields?: string[];
+  sourceSystem?: string;
+  parentId?: string;
 }
 
 interface GraphEdge {
   source: string;
   target: string;
   label?: string;
+  edgeType?: string;
   field_mappings?: any[];
   entity_fields?: string[];
   entity_name?: string;
-}
-
-interface Graph {
-  nodes: GraphNode[];
-  edges: GraphEdge[];
-  confidence?: number | null;
-  last_updated?: string | null;
 }
 
 interface LLMStats {
@@ -58,7 +54,9 @@ interface PreviewData {
 
 export interface DCLState {
   events: string[];
-  graph: Graph;
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  confidence?: number | null;
   llm: LLMStats;
   preview: PreviewData;
   rag: RAGContext;
@@ -89,7 +87,9 @@ interface WebSocketMessage {
     sources: string[];
     agents: string[];
     devMode: boolean;
-    graph: Graph;
+    nodes: GraphNode[];
+    edges: GraphEdge[];
+    confidence?: number | null;
     llmCalls: number;
     llmTokens: number;
     ragContext: RAGContext;
@@ -115,8 +115,8 @@ function loadCachedState(): { state: DCLState; isStale: boolean } | null {
       return null;
     }
 
-    // Check if state is meaningful (has graph nodes)
-    if (!parsed.state?.graph?.nodes || parsed.state.graph.nodes.length === 0) {
+    // Check if state is meaningful (has nodes)
+    if (!parsed.state?.nodes || parsed.state.nodes.length === 0) {
       console.log('[DCL Cache] Empty graph in cache, ignoring');
       return null;
     }
@@ -138,7 +138,7 @@ function loadCachedState(): { state: DCLState; isStale: boolean } | null {
 function saveCachedState(state: DCLState): void {
   try {
     // Only cache meaningful state (non-empty graph)
-    if (!state?.graph?.nodes || state.graph.nodes.length === 0) {
+    if (!state?.nodes || state.nodes.length === 0) {
       return;
     }
 
@@ -223,7 +223,9 @@ export function useDCLState(): UseDCLStateReturn {
 
       const newState: DCLState = {
         events: message.data.events || [],
-        graph: message.data.graph,
+        nodes: message.data.nodes || [],
+        edges: message.data.edges || [],
+        confidence: message.data.confidence || null,
         llm: {
           calls: message.data.llmCalls,
           tokens: message.data.llmTokens,

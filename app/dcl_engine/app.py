@@ -1991,31 +1991,95 @@ async def connect_source(
             "timestamp": time.time()
         })
     
-    # Acquire distributed lock for ALL DuckDB operations (cross-process safe)
-    lock_id = acquire_db_lock()
-    try:
-        con = duckdb.connect(DB_PATH, config={'access_mode': 'READ_WRITE'})
-        register_src_views(con, source_key, tables)
-        score = apply_plan(con, source_key, plan)
-        
-        # Update graph state (async-safe using distributed lock)
-        if dcl_distributed_lock:
-            async with dcl_distributed_lock.acquire_async(timeout=5.0):
-                # Get current graph state and update confidence/timestamp (state_access handles dual-path)
-                current_graph = state_access.get_graph_state(tenant_id)
-                current_graph["confidence"] = score.confidence
-                current_graph["last_updated"] = time.strftime("%I:%M:%S %p")
-                state_access.set_graph_state(tenant_id, current_graph)
-                
-                # Create edges from ontology entities to agents
-                add_ontology_to_agent_edges(tenant_id)
-                
-                # Add source to tenant-scoped sources list (state_access handles dual-path)
-                current_sources = state_access.get_sources(tenant_id)
-                current_sources.append(source_key)
-                state_access.set_sources(tenant_id, current_sources)
-        else:
-            # Fallback: No lock available (development mode)
+    # Acquire async distributed lock for DuckDB operations (enables parallel source processing)
+    if dcl_distributed_lock:
+        async with dcl_distributed_lock.acquire_async(timeout=30.0):
+            con = duckdb.connect(DB_PATH, config={'access_mode': 'READ_WRITE'})
+            register_src_views(con, source_key, tables)
+            score = apply_plan(con, source_key, plan)
+            
+            # Update graph state (already holding distributed lock, no nested lock needed)
+            # Get current graph state and update confidence/timestamp (state_access handles dual-path)
+            current_graph = state_access.get_graph_state(tenant_id)
+            current_graph["confidence"] = score.confidence
+            current_graph["last_updated"] = time.strftime("%I:%M:%S %p")
+            state_access.set_graph_state(tenant_id, current_graph)
+            
+            # Create edges from ontology entities to agents
+            add_ontology_to_agent_edges(tenant_id)
+            
+            # Add source to tenant-scoped sources list (state_access handles dual-path)
+            current_sources = state_access.get_sources(tenant_id)
+            current_sources.append(source_key)
+            state_access.set_sources(tenant_id, current_sources)
+            
+            ents = ", ".join(sorted(tables.keys()))
+            log(f"I found these entities: {ents}.")
+            if score.joins:
+                log("To connect them, I proposed joins like " + "; ".join([f"{j['left']} with {j['right']}" for j in score.joins]) + ".")
+            if score.confidence >= CONF_THRESHOLD and not score.blockers:
+                log(f"I am about {int(score.confidence*100)}% confident. I created unified views so you can now query across these sources.")
+            elif AUTO_PUBLISH_PARTIAL and not score.blockers:
+                log(f"I applied the mappings, but with some issues: {score.issues}")
+            else:
+                blockers_msg = "; ".join(score.blockers) if score.blockers else "Unknown blockers"
+                log(f"I paused because of blockers and did not publish. Blockers: {blockers_msg}")
+            
+            previews = {"sources": {}, "ontology": {}}
+            for t in tables.keys():
+                previews["sources"][f"src_{source_key}_{t}"] = preview_table(con, f"src_{source_key}_{t}")
+            
+            # Preview ontology tables based on selected agents
+            if not agents_config:
+                agents_config = load_agents_config()
+            
+            ontology_entities = set()
+            # Get selected agents (state_access handles dual-path internally)
+            selected_agents = state_access.get_selected_agents(tenant_id)
+            
+            if selected_agents:
+                for agent_id in selected_agents:
+                    agent_info = agents_config.get("agents", {}).get(agent_id, {})
+                    consumes = agent_info.get("consumes", [])
+                    ontology_entities.update(consumes)
+            else:
+                if not ontology:
+                    ontology = load_ontology()
+                ontology_entities = set(ontology.get("entities", {}).keys())
+            
+            for ent in ontology_entities:
+                previews["ontology"][f"dcl_{ent}"] = preview_table(con, f"dcl_{ent}")
+            
+            # Explicitly close DuckDB connection
+            con.close()
+            
+            # Log total connect_source timing
+            connect_elapsed = time.time() - connect_start
+            TIMING_LOG["connect_total"].append(connect_elapsed)
+            log(f"⏱️ connect_source({source_key}) total: {connect_elapsed:.2f}s")
+            
+            # STREAMING EVENT: Source complete
+            await ws_manager.broadcast({
+                "type": "mapping_progress",
+                "source": source_key,
+                "stage": "complete",
+                "message": f"✅ {source_key} mapping complete ({connect_elapsed:.1f}s)",
+                "duration": connect_elapsed,
+                "confidence": score.confidence,
+                "source_mode": source_mode,
+                "timestamp": time.time()
+            })
+            
+            return {"ok": True, "score": score.confidence, "previews": previews, "source_mode": source_mode}
+    else:
+        # Fallback: No async lock available (development mode)
+        lock_id = acquire_db_lock()
+        try:
+            con = duckdb.connect(DB_PATH, config={'access_mode': 'READ_WRITE'})
+            register_src_views(con, source_key, tables)
+            score = apply_plan(con, source_key, plan)
+            
+            # Update graph state (no distributed lock available)
             current_graph = state_access.get_graph_state(tenant_id)
             current_graph["confidence"] = score.confidence
             current_graph["last_updated"] = time.strftime("%I:%M:%S %p")
@@ -2024,67 +2088,67 @@ async def connect_source(
             current_sources = state_access.get_sources(tenant_id)
             current_sources.append(source_key)
             state_access.set_sources(tenant_id, current_sources)
-        
-        ents = ", ".join(sorted(tables.keys()))
-        log(f"I found these entities: {ents}.")
-        if score.joins:
-            log("To connect them, I proposed joins like " + "; ".join([f"{j['left']} with {j['right']}" for j in score.joins]) + ".")
-        if score.confidence >= CONF_THRESHOLD and not score.blockers:
-            log(f"I am about {int(score.confidence*100)}% confident. I created unified views so you can now query across these sources.")
-        elif AUTO_PUBLISH_PARTIAL and not score.blockers:
-            log(f"I applied the mappings, but with some issues: {score.issues}")
-        else:
-            blockers_msg = "; ".join(score.blockers) if score.blockers else "Unknown blockers"
-            log(f"I paused because of blockers and did not publish. Blockers: {blockers_msg}")
-        
-        previews = {"sources": {}, "ontology": {}}
-        for t in tables.keys():
-            previews["sources"][f"src_{source_key}_{t}"] = preview_table(con, f"src_{source_key}_{t}")
-        
-        # Preview ontology tables based on selected agents
-        if not agents_config:
-            agents_config = load_agents_config()
-        
-        ontology_entities = set()
-        # Get selected agents (state_access handles dual-path internally)
-        selected_agents = state_access.get_selected_agents(tenant_id)
-        
-        if selected_agents:
-            for agent_id in selected_agents:
-                agent_info = agents_config.get("agents", {}).get(agent_id, {})
-                consumes = agent_info.get("consumes", [])
-                ontology_entities.update(consumes)
-        else:
-            if not ontology:
-                ontology = load_ontology()
-            ontology_entities = set(ontology.get("entities", {}).keys())
-        
-        for ent in ontology_entities:
-            previews["ontology"][f"dcl_{ent}"] = preview_table(con, f"dcl_{ent}")
-        
-        # Explicitly close DuckDB connection
-        con.close()
-        
-        # Log total connect_source timing
-        connect_elapsed = time.time() - connect_start
-        TIMING_LOG["connect_total"].append(connect_elapsed)
-        log(f"⏱️ connect_source({source_key}) total: {connect_elapsed:.2f}s")
-        
-        # STREAMING EVENT: Source complete
-        await ws_manager.broadcast({
-            "type": "mapping_progress",
-            "source": source_key,
-            "stage": "complete",
-            "message": f"✅ {source_key} mapping complete ({connect_elapsed:.1f}s)",
-            "duration": connect_elapsed,
-            "confidence": score.confidence,
-            "source_mode": source_mode,
-            "timestamp": time.time()
-        })
-        
-        return {"ok": True, "score": score.confidence, "previews": previews, "source_mode": source_mode}
-    finally:
-        release_db_lock(lock_id)
+            
+            ents = ", ".join(sorted(tables.keys()))
+            log(f"I found these entities: {ents}.")
+            if score.joins:
+                log("To connect them, I proposed joins like " + "; ".join([f"{j['left']} with {j['right']}" for j in score.joins]) + ".")
+            if score.confidence >= CONF_THRESHOLD and not score.blockers:
+                log(f"I am about {int(score.confidence*100)}% confident. I created unified views so you can now query across these sources.")
+            elif AUTO_PUBLISH_PARTIAL and not score.blockers:
+                log(f"I applied the mappings, but with some issues: {score.issues}")
+            else:
+                blockers_msg = "; ".join(score.blockers) if score.blockers else "Unknown blockers"
+                log(f"I paused because of blockers and did not publish. Blockers: {blockers_msg}")
+            
+            previews = {"sources": {}, "ontology": {}}
+            for t in tables.keys():
+                previews["sources"][f"src_{source_key}_{t}"] = preview_table(con, f"src_{source_key}_{t}")
+            
+            # Preview ontology tables based on selected agents
+            if not agents_config:
+                agents_config = load_agents_config()
+            
+            ontology_entities = set()
+            # Get selected agents (state_access handles dual-path internally)
+            selected_agents = state_access.get_selected_agents(tenant_id)
+            
+            if selected_agents:
+                for agent_id in selected_agents:
+                    agent_info = agents_config.get("agents", {}).get(agent_id, {})
+                    consumes = agent_info.get("consumes", [])
+                    ontology_entities.update(consumes)
+            else:
+                if not ontology:
+                    ontology = load_ontology()
+                ontology_entities = set(ontology.get("entities", {}).keys())
+            
+            for ent in ontology_entities:
+                previews["ontology"][f"dcl_{ent}"] = preview_table(con, f"dcl_{ent}")
+            
+            # Explicitly close DuckDB connection
+            con.close()
+            
+            # Log total connect_source timing
+            connect_elapsed = time.time() - connect_start
+            TIMING_LOG["connect_total"].append(connect_elapsed)
+            log(f"⏱️ connect_source({source_key}) total: {connect_elapsed:.2f}s")
+            
+            # STREAMING EVENT: Source complete
+            await ws_manager.broadcast({
+                "type": "mapping_progress",
+                "source": source_key,
+                "stage": "complete",
+                "message": f"✅ {source_key} mapping complete ({connect_elapsed:.1f}s)",
+                "duration": connect_elapsed,
+                "confidence": score.confidence,
+                "source_mode": source_mode,
+                "timestamp": time.time()
+            })
+            
+            return {"ok": True, "score": score.confidence, "previews": previews, "source_mode": source_mode}
+        finally:
+            release_db_lock(lock_id)
 
 def reset_state(exclude_dev_mode=True, tenant_id: str = "default"):
     """
