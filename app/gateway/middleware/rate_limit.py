@@ -47,7 +47,9 @@ async def rate_limit_middleware(request: Request, call_next: Callable):
         "/dcl/state",  # DCL state endpoint (read-only)
         "/dcl/ws",  # DCL WebSocket with mount prefix
     ]
-    if request.url.path in exempt_paths or request.url.path.startswith("/static/"):
+    if (request.url.path in exempt_paths or 
+        request.url.path.startswith("/static/") or 
+        request.url.path.startswith("/nlp/")):
         return await call_next(request)
     
     tenant_id = getattr(request.state, "tenant_id", "anonymous")
