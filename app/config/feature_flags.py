@@ -70,7 +70,7 @@ class FeatureFlagConfig:
         FeatureFlag.ENABLE_HITL_WORKFLOW: True,
         FeatureFlag.ENABLE_CANONICAL_EVENTS: True,  # Phase 4: ENABLED - Normalize and validate canonical events
         FeatureFlag.ENABLE_SCHEMA_FINGERPRINTING: True,  # Phase 4: ENABLED - Track schema versions for drift
-        FeatureFlag.TENANT_SCOPED_STATE: False,  # Phase 1: DISABLED by default - Gradual rollout of tenant isolation
+        FeatureFlag.TENANT_SCOPED_STATE: True,  # Phase 3: MANDATORY - Multi-tenant state isolation (CRITICAL for enterprise deployment)
     }
     
     # Redis client (injected from main app)
