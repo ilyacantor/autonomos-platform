@@ -172,9 +172,263 @@ for connector in connectors:  # 1000 iterations
 
 ---
 
+## Responsibility Allocation (AOD, AAM, DCL)
+
+**Critical Finding:** AAM is becoming bloated with overlapping responsibilities. Clear separation needed.
+
+### Component Responsibility Matrix (RACI)
+
+| Capability | AOD | AAM | DCL | Notes |
+|------------|-----|-----|-----|-------|
+| **Discovery & Cataloging** |||||
+| Asset discovery (find data sources) | **R** | C | I | AOD discovers, AAM gets notified |
+| Schema introspection | I | **R** | C | AAM scans schemas at runtime |
+| Source catalog management | **R** | I | C | AOD maintains source inventory |
+| **Connection Runtime** |||||
+| API authentication/OAuth | I | **R** | I | AAM manages credentials |
+| Data fetching/sync | I | **R** | I | AAM pulls data from sources |
+| Pagination handling | I | **R** | I | AAM handles API pagination |
+| Rate limiting/throttling | I | **R** | I | AAM enforces API limits |
+| Connection health monitoring | C | **R** | I | AAM tracks connection status |
+| **Intelligence & Mapping** |||||
+| LLM-powered mapping proposals | - | I | **R** | DCL owns all LLM logic |
+| RAG mapping lookup | - | I | **R** | DCL owns RAG engine |
+| Mapping registry storage | - | C | **R** | DCL owns mapping database |
+| Mapping approval workflow | - | I | **R** | DCL manages approvals |
+| Confidence scoring | - | I | **R** | DCL calculates confidence |
+| **Transformation** |||||
+| Canonical transformation | - | **R** | A | AAM applies, DCL approves mappings |
+| Schema drift detection | - | **R** | C | AAM detects, DCL decides action |
+| Drift repair proposals | - | I | **R** | DCL proposes fixes via LLM |
+| **Graph & Ontology** |||||
+| Ontology management | - | - | **R** | DCL owns ontology |
+| Graph generation | - | I | **R** | DCL builds unified graph |
+| Entity resolution | - | I | **R** | DCL resolves entities |
+| **Agent Orchestration** |||||
+| Agent execution | - | - | **R** | DCL runs agents |
+| Agent context management | - | - | **R** | DCL manages context |
+| Multi-agent coordination | - | - | **R** | DCL coordinates |
+
+**Legend:**
+- **R** = Responsible (owns the capability)
+- **A** = Accountable (approves/governs)
+- **C** = Consulted (provides input)
+- **I** = Informed (notified of changes)
+
+### Refactored Architecture (Preventing AAM Bloat)
+
+**AOD (AOS Discover) - Discovery Front Door:**
+```python
+# Lightweight, focused on discovery only
+class AODService:
+    responsibilities = [
+        "Discover available data sources",
+        "Maintain source catalog",
+        "Scan for new sources",
+        "Classify source types"
+    ]
+    
+    # Simple, clean interface
+    async def discover_sources() -> List[DataSource]
+    async def catalog_source(source: DataSource)
+    async def get_source_metadata(source_id: str)
+```
+
+**AAM (Adaptive API Mesh) - Runtime Transport Layer:**
+```python
+# Focused on connection runtime, not intelligence
+class AAMService:
+    responsibilities = [
+        "Manage API connections (auth, rate limits)",
+        "Fetch data from sources",
+        "Apply canonical transformations (using DCL mappings)",
+        "Detect schema drift (report to DCL)",
+        "Emit canonical events"
+    ]
+    
+    # AAM doesn't own LLM/RAG - it queries DCL
+    async def get_mapping(field: str) -> MappingResult:
+        # Delegate to DCL's intelligence layer
+        return await dcl_client.get_mapping(field)
+    
+    # AAM applies transformations, doesn't decide them
+    async def transform_to_canonical(data: dict) -> dict:
+        mappings = await dcl_client.get_mappings(self.source_type)
+        return self.apply_mappings(data, mappings)
+```
+
+**DCL (Data Connection Layer) - Intelligence & Orchestration:**
+```python
+# Owns all intelligence: LLM, RAG, mappings, ontology
+class DCLService:
+    responsibilities = [
+        "LLM-powered mapping proposals",
+        "RAG mapping lookups",
+        "Mapping registry (database)",
+        "Mapping approval workflow",
+        "Ontology management",
+        "Graph generation",
+        "Agent orchestration",
+        "Drift repair decisions"
+    ]
+    
+    # DCL owns all LLM calls
+    async def propose_mapping(field: str) -> MappingProposal:
+        # Try RAG first (95% success)
+        rag_result = await self.rag.lookup(field)
+        if rag_result.confidence > 0.85:
+            return rag_result
+        
+        # Fall back to LLM (5% of cases)
+        return await self.llm.propose_mapping(field)
+    
+    # DCL owns the mapping registry
+    async def store_mapping(mapping: MappingProposal):
+        await self.db.insert_mapping(mapping)
+```
+
+### Why This Prevents Bloat
+
+**Before (Bloated AAM):**
+- AAM: 8 responsibilities (connections + intelligence + transformation)
+- DCL: 5 responsibilities (some overlap with AAM)
+- Unclear ownership of LLM/RAG
+
+**After (Clean Separation):**
+- AOD: 4 responsibilities (discovery only)
+- AAM: 5 responsibilities (runtime transport only)
+- DCL: 8 responsibilities (all intelligence consolidated)
+
+**Key Principle:** AAM is a "dumb pipe" that moves data. DCL is the "smart brain" that decides how.
+
+---
+
+## What Are Replit Integrations?
+
+Replit Integrations are pre-built connections to external services that **automatically manage API credentials, OAuth flows, and secrets** for you. They eliminate the manual setup typically required for API integrations.
+
+### Three Types of Replit Integrations
+
+**1. Replit-Managed Services (Zero Setup):**
+- Replit Database (PostgreSQL)
+- Replit Auth
+- Replit Storage
+- **How it works:** Automatically available, no API keys needed
+
+**2. Connectors (OAuth-Based):**
+- GitHub, Google Calendar, Notion, Spotify, Asana
+- **How it works:** Sign in once in your Workspace, reuse across all apps
+- **Benefit:** No manual OAuth implementation, no refresh token management
+
+**3. External Integrations (API Key-Based):**
+- Stripe, OpenAI, Anthropic, Google AI (Gemini)
+- **How it works:** Replit manages the API keys securely
+- **Special benefit for AI:** Replit can handle billing - you don't need your own OpenAI/Anthropic account
+
+### How Replit Integrations Help Our Architecture
+
+**For Real API Connectors (Phase 2):**
+
+```python
+# Without Replit Integration (manual, error-prone)
+class StripeConnector:
+    def __init__(self):
+        # Manual secret management
+        self.api_key = os.environ.get("STRIPE_SECRET_KEY")  # You manage this
+        
+        # Manual OAuth refresh for other APIs
+        if self.token_expired():
+            self.refresh_oauth_token()  # You implement this
+        
+        # Manual rate limiting
+        self.rate_limiter = TokenBucket()  # You build this
+
+# With Replit Integration (automatic, secure)
+class StripeConnector:
+    def __init__(self):
+        # Replit manages the secret rotation
+        self.stripe = stripe  # Already configured by Replit
+        
+        # OAuth handled automatically for connectors
+        # Rate limiting built into integration
+```
+
+**Benefits for AAM Enterprise Architecture:**
+
+1. **Automatic Credential Management:**
+   - No manual API key rotation
+   - OAuth refresh handled automatically
+   - Secrets encrypted and isolated per tenant
+
+2. **Faster Connector Development:**
+   - GitHub Integration: OAuth already done
+   - Stripe Integration: API key management handled
+   - Reduces custom auth code by 80%
+
+3. **Better Security:**
+   - Keys never exposed in code
+   - Automatic rotation when compromised
+   - Audit trail of secret access
+
+4. **Cost Management (AI Models):**
+   - Replit can handle OpenAI billing
+   - No need for separate OpenAI account
+   - Usage tracked per project
+
+### Example: Using Stripe Integration
+
+**Step 1: Search for Integration**
+```python
+# In our connector factory
+available = await search_integrations("stripe")
+# Returns: blueprint:javascript_stripe, blueprint:flask_stripe
+```
+
+**Step 2: Add Integration**
+```python
+# Agent adds the integration
+await use_integration("blueprint:flask_stripe", operation="add")
+# This automatically:
+# - Sets up Stripe SDK
+# - Configures API keys
+# - Adds payment endpoints
+```
+
+**Step 3: Use in Code**
+```python
+# Stripe is ready to use - no manual setup!
+from stripe import Customer
+
+# API key already configured by Replit
+customers = Customer.list(limit=100)
+```
+
+### Which Connectors Should Use Integrations?
+
+**Use Replit Integrations (Priority 1):**
+- ✅ Stripe (payment processing)
+- ✅ GitHub (code repositories)
+- ✅ Google Calendar (scheduling)
+- ✅ Notion (documentation)
+- ✅ OpenAI/Anthropic (LLM calls in DCL)
+
+**Build Custom (No Integration Available):**
+- Salesforce (complex SOQL, Bulk API)
+- HubSpot (custom objects)
+- MongoDB (query language)
+- Proprietary/rare APIs
+
+**Hybrid Approach:**
+- Use Replit Integration for auth/credentials
+- Add custom logic for complex operations
+
+---
+
 ## Enterprise Architecture: Production-Ready Design
 
-### Principle 1: RAG-First, LLM-Last
+### Principle 1: RAG-First, LLM-Last (DCL Responsibility)
+
+**Important:** Based on responsibility allocation, this belongs in DCL, not AAM
 
 **Strategy:** 95% of mappings from RAG (cheap, instant), 5% from LLM (expensive, slow)
 
@@ -296,7 +550,9 @@ CREATE INDEX idx_embeddings_tenant ON mapping_embeddings(tenant_id);
 
 ---
 
-### Principle 2: Database-Backed Mapping Registry
+### Principle 2: Database-Backed Mapping Registry (DCL Responsibility)
+
+**Important:** Mapping registry belongs in DCL (intelligence layer), not AAM (transport layer)
 
 **Replace YAML with PostgreSQL:**
 
@@ -444,7 +700,9 @@ class MigrationPhase3:
 
 ---
 
-### Principle 3: Generic Connector Framework
+### Principle 3: Generic Connector Framework (AAM Responsibility)
+
+**Important:** This stays in AAM (connection runtime), but AAM delegates mapping intelligence to DCL
 
 **Reality Check: Not All Connectors Can Be Generic**
 
