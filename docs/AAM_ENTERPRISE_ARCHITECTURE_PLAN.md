@@ -318,146 +318,119 @@ class DCLService:
 
 ---
 
-## Replit Integrations (DEV-ONLY Scaffolding)
+## Integration Manager & Connector Toolkit
 
-**⚠️ CRITICAL: Replit Integrations are for DEVELOPMENT ONLY, not production**
+**All runtime behavior, credentials, and multi-tenancy are owned by our own services and infrastructure**
 
-Replit Integrations are pre-built connections to external services that **automatically manage API credentials, OAuth flows, and secrets** in development. They eliminate manual setup for rapid prototyping but **MUST be replaced with production-grade secrets management** before deployment.
+### Integration Manager (Internal Service)
 
-### Three Types of Replit Integrations
-
-**1. Replit-Managed Services (Zero Setup):**
-- Replit Database (PostgreSQL)
-- Replit Auth
-- Replit Storage
-- **How it works:** Automatically available, no API keys needed
-
-**2. Connectors (OAuth-Based):**
-- GitHub, Google Calendar, Notion, Spotify, Asana
-- **How it works:** Sign in once in your Workspace, reuse across all apps
-- **Benefit:** No manual OAuth implementation, no refresh token management
-
-**3. External Integrations (API Key-Based):**
-- Stripe, OpenAI, Anthropic, Google AI (Gemini)
-- **How it works:** Replit manages the API keys securely
-- **Special benefit for AI:** Replit can handle billing - you don't need your own OpenAI/Anthropic account
-
-### How Replit Integrations Help Our Architecture
-
-**For Real API Connectors (Phase 2):**
+**Purpose:** Centralized management of provider integrations and tenant connections
 
 ```python
-# Without Replit Integration (manual, error-prone)
-class StripeConnector:
-    def __init__(self):
-        # Manual secret management
-        self.api_key = os.environ.get("STRIPE_SECRET_KEY")  # You manage this
-        
-        # Manual OAuth refresh for other APIs
-        if self.token_expired():
-            self.refresh_oauth_token()  # You implement this
-        
-        # Manual rate limiting
-        self.rate_limiter = TokenBucket()  # You build this
-
-# With Replit Integration (automatic, secure)
-class StripeConnector:
-    def __init__(self):
-        # Replit manages the secret rotation
-        self.stripe = stripe  # Already configured by Replit
-        
-        # OAuth handled automatically for connectors
-        # Rate limiting built into integration
-```
-
-**Development Benefits (Not for Production):**
-
-1. **Quick Prototyping:**
-   - No manual API key setup in dev
-   - OAuth handled for rapid testing
-   - **Dev:** Replit encrypts secrets per workspace
-   - **Prod:** Tenant isolation enforced via Vault/DB and our auth model
-
-2. **Faster Connector Development:**
-   - GitHub Integration: OAuth already done
-   - Stripe Integration: API key management handled
-   - Reduces custom auth code by 80%
-
-3. **Better Security:**
-   - Keys never exposed in code
-   - Automatic rotation when compromised
-   - Audit trail of secret access
-
-4. **Cost Management (AI Models):**
-   - Replit can handle OpenAI billing
-   - No need for separate OpenAI account
-   - Usage tracked per project
-
-### Example: Using Stripe Integration
-
-**Step 1: Search for Integration**
-```python
-# In our connector factory
-available = await search_integrations("stripe")
-# Returns: blueprint:javascript_stripe, blueprint:flask_stripe
-```
-
-**Step 2: Add Integration**
-```python
-# Agent adds the integration
-await use_integration("blueprint:flask_stripe", operation="add")
-# This automatically:
-# - Sets up Stripe SDK
-# - Configures API keys
-# - Adds payment endpoints
-```
-
-**Step 3: Use in Code**
-```python
-# Stripe is ready to use - no manual setup!
-from stripe import Customer
-
-# API key already configured by Replit
-customers = Customer.list(limit=100)
-```
-
-### Development vs Production Approach
-
-**Development (Replit Integrations):**
-- ✅ Use for rapid prototyping
-- ✅ Test OAuth flows quickly
-- ✅ Validate API interactions
-- ❌ NOT for production deployment
-
-**Production (Enterprise Secrets Management):**
-```python
-# Real Production Runtime API (not pseudocode)
-class ProductionSecretsManager:
-    """Actual implementation for production - not pseudocode"""
+# Real Production Runtime API
+class IntegrationManager:
+    """Internal service for managing all provider connections"""
     
     def __init__(self):
-        # Real Vault connection
-        self.vault = hvac.Client(url=VAULT_URL)
-        self.vault.token = VAULT_TOKEN
+        self.catalog = ProviderCatalog()  # Maintains registry of available providers
+        self.vault = SecretsInfrastructure()  # Our own secrets management
+        self.auth_manager = OAuthManager()  # Handles OAuth flows
     
-    def get_tenant_secret(self, tenant_id: str, key: str) -> str:
-        """Real API - retrieves tenant-scoped secrets from Vault"""
-        path = f"secrets/{tenant_id}/{key}"
-        response = self.vault.secrets.kv.read_secret_version(path=path)
-        return response['data']['data']['value']
+    def register_tenant_connection(self, tenant_id: str, provider: str, credentials: dict):
+        """Store per-tenant connection with encrypted credentials"""
+        encrypted = self.vault.encrypt(credentials, tenant_id)
+        self.catalog.register(tenant_id, provider, encrypted)
     
-    def rotate_api_key(self, tenant_id: str, service: str):
-        """Real API - automatic key rotation with zero downtime"""
-        # This is actual production code, not pseudocode
-        new_key = self.generate_new_key(service)
-        self.store_with_version(tenant_id, service, new_key)
-        self.mark_previous_for_deletion(tenant_id, service)
+    def get_connection_for_worker(self, tenant_id: str, provider: str):
+        """AAM workers call this to get decrypted credentials"""
+        encrypted = self.catalog.get(tenant_id, provider)
+        return self.vault.decrypt(encrypted, tenant_id)
+    
+    def handle_oauth_flow(self, provider: str, tenant_id: str):
+        """Complete OAuth flow and store tokens"""
+        tokens = self.auth_manager.complete_flow(provider)
+        self.register_tenant_connection(tenant_id, provider, tokens)
 ```
 
-**Migration Path:**
-1. **Dev Phase:** Use Replit Integrations for speed
-2. **Pre-Prod:** Replace with Vault/DB secrets layer
-3. **Production:** Full tenant isolation, key rotation, audit trail
+**Key Responsibilities:**
+- Maintains provider catalog and per-tenant connections
+- Handles OAuth/API-key flows internally
+- Stores credentials in our secrets infrastructure (Vault/DB)
+- Exposes simple API to AAM workers for fetching credentials
+- Manages token refresh and credential rotation
+
+### Connector Toolkit (Development Side)
+
+**Purpose:** Accelerate connector development with templates and tools
+
+```python
+# Connector Base Template
+class BaseConnector(ABC):
+    """Templated skeleton for all connectors"""
+    
+    def __init__(self, tenant_id: str):
+        # Get credentials from Integration Manager
+        self.creds = integration_manager.get_connection_for_worker(
+            tenant_id, self.provider_name
+        )
+        self.setup_logging()
+        self.setup_error_handling()
+        self.setup_rate_limiting()
+    
+    @abstractmethod
+    async def fetch_data(self, params: dict):
+        """Provider-specific implementation"""
+        pass
+    
+    @retry_with_backoff
+    @rate_limit
+    async def execute(self, operation: str, params: dict):
+        """Standard execution wrapper with retry and rate limiting"""
+        try:
+            return await self.fetch_data(params)
+        except ProviderError as e:
+            self.handle_provider_error(e)
+```
+
+**Development Tools:**
+- **CLI for Scaffolding:** `aos-connector create --provider stripe --type payment`
+- **Base Classes:** Pre-built error handling, logging, retry logic
+- **Test Harness:** Standard test suite for all connectors
+- **CI/CD Pipeline:** Automated testing and deployment
+
+### AI-Assisted Development Workflow
+
+We use AI-native development tools to scaffold connectors, but all runtime behavior, credentials, and multi-tenancy are owned by our own services and infrastructure.
+
+**Example Workflow:**
+1. **Generate Skeleton:** CLI creates connector from template
+2. **AI-Assist Implementation:** Use ChatGPT/Claude to generate provider-specific logic
+3. **Standard Tests:** Run connector through test harness
+4. **Deploy:** CI/CD pipeline validates and ships to production
+5. **Runtime:** Integration Manager handles all credentials and auth
+
+### Production Architecture
+
+```mermaid
+graph TD
+    T[Tenant] -->|OAuth/API Key| IM[Integration Manager]
+    IM -->|Store| V[Vault/DB]
+    IM -->|Manage| PC[Provider Catalog]
+    
+    AAM[AAM Worker] -->|Request Creds| IM
+    IM -->|Decrypt & Return| AAM
+    AAM -->|Fetch Data| API[External API]
+    
+    Dev[Developer] -->|Use| CT[Connector Toolkit]
+    CT -->|Generate| BC[Base Connector]
+    BC -->|Deploy| AAM
+```
+
+**Key Points:**
+- No external service handles our tenant secrets
+- No external auth in the critical path
+- All multi-tenancy enforced by our infrastructure
+- Connectors are just code templates, not runtime dependencies
 
 ---
 
@@ -1135,16 +1108,15 @@ async def sync_connector(connector_id: str, tenant_id: str):
 
 ### 1. Production Secrets Management & Credential Rotation
 
-**Problem:** Managing API credentials for 100+ connectors in production (Replit handles dev)
+**Problem:** Managing API credentials for 100+ connectors in production
 
-**Production Solution (NOT for dev - use Replit Integrations in dev):**
+**Production Solution:**
 ```python
 # Real Production Runtime API
 class ProductionSecretsManager:
     """Centralized secrets management with rotation"""
     
     def __init__(self):
-        # Use Replit Secrets for development
         # Use Vault (HashiCorp) for production
         self.vault_client = self._init_vault()
     
@@ -1170,22 +1142,6 @@ class ProductionSecretsManager:
         await self.audit_log.record_rotation(connector_id, timestamp=now())
         
         return new_creds
-```
-
-**Replit Integration:**
-```python
-# For real APIs: Use Replit's integration system
-from replit import secrets
-
-# Stripe example (Replit Integration available)
-stripe_key = secrets.get("STRIPE_SECRET_KEY")  # Auto-managed by Replit
-
-# HubSpot/Salesforce (custom OAuth)
-oauth_config = {
-    "client_id": secrets.get("HUBSPOT_CLIENT_ID"),
-    "client_secret": secrets.get("HUBSPOT_CLIENT_SECRET"),
-    "refresh_token": secrets.get("HUBSPOT_REFRESH_TOKEN")  # Auto-rotated
-}
 ```
 
 ---
@@ -1428,7 +1384,7 @@ WHERE l.canonical_event_id = '123e4567-e89b-12d3-a456-426614174000';
 | **Horizontal Scaling** | ❌ Monolith | ✅ Worker pools (10-50 workers) | ✅ Auto-scaling (10-100+) | Redis Streams required |
 | **Fault Tolerance** | ❌ Single point failure | ✅ Circuit breakers + retry | ✅ Full resilience + fallback | See missing components |
 | **A/B Testing Mappings** | ❌ Not possible | ✅ Version-based testing | ✅ Multi-version + canary | Database versioning |
-| **Secrets Management** | ❌ Hardcoded/env vars | ✅ Replit Secrets + rotation | ✅ Vault + auto-rotation | See missing components |
+| **Secrets Management** | ❌ Hardcoded/env vars | ✅ Integration Manager + rotation | ✅ Vault + auto-rotation | See missing components |
 | **Audit Trail** | ❌ None | ✅ Full audit log (GDPR) | ✅ SOC2 compliance | See missing components |
 
 **Key Insight:** Realistic targets are achievable with proper implementation. Aspirational goals require additional optimization and infrastructure investment.
@@ -1521,7 +1477,7 @@ WHERE l.canonical_event_id = '123e4567-e89b-12d3-a456-426614174000';
    - Conflict detection
 
 4. **Implement Secrets Management**
-   - Replit Secrets integration
+   - Integration Manager for secrets
    - Credential rotation logic
    - Per-tenant isolation
 
@@ -1545,7 +1501,7 @@ WHERE l.canonical_event_id = '123e4567-e89b-12d3-a456-426614174000';
 **Prerequisites:**
 - Phase 1 completed (database-backed registry operational)
 - Connector capability matrix defined
-- Real API credentials available (Stripe, GitHub via Replit Integrations)
+- Real API credentials available (Stripe, GitHub via Integration Manager)
 
 **Tasks:**
 1. **Build GenericRESTConnector (40% use case)**
@@ -1561,8 +1517,8 @@ WHERE l.canonical_event_id = '123e4567-e89b-12d3-a456-426614174000';
    - Hybrid adapters (e.g., HubSpotAdapter)
 
 3. **Test with Real APIs**
-   - Stripe via Replit Integration (generic)
-   - GitHub via Replit Integration (generic with OpenAPI)
+   - Stripe via Integration Manager (generic)
+   - GitHub via Integration Manager (generic with OpenAPI)
    - Mock CRM API (custom pagination - hybrid)
 
 4. **Keep Custom Connectors**
@@ -1758,12 +1714,12 @@ If Phase 5 achieves:
 
 ### Critical Question 2: Real API Integrations?
 
-**Real APIs (via Replit Integrations or OAuth):**
+**Real APIs (via Integration Manager):**
 - ✅ Demonstrates live data flow
 - ✅ More impressive for evaluators
 - ❌ Requires API credentials management
 - ❌ Rate limiting concerns
-- **Best For:** Stripe, GitHub, Slack (Replit Integrations available)
+- **Best For:** Stripe, GitHub, Slack (well-documented APIs)
 
 **Mock Connectors (CSV/JSON data):**
 - ✅ Fast to build (no OAuth setup)
@@ -1772,7 +1728,7 @@ If Phase 5 achieves:
 - ❌ Less realistic
 - **Best For:** Custom/proprietary systems, rare APIs
 
-**Recommendation:** Mix of 3 real APIs (Stripe, GitHub, Slack via Replit Integrations) + 7-10 mock connectors
+**Recommendation:** Mix of 3 real APIs (Stripe, GitHub, Slack via Integration Manager) + 7-10 mock connectors
 
 ---
 
@@ -1865,7 +1821,7 @@ If Phase 5 achieves:
 - Progressive scaling: 10 → 25 → 50 → 100
 
 **Missing Components Added:**
-1. Secrets management (Replit Integrations + rotation)
+1. Secrets management (Integration Manager + rotation)
 2. Audit trail (GDPR/SOC2 compliance)
 3. Circuit breakers (graceful degradation)
 4. Incident response (automated rollback)
