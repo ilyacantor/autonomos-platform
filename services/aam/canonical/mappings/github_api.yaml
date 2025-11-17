@@ -1,0 +1,13 @@
+# GitHub API to Canonical Contact Mapping
+# Maps GitHub user profile to canonical contact entity
+
+contact:
+  description: GitHub user to canonical contact mapping
+  fields:
+    contact_id: "id"
+    name: "name"
+    email: "email"
+    first_name: "login"  # GitHub doesn't separate first/last name
+    title: "bio"
+    created_at: "created_at"
+    updated_at: "updated_at"

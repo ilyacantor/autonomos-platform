@@ -1,0 +1,26 @@
+# Pattern 2: OAuth2 + JSON Pagination (Stripe API Style - Simulated)
+# Tests: Bearer token authentication, limit/offset pagination, array data extraction
+
+connector_id: "jsonplaceholder_api"
+base_url: "https://jsonplaceholder.typicode.com"
+
+auth:
+  type: "bearer"
+  token_env_var: "JSONPLACEHOLDER_TOKEN"  # Not required by API, but demonstrates pattern
+
+endpoints:
+  - path: "/users"
+    entity: "contact"
+    method: "GET"
+    pagination:
+      type: "limit_offset"
+      limit_param: "_limit"
+      offset_param: "_start"
+      max_limit: 3
+    data_path: "."  # Array at root level
+    params: {}
+    headers:
+      Content-Type: "application/json"
+
+timeout: 10
+max_retries: 3

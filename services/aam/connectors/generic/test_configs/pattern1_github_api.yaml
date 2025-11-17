@@ -1,0 +1,23 @@
+# Pattern 1: Simple REST + API Key (GitHub API Style)
+# Tests: API key authentication, simple data fetching, basic field mapping
+
+connector_id: "github_api"
+base_url: "https://api.github.com"
+
+auth:
+  type: "api_key"
+  header: "Authorization"
+  prefix: "token"
+  key_env_var: "GITHUB_API_KEY"  # Optional - GitHub allows unauthenticated requests with rate limits
+
+endpoints:
+  - path: "/users/octocat"
+    entity: "contact"
+    method: "GET"
+    data_path: "."  # Single user object at root
+    headers:
+      Accept: "application/vnd.github.v3+json"
+    params: {}
+
+timeout: 10
+max_retries: 3

@@ -1,0 +1,11 @@
+# JSONPlaceholder API to Canonical Contact Mapping
+# Maps JSONPlaceholder user to canonical contact entity
+
+contact:
+  description: JSONPlaceholder user to canonical contact mapping
+  fields:
+    contact_id: "id"
+    name: "name"
+    email: "email"
+    phone: "phone"
+    # JSONPlaceholder has nested company/address - we'll extract what we can

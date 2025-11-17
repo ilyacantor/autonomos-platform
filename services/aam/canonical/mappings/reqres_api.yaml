@@ -1,0 +1,10 @@
+# ReqRes API to Canonical Contact Mapping
+# Maps ReqRes user data to canonical contact entity
+
+contact:
+  description: ReqRes user to canonical contact mapping
+  fields:
+    contact_id: "id"
+    email: "email"
+    first_name: "first_name"
+    last_name: "last_name"

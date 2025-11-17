@@ -1,0 +1,68 @@
+{
+  "test_run_id": "2025-11-17T16:39:35.999729",
+  "test_timestamp": "2025-11-17T16:39:35.999737",
+  "patterns_tested": 3,
+  "success_criteria": {
+    "connection_time_threshold_seconds": 5.0,
+    "zero_mapping_errors": true
+  },
+  "pattern_results": [
+    {
+      "pattern_name": "Pattern 1: GitHub API (Simple REST + API Key)",
+      "config_file": "services/aam/connectors/generic/test_configs/pattern1_github_api.yaml",
+      "description": "Tests API key authentication, simple GET request, basic field mapping",
+      "success": false,
+      "connection_time_seconds": 1.9e-05,
+      "fetch_time_seconds": 0.0,
+      "records_fetched": 0,
+      "records_normalized": 0,
+      "mapping_accuracy_percent": 0.0,
+      "errors": [
+        "Exception: Client error '401 Unauthorized' for url 'https://api.github.com/users/octocat'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401"
+      ],
+      "warnings": []
+    },
+    {
+      "pattern_name": "Pattern 2: JSONPlaceholder (Bearer + Limit/Offset Pagination)",
+      "config_file": "services/aam/connectors/generic/test_configs/pattern2_jsonplaceholder.yaml",
+      "description": "Tests bearer token auth, limit/offset pagination, array data extraction",
+      "success": false,
+      "connection_time_seconds": 3.2e-05,
+      "fetch_time_seconds": 0.532105,
+      "records_fetched": 0,
+      "records_normalized": 0,
+      "mapping_accuracy_percent": 0.0,
+      "errors": [
+        "No records fetched"
+      ],
+      "warnings": [
+        "No records fetched - cannot validate normalization"
+      ]
+    },
+    {
+      "pattern_name": "Pattern 3: ReqRes API (Custom Headers + Cursor Pagination)",
+      "config_file": "services/aam/connectors/generic/test_configs/pattern3_reqres_api.yaml",
+      "description": "Tests custom header auth, cursor-based pagination, nested data extraction",
+      "success": false,
+      "connection_time_seconds": 1.8e-05,
+      "fetch_time_seconds": 0.0,
+      "records_fetched": 0,
+      "records_normalized": 0,
+      "mapping_accuracy_percent": 0.0,
+      "errors": [
+        "Exception: Client error '403 Forbidden' for url 'https://reqres.in/api/users?per_page=3'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403"
+      ],
+      "warnings": []
+    }
+  ],
+  "summary": {
+    "total_patterns": 3,
+    "passed": 0,
+    "failed": 3,
+    "total_records_fetched": 0,
+    "avg_connection_time_seconds": 0.0,
+    "avg_fetch_time_seconds": 0.177,
+    "avg_mapping_accuracy_percent": 0.0
+  },
+  "overall_success": false
+}

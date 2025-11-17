@@ -1,0 +1,30 @@
+# Pattern 3: Custom Headers + Cursor Pagination (Mock CRM API Style)
+# Tests: Custom header auth, cursor-based pagination, nested data extraction
+
+connector_id: "reqres_api"
+base_url: "https://reqres.in"
+
+auth:
+  type: "api_key"
+  header: "X-API-Key"
+  prefix: null
+  key_env_var: "REQRES_API_KEY"  # Not required by API, demonstrates custom header pattern
+
+endpoints:
+  - path: "/api/users"
+    entity: "contact"
+    method: "GET"
+    pagination:
+      type: "cursor"
+      cursor_param: "page"
+      limit_param: "per_page"
+      max_limit: 3
+      next_cursor_path: "page"  # ReqRes uses page numbers, simulating cursor
+    data_path: "data"  # Data nested in "data" field
+    params:
+      per_page: "3"
+    headers:
+      Content-Type: "application/json"
+
+timeout: 10
+max_retries: 3
