@@ -1,6 +1,14 @@
 # AutonomOS - Multi-Tenant AI Orchestration Platform
 
 ## Recent Changes
+**November 17, 2025 - Enterprise Reporting Views Added to Architecture:**
+- **✅ Tabular Lineage Grid:** Added searchable/filterable data grid specification for mapping lineage with export capabilities (CSV/JSON/SQL)
+- **✅ Hierarchical Tree View:** Added collapsible Source→Table→Field visualization with confidence color-coding and metadata panels
+- **✅ Evaluation Dashboard:** Added coverage analysis, quality metrics, and test suite integration for functional testing at scale
+- **✅ Phase 4 Enhanced:** Integrated reporting views into Phase 4 (Enterprise Multi-Tenancy & Observability) as Strategic Initiative
+- **✅ Technical Specifications:** Defined data models, API endpoints, performance requirements, and implementation architecture
+
+## Recent Changes
 **November 17, 2025 - AAM Canonical Transformation Complete Remediation:**
 - **✅ Critical Production Blocker RESOLVED:** Fixed all AAM connector canonical transformation bugs blocking production deployment
 - **✅ Mapping Registry Corrections:** Fixed 6 mapping files with reversed/identity field mappings (Salesforce, Dynamics, Hubspot, Pipedrive, Zendesk, FileSource)

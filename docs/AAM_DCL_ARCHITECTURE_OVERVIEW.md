@@ -1780,7 +1780,7 @@ WHERE l.canonical_event_id = '123e4567-e89b-12d3-a456-426614174000';
 ---
 
 ### Phase 4: Enterprise Multi-Tenancy & Observability
-**Outcome:** Production-grade resource isolation with comprehensive monitoring
+**Outcome:** Production-grade resource isolation with comprehensive monitoring and reporting
 
 **Prerequisites:**
 - Phase 3 distributed processing operational
@@ -1804,10 +1804,25 @@ WHERE l.canonical_event_id = '123e4567-e89b-12d3-a456-426614174000';
    - Cost attribution (LLM spend per tenant)
    - RAG hit rate tracking
 
-4. **Add Missing Components**
+4. **Develop Enterprise Reporting Views (Strategic Initiative)**
+   - **Tabular Lineage Grid:**
+     * Searchable, filterable data grid for all mappings and lineage
+     * Column-based views: Source, Table, Field, Target Entity, Mapping Type, Confidence Score
+     * Export capabilities (CSV, JSON) for evaluation analysis
+     * Real-time filtering by connector, tenant, status, date range
+     * Performance metrics per mapping (success rate, processing time)
+   - **Hierarchical Tree View:**
+     * Collapsible tree structure: Source → Table → Field → Target Mapping
+     * Visual ontology representation with drag-and-drop navigation
+     * Color-coded confidence levels and mapping status
+     * Expandable metadata panels showing transformation rules
+     * Cross-reference navigation between source fields and canonical entities
+
+5. **Add Compliance & Audit Components**
    - Audit log for compliance (GDPR)
-   - Data lineage tracking
+   - Data lineage tracking with visual flow
    - Incident response automation
+   - Test coverage reporting dashboard
 
 **Success Criteria:**
 - Per-tenant resource quotas fully enforced
@@ -1815,11 +1830,14 @@ WHERE l.canonical_event_id = '123e4567-e89b-12d3-a456-426614174000';
 - Complete observability with end-to-end tracing
 - Per-tenant cost attribution fully accurate
 - Audit trail compliant with GDPR requirements
+- Enterprise reporting views enabling rapid evaluation and debugging
+- Complete visibility into mapping lineage and data flow
 
 **Phase Dependencies:**
 - Required for production SaaS deployment
 - Enables fair resource allocation across tenants
 - Foundation for compliance and cost management
+- Critical for functional testing and evaluation at scale
 
 ---
 
@@ -1888,6 +1906,136 @@ WHERE l.canonical_event_id = '123e4567-e89b-12d3-a456-426614174000';
 - A/B testing for mapping strategies
 - Canary deployments for new connectors
 - Machine learning optimization of mapping proposals
+
+---
+
+## Enterprise Reporting Views Specification
+
+### Purpose
+Enable comprehensive evaluation and functional testing of the AAM-DCL integration at enterprise scale through purpose-built reporting interfaces.
+
+### View 1: Tabular Lineage Grid
+
+**Core Features:**
+- **Data Model:**
+  ```sql
+  - source_system (varchar)
+  - source_table (varchar)
+  - source_field (varchar)
+  - canonical_entity (varchar)
+  - canonical_field (varchar)
+  - mapping_type (enum: direct, computed, aggregated, transformed)
+  - confidence_score (float 0-1)
+  - transformation_rule (jsonb)
+  - last_validated (timestamp)
+  - success_rate (float)
+  - avg_processing_time_ms (integer)
+  - error_count (integer)
+  - tenant_id (varchar)
+  ```
+
+- **Search & Filter Capabilities:**
+  - Full-text search across all fields
+  - Multi-column filtering with AND/OR logic
+  - Date range filters for temporal analysis
+  - Confidence threshold filtering
+  - Status filtering (active, deprecated, failed, pending)
+
+- **Export Formats:**
+  - CSV for Excel analysis
+  - JSON for programmatic testing
+  - SQL for database import
+
+- **Performance Requirements:**
+  - <500ms response for 10,000 rows
+  - Paginated results (100 rows default)
+  - Server-side sorting and filtering
+
+### View 2: Hierarchical Tree View
+
+**Core Features:**
+- **Tree Structure:**
+  ```
+  📁 Salesforce (Connector)
+    ├── 📊 Accounts (Table)
+    │   ├── 🔤 Id → canonical.account.id [100% confidence]
+    │   ├── 🔤 Name → canonical.account.name [100% confidence]
+    │   └── 🔤 BillingState → canonical.account.region [85% confidence]
+    ├── 📊 Opportunities (Table)
+    │   ├── 🔤 Id → canonical.opportunity.id [100% confidence]
+    │   └── 🔤 Amount → canonical.opportunity.value [95% confidence]
+    └── 📊 Contacts (Table)
+        └── 🔤 Email → canonical.contact.email [100% confidence]
+  ```
+
+- **Interactive Features:**
+  - Expand/collapse at any level
+  - Drag to reorganize view
+  - Right-click context menu for actions
+  - Double-click to view details panel
+
+- **Visual Indicators:**
+  - 🟢 Green: High confidence (>90%)
+  - 🟡 Yellow: Medium confidence (70-90%)
+  - 🔴 Red: Low confidence (<70%)
+  - ⚠️ Warning: Manual review needed
+  - 🔄 Sync: Recently updated
+
+- **Metadata Panel:**
+  - Transformation logic viewer
+  - Sample data preview
+  - Historical changes timeline
+  - Related mappings cross-reference
+
+### View 3: Evaluation Dashboard (Additional)
+
+**Key Metrics:**
+- **Coverage Analysis:**
+  - % of source fields mapped
+  - % of canonical entities populated
+  - Gaps identification report
+
+- **Quality Metrics:**
+  - Average confidence score by connector
+  - Error rate trends over time
+  - LLM vs RAG usage ratio
+  - Processing time distribution
+
+- **Test Suite Integration:**
+  - Automated test results overlay
+  - Failed mapping highlighting
+  - Regression detection alerts
+  - A/B testing comparisons
+
+### Technical Implementation
+
+**Backend Requirements:**
+- PostgreSQL materialized views for performance
+- Redis caching for frequently accessed data
+- GraphQL API for flexible querying
+- WebSocket for real-time updates
+
+**Frontend Requirements:**
+- React-based data grid (AG-Grid or similar)
+- D3.js for tree visualization
+- Virtual scrolling for large datasets
+- Progressive data loading
+
+**API Endpoints:**
+```
+GET /api/reporting/lineage-grid
+  ?page=1&limit=100&sort=confidence_score:desc
+  &filter=source_system:salesforce,confidence_score:>0.8
+
+GET /api/reporting/tree-view
+  ?connector=salesforce&depth=3&show_metadata=true
+
+GET /api/reporting/evaluation-metrics
+  ?tenant_id=xyz&date_from=2024-01-01&granularity=daily
+
+POST /api/reporting/export
+  {format: "csv", view: "lineage-grid", filters: {...}}
+```
 
 ---
 
