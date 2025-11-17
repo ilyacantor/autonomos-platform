@@ -3022,23 +3022,29 @@ def state(current_user = Depends(get_current_user)):
                 filtered_nodes.append(node)
                 continue
             
-            # For source_parent nodes: check if ID matches sys_{aam_source}
+            # For source_parent nodes: include consolidated parent (sys_aam_sources) or individual AAM sources
             if node_type == "source_parent":
                 node_id = node.get("id", "")
-                if node_id.startswith("sys_"):
+                # Include consolidated "from AAM" parent node
+                if node_id == "sys_aam_sources":
+                    filtered_nodes.append(node)
+                # Include individual AAM source parents
+                elif node_id.startswith("sys_"):
                     source_key = node_id[4:]  # Remove "sys_" prefix
                     if source_key in aam_source_keys:
                         filtered_nodes.append(node)
-                continue
             
-            # For source table nodes: check parent ID (more reliable than sourceSystem string matching)
-            if node_type == "source":
+            # For source table nodes: include children of consolidated parent (sys_aam_sources) or individual AAM sources
+            elif node_type == "source":
                 parent_id = node.get("parentId", "")
-                if parent_id.startswith("sys_"):
+                # Include source tables under consolidated parent
+                if parent_id == "sys_aam_sources":
+                    filtered_nodes.append(node)
+                # Include source tables under individual AAM source parents
+                elif parent_id.startswith("sys_"):
                     source_key = parent_id[4:]  # Remove "sys_" prefix
                     if source_key in aam_source_keys:
                         filtered_nodes.append(node)
-                continue
     else:
         # AAM mode with NO user connections: Show full seed demo graph (33 nodes)
         # Legacy mode: Show all nodes (9 demo CSV sources + ontology + agents)
