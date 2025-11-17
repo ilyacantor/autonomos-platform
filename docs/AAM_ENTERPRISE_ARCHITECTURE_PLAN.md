@@ -217,11 +217,24 @@ for connector in connectors:  # 1000 iterations
 
 **Key Rule:** Each capability has exactly ONE Accountable owner (marked as A or A/R when same component is both)
 
+### Orchestration Boundaries (DCL vs AOA)
+
+**DCL Scope:**
+- Owns agent context/data and low-level actions within data domain
+- Entity mapping, graph generation, single-agent execution
+- Data transformation decisions and confidence scoring
+
+**AOA/xAO Scope (Out of Document Scope):**
+- Higher-level workflow orchestration
+- Cross-domain playbooks (e.g., data + compute + network)
+- Multi-agent coordination across different domains
+- Business process automation spanning multiple systems
+
 ### Refactored Architecture (Preventing AAM Bloat)
 
 **AOD (AOS Discover) - Discovery Front Door:**
 ```python
-# Lightweight, focused on discovery only
+# PSEUDOCODE - Architectural example
 class AODService:
     responsibilities = [
         "Discover available data sources",
@@ -238,7 +251,7 @@ class AODService:
 
 **AAM (Adaptive API Mesh) - Runtime Transport Layer:**
 ```python
-# Focused on connection runtime, not intelligence
+# PSEUDOCODE - Architectural example
 class AAMService:
     responsibilities = [
         "Manage API connections (auth, rate limits)",
@@ -261,7 +274,7 @@ class AAMService:
 
 **DCL (Data Connection Layer) - Intelligence & Orchestration:**
 ```python
-# Owns all intelligence: LLM, RAG, mappings, ontology
+# PSEUDOCODE - Architectural example
 class DCLService:
     responsibilities = [
         "LLM-powered mapping proposals",
@@ -305,9 +318,11 @@ class DCLService:
 
 ---
 
-## What Are Replit Integrations?
+## Replit Integrations (DEV-ONLY Scaffolding)
 
-Replit Integrations are pre-built connections to external services that **automatically manage API credentials, OAuth flows, and secrets** for you. They eliminate the manual setup typically required for API integrations.
+**⚠️ CRITICAL: Replit Integrations are for DEVELOPMENT ONLY, not production**
+
+Replit Integrations are pre-built connections to external services that **automatically manage API credentials, OAuth flows, and secrets** in development. They eliminate manual setup for rapid prototyping but **MUST be replaced with production-grade secrets management** before deployment.
 
 ### Three Types of Replit Integrations
 
@@ -355,12 +370,13 @@ class StripeConnector:
         # Rate limiting built into integration
 ```
 
-**Benefits for AAM Enterprise Architecture:**
+**Development Benefits (Not for Production):**
 
-1. **Automatic Credential Management:**
-   - No manual API key rotation
-   - OAuth refresh handled automatically
-   - Secrets encrypted and isolated per tenant
+1. **Quick Prototyping:**
+   - No manual API key setup in dev
+   - OAuth handled for rapid testing
+   - **Dev:** Replit encrypts secrets per workspace
+   - **Prod:** Tenant isolation enforced via Vault/DB and our auth model
 
 2. **Faster Connector Development:**
    - GitHub Integration: OAuth already done
@@ -405,24 +421,43 @@ from stripe import Customer
 customers = Customer.list(limit=100)
 ```
 
-### Which Connectors Should Use Integrations?
+### Development vs Production Approach
 
-**Use Replit Integrations (Priority 1):**
-- ✅ Stripe (payment processing)
-- ✅ GitHub (code repositories)
-- ✅ Google Calendar (scheduling)
-- ✅ Notion (documentation)
-- ✅ OpenAI/Anthropic (LLM calls in DCL)
+**Development (Replit Integrations):**
+- ✅ Use for rapid prototyping
+- ✅ Test OAuth flows quickly
+- ✅ Validate API interactions
+- ❌ NOT for production deployment
 
-**Build Custom (No Integration Available):**
-- Salesforce (complex SOQL, Bulk API)
-- HubSpot (custom objects)
-- MongoDB (query language)
-- Proprietary/rare APIs
+**Production (Enterprise Secrets Management):**
+```python
+# Real Production Runtime API (not pseudocode)
+class ProductionSecretsManager:
+    """Actual implementation for production - not pseudocode"""
+    
+    def __init__(self):
+        # Real Vault connection
+        self.vault = hvac.Client(url=VAULT_URL)
+        self.vault.token = VAULT_TOKEN
+    
+    def get_tenant_secret(self, tenant_id: str, key: str) -> str:
+        """Real API - retrieves tenant-scoped secrets from Vault"""
+        path = f"secrets/{tenant_id}/{key}"
+        response = self.vault.secrets.kv.read_secret_version(path=path)
+        return response['data']['data']['value']
+    
+    def rotate_api_key(self, tenant_id: str, service: str):
+        """Real API - automatic key rotation with zero downtime"""
+        # This is actual production code, not pseudocode
+        new_key = self.generate_new_key(service)
+        self.store_with_version(tenant_id, service, new_key)
+        self.mark_previous_for_deletion(tenant_id, service)
+```
 
-**Hybrid Approach:**
-- Use Replit Integration for auth/credentials
-- Add custom logic for complex operations
+**Migration Path:**
+1. **Dev Phase:** Use Replit Integrations for speed
+2. **Pre-Prod:** Replace with Vault/DB secrets layer
+3. **Production:** Full tenant isolation, key rotation, audit trail
 
 ---
 
@@ -436,6 +471,7 @@ customers = Customer.list(limit=100)
 
 **Implementation:**
 ```python
+# PSEUDOCODE - Conceptual flow
 async def propose_mapping(field_name: str, field_type: str):
     # Step 1: RAG lookup (99% of the time this works)
     rag_results = await rag.retrieve_similar_mappings(
@@ -1097,13 +1133,14 @@ async def sync_connector(connector_id: str, tenant_id: str):
 
 **The following production-critical components were NOT addressed in the initial plan:**
 
-### 1. Secrets Management & Credential Rotation
+### 1. Production Secrets Management & Credential Rotation
 
-**Problem:** Managing API credentials for 1000+ connectors without a vault
+**Problem:** Managing API credentials for 100+ connectors in production (Replit handles dev)
 
-**Solution:**
+**Production Solution (NOT for dev - use Replit Integrations in dev):**
 ```python
-class SecretsManager:
+# Real Production Runtime API
+class ProductionSecretsManager:
     """Centralized secrets management with rotation"""
     
     def __init__(self):
