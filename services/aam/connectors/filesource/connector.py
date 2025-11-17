@@ -185,6 +185,7 @@ class FileSourceConnector:
             ValueError: If required canonical fields are missing or validation fails
         """
         # Apply mapping registry to transform source data
+        # Use system-specific mapping based on filename suffix
         canonical_data, unknown_fields = mapping_registry.apply_mapping(
             system=system,
             entity=entity,

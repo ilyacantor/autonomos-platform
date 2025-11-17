@@ -95,8 +95,10 @@ class AAMInitializer:
                 items = connector.get_accounts()[:10]
                 normalize_method = connector.normalize_account
             elif hasattr(connector, 'get_latest_files'):
-                items = connector.get_latest_files(limit=10)
-                normalize_method = connector.normalize_file
+                # FileSource: Use CSV replay workflow instead of file metadata
+                # This processes actual CSV data with correct entity types
+                stats = connector.replay_all()
+                return stats.get('total_records', 0)
             else:
                 logger.warning(f"  No data fetch method found for {connector.__class__.__name__}")
                 return 0

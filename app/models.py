@@ -100,7 +100,7 @@ class CanonicalStream(Base):
     __tablename__ = "canonical_streams"
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"))
+    tenant_id = Column(String, index=True)  # Multi-tenant isolation, not FK relationship
     entity = Column(String)
     data = Column(JSON)
     meta = Column(JSON)
