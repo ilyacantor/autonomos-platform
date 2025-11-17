@@ -945,36 +945,71 @@ def dcl_graph_with_sources(dcl_reset_state):
         # This prevents test hangs and ensures proper resource cleanup
         print(f"\n[TEST_CLEANUP] Starting cleanup for tenant: {tenant_id}", flush=True)
         
-        # 1. Force-close any open DuckDB connections with timeout
+        # 1. Force-close ALL DuckDB connections for this tenant
         try:
             from app.dcl_engine.app import get_db_path
             db_path = get_db_path(tenant_id)
             
-            # Force close by opening and immediately closing (clears locks)
-            print(f"[TEST_CLEANUP] Force-closing DuckDB connection: {db_path}", flush=True)
+            print(f"[TEST_CLEANUP] Cleaning up DuckDB: {db_path}", flush=True)
             cleanup_start = time.time()
             
             try:
+                # Close all connections by forcing a checkpoint and vacuum
+                # This ensures all WAL files are flushed and locks are released
                 con = duckdb.connect(db_path, config={'access_mode': 'READ_WRITE'})
-                con.close()
-                print(f"[TEST_CLEANUP] ✅ DuckDB connection closed ({time.time() - cleanup_start:.2f}s)", flush=True)
+                try:
+                    con.execute("CHECKPOINT")
+                    con.close()
+                    print(f"[TEST_CLEANUP] ✅ DuckDB checkpoint+close ({time.time() - cleanup_start:.2f}s)", flush=True)
+                except Exception as e:
+                    print(f"[TEST_CLEANUP] ⚠️ DuckDB checkpoint failed: {e}", flush=True)
+                    con.close()
             except Exception as e:
                 print(f"[TEST_CLEANUP] ⚠️ DuckDB cleanup warning: {e}", flush=True)
+                
+            # Also try to remove .wal file if it exists (stale lock indicator)
+            import os
+            wal_path = f"{db_path}.wal"
+            if os.path.exists(wal_path):
+                try:
+                    os.remove(wal_path)
+                    print(f"[TEST_CLEANUP] ✅ Removed stale WAL file", flush=True)
+                except Exception as e:
+                    print(f"[TEST_CLEANUP] ⚠️ WAL removal warning: {e}", flush=True)
+                    
         except Exception as e:
             print(f"[TEST_CLEANUP] ❌ DuckDB cleanup error: {e}", flush=True)
         
-        # 2. Force-release Redis distributed locks with timeout
+        # 2. Force-release Redis distributed locks (safe token-aware cleanup)
         try:
-            # Clean up both global and tenant-scoped lock keys
-            global_lock_key = "dcl:lock:state_access"
-            tenant_lock_key = f"dcl:lock:{tenant_id}:duckdb_access"
-            print(f"[TEST_CLEANUP] Force-releasing Redis locks", flush=True)
+            # Clean up DCL state access locks
+            # NOTE: We cannot use compare_and_delete without the original token,
+            # so we rely on TTL expiry (30s) or force delete after reasonable delay
+            print(f"[TEST_CLEANUP] Checking Redis locks", flush=True)
             cleanup_start = time.time()
             
-            # Delete both lock keys to force release
             if redis_client:
-                redis_client.delete(global_lock_key, tenant_lock_key)
-                print(f"[TEST_CLEANUP] ✅ Redis locks released ({time.time() - cleanup_start:.2f}s)", flush=True)
+                # Check if any locks are held
+                lock_keys = [
+                    "dcl:lock:state_access",
+                    f"dcl:lock:{tenant_id}:duckdb_access"
+                ]
+                
+                for lock_key in lock_keys:
+                    lock_value = redis_client.get(lock_key)
+                    if lock_value:
+                        # Lock exists - wait briefly for TTL expiry, then force delete
+                        print(f"[TEST_CLEANUP] ⚠️ Lock still held: {lock_key}, waiting for expiry...", flush=True)
+                        time.sleep(0.5)  # Brief wait for natural expiry
+                        
+                        # If still exists, force delete (test cleanup takes precedence)
+                        if redis_client.exists(lock_key):
+                            redis_client.delete(lock_key)
+                            print(f"[TEST_CLEANUP] ✅ Force-released lock: {lock_key}", flush=True)
+                    else:
+                        print(f"[TEST_CLEANUP] ✅ Lock already released: {lock_key}", flush=True)
+                
+                print(f"[TEST_CLEANUP] ✅ Lock cleanup complete ({time.time() - cleanup_start:.2f}s)", flush=True)
         except Exception as e:
             print(f"[TEST_CLEANUP] ❌ Redis lock cleanup error: {e}", flush=True)
         
@@ -985,5 +1020,13 @@ def dcl_graph_with_sources(dcl_reset_state):
             print(f"[TEST_CLEANUP] ✅ Deleted AAM streams ({time.time() - cleanup_start:.2f}s)", flush=True)
         except Exception as e:
             print(f"[TEST_CLEANUP] ⚠️ AAM stream cleanup warning: {e}", flush=True)
+        
+        # 4. Force garbage collection to release any lingering references
+        try:
+            import gc
+            gc.collect()
+            print(f"[TEST_CLEANUP] ✅ Garbage collection complete", flush=True)
+        except Exception as e:
+            print(f"[TEST_CLEANUP] ⚠️ GC warning: {e}", flush=True)
         
         print(f"[TEST_CLEANUP] ✅ Cleanup complete for tenant: {tenant_id}", flush=True)

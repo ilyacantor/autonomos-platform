@@ -21,12 +21,19 @@ Coverage:
 Dynamic Field Handling:
 - tenant_id is excluded from snapshots (dynamically generated UUID)
 - Snapshots focus on structure, not ephemeral runtime values
+
+Timeout Protection:
+- Each test has 60s timeout to prevent indefinite hangs
+- This catches resource cleanup issues (unclosed connections, unreleased locks)
 """
 
 import pytest
 from syrupy.assertion import SnapshotAssertion
 from syrupy.extensions.json import JSONSnapshotExtension
 from syrupy.filters import props
+
+# Add timeout marker to all tests in this module (60 seconds per test)
+pytestmark = pytest.mark.timeout(60)
 
 
 def normalize_state_for_snapshot(state):
