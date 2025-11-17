@@ -1,167 +1,161 @@
 {
   "nodes": [
     {
-      "id": "sys_salesforce",
-      "label": "Salesforce",
+      "id": "sys_aam_sources",
+      "label": "from AAM",
       "type": "source_parent"
     },
     {
       "id": "salesforce_Account",
-      "label": "Account",
+      "label": "Salesforce - Account",
       "type": "source",
-      "parentId": "sys_salesforce",
+      "sourceSystem": "Salesforce",
+      "sourceKey": "salesforce",
+      "parentId": "sys_aam_sources",
       "fields": ["Id", "Name", "Industry", "Revenue"]
     },
     {
       "id": "salesforce_Opportunity",
-      "label": "Opportunity",
+      "label": "Salesforce - Opportunity",
       "type": "source",
-      "parentId": "sys_salesforce",
+      "sourceSystem": "Salesforce",
+      "sourceKey": "salesforce",
+      "parentId": "sys_aam_sources",
       "fields": ["Id", "Name", "Amount", "Stage", "CloseDate"]
     },
     {
       "id": "salesforce_Contact",
-      "label": "Contact",
+      "label": "Salesforce - Contact",
       "type": "source",
-      "parentId": "sys_salesforce",
+      "sourceSystem": "Salesforce",
+      "sourceKey": "salesforce",
+      "parentId": "sys_aam_sources",
       "fields": ["Id", "Name", "Email", "Phone"]
     },
     {
-      "id": "sys_hubspot",
-      "label": "HubSpot",
-      "type": "source_parent"
-    },
-    {
       "id": "hubspot_Companies",
-      "label": "Companies",
+      "label": "HubSpot - Companies",
       "type": "source",
-      "parentId": "sys_hubspot",
+      "sourceSystem": "HubSpot",
+      "sourceKey": "hubspot",
+      "parentId": "sys_aam_sources",
       "fields": ["id", "name", "domain", "industry"]
     },
     {
       "id": "hubspot_Deals",
-      "label": "Deals",
+      "label": "HubSpot - Deals",
       "type": "source",
-      "parentId": "sys_hubspot",
+      "sourceSystem": "HubSpot",
+      "sourceKey": "hubspot",
+      "parentId": "sys_aam_sources",
       "fields": ["id", "dealname", "amount", "dealstage"]
     },
     {
-      "id": "sys_stripe",
-      "label": "Stripe",
-      "type": "source_parent"
-    },
-    {
       "id": "stripe_Customers",
-      "label": "Customers",
+      "label": "Stripe - Customers",
       "type": "source",
-      "parentId": "sys_stripe",
+      "sourceSystem": "Stripe",
+      "sourceKey": "stripe",
+      "parentId": "sys_aam_sources",
       "fields": ["id", "email", "name", "created"]
     },
     {
       "id": "stripe_Invoices",
-      "label": "Invoices",
+      "label": "Stripe - Invoices",
       "type": "source",
-      "parentId": "sys_stripe",
+      "sourceSystem": "Stripe",
+      "sourceKey": "stripe",
+      "parentId": "sys_aam_sources",
       "fields": ["id", "customer", "amount_due", "status"]
     },
     {
-      "id": "sys_postgresql",
-      "label": "PostgreSQL",
-      "type": "source_parent"
-    },
-    {
       "id": "postgresql_users",
-      "label": "users",
+      "label": "PostgreSQL - users",
       "type": "source",
-      "parentId": "sys_postgresql",
+      "sourceSystem": "PostgreSQL",
+      "sourceKey": "postgresql",
+      "parentId": "sys_aam_sources",
       "fields": ["id", "email", "created_at", "role"]
     },
     {
       "id": "postgresql_orders",
-      "label": "orders",
+      "label": "PostgreSQL - orders",
       "type": "source",
-      "parentId": "sys_postgresql",
+      "sourceSystem": "PostgreSQL",
+      "sourceKey": "postgresql",
+      "parentId": "sys_aam_sources",
       "fields": ["id", "user_id", "total", "status"]
     },
     {
-      "id": "sys_mongodb",
-      "label": "MongoDB",
-      "type": "source_parent"
-    },
-    {
       "id": "mongodb_events",
-      "label": "events",
+      "label": "MongoDB - events",
       "type": "source",
-      "parentId": "sys_mongodb",
+      "sourceSystem": "MongoDB",
+      "sourceKey": "mongodb",
+      "parentId": "sys_aam_sources",
       "fields": ["_id", "event_type", "timestamp", "user_id"]
     },
     {
       "id": "mongodb_sessions",
-      "label": "sessions",
+      "label": "MongoDB - sessions",
       "type": "source",
-      "parentId": "sys_mongodb",
+      "sourceSystem": "MongoDB",
+      "sourceKey": "mongodb",
+      "parentId": "sys_aam_sources",
       "fields": ["_id", "session_id", "start_time", "duration"]
     },
     {
-      "id": "sys_mysql",
-      "label": "MySQL",
-      "type": "source_parent"
-    },
-    {
       "id": "mysql_products",
-      "label": "products",
+      "label": "MySQL - products",
       "type": "source",
-      "parentId": "sys_mysql",
+      "sourceSystem": "MySQL",
+      "sourceKey": "mysql",
+      "parentId": "sys_aam_sources",
       "fields": ["id", "name", "price", "category"]
     },
     {
       "id": "mysql_inventory",
-      "label": "inventory",
+      "label": "MySQL - inventory",
       "type": "source",
-      "parentId": "sys_mysql",
+      "sourceSystem": "MySQL",
+      "sourceKey": "mysql",
+      "parentId": "sys_aam_sources",
       "fields": ["id", "product_id", "quantity", "warehouse"]
     },
     {
-      "id": "sys_supabase",
-      "label": "Supabase",
-      "type": "source_parent"
-    },
-    {
       "id": "supabase_profiles",
-      "label": "profiles",
+      "label": "Supabase - profiles",
       "type": "source",
-      "parentId": "sys_supabase",
+      "sourceSystem": "Supabase",
+      "sourceKey": "supabase",
+      "parentId": "sys_aam_sources",
       "fields": ["id", "username", "avatar_url", "updated_at"]
     },
     {
       "id": "supabase_projects",
-      "label": "projects",
+      "label": "Supabase - projects",
       "type": "source",
-      "parentId": "sys_supabase",
+      "sourceSystem": "Supabase",
+      "sourceKey": "supabase",
+      "parentId": "sys_aam_sources",
       "fields": ["id", "name", "owner_id", "created_at"]
     },
     {
-      "id": "sys_google_sheets",
-      "label": "Google Sheets",
-      "type": "source_parent"
-    },
-    {
       "id": "sheets_revenue",
-      "label": "Revenue Data",
+      "label": "Google Sheets - Revenue Data",
       "type": "source",
-      "parentId": "sys_google_sheets",
+      "sourceSystem": "Google Sheets",
+      "sourceKey": "google_sheets",
+      "parentId": "sys_aam_sources",
       "fields": ["Month", "Region", "Amount", "Quarter"]
     },
     {
-      "id": "sys_csv",
-      "label": "CSV Files",
-      "type": "source_parent"
-    },
-    {
       "id": "csv_employee_data",
-      "label": "Employee Data",
+      "label": "CSV Files - Employee Data",
       "type": "source",
-      "parentId": "sys_csv",
+      "sourceSystem": "CSV Files",
+      "sourceKey": "csv",
+      "parentId": "sys_aam_sources",
       "fields": ["employee_id", "name", "department", "salary"]
     },
     {
@@ -204,89 +198,106 @@
   ],
   "edges": [
     {
-      "source": "sys_salesforce",
+      "source": "sys_aam_sources",
       "target": "salesforce_Account",
-      "type": "hierarchy"
+      "edgeType": "hierarchy",
+      "value": 1
     },
     {
-      "source": "sys_salesforce",
+      "source": "sys_aam_sources",
       "target": "salesforce_Opportunity",
-      "type": "hierarchy"
+      "edgeType": "hierarchy",
+      "value": 1
     },
     {
-      "source": "sys_salesforce",
+      "source": "sys_aam_sources",
       "target": "salesforce_Contact",
-      "type": "hierarchy"
+      "edgeType": "hierarchy",
+      "value": 1
     },
     {
-      "source": "sys_hubspot",
+      "source": "sys_aam_sources",
       "target": "hubspot_Companies",
-      "type": "hierarchy"
+      "edgeType": "hierarchy",
+      "value": 1
     },
     {
-      "source": "sys_hubspot",
+      "source": "sys_aam_sources",
       "target": "hubspot_Deals",
-      "type": "hierarchy"
+      "edgeType": "hierarchy",
+      "value": 1
     },
     {
-      "source": "sys_stripe",
+      "source": "sys_aam_sources",
       "target": "stripe_Customers",
-      "type": "hierarchy"
+      "edgeType": "hierarchy",
+      "value": 1
     },
     {
-      "source": "sys_stripe",
+      "source": "sys_aam_sources",
       "target": "stripe_Invoices",
-      "type": "hierarchy"
+      "edgeType": "hierarchy",
+      "value": 1
     },
     {
-      "source": "sys_postgresql",
+      "source": "sys_aam_sources",
       "target": "postgresql_users",
-      "type": "hierarchy"
+      "edgeType": "hierarchy",
+      "value": 1
     },
     {
-      "source": "sys_postgresql",
+      "source": "sys_aam_sources",
       "target": "postgresql_orders",
-      "type": "hierarchy"
+      "edgeType": "hierarchy",
+      "value": 1
     },
     {
-      "source": "sys_mongodb",
+      "source": "sys_aam_sources",
       "target": "mongodb_events",
-      "type": "hierarchy"
+      "edgeType": "hierarchy",
+      "value": 1
     },
     {
-      "source": "sys_mongodb",
+      "source": "sys_aam_sources",
       "target": "mongodb_sessions",
-      "type": "hierarchy"
+      "edgeType": "hierarchy",
+      "value": 1
     },
     {
-      "source": "sys_mysql",
+      "source": "sys_aam_sources",
       "target": "mysql_products",
-      "type": "hierarchy"
+      "edgeType": "hierarchy",
+      "value": 1
     },
     {
-      "source": "sys_mysql",
+      "source": "sys_aam_sources",
       "target": "mysql_inventory",
-      "type": "hierarchy"
+      "edgeType": "hierarchy",
+      "value": 1
     },
     {
-      "source": "sys_supabase",
+      "source": "sys_aam_sources",
       "target": "supabase_profiles",
-      "type": "hierarchy"
+      "edgeType": "hierarchy",
+      "value": 1
     },
     {
-      "source": "sys_supabase",
+      "source": "sys_aam_sources",
       "target": "supabase_projects",
-      "type": "hierarchy"
+      "edgeType": "hierarchy",
+      "value": 1
     },
     {
-      "source": "sys_google_sheets",
+      "source": "sys_aam_sources",
       "target": "sheets_revenue",
-      "type": "hierarchy"
+      "edgeType": "hierarchy",
+      "value": 1
     },
     {
-      "source": "sys_csv",
+      "source": "sys_aam_sources",
       "target": "csv_employee_data",
-      "type": "hierarchy"
+      "edgeType": "hierarchy",
+      "value": 1
     },
     {
       "source": "salesforce_Account",
@@ -390,6 +401,6 @@
     }
   ],
   "confidence": 0.92,
-  "last_updated": "2025-11-14T00:00:00Z",
-  "demo_version": "v2.0"
+  "last_updated": "2025-11-17T00:00:00Z",
+  "demo_version": "v3.0"
 }

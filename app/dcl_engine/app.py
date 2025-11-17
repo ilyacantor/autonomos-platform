@@ -1740,21 +1740,12 @@ def apply_plan(con, source_key: str, plan: Dict[str, Any], tenant_id: str = "def
             con.sql(f"CREATE OR REPLACE VIEW {view_name} AS SELECT {', '.join(selects)} FROM {src_table}")
             per_entity_views.setdefault(ent, []).append(view_name)
             
-            # Prepare ontology node with source provenance (will check for existence when adding)
+            # Prepare simple ontology node
             target_node_id = f"dcl_{ent}"
-            # Get existing sources for this entity to include in node metadata
-            current_entity_sources = state_access.get_entity_sources(tenant_id)
-            entity_sources_list = current_entity_sources.get(ent, [])
-            if source_key not in entity_sources_list:
-                entity_sources_list_with_new = entity_sources_list + [source_key]
-            else:
-                entity_sources_list_with_new = entity_sources_list
-            
             nodes_to_add.append({
                 "id": target_node_id,
                 "label": f"{ent.replace('_', ' ').title()} (Unified)",
-                "type": "ontology",
-                "sources": entity_sources_list_with_new  # Track source provenance
+                "type": "ontology"
             })
             
             # Prepare edge from source to ontology
@@ -1789,95 +1780,55 @@ def apply_plan(con, source_key: str, plan: Dict[str, Any], tenant_id: str = "def
     # Apply all graph state updates atomically (caller holds distributed lock)
     current_graph = state_access.get_graph_state(tenant_id)
     
-    # Add nodes (deduplicated with source provenance update)
+    # Add nodes (deduplicated by ID)
     for node in nodes_to_add:
         existing_node = next((n for n in current_graph["nodes"] if n["id"] == node["id"]), None)
-        if existing_node:
-            # Update existing entity node with new source provenance
-            if node["type"] == "ontology" and "sources" in node:
-                # Merge sources lists (union)
-                existing_sources = set(existing_node.get("sources", []))
-                new_sources = set(node.get("sources", []))
-                existing_node["sources"] = list(existing_sources | new_sources)
-        else:
+        if not existing_node:
             # Add new node
             current_graph["nodes"].append(node)
-    
-    # CRITICAL FIX (Bug 1): Persist graph immediately after updating node provenance metadata
-    # This ensures source annotations survive even if edge additions fail or function exits early
-    state_access.set_graph_state(tenant_id, current_graph)
     
     # Add edges
     for edge in edges_to_add:
         current_graph["edges"].append(edge)
     
-    # Save updated graph state with edges (state_access handles dual-path)
+    # Save updated graph state
     state_access.set_graph_state(tenant_id, current_graph)
-    
-    # Update entity sources (state_access handles dual-path)
-    current_entity_sources = state_access.get_entity_sources(tenant_id)
-    for ent in entities_to_update:
-        current_entity_sources.setdefault(ent, []).append(source_key)
-    state_access.set_entity_sources(tenant_id, current_entity_sources)
     
     conf = sum(confs)/len(confs) if confs else 0.8
     return Scorecard(confidence=conf, blockers=blockers, issues=issues, joins=joins)
 
 def remove_source_from_graph(source_key: str, tenant_id: str = "default"):
     """
-    Scoped teardown: Remove ONLY this source's nodes/edges from graph.
+    Remove source's nodes/edges from graph (simplified for consolidated parent).
     
     Preserves:
+    - Consolidated "from AAM" parent node (shared across all sources)
     - Other sources' nodes/edges
-    - Shared entity nodes (only removes if this was the last source)
     - Agent nodes
     
     Removes:
-    - source:{source_key} parent node
     - src_{source_key}_* table nodes
     - All edges connected to removed nodes
-    - Entity nodes if this source was their only contributor
     
     Args:
         source_key: Source system identifier (e.g., "salesforce", "hubspot")
         tenant_id: Tenant identifier for scoped operations
     """
     current_graph = state_access.get_graph_state(tenant_id)
-    current_entity_sources = state_access.get_entity_sources(tenant_id)
-    
-    # Identify nodes to remove
-    parent_node_id = f"source:{source_key}"
     nodes_to_remove = set()
     
-    # 1. Remove source parent node
-    nodes_to_remove.add(parent_node_id)
-    
-    # 2. Remove all source table nodes (src_{source_key}_*)
+    # Remove all source table nodes (src_{source_key}_*)
     for node in current_graph["nodes"]:
         if node["id"].startswith(f"src_{source_key}_"):
             nodes_to_remove.add(node["id"])
     
-    # 3. Update entity sources tracking
-    entities_to_remove = []
-    for entity, sources in list(current_entity_sources.items()):
-        if source_key in sources:
-            sources.remove(source_key)
-            # If no sources left for this entity, mark for removal
-            if not sources:
-                entities_to_remove.append(entity)
-                nodes_to_remove.add(f"dcl_{entity}")
-    
-    # Clean up empty entities from tracking
-    for entity in entities_to_remove:
-        del current_entity_sources[entity]
-    
-    # 4. Remove nodes from graph
+    # Remove nodes from graph
     current_graph["nodes"] = [
         n for n in current_graph["nodes"]
         if n["id"] not in nodes_to_remove
     ]
     
-    # 5. Remove edges connected to removed nodes
+    # Remove edges connected to removed nodes
     current_graph["edges"] = [
         e for e in current_graph["edges"]
         if e["source"] not in nodes_to_remove and e["target"] not in nodes_to_remove
@@ -1885,59 +1836,50 @@ def remove_source_from_graph(source_key: str, tenant_id: str = "default"):
     
     # Save updated state
     state_access.set_graph_state(tenant_id, current_graph)
-    state_access.set_entity_sources(tenant_id, current_entity_sources)
     
     log(f"🗑️  Removed {len(nodes_to_remove)} nodes for source '{source_key}'")
 
 def add_graph_nodes_for_source(source_key: str, tables: Dict[str, Any], tenant_id: str = "default"):
     global ontology, agents_config
     
-    # SCOPED TEARDOWN: Remove existing nodes for this source before re-adding
-    # This ensures idempotent behavior and prevents stale nodes
-    remove_source_from_graph(source_key, tenant_id)
-    
-    # CRITICAL FIX (Bug 2): Refresh entity_sources lookup AFTER scoped removal
-    # This ensures apply_plan() (if called later) will see fresh provenance metadata
-    # without stale source tags from the removed source
-    current_entity_sources = state_access.get_entity_sources(tenant_id)
-    
-    # Get current graph state for this tenant (state_access handles dual-path)
+    # Get current graph state for this tenant
     current_graph = state_access.get_graph_state(tenant_id)
     
-    # ARCHITECT'S FIX: Use per-source parent nodes for visibility
-    # Each source gets unique parent: source:salesforce, source:hubspot, etc.
-    # This shows provenance clearly in graph visualization
-    parent_node_id = f"source:{source_key}"  # Individual per source
-    parent_label = source_key.replace('_', ' ').title()
+    # PRAGMATIC FIX: Use single consolidated "from AAM" parent node
+    # All sources connect to this parent, making source visible via entity node labels
+    parent_node_id = "sys_aam_sources"
+    parent_label = "from AAM"
     
-    # Add per-source parent node (visible individual sources)
-    current_graph["nodes"].append({
-        "id": parent_node_id,
-        "label": parent_label,
-        "type": "source_parent",
-        "sourceKey": source_key  # Add metadata for provenance
-    })
+    # Add consolidated parent node if it doesn't exist yet
+    parent_exists = any(n["id"] == parent_node_id for n in current_graph["nodes"])
+    if not parent_exists:
+        current_graph["nodes"].append({
+            "id": parent_node_id,
+            "label": parent_label,
+            "type": "source_parent"
+        })
     
-    # Add source nodes with sourceSystem and parentId metadata
+    # Add source nodes with source name in label (e.g., "Account (Salesforce)")
     source_system = source_key.replace('_', ' ').title()
     
     for t, table_data in tables.items():
         node_id = f"src_{source_key}_{t}"
-        label = f"{t} ({source_system})"
+        label = f"{source_system} - {t}"  # Source name displayed on node
         # Extract field names from the schema
         fields = list(table_data.get("schema", {}).keys()) if isinstance(table_data, dict) else []
         
-        # Add source node (scoped teardown already removed old ones)
+        # Add source node with metadata
         current_graph["nodes"].append({
             "id": node_id, 
             "label": label, 
             "type": "source",
             "sourceSystem": source_system,
+            "sourceKey": source_key,
             "parentId": parent_node_id,
             "fields": fields
         })
         
-        # Create hierarchy edge from parent to source table
+        # Create hierarchy edge from consolidated parent to source table
         current_graph["edges"].append({
             "source": parent_node_id,
             "target": node_id,
