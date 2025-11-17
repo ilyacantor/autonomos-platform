@@ -1,0 +1,753 @@
+{
+  "timestamp": "2025-11-17T16:30:46.263995",
+  "phase": "Phase 0 - RAG POC",
+  "metrics": {
+    "mappings_processed": 191,
+    "embeddings_generated": 191,
+    "embedding_time_seconds": 3.04,
+    "test_results": {
+      "total_queries": 25,
+      "hits_at_1": 22,
+      "hits_at_3": 23,
+      "hits_at_5": 24,
+      "total_query_time_ms": 16276.335513004597,
+      "test_details": [
+        {
+          "query": "salesforce AccountId",
+          "description": "Salesforce account ID field",
+          "found": true,
+          "rank": 1,
+          "query_time_ms": 2924.09,
+          "top_5": [
+            {
+              "mapping": "salesforce: Id (varchar) \u2192 account.account_id",
+              "score": 0.8241
+            },
+            {
+              "mapping": "salesforce: AccountId (varchar) \u2192 contact.account_id",
+              "score": 0.8203
+            },
+            {
+              "mapping": "salesforce: OwnerId (varchar) \u2192 account.owner_id",
+              "score": 0.7682
+            },
+            {
+              "mapping": "salesforce: AccountId (varchar) \u2192 opportunity.account_id",
+              "score": 0.7368
+            },
+            {
+              "mapping": "salesforce: Id (varchar) \u2192 contact.contact_id",
+              "score": 0.6912
+            }
+          ]
+        },
+        {
+          "query": "salesforce Opportunity Amount",
+          "description": "Salesforce opportunity amount",
+          "found": true,
+          "rank": 1,
+          "query_time_ms": 2529.86,
+          "top_5": [
+            {
+              "mapping": "salesforce: Amount (decimal) \u2192 opportunity.amount",
+              "score": 0.8465
+            },
+            {
+              "mapping": "salesforce: Probability (float) \u2192 opportunity.probability",
+              "score": 0.695
+            },
+            {
+              "mapping": "filesource: amount (decimal) \u2192 opportunity.amount",
+              "score": 0.6689
+            },
+            {
+              "mapping": "pipedrive: value (decimal) \u2192 opportunity.amount",
+              "score": 0.6637
+            },
+            {
+              "mapping": "salesforce: Name (varchar) \u2192 opportunity.name",
+              "score": 0.6631
+            }
+          ]
+        },
+        {
+          "query": "salesforce Contact Email",
+          "description": "Salesforce contact email",
+          "found": true,
+          "rank": 1,
+          "query_time_ms": 1162.0,
+          "top_5": [
+            {
+              "mapping": "salesforce: Email (varchar) \u2192 contact.email",
+              "score": 0.8266
+            },
+            {
+              "mapping": "salesforce: FirstName (varchar) \u2192 contact.first_name",
+              "score": 0.682
+            },
+            {
+              "mapping": "salesforce: LastName (varchar) \u2192 contact.last_name",
+              "score": 0.6691
+            },
+            {
+              "mapping": "salesforce: Id (varchar) \u2192 contact.contact_id",
+              "score": 0.6616
+            },
+            {
+              "mapping": "salesforce: Title (varchar) \u2192 contact.title",
+              "score": 0.6578
+            }
+          ]
+        },
+        {
+          "query": "salesforce StageName",
+          "description": "Salesforce opportunity stage",
+          "found": true,
+          "rank": 1,
+          "query_time_ms": 868.69,
+          "top_5": [
+            {
+              "mapping": "salesforce: StageName (varchar) \u2192 opportunity.stage",
+              "score": 0.787
+            },
+            {
+              "mapping": "salesforce: Title (varchar) \u2192 contact.title",
+              "score": 0.6066
+            },
+            {
+              "mapping": "salesforce: Name (varchar) \u2192 account.name",
+              "score": 0.6059
+            },
+            {
+              "mapping": "salesforce: LastName (varchar) \u2192 contact.last_name",
+              "score": 0.6056
+            },
+            {
+              "mapping": "salesforce: Name (varchar) \u2192 opportunity.name",
+              "score": 0.5849
+            }
+          ]
+        },
+        {
+          "query": "salesforce CloseDate",
+          "description": "Salesforce opportunity close date",
+          "found": true,
+          "rank": 1,
+          "query_time_ms": 165.08,
+          "top_5": [
+            {
+              "mapping": "salesforce: CloseDate (timestamp) \u2192 opportunity.close_date",
+              "score": 0.7942
+            },
+            {
+              "mapping": "filesource: close_date (timestamp) \u2192 opportunity.close_date",
+              "score": 0.5927
+            },
+            {
+              "mapping": "pipedrive: expected_close_date (timestamp) \u2192 opportunity.close_date",
+              "score": 0.5882
+            },
+            {
+              "mapping": "supabase: close_date (timestamp) \u2192 opportunity.close_date",
+              "score": 0.5858
+            },
+            {
+              "mapping": "salesforce: CreatedDate (timestamp) \u2192 contact.created_at",
+              "score": 0.5796
+            }
+          ]
+        },
+        {
+          "query": "hubspot company_name",
+          "description": "HubSpot company name",
+          "found": true,
+          "rank": 1,
+          "query_time_ms": 237.46,
+          "top_5": [
+            {
+              "mapping": "hubspot: company_name (varchar) \u2192 account.name",
+              "score": 0.713
+            },
+            {
+              "mapping": "hubspot: firstname (varchar) \u2192 contact.first_name",
+              "score": 0.6519
+            },
+            {
+              "mapping": "hubspot: hs_associated_company_id (varchar) \u2192 contact.account_id",
+              "score": 0.6389
+            },
+            {
+              "mapping": "hubspot: company_type (varchar) \u2192 account.type",
+              "score": 0.6279
+            },
+            {
+              "mapping": "hubspot: hs_associated_company_id (varchar) \u2192 opportunity.account_id",
+              "score": 0.6256
+            }
+          ]
+        },
+        {
+          "query": "hubspot dealname",
+          "description": "HubSpot deal name",
+          "found": true,
+          "rank": 1,
+          "query_time_ms": 1300.12,
+          "top_5": [
+            {
+              "mapping": "hubspot: dealname (varchar) \u2192 opportunity.name",
+              "score": 0.7496
+            },
+            {
+              "mapping": "hubspot: dealstage (varchar) \u2192 opportunity.stage",
+              "score": 0.6569
+            },
+            {
+              "mapping": "hubspot: deal_currency_code (varchar) \u2192 opportunity.currency",
+              "score": 0.5881
+            },
+            {
+              "mapping": "hubspot: company_name (varchar) \u2192 account.name",
+              "score": 0.576
+            },
+            {
+              "mapping": "hubspot: hs_associated_company_id (varchar) \u2192 opportunity.account_id",
+              "score": 0.572
+            }
+          ]
+        },
+        {
+          "query": "hubspot hs_object_id for companies",
+          "description": "HubSpot company ID",
+          "found": true,
+          "rank": 5,
+          "query_time_ms": 822.89,
+          "top_5": [
+            {
+              "mapping": "hubspot: hs_object_id (varchar) \u2192 contact.contact_id",
+              "score": 0.7589
+            },
+            {
+              "mapping": "hubspot: hs_object_id (varchar) \u2192 opportunity.opportunity_id",
+              "score": 0.7415
+            },
+            {
+              "mapping": "hubspot: hs_associated_company_id (varchar) \u2192 contact.account_id",
+              "score": 0.7368
+            },
+            {
+              "mapping": "hubspot: hs_associated_company_id (varchar) \u2192 opportunity.account_id",
+              "score": 0.7364
+            },
+            {
+              "mapping": "hubspot: hs_object_id (varchar) \u2192 account.account_id",
+              "score": 0.7337
+            }
+          ]
+        },
+        {
+          "query": "hubspot dealstage",
+          "description": "HubSpot deal stage",
+          "found": true,
+          "rank": 1,
+          "query_time_ms": 173.3,
+          "top_5": [
+            {
+              "mapping": "hubspot: dealstage (varchar) \u2192 opportunity.stage",
+              "score": 0.7623
+            },
+            {
+              "mapping": "hubspot: dealname (varchar) \u2192 opportunity.name",
+              "score": 0.6112
+            },
+            {
+              "mapping": "hubspot: lifecycle_stage (varchar) \u2192 account.status",
+              "score": 0.571
+            },
+            {
+              "mapping": "hubspot: amount (decimal) \u2192 opportunity.amount",
+              "score": 0.5203
+            },
+            {
+              "mapping": "hubspot: hs_associated_company_id (varchar) \u2192 opportunity.account_id",
+              "score": 0.5081
+            }
+          ]
+        },
+        {
+          "query": "hubspot firstname",
+          "description": "HubSpot contact first name",
+          "found": true,
+          "rank": 1,
+          "query_time_ms": 347.43,
+          "top_5": [
+            {
+              "mapping": "hubspot: firstname (varchar) \u2192 contact.first_name",
+              "score": 0.7911
+            },
+            {
+              "mapping": "hubspot: lastname (varchar) \u2192 contact.last_name",
+              "score": 0.7064
+            },
+            {
+              "mapping": "hubspot: email (varchar) \u2192 contact.email",
+              "score": 0.6302
+            },
+            {
+              "mapping": "hubspot: company_name (varchar) \u2192 account.name",
+              "score": 0.6177
+            },
+            {
+              "mapping": "hubspot: jobtitle (varchar) \u2192 contact.title",
+              "score": 0.6004
+            }
+          ]
+        },
+        {
+          "query": "mongodb opportunity_id",
+          "description": "MongoDB opportunity ID",
+          "found": true,
+          "rank": 2,
+          "query_time_ms": 1619.54,
+          "top_5": [
+            {
+              "mapping": "mongodb: owner_id (varchar) \u2192 opportunity.owner_id",
+              "score": 0.7179
+            },
+            {
+              "mapping": "mongodb: opportunity_id (varchar) \u2192 opportunity.opportunity_id",
+              "score": 0.7055
+            },
+            {
+              "mapping": "mongodb: account_id (varchar) \u2192 opportunity.account_id",
+              "score": 0.6828
+            },
+            {
+              "mapping": "mongodb: name (varchar) \u2192 opportunity.name",
+              "score": 0.6694
+            },
+            {
+              "mapping": "mongodb: owner_id (varchar) \u2192 account.owner_id",
+              "score": 0.6535
+            }
+          ]
+        },
+        {
+          "query": "mongodb account name",
+          "description": "MongoDB account name",
+          "found": true,
+          "rank": 1,
+          "query_time_ms": 138.87,
+          "top_5": [
+            {
+              "mapping": "mongodb: name (varchar) \u2192 account.name",
+              "score": 0.7199
+            },
+            {
+              "mapping": "mongodb: account_id (varchar) \u2192 account.account_id",
+              "score": 0.5907
+            },
+            {
+              "mapping": "mongodb: type (varchar) \u2192 account.type",
+              "score": 0.5605
+            },
+            {
+              "mapping": "mongodb: owner_id (varchar) \u2192 account.owner_id",
+              "score": 0.5443
+            },
+            {
+              "mapping": "mongodb: status (varchar) \u2192 account.status",
+              "score": 0.5437
+            }
+          ]
+        },
+        {
+          "query": "mongodb stage",
+          "description": "MongoDB opportunity stage",
+          "found": true,
+          "rank": 1,
+          "query_time_ms": 206.7,
+          "top_5": [
+            {
+              "mapping": "mongodb: stage (varchar) \u2192 opportunity.stage",
+              "score": 0.5614
+            },
+            {
+              "mapping": "mongodb: status (varchar) \u2192 account.status",
+              "score": 0.4762
+            },
+            {
+              "mapping": "mongodb: updated_at (timestamp) \u2192 account.updated_at",
+              "score": 0.4723
+            },
+            {
+              "mapping": "mongodb: amount (decimal) \u2192 opportunity.amount",
+              "score": 0.4625
+            },
+            {
+              "mapping": "mongodb: probability (float) \u2192 opportunity.probability",
+              "score": 0.4602
+            }
+          ]
+        },
+        {
+          "query": "account identifier",
+          "description": "Generic account ID (semantic)",
+          "found": true,
+          "rank": 1,
+          "query_time_ms": 230.69,
+          "top_5": [
+            {
+              "mapping": "filesource: account_id (varchar) \u2192 account.account_id",
+              "score": 0.4936
+            },
+            {
+              "mapping": "supabase: account_id (varchar) \u2192 account.account_id",
+              "score": 0.4796
+            },
+            {
+              "mapping": "filesource: account_id (varchar) \u2192 opportunity.account_id",
+              "score": 0.4687
+            },
+            {
+              "mapping": "mongodb: account_id (varchar) \u2192 account.account_id",
+              "score": 0.4682
+            },
+            {
+              "mapping": "mongodb: account_id (varchar) \u2192 opportunity.account_id",
+              "score": 0.4661
+            }
+          ]
+        },
+        {
+          "query": "deal value",
+          "description": "Generic opportunity amount (semantic)",
+          "found": true,
+          "rank": 1,
+          "query_time_ms": 388.52,
+          "top_5": [
+            {
+              "mapping": "pipedrive: value (decimal) \u2192 opportunity.amount",
+              "score": 0.4366
+            },
+            {
+              "mapping": "supabase: amount (decimal) \u2192 opportunity.amount",
+              "score": 0.3696
+            },
+            {
+              "mapping": "filesource: amount (decimal) \u2192 opportunity.amount",
+              "score": 0.3585
+            },
+            {
+              "mapping": "salesforce: Amount (decimal) \u2192 opportunity.amount",
+              "score": 0.3528
+            },
+            {
+              "mapping": "hubspot: dealname (varchar) \u2192 opportunity.name",
+              "score": 0.3505
+            }
+          ]
+        },
+        {
+          "query": "company industry",
+          "description": "Generic account industry (semantic)",
+          "found": true,
+          "rank": 1,
+          "query_time_ms": 311.76,
+          "top_5": [
+            {
+              "mapping": "filesource: industry (varchar) \u2192 account.industry",
+              "score": 0.5232
+            },
+            {
+              "mapping": "dynamics: industrycode (varchar) \u2192 account.industry",
+              "score": 0.5222
+            },
+            {
+              "mapping": "supabase: industry (varchar) \u2192 account.industry",
+              "score": 0.4859
+            },
+            {
+              "mapping": "salesforce: Industry (varchar) \u2192 account.industry",
+              "score": 0.4771
+            },
+            {
+              "mapping": "hubspot: hs_industry (varchar) \u2192 account.industry",
+              "score": 0.4683
+            }
+          ]
+        },
+        {
+          "query": "contact job title",
+          "description": "Generic contact title (semantic)",
+          "found": true,
+          "rank": 1,
+          "query_time_ms": 695.61,
+          "top_5": [
+            {
+              "mapping": "hubspot: jobtitle (varchar) \u2192 contact.title",
+              "score": 0.5705
+            },
+            {
+              "mapping": "zendesk: role (varchar) \u2192 contact.title",
+              "score": 0.5339
+            },
+            {
+              "mapping": "salesforce: Title (varchar) \u2192 contact.title",
+              "score": 0.5105
+            },
+            {
+              "mapping": "filesource: title (varchar) \u2192 contact.title",
+              "score": 0.4766
+            },
+            {
+              "mapping": "salesforce: Department (varchar) \u2192 contact.department",
+              "score": 0.4673
+            }
+          ]
+        },
+        {
+          "query": "opportunity probability percentage",
+          "description": "Opportunity win probability",
+          "found": true,
+          "rank": 1,
+          "query_time_ms": 256.51,
+          "top_5": [
+            {
+              "mapping": "filesource: probability (float) \u2192 opportunity.probability",
+              "score": 0.7139
+            },
+            {
+              "mapping": "salesforce: Probability (float) \u2192 opportunity.probability",
+              "score": 0.6788
+            },
+            {
+              "mapping": "pipedrive: probability (float) \u2192 opportunity.probability",
+              "score": 0.6714
+            },
+            {
+              "mapping": "supabase: probability (float) \u2192 opportunity.probability",
+              "score": 0.6637
+            },
+            {
+              "mapping": "hubspot: hs_probability (float) \u2192 opportunity.probability",
+              "score": 0.6263
+            }
+          ]
+        },
+        {
+          "query": "filesource Account_Name",
+          "description": "FileSource account name",
+          "found": true,
+          "rank": 1,
+          "query_time_ms": 293.88,
+          "top_5": [
+            {
+              "mapping": "filesource: name (varchar) \u2192 account.name",
+              "score": 0.7555
+            },
+            {
+              "mapping": "filesource: type (varchar) \u2192 account.type",
+              "score": 0.6329
+            },
+            {
+              "mapping": "filesource: account_id (varchar) \u2192 account.account_id",
+              "score": 0.6307
+            },
+            {
+              "mapping": "filesource: name (varchar) \u2192 contact.name",
+              "score": 0.6135
+            },
+            {
+              "mapping": "filesource: owner_id (varchar) \u2192 account.owner_id",
+              "score": 0.5992
+            }
+          ]
+        },
+        {
+          "query": "filesource Opportunity_Amount",
+          "description": "FileSource opportunity amount",
+          "found": true,
+          "rank": 1,
+          "query_time_ms": 245.56,
+          "top_5": [
+            {
+              "mapping": "filesource: amount (decimal) \u2192 opportunity.amount",
+              "score": 0.7613
+            },
+            {
+              "mapping": "filesource: name (varchar) \u2192 opportunity.name",
+              "score": 0.6525
+            },
+            {
+              "mapping": "filesource: currency (varchar) \u2192 opportunity.currency",
+              "score": 0.6401
+            },
+            {
+              "mapping": "filesource: opportunity_id (varchar) \u2192 opportunity.opportunity_id",
+              "score": 0.6373
+            },
+            {
+              "mapping": "filesource: stage (varchar) \u2192 opportunity.stage",
+              "score": 0.6268
+            }
+          ]
+        },
+        {
+          "query": "dynamics accountid",
+          "description": "Dynamics account ID",
+          "found": true,
+          "rank": 1,
+          "query_time_ms": 252.23,
+          "top_5": [
+            {
+              "mapping": "dynamics: accountid (varchar) \u2192 account.account_id",
+              "score": 0.7978
+            },
+            {
+              "mapping": "dynamics: accountname (varchar) \u2192 account.name",
+              "score": 0.7027
+            },
+            {
+              "mapping": "dynamics: ownerid (varchar) \u2192 account.owner_id",
+              "score": 0.6999
+            },
+            {
+              "mapping": "dynamics: accounttype (varchar) \u2192 account.type",
+              "score": 0.6641
+            },
+            {
+              "mapping": "dynamics: statecode (varchar) \u2192 account.status",
+              "score": 0.6365
+            }
+          ]
+        },
+        {
+          "query": "dynamics opportunityid",
+          "description": "Dynamics opportunity ID",
+          "found": false,
+          "rank": null,
+          "query_time_ms": 244.15,
+          "top_5": [
+            {
+              "mapping": "dynamics: accountid (varchar) \u2192 account.account_id",
+              "score": 0.5437
+            },
+            {
+              "mapping": "dynamics: ownerid (varchar) \u2192 account.owner_id",
+              "score": 0.5248
+            },
+            {
+              "mapping": "pipedrive: id (varchar) \u2192 opportunity.opportunity_id",
+              "score": 0.5239
+            },
+            {
+              "mapping": "filesource: opportunity_id (varchar) \u2192 opportunity.opportunity_id",
+              "score": 0.5205
+            },
+            {
+              "mapping": "supabase: opportunity_id (varchar) \u2192 opportunity.opportunity_id",
+              "score": 0.5007
+            }
+          ]
+        },
+        {
+          "query": "owner",
+          "description": "Generic owner field",
+          "found": true,
+          "rank": 1,
+          "query_time_ms": 430.95,
+          "top_5": [
+            {
+              "mapping": "hubspot: hubspot_owner_id (varchar) \u2192 opportunity.owner_id",
+              "score": 0.3858
+            },
+            {
+              "mapping": "supabase: owner_id (varchar) \u2192 opportunity.owner_id",
+              "score": 0.3849
+            },
+            {
+              "mapping": "filesource: owner_id (varchar) \u2192 opportunity.owner_id",
+              "score": 0.3757
+            },
+            {
+              "mapping": "dynamics: ownerid (varchar) \u2192 account.owner_id",
+              "score": 0.355
+            },
+            {
+              "mapping": "salesforce: OwnerId (varchar) \u2192 opportunity.owner_id",
+              "score": 0.3481
+            }
+          ]
+        },
+        {
+          "query": "last modified timestamp",
+          "description": "Generic updated timestamp",
+          "found": true,
+          "rank": 1,
+          "query_time_ms": 216.3,
+          "top_5": [
+            {
+              "mapping": "hubspot: lastmodifieddate (timestamp) \u2192 contact.updated_at",
+              "score": 0.592
+            },
+            {
+              "mapping": "salesforce: LastModifiedDate (timestamp) \u2192 contact.updated_at",
+              "score": 0.5808
+            },
+            {
+              "mapping": "hubspot: hs_lastmodifieddate (timestamp) \u2192 account.updated_at",
+              "score": 0.5544
+            },
+            {
+              "mapping": "dynamics: modifiedon (timestamp) \u2192 account.updated_at",
+              "score": 0.5516
+            },
+            {
+              "mapping": "salesforce: LastModifiedDate (timestamp) \u2192 account.updated_at",
+              "score": 0.5502
+            }
+          ]
+        },
+        {
+          "query": "email address",
+          "description": "Generic email field",
+          "found": true,
+          "rank": 1,
+          "query_time_ms": 214.15,
+          "top_5": [
+            {
+              "mapping": "salesforce: Email (varchar) \u2192 contact.email",
+              "score": 0.4296
+            },
+            {
+              "mapping": "filesource: email (varchar) \u2192 contact.email",
+              "score": 0.3991
+            },
+            {
+              "mapping": "zendesk: email (varchar) \u2192 contact.email",
+              "score": 0.3865
+            },
+            {
+              "mapping": "hubspot: email (varchar) \u2192 contact.email",
+              "score": 0.3651
+            },
+            {
+              "mapping": "salesforce: FirstName (varchar) \u2192 contact.first_name",
+              "score": 0.318
+            }
+          ]
+        }
+      ],
+      "precision_at_1": 88.0,
+      "precision_at_3": 92.0,
+      "precision_at_5": 96.0,
+      "hit_rate": 96.0,
+      "avg_query_time_ms": 651.0534205201839
+    },
+    "success_criteria": {
+      "hit_rate_pass": true,
+      "query_time_pass": false,
+      "overall_pass": false
+    }
+  }
+}
