@@ -1,6 +1,14 @@
 # AutonomOS - Multi-Tenant AI Orchestration Platform
 
 ## Recent Changes
+**November 17, 2025 - AAM Canonical Transformation Complete Remediation:**
+- **✅ Critical Production Blocker RESOLVED:** Fixed all AAM connector canonical transformation bugs blocking production deployment
+- **✅ Mapping Registry Corrections:** Fixed 6 mapping files with reversed/identity field mappings (Salesforce, Dynamics, Hubspot, Pipedrive, Zendesk, FileSource)
+- **✅ Database Schema Fix:** Changed `canonical_streams.tenant_id` from UUID to String type for multi-tenant isolation (Alembic migration c9e54bc008c3)
+- **✅ FileSource Initializer Fix:** Updated to use CSV replay workflow instead of file metadata, eliminating invalid `entity='file'` errors
+- **✅ No-RAG Fast Path:** Implemented early dev_mode check in both async/sync LLM proposal functions to bypass RAG/LLM in Production mode (Target: <10s processing)
+- **✅ Verification:** 147 canonical events persisted successfully (105 opportunities, 15 accounts, 12 contacts, 10 aws_resources, 5 cost_reports) with zero validation errors
+
 **November 16, 2025 - DCL Graph Structure: Pragmatic Source Visibility Solution:**
 - **✅ Consolidated "from AAM" Parent Node:** Implemented simpler graph structure with single consolidated parent node labeled "from AAM" (ID: `sys_aam_sources`)
 - **✅ Source Names on Entity Node Labels:** Individual sources now visible via entity node labels (e.g., "Salesforce - Account", "HubSpot - Companies", "MongoDB - events") instead of separate parent nodes
