@@ -1,0 +1,79 @@
+Data & Storage Stack
+
+AutonomOS AAM/DCL uses four core data engines:
+
+PostgreSQL (Supabase) – Primary Operational Database
+
+PostgreSQL is the system of record, currently hosted on Supabase.
+
+All durable state lives in Postgres, including:
+
+Tenants, providers, connections, auth metadata
+
+Mappings, mapping versions, canonical schemas
+
+Canonical events and change logs
+
+Agent runs, evals, and audit logs
+
+Schema changes are managed via Alembic migrations; application code does not create/alter tables directly.
+
+We use JSONB for flexible structures and may use extensions (e.g., pgvector) for local experimentation, but production RAG retrieval uses Pinecone.
+
+Multi-tenancy is implemented logically via a required tenant_id on all core tables, with all queries scoped by tenant in the application layer.
+
+Redis – Queues & Caching (Non-Authoritative)
+
+Redis is used only for ephemeral data:
+
+Job queues for connector workers and background tasks
+
+Short-lived caches (rate-limit state, connector metadata, hot mapping lookups)
+
+Lightweight pub/sub notifications for state changes
+
+No user or tenant data is persisted only in Redis; anything important is written back to Postgres. Redis can be flushed without data loss.
+
+DuckDB – DCL Data Processing Engine (Ephemeral Analytics)
+
+DuckDB is used as an embedded analytical engine inside DCL for:
+
+Local joins, aggregations, and transformations on connector payloads
+
+Micro-batch processing and profiling of canonical tables
+
+Ad-hoc analysis during mapping/RAG experimentation and evals
+
+DuckDB is treated as ephemeral compute, not storage: results that matter are written back into Postgres. DuckDB holds no long-term, user-visible state.
+
+Pinecone – Vector Store for RAG (Similarity Search Only)
+
+Pinecone is our managed vector database for RAG-based mapping and schema search.
+
+We store embeddings for:
+
+Source fields and schemas (per connector)
+
+Canonical entities and fields in the DCL ontology
+
+Mapping examples and documentation snippets
+
+Postgres remains the source of truth for mappings and schemas; Pinecone stores only embeddings + minimal metadata (e.g., tenant_id, source_system, object_type, field_name, mapping_id).
+
+Typical pattern:
+
+Writes/updates to mappings and schemas are committed to Postgres.
+
+A background job generates/refreshes embeddings and upserts them into Pinecone.
+
+AAM/DCL query Pinecone for nearest neighbors, then resolve final answers via IDs/rows in Postgres.
+
+Multi-tenancy is enforced via Pinecone namespaces and/or metadata filters (e.g., tenant_id), with all queries scoped to the calling tenant.
+
+Guardrails
+
+The only authoritative database for AutonomOS runtime is PostgreSQL (Supabase).
+
+Redis, DuckDB, and Pinecone are supporting engines for performance, analytics, and similarity search; they never act as the sole home of canonical or tenant-critical data.
+
+We do not use Replit DB, IDE-specific “quick DBs,” or local SQLite files for any AOD/AAM/DCL persistence in dev, staging, or production. All persistence flows through Postgres, with Redis/DuckDB/Pinecone used strictly for their narrow roles (queues/cache, analytics, vector search).

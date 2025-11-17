@@ -1,9 +1,9 @@
-# AAM Enterprise Architecture Plan
-## Scaling to 1000+ Connectors in Production
+# AAM and DCL Architecture Overview
+## System Architecture for Enterprise-Scale Data Integration
 
 **Date:** November 17, 2025  
-**Status:** Architecture Review & Planning  
-**Focus:** Auto-connection and auto-mapping capabilities for enterprise-scale deployment
+**Status:** Architecture Overview & Design  
+**Focus:** Component responsibilities, data flows, and scaling strategy
 
 ---
 
@@ -229,6 +229,196 @@ for connector in connectors:  # 1000 iterations
 - Cross-domain playbooks (e.g., data + compute + network)
 - Multi-agent coordination across different domains
 - Business process automation spanning multiple systems
+
+---
+
+## Functional Data Flow Architecture
+
+### System Data Flow Overview
+
+```mermaid
+graph TB
+    subgraph "Discovery Layer"
+        U[User] -->|Requests Discovery| AOD[AOD Service]
+        AOD -->|Catalog Sources| PC[(Provider Catalog)]
+    end
+    
+    subgraph "Connection Layer"
+        AOD -->|Notify Available| AAM[AAM Workers]
+        AAM -->|Get Credentials| IM[Integration Manager]
+        IM -->|Encrypted Secrets| V[(Vault/DB)]
+        AAM -->|Fetch Data| EXT[External APIs]
+    end
+    
+    subgraph "Intelligence Layer"
+        AAM -->|Request Mapping| DCL[DCL Engine]
+        DCL -->|RAG Lookup| PIN[(Pinecone)]
+        DCL -->|LLM Fallback| LLM[LLM Service]
+        DCL -->|Store Mappings| PG[(PostgreSQL)]
+    end
+    
+    subgraph "Processing Layer"
+        AAM -->|Raw Data| RDS[(Redis Queue)]
+        RDS -->|Batch Process| DUCK[(DuckDB)]
+        DUCK -->|Transform| AAM
+        AAM -->|Canonical Events| PG
+    end
+    
+    subgraph "Orchestration Layer"
+        DCL -->|Execute| AGT[Agents]
+        AGT -->|Read Context| PG
+        AGT -->|Write Results| PG
+        AGT -->|Notifications| U
+    end
+```
+
+### Detailed Data Flows by Operation
+
+#### 1. Source Discovery Flow (AOD)
+```
+User Request → AOD Service → Provider Scan → Catalog Update → Notification to AAM
+```
+**Data Storage:**
+- **PostgreSQL**: Provider catalog, source metadata
+- **Redis**: Discovery status cache
+
+#### 2. Connection Establishment Flow (AAM)
+```
+AAM Worker → Integration Manager → Vault (Get Credentials) → OAuth/API Auth → External API
+```
+**Data Storage:**
+- **PostgreSQL**: Connection metadata, auth tokens
+- **Vault**: Encrypted credentials per tenant
+- **Redis**: Token refresh queue
+
+#### 3. Data Fetching & Transformation Flow (AAM)
+```
+External API → AAM Worker → Redis Queue → DuckDB Processing → Canonical Transform → PostgreSQL
+```
+**Data Storage:**
+- **Redis**: Job queue, rate limit state
+- **DuckDB**: Ephemeral processing (joins, aggregations)
+- **PostgreSQL**: Canonical events, audit log
+
+#### 4. Mapping Intelligence Flow (DCL)
+```
+AAM Request → DCL → Pinecone (RAG) → PostgreSQL (Mappings) → Response to AAM
+```
+**Flow Details:**
+1. **AAM sends unknown field**: `{"field": "cust_nm", "value": "John Doe", "context": "contact"}`
+2. **DCL RAG lookup**: Query Pinecone for similar fields
+3. **High confidence (>0.85)**: Return RAG result immediately
+4. **Low confidence (<0.85)**: Fall back to LLM for proposal
+5. **Store & return**: Save to PostgreSQL, return to AAM
+
+**Data Storage:**
+- **Pinecone**: Vector embeddings for fields/schemas
+- **PostgreSQL**: Mapping registry (source of truth)
+- **Redis**: Hot mapping cache (TTL: 5 minutes)
+
+#### 5. Agent Execution Flow (DCL → Agents)
+```
+User Query → DCL → Graph Generation → Agent Selection → Execution → Results
+```
+**Data Storage:**
+- **PostgreSQL**: Agent definitions, execution logs, results
+- **DuckDB**: Query planning and optimization
+- **Redis**: Execution state pub/sub
+
+### Data Storage Responsibilities
+
+| Component | PostgreSQL (Supabase) | Redis | DuckDB | Pinecone |
+|-----------|----------------------|-------|---------|----------|
+| **AOD** | Provider catalog, source metadata | Discovery cache | - | - |
+| **AAM** | Connections, canonical events | Job queues, rate limits | Batch transforms | - |
+| **DCL** | Mappings, ontology, agent data | Mapping cache | Query planning | Field embeddings |
+| **Agents** | Execution logs, results, context | State notifications | Analytics queries | - |
+
+### Multi-Tenant Data Isolation
+
+```mermaid
+graph LR
+    T1[Tenant 1] -->|Scoped| D1[Data Partition 1]
+    T2[Tenant 2] -->|Scoped| D2[Data Partition 2]
+    T3[Tenant 3] -->|Scoped| D3[Data Partition 3]
+    
+    D1 --> PG[(PostgreSQL)]
+    D2 --> PG
+    D3 --> PG
+    
+    D1 --> NS1[Pinecone Namespace 1]
+    D2 --> NS2[Pinecone Namespace 2]
+    D3 --> NS3[Pinecone Namespace 3]
+```
+
+**Enforcement Points:**
+1. **PostgreSQL**: All queries include `WHERE tenant_id = ?`
+2. **Redis**: Keys prefixed with `tenant:{id}:`
+3. **Pinecone**: Namespace per tenant or metadata filter
+4. **DuckDB**: Ephemeral, tenant data never mixed
+
+### Event-Driven Communication
+
+```mermaid
+sequenceDiagram
+    participant AAM
+    participant Redis
+    participant DCL
+    participant Agent
+    participant User
+    
+    AAM->>Redis: Publish canonical event
+    Redis->>DCL: Event notification
+    DCL->>DCL: Process event
+    DCL->>Agent: Trigger if relevant
+    Agent->>Agent: Execute action
+    Agent->>Redis: Publish result
+    Redis->>User: SSE/WebSocket update
+```
+
+### Performance & Scaling Data Paths
+
+**Hot Path (Cached):**
+```
+AAM → Redis Cache → Immediate Response (< 10ms)
+```
+
+**Warm Path (RAG):**
+```
+AAM → DCL → Pinecone → PostgreSQL → Response (< 100ms)
+```
+
+**Cold Path (LLM):**
+```
+AAM → DCL → LLM → PostgreSQL → Response (< 2s)
+```
+
+**Batch Path (Analytics):**
+```
+PostgreSQL → DuckDB → Aggregation → Results (async, minutes)
+```
+
+### Critical Data Guarantees
+
+1. **PostgreSQL is the ONLY source of truth** - All authoritative data lives here
+2. **Redis is ONLY for ephemeral data** - Can be flushed without data loss
+3. **DuckDB is ONLY for processing** - No persistent state
+4. **Pinecone is ONLY for search** - PostgreSQL holds actual mappings
+
+### Failure & Recovery Flows
+
+**Component Failure Scenarios:**
+
+| Failure | Impact | Recovery | Data Loss |
+|---------|--------|----------|-----------|
+| PostgreSQL down | System halt | Failover replica | None (replicated) |
+| Redis down | Degraded performance | Use PostgreSQL directly | None (ephemeral) |
+| DuckDB crash | Analytics unavailable | Restart worker | None (ephemeral) |
+| Pinecone down | Slow mappings (LLM fallback) | Use PostgreSQL search | None (cache only) |
+| AAM worker crash | Connection paused | Redis requeue job | None (idempotent) |
+| DCL service down | No new mappings | Use cached mappings | None (cache fallback) |
+
+---
 
 ### Refactored Architecture (Preventing AAM Bloat)
 
