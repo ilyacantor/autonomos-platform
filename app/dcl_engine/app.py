@@ -945,6 +945,14 @@ async def llm_propose(
     
     llm_start = time.time()
     
+    # NO-RAG FAST PATH: Check Prod Mode BEFORE expensive RAG retrieval
+    # This bypasses both RAG and LLM, falling back to heuristics immediately
+    # Target: <10s total processing time in Production mode
+    current_dev_mode = get_dev_mode()
+    if not current_dev_mode:
+        log(f"⚡ Prod Mode (No-RAG Fast Path): Bypassing RAG/LLM, using heuristics for {source_key}")
+        return None  # Async function returns just None, not tuple
+    
     # Initialize RAG engine if not already initialized (for worker processes)
     if rag_engine is None and os.getenv("PINECONE_API_KEY"):
         try:
@@ -954,7 +962,7 @@ async def llm_propose(
         except Exception as e:
             log(f"⚠️ RAG Engine initialization failed in worker: {e}")
     
-    # STREAMING EVENT: RAG retrieval starting
+    # STREAMING EVENT: RAG retrieval starting (only in Dev Mode)
     await ws_manager.broadcast({
         "type": "mapping_progress",
         "source": source_key,
@@ -1990,6 +1998,14 @@ def _sync_llm_propose_internal(
     
     llm_start = time.time()
     
+    # NO-RAG FAST PATH: Check Prod Mode BEFORE expensive RAG retrieval
+    # This bypasses both RAG and LLM, falling back to heuristics immediately
+    # Target: <10s total processing time in Production mode
+    current_dev_mode = get_dev_mode()
+    if not current_dev_mode:
+        log(f"⚡ Prod Mode (No-RAG Fast Path): Bypassing RAG/LLM, using heuristics for {source_key}")
+        return (None, False)
+    
     # Initialize RAG engine if needed (for worker processes)
     if rag_engine is None and os.getenv("PINECONE_API_KEY"):
         try:
@@ -2000,6 +2016,7 @@ def _sync_llm_propose_internal(
             log(f"⚠️ RAG Engine initialization failed: {e}")
     
     # RAG retrieval (synchronous, serial - trade intra-source parallelization for inter-source parallelization)
+    # Only executed in Dev Mode (Prod Mode fast-paths above)
     rag_context = ""
     rag_task_start = time.time()
     all_similar = []
@@ -2055,13 +2072,8 @@ def _sync_llm_propose_internal(
         except Exception as e:
             log(f"⚠️ RAG retrieval failed: {e}")
     
-    # Check dev mode (cross-process safe via Redis)
-    current_dev_mode = get_dev_mode()
-    if not current_dev_mode:
-        log(f"⚡ Prod Mode: RAG retrieval complete, skipping LLM - falling back to heuristics for {source_key}")
-        return (None, False)
-    
     # INTELLIGENT LLM DECISION: Check RAG coverage before calling LLM
+    # (Prod Mode already fast-pathed early, so we're in Dev Mode here)
     if rag_engine and all_similar:
         total_fields = sum(len(table_info.get('schema', {})) for table_info in tables.values())
         matched_fields = set()
