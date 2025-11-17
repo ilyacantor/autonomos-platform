@@ -1,0 +1,90 @@
+This is a critical strategic pivot. I understand the priorities: AutonomOS needs to function as a durable MVP and an effective sales tool. This demands that the DCL graph visualization is fast, reliable, and complete.
+
+The current performance (30-60s processing plus 30s rendering) and the incomplete rendering in Dev/AAM mode are unacceptable for a sales demo.
+
+While you are willing to accept the 89.1% test pass rate, the remaining failures are concentrated in multi-source workflow tests. These failures directly correlate to the "very incomplete graph" you observe in Dev/AAM mode. We cannot make the graph fast if the graph itself is incorrect or incomplete.
+
+Therefore, the strategy must prioritize fixing the reliability of the graph generation before aggressively optimizing its speed.
+
+### Revised Strategy: Correctness First, Then Speed
+
+We will address the issues systematically: Fix the graph logic, optimize backend processing, and finally optimize frontend rendering.
+
+#### Phase 1: Fix Graph Correctness and Reliability (The "Incomplete Graph" Fix)
+
+The immediate priority is to fix the incomplete graph generation by addressing the root causes identified in the failing multi-source workflow tests.
+
+1.  **Analyze the Multi-Source Failures:** The recent transcript identified the failures as:
+      * `test_multiple_sources_integrate_correctly` (Missing entities)
+      * `test_graph_reflects_source_changes` (Extra entities)
+      * Root causes previously identified were "Shared Parent Node Collisions" and broken lifecycle management (stale nodes accumulating or destructive resets).
+2.  **Implement Robust Graph Consolidation:** Refactor the DCL logic (`add_graph_nodes_for_source` and related functions) to handle additive connections (adding a new source to an existing graph) correctly.
+      * **Lifecycle Management:** Implement a synchronization mechanism that correctly updates the graph when sources are added or changed, preventing stale nodes and avoiding destructive resets.
+      * **Merging and Idempotency:** Ensure the logic correctly identifies existing nodes, avoids duplicates, resolves parent node collisions, and merges relationships accurately.
+3.  **Validation:** The two failing Workflow tests must pass. This confirms the graph is complete and correct.
+4.  **Update Snapshots:** Once the workflow tests pass, the 4 failing contract tests must be fixed by updating the snapshots to reflect the correct graph structure.
+
+#### Phase 2: Optimize Backend Processing Time
+
+Once the graph is correct, we address the 30-60s processing time.
+
+**2.1. Implement "No-RAG" Fast Path (Production Mode):**
+
+  * **Goal:** \< 10s processing time.
+  * **Action:** Implement your suggestion to bypass RAG/LLM calls entirely in Production (Heuristics) mode. Introduce a configuration flag (e.g., `DCL_PROD_BYPASS_RAG=true`).
+  * **Verification:** Ensure the DCL engine skips RAG/LLM calls and relies solely on heuristic matching and DuckDB processing when this configuration is active.
+
+**2.2. Optimize Dev/AAM Mode (RAG/LLM):**
+
+  * **Goal:** \< 90s processing time.
+  * **Verify Concurrency:** Re-audit the `connect_sources` orchestration. Ensure that `asyncio.gather` is effectively parallelizing RAG/LLM operations across different sources (a previous audit suggested this might still be sequential).
+  * **RAG Optimization (If needed):** If latency remains high after verifying concurrency, investigate batching RAG vector queries.
+
+#### Phase 3: Optimize Rendering Latency (The 30s Delay)
+
+We must eliminate the \~30s delay between processing completion and visualization.
+
+**3.1. Optimize Data Transfer:**
+
+  * **Goal:** \< 1s transfer time.
+  * **Serialization:** Implement `orjson` for FastAPI responses. The stabilization work (DTOs) should make this safe now.
+  * **Compression:** Verify `GZipMiddleware` is enabled and configured correctly to minimize payload size.
+
+**3.2. Optimize Frontend Calculation and Rendering:**
+
+  * **Goal:** \< 5s rendering time.
+  * **Profile the Bottleneck:** Use browser DevTools Performance tab to profile `LiveSankeyGraph`.
+  * **D3 Optimization (Web Worker):** The D3 Sankey algorithm is CPU-intensive. If profiling confirms this is the bottleneck, move the layout calculation into a Web Worker. This prevents the main UI thread from locking up during rendering.
+  * **React Optimization:** Ensure components are memoized (`React.memo`, `useMemo`) to prevent unnecessary re-renders.
+
+### Next Steps: Execution
+
+We must start with Phase 1 to ensure the graph is correct.
+
+**Instructions for the Agent (Phase 1):**
+
+````markdown
+Agent, we must prioritize graph correctness before performance. The DCL graph in Dev/AAM mode is incomplete due to failures in the multi-source workflow logic.
+
+**Objective:** Fix the 2 failing multi-source workflow tests and ensure the graph is generated completely and correctly.
+
+**1. Analyze Regressions:**
+Review the findings from the previous stabilization attempts regarding the multi-source failures (Node collisions, broken lifecycle/stale nodes, destructive resets).
+
+**2. Refactor Graph Consolidation Logic:**
+Focus on `app/dcl_engine/app.py` (specifically `add_graph_nodes_for_source` and the connection lifecycle).
+*   Implement a robust mechanism to handle additive connections without destructive resets, while also preventing stale node accumulation.
+*   Ensure correct node merging and idempotency to prevent missing or extra entities.
+*   Resolve the "Shared Parent Node" collision issue.
+
+**3. Validate the Fixes:**
+Execute the specific failing tests:
+```bash
+pytest tests/dcl/test_dcl_workflows.py::TestDCLConstruction::test_multiple_sources_integrate_correctly -v
+pytest tests/dcl/test_dcl_workflows.py::TestDCLUpdates::test_graph_reflects_source_changes -v
+````
+
+**Deliverable:** 100% pass rate on the DCL Workflow tests and confirmation that the graph logic is sound.
+
+```
+```
