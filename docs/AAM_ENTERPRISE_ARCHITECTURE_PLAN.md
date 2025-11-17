@@ -181,39 +181,41 @@ for connector in connectors:  # 1000 iterations
 | Capability | AOD | AAM | DCL | Notes |
 |------------|-----|-----|-----|-------|
 | **Discovery & Cataloging** |||||
-| Asset discovery (find data sources) | **R** | C | I | AOD discovers, AAM gets notified |
-| Schema introspection | I | **R** | C | AAM scans schemas at runtime |
-| Source catalog management | **R** | I | C | AOD maintains source inventory |
+| Asset discovery (find data sources) | **A/R** | C | I | AOD owns discovery |
+| Schema introspection | I | **A/R** | C | AAM owns runtime schema scanning |
+| Source catalog management | **A/R** | I | C | AOD owns catalog |
 | **Connection Runtime** |||||
-| API authentication/OAuth | I | **R** | I | AAM manages credentials |
-| Data fetching/sync | I | **R** | I | AAM pulls data from sources |
-| Pagination handling | I | **R** | I | AAM handles API pagination |
-| Rate limiting/throttling | I | **R** | I | AAM enforces API limits |
-| Connection health monitoring | C | **R** | I | AAM tracks connection status |
+| API authentication/OAuth | I | **A/R** | I | AAM owns credential management |
+| Data fetching/sync | I | **A/R** | I | AAM owns data retrieval |
+| Pagination handling | I | **A/R** | I | AAM owns API pagination |
+| Rate limiting/throttling | I | **A/R** | I | AAM owns API limits |
+| Connection health monitoring | C | **A/R** | I | AAM owns monitoring |
 | **Intelligence & Mapping** |||||
-| LLM-powered mapping proposals | - | I | **R** | DCL owns all LLM logic |
-| RAG mapping lookup | - | I | **R** | DCL owns RAG engine |
-| Mapping registry storage | - | C | **R** | DCL owns mapping database |
-| Mapping approval workflow | - | I | **R** | DCL manages approvals |
-| Confidence scoring | - | I | **R** | DCL calculates confidence |
+| LLM-powered mapping proposals | - | I | **A/R** | DCL owns LLM decisions |
+| RAG mapping lookup | - | I | **A/R** | DCL owns RAG system |
+| Mapping registry storage | - | C | **A/R** | DCL owns registry database |
+| Mapping approval workflow | - | I | **A/R** | DCL owns approvals |
+| Confidence scoring | - | I | **A/R** | DCL owns scoring logic |
 | **Transformation** |||||
-| Canonical transformation | - | **R** | A | AAM applies, DCL approves mappings |
-| Schema drift detection | - | **R** | C | AAM detects, DCL decides action |
-| Drift repair proposals | - | I | **R** | DCL proposes fixes via LLM |
+| Canonical transformation | - | R | **A** | DCL decides, AAM executes |
+| Schema drift detection | - | **A/R** | C | AAM detects and owns |
+| Drift repair proposals | - | I | **A/R** | DCL owns repair logic |
 | **Graph & Ontology** |||||
-| Ontology management | - | - | **R** | DCL owns ontology |
-| Graph generation | - | I | **R** | DCL builds unified graph |
-| Entity resolution | - | I | **R** | DCL resolves entities |
+| Ontology management | - | - | **A/R** | DCL fully owns |
+| Graph generation | - | I | **A/R** | DCL owns graph building |
+| Entity resolution | - | I | **A/R** | DCL owns resolution |
 | **Agent Orchestration** |||||
-| Agent execution | - | - | **R** | DCL runs agents |
-| Agent context management | - | - | **R** | DCL manages context |
-| Multi-agent coordination | - | - | **R** | DCL coordinates |
+| Agent execution | - | - | **A/R** | DCL owns execution |
+| Agent context management | - | - | **A/R** | DCL owns context |
+| Multi-agent coordination | - | - | **A/R** | DCL owns coordination |
 
-**Legend:**
-- **R** = Responsible (owns the capability)
-- **A** = Accountable (approves/governs)
-- **C** = Consulted (provides input)
-- **I** = Informed (notified of changes)
+**RACI Legend (Corrected):**
+- **A** = Accountable (single owner, ultimately answerable)
+- **R** = Responsible (does the work, can be multiple)
+- **C** = Consulted (provides input, two-way communication)
+- **I** = Informed (kept updated, one-way communication)
+
+**Key Rule:** Each capability has exactly ONE Accountable owner (marked as A or A/R when same component is both)
 
 ### Refactored Architecture (Preventing AAM Bloat)
 
