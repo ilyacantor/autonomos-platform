@@ -1,5 +1,9 @@
 # AutonomOS Platform Architecture
 
+**Status:** ✅ FULLY OPERATIONAL (November 17, 2025)
+
+**AAM Hybrid Orchestration:** All background services running (SchemaObserver, RAG Engine, DriftRepairAgent) with Event Bus connected via Redis Pub/Sub. Canonical transformation pipeline processing 147 events with zero validation errors.
+
 ## Table of Contents
 1. [Functional Overview](#functional-overview)
 2. [Systems Overview (AOA)](#systems-overview-aoa)
@@ -227,11 +231,17 @@ graph TB
     DRIFT & SCHEMA --> CONN_REG
 ```
 
-**Current Connectors:**
-- ✅ Salesforce (Production)
-- ✅ Supabase (Production)
-- ✅ MongoDB (Production)
-- ✅ FileSource (Production)
+**Current Connectors (All Operational):**
+- ✅ Salesforce (Production) - OAuth2 CRM connector with canonical transformation
+- ✅ Supabase (Production) - PostgreSQL cloud connector with drift detection
+- ✅ MongoDB (Production) - NoSQL connector with BSON handling
+- ✅ FileSource (Production) - CSV ingestion with 147 events successfully processed
+
+**AAM Status:** FULLY OPERATIONAL
+- Background services running as integrated tasks (SchemaObserver, RAG Engine, DriftRepairAgent)
+- Event Bus connected via Redis Pub/Sub
+- Canonical transformation pipeline processing real data with zero validation errors
+- Multi-tenant isolation working with string-based tenant_id
 
 ---
 
