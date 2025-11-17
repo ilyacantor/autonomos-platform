@@ -1,0 +1,9 @@
+# JSONPlaceholder Posts API to Canonical Opportunity Mapping
+# Maps JSONPlaceholder posts to canonical opportunity entity (for testing)
+
+opportunity:
+  description: JSONPlaceholder post to canonical opportunity mapping
+  fields:
+    opportunity_id: "id"
+    name: "title"
+    stage: "userId"  # Map userId to stage as demo
