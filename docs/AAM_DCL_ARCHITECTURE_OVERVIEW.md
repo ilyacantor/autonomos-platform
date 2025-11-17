@@ -1581,12 +1581,19 @@ WHERE l.canonical_event_id = '123e4567-e89b-12d3-a456-426614174000';
 
 ---
 
-## Implementation Phases
+## Phased Implementation Plan (Logical Stages & Outcomes)
 
-### Phase 0: Foundation Validation (NEW - Do This First)
-**Goal:** Prove core assumptions before building enterprise infrastructure
+### Implementation Principles
+- **No Patches**: Every change must be fundamentally proper and enterprise-grade
+- **No Band-Aids**: Build for scale from the start, not quick fixes
+- **Complete Functionality**: Never sacrifice features to pass tests
+- **Logical Dependencies**: Each phase enables the next through capability building
+- **Measurable Outcomes**: Success criteria based on capabilities achieved
 
-**Critical: This phase de-risks the entire project by validating assumptions with real data**
+### Phase 0: Foundation Architecture & Core Validation
+**Outcome:** Enterprise-grade persistence layer and validated architectural assumptions
+
+**Critical: This phase establishes the fundamental data architecture properly from the start**
 
 **Tasks:**
 1. **Benchmark Current System Performance**
@@ -1625,28 +1632,27 @@ WHERE l.canonical_event_id = '123e4567-e89b-12d3-a456-426614174000';
    - Test rollback (DB → YAML fallback)
    ```
 
-**Success Criteria (Go/No-Go Decision):**
-- ✅ RAG hit rate >75% on test data (proves viability)
-- ✅ Generic connector works for 2/3 test APIs (proves concept)
-- ✅ Migration produces zero discrepancies (proves safety)
-- ✅ Baseline metrics captured (enables progress tracking)
+**Success Criteria:**
+- Database schema properly normalized with correct foreign keys and indexes
+- RAG infrastructure achieves >75% hit rate on test mappings  
+- Generic connector pattern successfully handles 3 different API types
+- Zero data loss in YAML to database migration path
+- Baseline metrics fully documented for progress measurement
 
-**Exit Criteria (Stop if these fail):**
-- ❌ RAG hit rate <60% → RAG strategy not viable, need alternative
-- ❌ Generic connector fails all 3 APIs → Abandon generic approach
-- ❌ Migration produces >5% discrepancies → Migration too risky
-
-**Duration:** Proof-of-concept phase before committing to full build
+**Phase Dependencies:**
+- Must complete before any production code changes
+- Validates architectural decisions with real data
+- Establishes foundation for all subsequent phases
 
 ---
 
-### Phase 1: Foundation (Enterprise-Ready Core)
-**Goal:** Build database-backed mapping system with RAG-first strategy
+### Phase 1: Intelligence Layer & Mapping Infrastructure
+**Outcome:** Production-grade mapping system with RAG-first intelligence
 
 **Prerequisites:**
-- Phase 0 completed with all success criteria met
-- pgvector extension enabled in PostgreSQL
-- Infrastructure provisioned (Redis Streams, OpenTelemetry)
+- Phase 0 completed with validated architecture
+- PostgreSQL with Pinecone vector store ready
+- Redis infrastructure operational
 
 **Tasks:**
 1. **Create Database Schema**
@@ -1655,10 +1661,10 @@ WHERE l.canonical_event_id = '123e4567-e89b-12d3-a456-426614174000';
    - `audit_log` table for compliance
    - Indexes for performance
 
-2. **Migrate YAML → Database (3-Phase Rollout)**
-   - Phase 1a: Shadow mode (dual-write, validate)
-   - Phase 1b: Canary deployment (5% → 25% → 50% → 100%)
-   - Phase 1c: Full cutover (archive YAML)
+2. **YAML to Database Migration**
+   - Implement dual-write capability (YAML + DB simultaneously)
+   - Validate data consistency with zero discrepancies
+   - Enable gradual cutover with rollback capability
 
 3. **Build RAG Infrastructure**
    - RAG governance with quality gates
@@ -1672,26 +1678,26 @@ WHERE l.canonical_event_id = '123e4567-e89b-12d3-a456-426614174000';
    - Per-tenant isolation
 
 **Success Criteria:**
-- ✅ All mappings migrated to database with zero data loss
-- ✅ RAG hit rate >85% on existing connectors (measured)
-- ✅ Sub-100ms mapping lookup latency (benchmarked)
-- ✅ Approval workflow functional with audit trail
-- ✅ Rollback tested and working (can revert to YAML in <5 min)
+- All mappings migrated to database with complete data integrity
+- RAG infrastructure achieving >85% hit rate on existing connectors
+- Sub-100ms mapping lookup latency under load
+- Complete audit trail for all mapping operations
+- Rollback capability validated with zero data loss
 
-**Validation Gates:**
-- [ ] Load test: 1000 concurrent mapping lookups <100ms p95
-- [ ] Migration validation: All YAML mappings match DB outputs
-- [ ] Rollback drill: Successfully revert to YAML backup
+**Phase Dependencies:**
+- Enables runtime mapping updates without code changes
+- Required for multi-tenant isolation in later phases
+- Foundation for all intelligent mapping capabilities
 
 ---
 
-### Phase 2: Generic Connector Framework
-**Goal:** Build adapter pattern for 40% generic + 60% custom connectors
+### Phase 2: Scalable Connector Architecture
+**Outcome:** Adapter pattern supporting both generic and custom connectors
 
 **Prerequisites:**
-- Phase 1 completed (database-backed registry operational)
-- Connector capability matrix defined
-- Real API credentials available (Stripe, GitHub via Integration Manager)
+- Phase 1 intelligence layer fully operational
+- Connector capability matrix documented
+- Integration Manager handling credentials
 
 **Tasks:**
 1. **Build GenericRESTConnector (40% use case)**
@@ -1717,26 +1723,26 @@ WHERE l.canonical_event_id = '123e4567-e89b-12d3-a456-426614174000';
    - Document what makes them custom
 
 **Success Criteria:**
-- ✅ GenericRESTConnector works for Stripe, GitHub (2/3 real APIs)
-- ✅ Custom connectors documented with complexity drivers
-- ✅ Hybrid approach validated with 1 test API
-- ✅ Connector factory selects correct type based on config
-- ✅ New generic connector added in <2 hours (config only)
+- GenericRESTConnector successfully handles standard REST APIs
+- Custom connectors properly isolated with documented complexity drivers
+- Hybrid approach validated for edge cases
+- Connector factory correctly routes based on API characteristics
+- New connectors deployable through configuration without code changes
 
-**Validation Gates:**
-- [ ] End-to-end test: Stripe data → canonical events via generic connector
-- [ ] Performance test: Generic connector <2s latency for 1000 records
-- [ ] Classification test: 10 new APIs correctly classified (generic vs custom)
+**Phase Dependencies:**
+- Required for scaling beyond hand-coded connectors
+- Enables rapid onboarding of new data sources
+- Foundation for distributed processing in next phase
 
 ---
 
-### Phase 3: Distributed Workers
-**Goal:** Enable parallel processing for realistic scale (100+ connectors)
+### Phase 3: Distributed Processing Infrastructure
+**Outcome:** Parallel processing capability for enterprise scale
 
 **Prerequisites:**
-- Phase 2 completed (generic connector framework working)
-- Redis Streams infrastructure provisioned
-- Worker orchestration platform ready (RQ workers)
+- Phase 2 connector framework fully operational
+- Redis Streams infrastructure ready
+- Worker orchestration platform available
 
 **Tasks:**
 1. **Refactor to Event-Driven Architecture**
@@ -1760,25 +1766,26 @@ WHERE l.canonical_event_id = '123e4567-e89b-12d3-a456-426614174000';
    - Validate isolation
 
 **Success Criteria:**
-- ✅ 50 connectors scanned in <15 minutes (realistic)
-- ✅ Workers handle 5 concurrent jobs each (50 jobs with 10 workers)
-- ✅ Circuit breaker prevents cascade failures
-- ✅ Per-tenant partition isolation validated with 3 test tenants
+- Event-driven architecture properly decoupled with Redis Streams
+- Worker pool successfully processes jobs in parallel
+- Circuit breakers prevent cascade failures
+- Database partitioning ensures tenant isolation
+- System gracefully degrades under load
 
-**Validation Gates:**
-- [ ] Load test: 50 connectors with 10 workers completes successfully
-- [ ] Failure test: 1 connector timeout doesn't block others
-- [ ] Tenant isolation test: Tenant A's load doesn't affect Tenant B's latency
+**Phase Dependencies:**
+- Required for handling 100+ concurrent connectors
+- Enables horizontal scaling of processing capacity
+- Foundation for multi-tenant resource isolation
 
 ---
 
-### Phase 4: Multi-Tenant & Observability
-**Goal:** Production-grade resource isolation and monitoring
+### Phase 4: Enterprise Multi-Tenancy & Observability
+**Outcome:** Production-grade resource isolation with comprehensive monitoring
 
 **Prerequisites:**
-- Phase 3 completed (distributed workers operational)
-- OpenTelemetry infrastructure provisioned
-- Multi-tenant test data available
+- Phase 3 distributed processing operational
+- OpenTelemetry infrastructure ready
+- Multiple test tenants configured
 
 **Tasks:**
 1. **Implement Tenant Resource Management**
@@ -1803,25 +1810,26 @@ WHERE l.canonical_event_id = '123e4567-e89b-12d3-a456-426614174000';
    - Incident response automation
 
 **Success Criteria:**
-- ✅ Tenant quotas prevent one tenant from monopolizing resources
-- ✅ Rate limiting tested (429 responses when exceeded)
-- ✅ OpenTelemetry traces visible (can trace 1 connector sync end-to-end)
-- ✅ Per-tenant cost dashboard shows accurate LLM spend
+- Per-tenant resource quotas fully enforced
+- Rate limiting operational with proper 429 responses
+- Complete observability with end-to-end tracing
+- Per-tenant cost attribution fully accurate
+- Audit trail compliant with GDPR requirements
 
-**Validation Gates:**
-- [ ] Tenant isolation test: Tenant A at quota doesn't affect Tenant B
-- [ ] Rate limit test: 1000 requests/min triggers 429 correctly
-- [ ] Observability test: Can trace a failed connector sync and identify root cause
+**Phase Dependencies:**
+- Required for production SaaS deployment
+- Enables fair resource allocation across tenants
+- Foundation for compliance and cost management
 
 ---
 
-### Phase 5: Scale Test & Validation
-**Goal:** Validate realistic scale targets (100 connectors initially, path to 1000)
+### Phase 5: Production Validation & Scale Testing
+**Outcome:** Validated architecture meeting enterprise performance targets
 
 **Prerequisites:**
-- All previous phases completed
-- Monitoring infrastructure operational
-- Load testing tools ready
+- All previous phases successfully completed
+- Full monitoring infrastructure operational
+- Load testing environment configured
 
 **Tasks:**
 1. **Baseline Measurement**
@@ -1851,32 +1859,35 @@ WHERE l.canonical_event_id = '123e4567-e89b-12d3-a456-426614174000';
    - Validate 5x cost reduction vs initial plan
    - Project costs for 1000 connectors
 
-**Success Criteria (Realistic Targets):**
-- ✅ 100 connectors onboarded in <2 hours (13x faster than initial)
-- ✅ RAG hit rate >85% (realistic with training data)
-- ✅ LLM cost <$20 for 100 connectors (5x cheaper than initial)
-- ✅ No cross-tenant interference in stress test
-- ✅ P95 latency <500ms for mapping lookup
+**Success Criteria:**
+- 100 connectors fully operational with measured performance
+- RAG achieving >85% hit rate across diverse connector types
+- LLM costs reduced by 5x versus initial baseline
+- Complete tenant isolation with zero interference
+- P95 latency meeting enterprise SLA requirements
 
-**Validation Gates:**
-- [ ] Performance benchmark: All improvements measured vs Phase 0 baseline
-- [ ] Cost validation: Actual LLM spend within budget
-- [ ] Scalability projection: Data supports path from 100 → 1000 connectors
+**Phase Dependencies:**
+- Final validation of entire architecture
+- Establishes performance baselines for production
+- Confirms readiness for enterprise deployment
 
-**Exit Criteria (Success Metrics):**
-If Phase 5 achieves:
-- ✅ 10x faster onboarding (or better)
-- ✅ 5x cost reduction (or better)
-- ✅ 85%+ RAG hit rate
-- ✅ Zero tenant isolation failures
+**Production Readiness Checklist:**
+- Architecture supports 100 connectors with path to 1000
+- All enterprise features operational (multi-tenancy, observability, resilience)
+- Cost model validated and sustainable
+- Performance meets or exceeds targets
 
-→ Architecture is validated, proceed to production deployment
+### Future Phases (Post-Production)
 
-**Next Phase (Future):**
-- Scale from 100 → 500 → 1000 connectors
+**Phase 6: Scale Optimization**
+- Expand from 100 to 500 to 1000 connectors
 - Optimize RAG for 95% hit rate
-- Implement auto-scaling (10 → 100 workers)
-- Add advanced features (A/B testing, canary deployments)
+- Implement auto-scaling infrastructure
+
+**Phase 7: Advanced Capabilities**
+- A/B testing for mapping strategies
+- Canary deployments for new connectors
+- Machine learning optimization of mapping proposals
 
 ---
 
@@ -1885,19 +1896,19 @@ If Phase 5 achieves:
 ### Critical Question 1: Demo vs Production?
 
 **Option A: Demonstrate Concepts (Initial Plan)**
-- ✅ Faster to build (10-20 connectors)
+- ✅ Fewer phases to complete
 - ✅ Shows auto-mapping capabilities
 - ❌ Won't scale beyond demo
 - ❌ Complete rewrite needed for production
-- **Timeline:** Ready for demo in 1-2 phases
+- **Approach:** Focus on visual impact, not scale
 - **Risk:** Technical debt, rewrite costs
 
-**Option B: Build for Production (Enterprise Architecture)**
+**Option B: Build for Production (Enterprise Architecture - SELECTED)**
 - ✅ Scales to 1000+ connectors
 - ✅ Production-ready from day 1
 - ✅ No rewrite needed
-- ❌ Takes longer to build all 5 phases
-- **Timeline:** Production-ready after all 5 phases
+- ❌ Requires all phases to be properly completed
+- **Approach:** Enterprise-grade from the start
 - **Risk:** Over-engineering if only demo needed
 
 ---
@@ -1922,74 +1933,88 @@ If Phase 5 achieves:
 
 ---
 
-## Recommendation (Updated)
+## Implementation Strategy
 
-**User has confirmed:**
-- ✅ Option B: Build for Production
-- ✅ Mix of real APIs + mock connectors
+**Selected Approach:**
+- ✅ Option B: Build for Production (Enterprise Architecture)
+- ✅ Mix of real APIs + mock connectors for validation
 - ✅ Methodology: Correctness First → Reliability → Speed → Scale
 
-### Recommended Path: **Phased Enterprise Architecture with Validation**
+### Phased Implementation with Logical Dependencies
 
-**Why This Approach:**
-1. **De-Risked:** Phase 0 validates assumptions before major investment
-2. **Incremental:** Build foundation first, scale later (100 → 1000 connectors)
-3. **Realistic:** Targets are achievable (10x faster, 5x cheaper) vs aspirational (162x, 20x)
-4. **Pragmatic:** 40% generic + 60% custom connectors vs 100% generic (unrealistic)
-5. **Measurable:** Every phase has validation gates and exit criteria
+**Implementation Philosophy:**
+1. **No Patches:** Every change must be fundamentally proper and enterprise-grade
+2. **Complete Functionality:** Never sacrifice features to pass tests
+3. **Logical Progression:** Each phase enables specific capabilities for the next
+4. **Measurable Outcomes:** Success based on capabilities achieved, not timelines
 
-**Phase Priority (Revised):**
-- **Phase 0** (Foundation Validation) - **CRITICAL: DO FIRST** - Proves viability, establishes baseline
-- **Phase 1** (Foundation) - CRITICAL: Database registry, RAG infrastructure, migration
-- **Phase 2** (Generic Connectors) - HIGH: Adapter pattern for 40% use case
-- **Phase 3** (Distributed Workers) - HIGH: Required for 100+ connectors
-- **Phase 4** (Multi-Tenant) - CRITICAL: Required for production SaaS
-- **Phase 5** (Scale Validation) - CRITICAL: Validates all improvements
+**Phase Dependencies & Outcomes:**
+- **Phase 0** → Validates architecture assumptions, establishes proper data layer
+- **Phase 1** → Enables intelligent mapping without code changes
+- **Phase 2** → Enables rapid connector onboarding via configuration
+- **Phase 3** → Enables horizontal scaling for 100+ connectors
+- **Phase 4** → Enables production multi-tenant deployment
+- **Phase 5** → Validates all capabilities meet enterprise requirements
 
-**Realistic Implementation Targets:**
-- **100 connectors initially** (not 1000 immediately)
-- **10x performance improvement** (not 162x)
-- **5x cost reduction** (not 20x)
-- **85% RAG hit rate** (not 95% immediately)
-
-**Start Here:** 
-1. **Phase 0 (Foundation Validation)** - Proof-of-concept before committing
-   - Benchmark current system
-   - Test RAG with 8 existing mappings
-   - Prototype generic connector with 3 APIs
-   - Validate migration strategy
+**Scaling Progression (Capability-Based):**
+- Foundation: 10 connectors (validate core architecture)
+- Intelligence Layer: 25 connectors (prove RAG effectiveness)
+- Generic Framework: 50 connectors (demonstrate configuration-based scaling)
+- Distributed Processing: 100 connectors (confirm parallel execution)
+- Production Scale: Path to 1000 connectors (future optimization)
 
 ---
 
 ## Next Steps
 
-1. ✅ **Decision Made:** Option B (Build for Production) confirmed
-2. ✅ **Architecture Reviewed:** Enterprise architecture validated with realistic targets
-3. **Begin Phase 0:** Foundation Validation (proof-of-concept)
-   - Benchmark current system performance
-   - Test RAG with 8 existing YAML mappings
-   - Prototype generic connector with 3 APIs (Stripe, GitHub, Mock CRM)
-   - Validate YAML → Database migration strategy
-4. **Go/No-Go Decision:** Based on Phase 0 results
-   - If successful: Proceed to Phase 1 (Foundation)
-   - If unsuccessful: Revise strategy based on learnings
-5. **Progressive Scaling:** 10 → 25 → 50 → 100 connectors (not 1000 immediately)
+**Immediate Actions:**
+1. ✅ **Architecture Validated:** Enterprise design reviewed and approved
+2. ✅ **Implementation Approach:** Production-ready from the start
+
+**Phase 0 Initiation:**
+- Establish proper database architecture with normalized schema
+- Validate RAG approach with existing mapping data
+- Prototype generic connector pattern
+- Confirm migration path maintains data integrity
+
+**Success Gates:**
+- Architecture supports enterprise requirements
+- RAG achieves target hit rates
+- Generic pattern handles standard APIs
+- Zero data loss in migrations
+
+**Progressive Capability Building:**
+- Each phase adds specific capabilities
+- No phase proceeds until dependencies met
+- All changes are enterprise-grade
+- Never sacrifice functionality for speed
 
 ---
 
 ## Critical Success Factors
 
-**For Phase 0 to succeed:**
-- [ ] RAG hit rate >75% on test data (proves RAG viability)
-- [ ] Generic connector works for 2/3 test APIs (proves concept)
-- [ ] Migration produces zero discrepancies (proves safety)
-- [ ] Baseline metrics captured (enables progress tracking)
+**Architecture Foundation:**
+- Database-first design with PostgreSQL as single source of truth
+- Proper separation of concerns (AOD discovery, AAM transport, DCL intelligence)
+- No external dependencies in critical paths
 
-**For Overall Success:**
-- [ ] 10x performance improvement (measured vs baseline)
-- [ ] 5x cost reduction (validated with actual LLM spend)
-- [ ] 85% RAG hit rate (after 100 connectors)
-- [ ] Zero tenant isolation failures (multi-tenant tested)
+**Technical Capabilities:**
+- RAG achieving >85% hit rate for mapping proposals
+- Generic connector pattern covering 40% of use cases
+- Event-driven architecture enabling parallel processing
+- Complete tenant isolation with zero interference
+
+**Enterprise Requirements:**
+- All changes fundamentally proper and scalable
+- No patches or band-aids in implementation
+- Full functionality maintained (never sacrifice for tests)
+- Complete audit trail and compliance features
+
+**Performance Targets:**
+- 10x improvement in onboarding speed
+- 5x reduction in LLM costs
+- Sub-100ms P95 latency for mapping lookups
+- Support for 100 concurrent connectors with path to 1000
 
 ---
 
