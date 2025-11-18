@@ -213,72 +213,77 @@ def test_e2e_canonical_transformation(client, unique_tenant_name, unique_email):
     assert 'mapping_id' in created_data, "Response missing mapping_id"
     assert created_data['status'] in ['created', 'updated'], f"Unexpected status: {created_data['status']}"
     
-    # 2. Wire dcl_client's httpx to use ASGITransport for test environment
-    # This allows the REAL dcl_client code to run with its auth/error handling
+    # 2. Create DCL client with ASGITransport for test environment
+    # This exercises the REAL dcl_client code with dependency injection
     import httpx
-    from unittest.mock import patch
     from httpx import ASGITransport
     from shared.feature_flags import set_feature_flag
     from services.aam.canonical.mapping_registry import mapping_registry
     from shared.dcl_mapping_client import DCLMappingClient
     
-    # Create test-compatible DCLMappingClient with ASGITransport
-    # This exercises the real dcl_client logic while routing through TestClient
-    test_dcl_client = DCLMappingClient(base_url="http://testserver")
+    # Create httpx.Client configured with ASGITransport and auth headers
+    test_http_client = httpx.Client(
+        transport=ASGITransport(app=client.app),
+        base_url="http://testserver",
+        headers={'Authorization': f'Bearer {token}'}
+    )
     
-    # Patch httpx.get in dcl_mapping_client module to use authenticated ASGITransport
-    def authenticated_httpx_get(url, **kwargs):
-        """Intercept httpx.get calls from dcl_client and add auth + use ASGI"""
-        # Add JWT auth headers to every request
-        if 'headers' not in kwargs:
-            kwargs['headers'] = {}
-        kwargs['headers']['Authorization'] = f'Bearer {token}'
-        
-        # Create httpx.Client with ASGITransport for this request
-        with httpx.Client(transport=ASGITransport(app=client.app), base_url="http://testserver") as test_client:
-            return test_client.get(url, **kwargs)
+    # Create DCL client with injected httpx.Client
+    test_dcl_client = DCLMappingClient(
+        base_url="http://testserver",
+        http_client=test_http_client
+    )
+    
+    # Save the original dcl_client to restore later
+    original_dcl_client = mapping_registry.dcl_client
+    
+    # Replace mapping_registry's dcl_client with our test client
+    mapping_registry.dcl_client = test_dcl_client
     
     # Enable feature flag for this tenant
     set_feature_flag('USE_DCL_MAPPING_REGISTRY', True, tenant_id)
     
     try:
-        # Patch httpx.get at the module level where dcl_client uses it
-        with patch('shared.dcl_mapping_client.httpx.get', side_effect=authenticated_httpx_get):
-            # 3. AAM fetches mapping via DCL client → httpx (ASGI) → DCL API
-            # This exercises the REAL dcl_client code path with auth
-            mapping = mapping_registry.get_mapping(connector_name, 'test_table', tenant_id)
-            
-            assert mapping is not None, "AAM failed to retrieve mapping via DCL API"
-            assert 'fields' in mapping, "Mapping missing fields"
-            assert 'test_field' in mapping['fields'].values(), "Mapping missing test_field"
-            
-            # Verify field mapping structure (format: {canonical_field: source_field})
-            # Find the canonical field that maps to 'test_field'
-            canonical_key = [k for k, v in mapping['fields'].items() if v == 'test_field'][0]
-            assert canonical_key == 'test_canonical', (
-                f"Wrong canonical field: expected 'test_canonical', got '{canonical_key}'"
-            )
-            
-            # 4. Simulate AAM transformation using the retrieved mapping
-            raw_event = {"test_field": "test_value"}
-            canonical_event = {}
-            
-            # Apply mapping transformation (AAM logic: canonical_field ← source_field)
-            for canonical_key, source_key in mapping['fields'].items():
-                if source_key in raw_event:
-                    canonical_event[canonical_key] = raw_event[source_key]
-            
-            # 5. Verify canonical event
-            assert 'test_canonical' in canonical_event, "Canonical event missing transformed field"
-            assert canonical_event['test_canonical'] == 'test_value', (
-                f"Wrong value: {canonical_event['test_canonical']}"
-            )
-            
-            print(f"✅ PASS: End-to-end flow - mapping_registry→dcl_client→httpx→ASGI→DCL API")
+        # 3. AAM fetches mapping via DCL client → httpx (ASGI) → DCL API
+        # This exercises the REAL dcl_client code path with auth
+        mapping = mapping_registry.get_mapping(connector_name, 'test_table', tenant_id)
+        
+        assert mapping is not None, "AAM failed to retrieve mapping via DCL API"
+        assert 'fields' in mapping, "Mapping missing fields"
+        assert 'test_field' in mapping['fields'].values(), "Mapping missing test_field"
+        
+        # Verify field mapping structure (format: {canonical_field: source_field})
+        # Find the canonical field that maps to 'test_field'
+        canonical_key = [k for k, v in mapping['fields'].items() if v == 'test_field'][0]
+        assert canonical_key == 'test_canonical', (
+            f"Wrong canonical field: expected 'test_canonical', got '{canonical_key}'"
+        )
+        
+        # 4. Simulate AAM transformation using the retrieved mapping
+        raw_event = {"test_field": "test_value"}
+        canonical_event = {}
+        
+        # Apply mapping transformation (AAM logic: canonical_field ← source_field)
+        for canonical_key, source_key in mapping['fields'].items():
+            if source_key in raw_event:
+                canonical_event[canonical_key] = raw_event[source_key]
+        
+        # 5. Verify canonical event
+        assert 'test_canonical' in canonical_event, "Canonical event missing transformed field"
+        assert canonical_event['test_canonical'] == 'test_value', (
+            f"Wrong value: {canonical_event['test_canonical']}"
+        )
+        
+        print(f"✅ PASS: End-to-end flow - mapping_registry→dcl_client→httpx→ASGI→DCL API")
     
     finally:
         # Cleanup
         set_feature_flag('USE_DCL_MAPPING_REGISTRY', False, tenant_id)
+        mapping_registry.dcl_client = original_dcl_client
+        try:
+            test_http_client.close()
+        except AttributeError:
+            pass  # ASGITransport doesn't have close() method
 
 
 @pytest.mark.integration

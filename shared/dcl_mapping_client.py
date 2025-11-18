@@ -16,17 +16,26 @@ logger = logging.getLogger(__name__)
 class DCLMappingClient:
     """Client for calling DCL mapping registry API"""
     
-    def __init__(self, base_url: Optional[str] = None, timeout: float = 5.0):
+    def __init__(self, base_url: Optional[str] = None, timeout: float = 5.0, http_client: Optional[httpx.Client] = None):
         """
         Initialize DCL mapping client
         
         Args:
             base_url: DCL API base URL (defaults to localhost:5000 or DCL_API_URL env var)
             timeout: HTTP request timeout in seconds
+            http_client: Optional httpx.Client for dependency injection (e.g., for testing with ASGITransport)
         """
         self.base_url: str = base_url or os.getenv("DCL_API_URL", "http://localhost:5000")
         self.timeout = timeout
         self.redis = get_redis_client()
+        
+        # Use injected client or create default one
+        self.http_client = http_client
+        self._owns_client = http_client is None
+        if self._owns_client:
+            # Create default client for production use
+            self.http_client = httpx.Client(base_url=self.base_url, timeout=timeout)
+        
         logger.info(f"DCLMappingClient initialized with base_url={self.base_url}")
     
     def get_entity_mapping(self, connector: str, entity: str, tenant_id: str = "default") -> Optional[Dict[str, Any]]:
@@ -62,7 +71,13 @@ class DCLMappingClient:
                 logger.warning(f"Cache read failed for {cache_key}: {e}")
         
         try:
-            url = f"{self.base_url}/api/v1/dcl/mappings/{connector}"
+            # Build relative or absolute URL depending on whether client was injected
+            if not self._owns_client:
+                # Using injected client with its own base_url, use relative path
+                url = f"/api/v1/dcl/mappings/{connector}"
+            else:
+                # Using default client, need full URL
+                url = f"{self.base_url}/api/v1/dcl/mappings/{connector}"
             
             # Database now enforces lowercase source_table (per architect guidance)
             # Normalize entity to lowercase before query
@@ -71,7 +86,8 @@ class DCLMappingClient:
             
             logger.debug(f"DCL API request: GET {url}?source_table={normalized_entity}")
             
-            response = httpx.get(url, params=params, timeout=self.timeout)
+            # Use the injected or default client
+            response = self.http_client.get(url, params=params)
             
             if response.status_code == 404:
                 logger.warning(f"No mapping found for {connector}.{entity} (normalized to '{normalized_entity}')")
@@ -129,9 +145,15 @@ class DCLMappingClient:
             Mapping details or None if not found
         """
         try:
-            url = f"{self.base_url}/api/v1/dcl/mappings/{connector}/{entity}/{field}"
+            # Build relative or absolute URL depending on whether client was injected
+            if not self._owns_client:
+                # Using injected client with its own base_url, use relative path
+                url = f"/api/v1/dcl/mappings/{connector}/{entity}/{field}"
+            else:
+                # Using default client, need full URL
+                url = f"{self.base_url}/api/v1/dcl/mappings/{connector}/{entity}/{field}"
             
-            response = httpx.get(url, timeout=self.timeout)
+            response = self.http_client.get(url)
             
             if response.status_code == 404:
                 return None
@@ -142,3 +164,11 @@ class DCLMappingClient:
         except Exception as e:
             logger.error(f"DCL API error for {connector}.{entity}.{field}: {e}")
             return None
+    
+    def __del__(self):
+        """Clean up the HTTP client if we own it"""
+        if hasattr(self, '_owns_client') and self._owns_client and hasattr(self, 'http_client'):
+            try:
+                self.http_client.close()
+            except Exception:
+                pass
