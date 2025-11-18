@@ -1,6 +1,15 @@
 # AutonomOS - Multi-Tenant AI Orchestration Platform
 
 ## Recent Changes
+**November 18, 2025 - Phase 1.3 Complete: Async Architecture Migration (100% Test Coverage):**
+- **✅ AsyncDCLMappingClient Implementation:** Created async HTTP client using httpx.AsyncClient, eliminating event loop blocking in FastAPI app
+- **✅ MappingRegistry Async Refactor:** Added async methods (get_mapping_async, apply_mapping_async) while preserving backward-compatible sync APIs
+- **✅ Connector Pipeline Async Conversion:** Updated all AAM connectors (Salesforce, MongoDB, Supabase, FileSource) to async normalize/build methods
+- **✅ FastAPI Lifespan Integration:** Implemented proper AsyncClient lifecycle management via lifespan context manager (startup creates, shutdown closes)
+- **✅ Test Infrastructure Async Update:** Converted test fixtures to use httpx.AsyncClient with ASGITransport for async testing
+- **✅ 100% Integration Test Coverage:** All 6/6 integration tests passing, validating end-to-end DCL→AAM async pipeline
+- **✅ Architect Review PASSED:** Production-ready, architecturally sound, meets functional objectives with proper async/await propagation
+
 **November 17, 2025 - Enterprise Reporting Views Added to Architecture:**
 - **✅ Tabular Lineage Grid:** Added searchable/filterable data grid specification for mapping lineage with export capabilities (CSV/JSON/SQL)
 - **✅ Hierarchical Tree View:** Added collapsible Source→Table→Field visualization with confidence color-coding and metadata panels
