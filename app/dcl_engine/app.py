@@ -69,6 +69,9 @@ from app.dcl_engine.schemas.dto import (
     DevMode
 )
 
+# Import DCL mapping registry router
+from app.dcl_engine.routers import mappings as mappings_router
+
 # Use paths relative to this module's directory
 DCL_BASE_PATH = Path(__file__).parent
 
@@ -2550,6 +2553,9 @@ def reset_state(exclude_dev_mode=True, tenant_id: str = "default"):
     log(f"🔄 DCL state cleared for tenant {tenant_id} (dev_mode preserved). Ready for new connection.", tenant_id=tenant_id)
 
 app = FastAPI()
+
+# NOTE: DCL Mapping Registry router is included in main.py at /api/v1/dcl (not here)
+# See app/main.py line 366: app.include_router(mappings.router, prefix="/api/v1/dcl", tags=["DCL Mappings"])
 
 # State broadcasting function
 async def broadcast_state_change(event_type: str = "state_update", tenant_id: str = "default"):
