@@ -1,0 +1,240 @@
+{
+  "capture_timestamp": "2025-11-18T16:46:00Z",
+  "api_base_url": "http://127.0.0.1:5000",
+  "captured_endpoints": {
+    "health_check": {
+      "endpoint": "/health",
+      "method": "GET",
+      "response": {
+        "status_code": 200,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "body": {
+          "status": "ok"
+        }
+      }
+    },
+    "auth_register": {
+      "endpoint": "/api/v1/auth/register",
+      "method": "POST",
+      "request": {
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "email": "runtime_test@example.com",
+          "password": "password123",
+          "name": "Runtime Test Org"
+        }
+      },
+      "response": {
+        "status_code": 201,
+        "headers": {
+          "content-type": "application/json",
+          "x-trace-id": "bf5ee677-36a1-49e1-8030-cf138299dee1",
+          "server": "uvicorn",
+          "date": "Tue, 18 Nov 2025 16:46:52 GMT"
+        },
+        "body": {
+          "user": {
+            "email": "runtime_test@example.com",
+            "id": "ddccc436-7bec-4cb3-b085-9c860b480d51",
+            "tenant_id": "9497f49c-5e3b-496a-a10f-d7a5bbed1e21",
+            "created_at": "2025-11-18T16:46:53.088453Z"
+          },
+          "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiZGRjY2M0MzYtN2JlYy00Y2IzLWIwODUtOWM4NjBiNDgwZDUxIiwidGVuYW50X2lkIjoiOTQ5N2Y0OWMtNWUzYi00OTZhLWExMGYtZDdhNWJiZWQxZTIxIiwiZXhwIjoxNzYzNTEzMjEzfQ.iSIcXtdWk8UMjsicv3KcEqeLsWTw04ifYEnac0E0qQ4",
+          "token_type": "bearer"
+        }
+      }
+    },
+    "auth_login_success": {
+      "endpoint": "/api/v1/auth/login",
+      "method": "POST",
+      "request": {
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "email": "runtime_test@example.com",
+          "password": "password123"
+        }
+      },
+      "response": {
+        "status_code": 200,
+        "headers": {
+          "content-type": "application/json",
+          "x-trace-id": "5b35922b-2976-426d-ab65-37986ac68d3f",
+          "server": "uvicorn",
+          "date": "Tue, 18 Nov 2025 16:46:53 GMT"
+        },
+        "body": {
+          "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiZGRjY2M0MzYtN2JlYy00Y2IzLWIwODUtOWM4NjBiNDgwZDUxIiwidGVuYW50X2lkIjoiOTQ5N2Y0OWMtNWUzYi00OTZhLWExMGYtZDdhNWJiZWQxZTIxIiwiZXhwIjoxNzYzNTEzMjE0fQ.YiPlHp9RdsrvXHomG8qAu7RPg7oAKcnd_aPR0-qR5SI",
+          "token_type": "bearer"
+        }
+      }
+    },
+    "auth_login_error": {
+      "endpoint": "/api/v1/auth/login",
+      "method": "POST",
+      "request": {
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "email": "runtime_test@example.com",
+          "password": "wrongpassword"
+        }
+      },
+      "response": {
+        "status_code": 401,
+        "headers": {
+          "content-type": "application/json",
+          "x-trace-id": "273171fa-a6de-4101-b1ec-a73bd2f6e28c",
+          "www-authenticate": "Bearer",
+          "server": "uvicorn",
+          "date": "Tue, 18 Nov 2025 16:46:55 GMT"
+        },
+        "body": {
+          "detail": "Incorrect email or password"
+        }
+      }
+    },
+    "auth_me_demo_mode": {
+      "endpoint": "/api/v1/auth/me",
+      "method": "GET",
+      "request": {
+        "headers": {
+          "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        }
+      },
+      "response": {
+        "status_code": 200,
+        "headers": {
+          "content-type": "application/json",
+          "x-trace-id": "f1e44a0a-51c2-4945-970c-763a680fe034",
+          "server": "uvicorn",
+          "date": "Tue, 18 Nov 2025 16:47:27 GMT"
+        },
+        "body": {
+          "email": "dev@autonomos.dev",
+          "id": "8ce8ea61-339d-42b7-afbe-e0938db6e381",
+          "tenant_id": "f8ab4417-86a1-4dd2-a049-ea423063850e",
+          "created_at": "2025-11-18T16:47:27.648847"
+        }
+      },
+      "notes": "In demo mode (DCL_AUTH_ENABLED=false), this endpoint ignores the Authorization header and always returns MockUser"
+    },
+    "aam_connectors_list": {
+      "endpoint": "/api/v1/aam/connectors",
+      "method": "GET",
+      "response": {
+        "status_code": 200,
+        "headers": {
+          "content-type": "application/json",
+          "x-trace-id": "cf50cf3f-fec6-4f45-a679-ed1cd553a36c",
+          "server": "uvicorn",
+          "date": "Tue, 18 Nov 2025 16:46:36 GMT"
+        },
+        "body": {
+          "connectors": [
+            {
+              "id": "10ca3a88-5105-4e24-b984-6e350a5fa443",
+              "name": "FilesSource Demo",
+              "source_type": "filesource",
+              "status": "ACTIVE",
+              "mapping_count": 0,
+              "last_event_type": null,
+              "last_event_at": null,
+              "has_drift": false,
+              "last_sync_status": null,
+              "last_sync_records": null,
+              "last_sync_bytes": null,
+              "last_sync_at": null
+            },
+            {
+              "id": "4d559c3f-088f-432a-bb01-794837b985f7",
+              "name": "MongoDB Production",
+              "source_type": "mongodb",
+              "status": "ACTIVE",
+              "mapping_count": 0,
+              "last_event_type": null,
+              "last_event_at": null,
+              "has_drift": false,
+              "last_sync_status": null,
+              "last_sync_records": null,
+              "last_sync_bytes": null,
+              "last_sync_at": null
+            },
+            {
+              "id": "e961fb3b-fc8f-408e-a83d-63080e2181e5",
+              "name": "Salesforce Production",
+              "source_type": "salesforce",
+              "status": "ACTIVE",
+              "mapping_count": 0,
+              "last_event_type": null,
+              "last_event_at": null,
+              "has_drift": false,
+              "last_sync_status": "succeeded",
+              "last_sync_records": 38,
+              "last_sync_bytes": 36376,
+              "last_sync_at": "2025-11-12T16:02:06Z"
+            }
+          ],
+          "total": 3
+        }
+      }
+    },
+    "aam_connector_detail": {
+      "endpoint": "/api/v1/aam/connectors/{id}",
+      "method": "GET",
+      "response": {
+        "status_code": 404,
+        "headers": {
+          "content-type": "application/json",
+          "x-trace-id": "62587f1d-a80b-498c-86d2-76f06182d16b"
+        },
+        "body": {
+          "detail": "Not Found"
+        }
+      },
+      "notes": "This endpoint does not exist in the current implementation"
+    },
+    "sse_stream_events": {
+      "endpoint": "/api/v1/events/stream?token={jwt_token}",
+      "method": "GET",
+      "protocol": "Server-Sent Events (SSE)",
+      "request": {
+        "query_params": {
+          "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        }
+      },
+      "response": {
+        "status_code": 200,
+        "headers": {
+          "content-type": "text/event-stream",
+          "cache-control": "no-cache"
+        },
+        "event_examples": [
+          {
+            "event_type": "connected",
+            "data": {
+              "type": "connected",
+              "ts": "2025-11-18T16:47:42.973261",
+              "tenant": "9497f49c-5e3b-496a-a10f-d7a5bbed1e21"
+            }
+          }
+        ]
+      },
+      "notes": "SSE stream requires valid JWT token as query parameter. Stream emits connected event on connection, then heartbeat events every 15s, and data events as they occur."
+    }
+  },
+  "timestamp_format": "ISO 8601 with 'Z' suffix (UTC) or microsecond precision",
+  "field_observations": {
+    "timestamps": "All timestamps use ISO 8601 format with 'Z' suffix or microsecond precision",
+    "null_fields": "Null values are explicitly included (not omitted) in JSON responses",
+    "uuids": "All IDs use standard UUID v4 format",
+    "trace_ids": "All responses include x-trace-id header for debugging",
+    "auth_tokens": "JWT tokens are returned in 'access_token' field with 'bearer' token_type"
+  }
+}
