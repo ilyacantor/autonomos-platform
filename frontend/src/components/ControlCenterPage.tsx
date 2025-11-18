@@ -67,7 +67,7 @@ export default function ControlCenterPage() {
       {/* Mock-up Notice */}
       <div className="bg-gray-800/40 border border-gray-700/50 rounded-lg px-4 py-2">
         <p className="text-sm text-gray-400 text-center">
-          <span className="font-medium text-gray-300">Demo Environment</span> • This interface demonstrates platform capabilities with mock data
+          <span className="font-medium text-gray-300">Demo Environment</span> • This interface demonstrates platform capabilities with static mock data
         </p>
       </div>
 
