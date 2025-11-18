@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Database, Server, Warehouse, Users, Settings2, Activity, Search, ChevronDown, ChevronRight, Loader2, AlertCircle, FileText, Table } from 'lucide-react';
 import DCLGraphContainer from './DCLGraphContainer';
-import { DEFAULT_SOURCES, AAM_SOURCES, DEFAULT_AGENTS, getDefaultSources, getDefaultAgents } from '../config/dclDefaults';
+import { DEFAULT_SOURCES, AAM_SOURCES, DEFAULT_AGENTS, getDefaultSources, getDefaultAgents, getAllSourceValues, getAllAgentValues } from '../config/dclDefaults';
 import { API_CONFIG } from '../config/api';
 
 const agents = DEFAULT_AGENTS;
@@ -77,10 +77,10 @@ function getTypeColor(type: string) {
 
 export default function NewOntologyPage() {
   // ConnectionsPage state
-  const [selectedSources, setSelectedSources] = useState<string[]>([]);
-  const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
+  const [selectedSources, setSelectedSources] = useState<string[]>(getAllSourceValues()); // DEMO FIX: Select all sources on load
+  const [selectedAgents, setSelectedAgents] = useState<string[]>(getAllAgentValues()); // DEMO FIX: Select all agents on load
   const [lineageSearchQuery, setLineageSearchQuery] = useState('');
-  const [useAamSource, setUseAamSource] = useState(false);
+  const [useAamSource, setUseAamSource] = useState(false); // DEMO FIX: Force Legacy mode (AAM broken)
   const [shouldTriggerRun, setShouldTriggerRun] = useState(false);
   
   // OntologyPage state
@@ -93,15 +93,16 @@ export default function NewOntologyPage() {
   // Get connections based on AAM mode
   const connections = useAamSource ? AAM_SOURCES : DEFAULT_SOURCES;
 
+  // DEMO FIX: Disabled feature flag fetch - force Legacy mode
   // Load feature flags from API (using API_CONFIG for consistency)
-  useEffect(() => {
-    fetch(API_CONFIG.buildDclUrl('/feature_flags'))
-      .then(res => res.json())
-      .then(flags => {
-        setUseAamSource(flags.USE_AAM_AS_SOURCE || false);
-      })
-      .catch(err => console.error('Failed to load feature flags:', err));
-  }, []);
+  // useEffect(() => {
+  //   fetch(API_CONFIG.buildDclUrl('/feature_flags'))
+  //     .then(res => res.json())
+  //     .then(flags => {
+  //       setUseAamSource(flags.USE_AAM_AS_SOURCE || false);
+  //     })
+  //     .catch(err => console.error('Failed to load feature flags:', err));
+  // }, []);
 
   // Smart merge selected sources when AAM mode changes (preserves valid user selections)
   useEffect(() => {

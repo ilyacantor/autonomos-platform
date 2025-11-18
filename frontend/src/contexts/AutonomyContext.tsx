@@ -15,7 +15,7 @@ const AutonomyContext = createContext<AutonomyContextType | undefined>(undefined
 export function AutonomyProvider({ children }: { children: ReactNode }) {
   const [autonomyMode, setAutonomyMode] = useState<AutonomyMode>('Auto (Guardrails)');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [legacyMode, setLegacyMode] = useState(false);
+  const [legacyMode, setLegacyMode] = useState(true); // DEMO FIX: Force Legacy mode for stable graph
 
   return (
     <AutonomyContext.Provider value={{ autonomyMode, setAutonomyMode, isModalOpen, setIsModalOpen, legacyMode, setLegacyMode }}>

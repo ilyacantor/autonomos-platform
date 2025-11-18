@@ -421,8 +421,8 @@ export default function DCLGraphContainer({ useAamSource, onModeChange, selected
                       </div>
                     </button>
 
-                    {/* Data Source Mode Toggle */}
-                    <button
+                    {/* DEMO FIX: Hidden - AAM/Legacy toggle (AAM broken, force Legacy mode) */}
+                    {/* <button
                       onClick={toggleSourceMode}
                       className={`touch-target-h mobile-tap-highlight px-3 py-2 sm:px-2 sm:py-1 rounded text-xs sm:text-[10px] transition-all ${
                         useAamSource
@@ -435,7 +435,7 @@ export default function DCLGraphContainer({ useAamSource, onModeChange, selected
                         <div className={`w-2 h-2 rounded-full ${useAamSource ? 'bg-blue-400' : 'bg-green-400'}`} />
                         <span className="whitespace-nowrap">{useAamSource ? 'AAM' : 'Legacy'}</span>
                       </div>
-                    </button>
+                    </button> */}
 
                     {/* Data Source Selector */}
                     <select

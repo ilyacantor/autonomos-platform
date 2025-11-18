@@ -21,9 +21,9 @@ export default function AgentPerformanceMonitor({ agents }: AgentPerformanceMoni
 
   const handleAgentClick = (agentName: string) => {
     if (agentName.includes('FinOps')) {
-      window.open('https://finopsagent.onrender.com/', '_blank');
+      window.open('https://autonomos.technology/', '_blank');
     } else if (agentName.includes('RevOps')) {
-      window.open('https://autonomos-revops-agent.onrender.com', '_blank');
+      window.open('https://autonomos.cloud/', '_blank');
     }
   };
 
