@@ -159,10 +159,13 @@ def unique_email():
     """Generate a unique email address for each test."""
     return f"user-{uuid.uuid4().hex[:8]}@test.com"
 
-def register_user(client: TestClient, tenant_name: str, email: str, password: str = "testpass123"):
+def register_user(client: TestClient, tenant_name: str, email: str, password: str = "testpass123", is_admin: bool = False):
     """
     Helper function to register a new user and tenant.
     Returns the registration response.
+    
+    Args:
+        is_admin: If True, grants admin privileges to the user (for integration tests needing POST /dcl/mappings)
     """
     response = client.post(
         "/users/register",
@@ -172,6 +175,20 @@ def register_user(client: TestClient, tenant_name: str, email: str, password: st
             "password": password
         }
     )
+    
+    # Grant admin privileges if requested (test environment only)
+    if is_admin and response.status_code == 201:
+        from app.database import get_db
+        from app.models import User
+        db = next(get_db())
+        try:
+            user = db.query(User).filter(User.email == email).first()
+            if user:
+                user.is_admin = 'true'
+                db.commit()
+        finally:
+            db.close()
+    
     return response
 
 def login_user(client: TestClient, email: str, password: str = "testpass123"):

@@ -14,7 +14,7 @@ def test_dcl_api_returns_mapping(client, unique_tenant_name, unique_email):
     """
     INTEGRATION TEST: DCL API endpoint returns correct mapping.
     
-    Flow: HTTP GET → DCL API → PostgreSQL → Response
+    Flow: Create Mapping → HTTP GET → DCL API → PostgreSQL → Response
     
     Verifies:
     - DCL API accessible via HTTP
@@ -24,13 +24,27 @@ def test_dcl_api_returns_mapping(client, unique_tenant_name, unique_email):
     """
     from tests.conftest import register_user, login_user, get_auth_headers
     
-    # Setup: Register and login user
-    register_user(client, unique_tenant_name, unique_email)
+    # Setup: Register and login user as admin (required for POST /dcl/mappings)
+    register_user(client, unique_tenant_name, unique_email, is_admin=True)
     token = login_user(client, unique_email)
     headers = get_auth_headers(token)
     
-    # Test existing mapping (salesforce opportunity amount)
-    response = client.get("/api/v1/dcl/mappings/salesforce/opportunity/Amount", headers=headers)
+    # Create test connector and mapping via API
+    connector_req = {
+        "connector_id": "test_salesforce",
+        "source_table": "opportunity",
+        "source_field": "Amount",
+        "canonical_entity": "opportunity",
+        "canonical_field": "amount",
+        "confidence": 0.95,
+        "mapping_type": "direct",
+        "transform_expr": None
+    }
+    create_resp = client.post("/api/v1/dcl/mappings", json=connector_req, headers=headers)
+    assert create_resp.status_code == 201, f"Failed to create test mapping: {create_resp.text}"
+    
+    # Now test GET endpoint
+    response = client.get("/api/v1/dcl/mappings/test_salesforce/opportunity/Amount", headers=headers)
     
     assert response.status_code == 200, (
         f"DCL API failed: {response.status_code} - {response.text}"
@@ -145,9 +159,8 @@ def test_e2e_canonical_transformation(client, unique_tenant_name, unique_email):
     from services.aam.canonical.mapping_registry import mapping_registry
     from tests.conftest import register_user, login_user, get_auth_headers
     
-    # Setup: Register and login user (admin)
-    # NOTE: MockUser is admin by default in dev mode
-    register_user(client, unique_tenant_name, unique_email)
+    # Setup: Register and login user as admin (required for POST /dcl/mappings)
+    register_user(client, unique_tenant_name, unique_email, is_admin=True)
     token = login_user(client, unique_email)
     headers = get_auth_headers(token)
     
