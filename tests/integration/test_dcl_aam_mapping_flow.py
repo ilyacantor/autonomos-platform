@@ -22,16 +22,29 @@ def test_dcl_api_returns_mapping(client, unique_tenant_name, unique_email):
     - Response matches expected schema
     - Returns 200 OK for existing mappings
     """
-    from tests.conftest import register_user, login_user, get_auth_headers
+    from tests.conftest import register_user, login_user, get_auth_headers, create_test_connector_and_schema
     
     # Setup: Register and login user as admin (required for POST /dcl/mappings)
-    register_user(client, unique_tenant_name, unique_email, is_admin=True)
+    reg_resp = register_user(client, unique_tenant_name, unique_email, is_admin=True)
+    assert reg_resp.status_code in [200, 201], f"Registration failed: {reg_resp.text}"
+    
     token = login_user(client, unique_email)
+    assert token is not None, "Login failed"
     headers = get_auth_headers(token)
     
-    # Create test connector and mapping via API
-    connector_req = {
-        "connector_id": "test_salesforce",
+    # Get tenant_id from registration response
+    if reg_resp.status_code == 201:
+        tenant_id = reg_resp.json()["tenant"]["id"]
+    else:
+        tenant_id = reg_resp.json()["tenant_id"]
+    
+    # Create test connector and schema with consistent naming
+    connector_name = f"test_connector_{unique_tenant_name[:8]}"  # Unique per test run
+    connector_id, entity_schema_id = create_test_connector_and_schema(tenant_id, connector_name)
+    
+    # Now create mapping via API (connector_id field expects connector_name, not UUID)
+    mapping_req = {
+        "connector_id": connector_name,  # API uses connector_name as identifier
         "source_table": "opportunity",
         "source_field": "Amount",
         "canonical_entity": "opportunity",
@@ -40,11 +53,11 @@ def test_dcl_api_returns_mapping(client, unique_tenant_name, unique_email):
         "mapping_type": "direct",
         "transform_expr": None
     }
-    create_resp = client.post("/api/v1/dcl/mappings", json=connector_req, headers=headers)
+    create_resp = client.post("/api/v1/dcl/mappings", json=mapping_req, headers=headers)
     assert create_resp.status_code == 201, f"Failed to create test mapping: {create_resp.text}"
     
-    # Now test GET endpoint
-    response = client.get("/api/v1/dcl/mappings/test_salesforce/opportunity/Amount", headers=headers)
+    # Now test GET endpoint using same connector_name
+    response = client.get(f"/api/v1/dcl/mappings/{connector_name}/opportunity/Amount", headers=headers)
     
     assert response.status_code == 200, (
         f"DCL API failed: {response.status_code} - {response.text}"

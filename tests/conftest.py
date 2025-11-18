@@ -213,6 +213,47 @@ def get_auth_headers(token: str):
     """
     return {"Authorization": f"Bearer {token}"}
 
+def create_test_connector_and_schema(tenant_id: str, connector_name: str = "test_connector"):
+    """
+    Helper function to create test connector and entity schema in database.
+    Returns (connector_id, entity_schema_id).
+    
+    Used by integration tests to set up mapping registry prerequisites.
+    """
+    from app.database import get_db
+    from app.models import ConnectorDefinition, EntitySchema
+    import uuid
+    
+    db = next(get_db())
+    try:
+        # Create entity schema
+        entity_schema = EntitySchema(
+            id=str(uuid.uuid4()),
+            entity_name="test_entity",
+            entity_version="1.0.0",
+            schema_definition={"type": "object", "properties": {}},
+            description="Test entity schema"
+        )
+        db.add(entity_schema)
+        db.flush()
+        
+        # Create connector definition
+        connector = ConnectorDefinition(
+            id=str(uuid.uuid4()),
+            tenant_id=tenant_id,
+            connector_name=connector_name,
+            connector_type="api",
+            description=f"Test {connector_name} connector",
+            metadata={},
+            status="active"
+        )
+        db.add(connector)
+        db.commit()
+        
+        return (str(connector.id), str(entity_schema.id))
+    finally:
+        db.close()
+
 @pytest.fixture(scope="function")
 def registered_user(client, unique_tenant_name, unique_email):
     """
