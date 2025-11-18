@@ -859,6 +859,112 @@ grep proxy_read_timeout /etc/nginx/sites-enabled/autonomos
 
 ---
 
+### Issue: Alembic Migration Revision Mismatch
+
+**Symptoms:**
+- `ERROR [alembic.util.messaging] Can't locate revision identified by '<revision_id>'`
+- `FAILED: Can't locate revision identified by '<revision_id>'`
+- Migration warnings during startup
+
+**Diagnosis:**
+```bash
+# Check database revision
+psql -c "SELECT * FROM alembic_version;"
+
+# Check available migrations
+alembic history | grep "(head)"
+
+# Identify HEAD revision
+cd alembic/versions && for rev in *.py; do \
+  grep "^revision =" "$rev" | cut -d"'" -f2; \
+done | while read r; do \
+  if ! grep -q "down_revision.*$r" *.py 2>/dev/null; then \
+    echo "$r (HEAD - no one points to this)"; \
+  fi; \
+done
+```
+
+**Root Cause:** Database `alembic_version` table references a migration file that was deleted or never existed
+
+**Resolution:**
+```bash
+# 1. Find current HEAD revision
+HEAD_REV=$(alembic history | grep "(head)" | awk '{print $2}')
+
+# 2. Update database to correct revision
+psql -c "UPDATE alembic_version SET version_num = '$HEAD_REV';"
+
+# 3. Verify Alembic can read current version
+alembic current
+
+# 4. Verify schema integrity
+alembic upgrade head
+
+# 5. Check for schema drift (optional - may timeout on large schemas)
+# alembic check
+
+# 6. Validate critical tables exist
+psql -c "SELECT table_name, \
+  (SELECT COUNT(*) FROM information_schema.columns WHERE table_name = t.table_name) as column_count \
+FROM information_schema.tables t \
+WHERE table_schema = 'public' \
+  AND table_name IN ('field_mappings', 'connections', 'mapping_registry') \
+ORDER BY table_name;"
+
+# 7. Verify FK/unique constraints from latest migration
+psql -c "SELECT conname, conrelid::regclass FROM pg_constraint \
+WHERE conname IN ('fk_field_mappings_connection_id', 'unique_tenant_connection_mapping');"
+```
+
+**Expected Results:**
+- `alembic current` shows `<revision_id> (head)` ✅
+- `alembic upgrade head` completes with no migrations applied ✅
+- Critical tables exist with correct column counts ✅
+- FK/unique constraints present ✅
+
+**Prevention:**
+1. Never delete migration files from `alembic/versions/` directory
+2. Always use `alembic revision` to create new migrations
+3. Document migration history in git commits
+4. Backup `alembic_version` table before manual updates
+
+---
+
+### Issue: AAM Database DuplicatePreparedStatement Error
+
+**Symptoms:**
+- `⚠️ AAM database initialization failed: (psycopg.errors.DuplicatePreparedStatement) prepared statement "_pg3_0" already exists`
+- AAM features may not work correctly
+
+**Root Cause:** 
+- Connection pool retries during failed database migrations
+- PgBouncer prepared statement collision across connections
+
+**Resolution:**
+1. Fix any underlying migration errors (see "Alembic Migration Revision Mismatch" above)
+2. Restart application to reset connection pool:
+   ```bash
+   # Replit: Use "Restart" button in workflow panel
+   # Or via CLI:
+   pkill -f "uvicorn" && bash start.sh
+   ```
+3. Verify AAM initialization succeeds:
+   ```bash
+   tail -f logs/autonomos.log | grep "AAM database"
+   ```
+
+**Expected Result:**
+```
+✅ AAM database initialized successfully
+```
+
+**Prevention:**
+- Ensure Alembic migrations complete successfully before AAM initialization
+- Use connection pooling with proper statement timeout settings
+- Monitor startup logs for migration failures
+
+---
+
 ## Escalation
 
 ### On-Call Rotation
