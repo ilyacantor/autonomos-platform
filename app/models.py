@@ -141,8 +141,12 @@ class DriftEvent(Base):
     status = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
     
+    repair_proposal_id = Column(UUID(as_uuid=True), ForeignKey("mapping_proposals.id"), nullable=True, index=True)
+    repair_status = Column(String(20), nullable=True)
+    
     __table_args__ = (
         Index('idx_drift_tenant_created', 'tenant_id', 'created_at'),
+        Index('idx_drift_repair', 'repair_proposal_id'),
     )
 
 
@@ -319,6 +323,104 @@ class HITLRepairAudit(Base):
     __table_args__ = (
         Index('idx_hitl_tenant_status', 'tenant_id', 'review_status'),
         Index('idx_hitl_drift_event', 'drift_event_id'),
+    )
+
+
+class MappingProposal(Base):
+    """
+    Phase 2: Mapping Proposals from DCL Intelligence Layer
+    
+    Stores LLM/RAG-generated mapping suggestions for schema drift repairs.
+    Confidence-based routing: auto-apply (>=0.85), HITL queue (0.6-0.85), reject (<0.6)
+    """
+    __tablename__ = "mapping_proposals"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True)
+    
+    connector = Column(String(100), nullable=False)
+    source_table = Column(String(255), nullable=False)
+    source_field = Column(String(255), nullable=False)
+    
+    canonical_entity = Column(String(100), nullable=False)
+    canonical_field = Column(String(100), nullable=False)
+    
+    confidence = Column(Float, nullable=False)
+    reasoning = Column(String, nullable=True)
+    alternatives = Column(JSON, nullable=True)
+    
+    action = Column(String(20), nullable=False)
+    source = Column(String(50), nullable=False)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    applied_at = Column(DateTime(timezone=True), nullable=True)
+    
+    approval_workflows = relationship("ApprovalWorkflow", back_populates="proposal")
+    
+    __table_args__ = (
+        Index('idx_proposals_lookup', 'tenant_id', 'connector', 'source_table', 'source_field'),
+        Index('idx_proposals_action', 'tenant_id', 'action', 'created_at'),
+    )
+
+
+class ApprovalWorkflow(Base):
+    """
+    Phase 2: Human-in-the-Loop Approval Workflow
+    
+    Manages approval process for medium-confidence mapping proposals (0.6-0.85).
+    7-day TTL for review with Slack/email notifications.
+    """
+    __tablename__ = "approval_workflows"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True)
+    proposal_id = Column(UUID(as_uuid=True), ForeignKey("mapping_proposals.id"), nullable=False, index=True)
+    
+    status = Column(String(20), nullable=False, server_default='pending')
+    priority = Column(String(20), server_default='normal')
+    
+    assigned_to = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    approver_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    
+    approval_notes = Column(String, nullable=True)
+    rejection_reason = Column(String, nullable=True)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), nullable=True)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    
+    proposal = relationship("MappingProposal", back_populates="approval_workflows")
+    
+    __table_args__ = (
+        Index('idx_workflows_status', 'tenant_id', 'status', 'created_at'),
+        Index('idx_workflows_assigned', 'assigned_to', 'status'),
+    )
+
+
+class ConfidenceScore(Base):
+    """
+    Phase 2: Confidence Scoring History
+    
+    Historical tracking of multi-factor confidence calculations for mappings.
+    Factors: source_quality, usage_frequency, validation_success, human_approval, rag_similarity
+    """
+    __tablename__ = "confidence_scores"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True)
+    
+    mapping_id = Column(UUID(as_uuid=True), ForeignKey("field_mappings.id"), nullable=True, index=True)
+    proposal_id = Column(UUID(as_uuid=True), ForeignKey("mapping_proposals.id"), nullable=True, index=True)
+    
+    score = Column(Float, nullable=False)
+    factors = Column(JSON, nullable=False)
+    
+    calculated_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    
+    __table_args__ = (
+        Index('idx_confidence_mapping', 'mapping_id'),
+        Index('idx_confidence_tenant', 'tenant_id', 'calculated_at'),
     )
 
 

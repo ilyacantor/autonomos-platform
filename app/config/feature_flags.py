@@ -34,6 +34,7 @@ class FeatureFlag(str, Enum):
     ENABLE_CANONICAL_EVENTS = "ENABLE_CANONICAL_EVENTS"
     ENABLE_SCHEMA_FINGERPRINTING = "ENABLE_SCHEMA_FINGERPRINTING"
     TENANT_SCOPED_STATE = "TENANT_SCOPED_STATE"
+    USE_DCL_INTELLIGENCE_API = "USE_DCL_INTELLIGENCE_API"
 
 
 class FeatureFlagConfig:
@@ -73,6 +74,7 @@ class FeatureFlagConfig:
         FeatureFlag.ENABLE_CANONICAL_EVENTS: True,  # Phase 4: ENABLED - Normalize and validate canonical events
         FeatureFlag.ENABLE_SCHEMA_FINGERPRINTING: True,  # Phase 4: ENABLED - Track schema versions for drift
         FeatureFlag.TENANT_SCOPED_STATE: True,  # Phase 3: MANDATORY - Multi-tenant state isolation (CRITICAL for enterprise deployment)
+        FeatureFlag.USE_DCL_INTELLIGENCE_API: True,  # Phase 2: ENABLED - Use DCL Intelligence Layer for LLM/RAG/Confidence (100% RACI compliance)
     }
     
     # Redis client (injected from main app)

@@ -1,54 +1,52 @@
 """
-Embedding Service - Vector generation for RAG
-Provides text embeddings for semantic similarity search
+PHASE 2 RACI COMPLIANT: Embedding Service - DEPRECATED
+
+This service no longer performs local embedding generation.
+All embedding operations are delegated to DCL Intelligence API.
+
+AAM is responsible ONLY for drift detection and observation.
+DCL Intelligence API handles all vector embeddings via RAGLookupService.
 """
 import logging
 from typing import List
-from openai import AsyncOpenAI
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
-from aam_hybrid.shared.config import settings
 
 logger = logging.getLogger(__name__)
 
 
 class EmbeddingService:
     """
-    Generates embeddings for text using OpenAI's API
-    Used by RAG Engine for semantic similarity search
+    PHASE 2 RACI COMPLIANT: Embedding generation delegated to DCL Intelligence API.
+    
+    This service is deprecated and returns empty vectors.
+    All embedding operations handled by DCL Intelligence Layer.
     """
     
     def __init__(self):
-        self.client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY) if settings.OPENAI_API_KEY else None
-        self.model = "text-embedding-3-small"
+        # PHASE 2: No local embedding client - delegate to DCL Intelligence API
         self.dimensions = 1536
+        logger.info("EmbeddingService initialized (PHASE 2 - RACI COMPLIANT): Delegates to DCL Intelligence API")
     
     async def generate_embedding(self, text: str) -> List[float]:
         """
-        Generate embedding vector for input text
+        PHASE 2 RACI COMPLIANT: Embedding generation delegated to DCL Intelligence API.
+        
+        This method returns empty vector - DCL handles all embedding operations.
         
         Args:
             text: Input text to embed
             
         Returns:
-            Embedding vector (list of floats)
+            Empty embedding vector (DCL handles actual embeddings)
         """
-        if not self.client:
-            logger.warning("OpenAI API not configured - returning zero vector")
-            return [0.0] * self.dimensions
-        
-        try:
-            response = await self.client.embeddings.create(
-                input=text,
-                model=self.model
-            )
-            return response.data[0].embedding
-        except Exception as e:
-            logger.error(f"Failed to generate embedding: {e}")
-            return [0.0] * self.dimensions
+        logger.info(
+            f"⚠️ PHASE 2: generate_embedding called for text '{text[:50]}...' but "
+            "AAM no longer performs embedding operations. DCL Intelligence API handles this."
+        )
+        return [0.0] * self.dimensions
 
 
 embedding_service = EmbeddingService()
