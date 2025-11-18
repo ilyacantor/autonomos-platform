@@ -27,6 +27,7 @@ class FeatureFlag(str, Enum):
     """Available feature flags for AutonomOS"""
     
     USE_AAM_AS_SOURCE = "USE_AAM_AS_SOURCE"
+    USE_DCL_MAPPING_REGISTRY = "USE_DCL_MAPPING_REGISTRY"
     ENABLE_DRIFT_DETECTION = "ENABLE_DRIFT_DETECTION"
     ENABLE_AUTO_REPAIR = "ENABLE_AUTO_REPAIR"
     ENABLE_HITL_WORKFLOW = "ENABLE_HITL_WORKFLOW"
@@ -65,6 +66,7 @@ class FeatureFlagConfig:
     # Hardcoded defaults (lowest precedence)
     _defaults: Dict[str, bool] = {
         FeatureFlag.USE_AAM_AS_SOURCE: False,  # Default: False (Legacy demo files) - Toggle to True for AAM connectors (Salesforce, MongoDB, FilesSource)
+        FeatureFlag.USE_DCL_MAPPING_REGISTRY: False,  # RACI P1.4: False during migration (use AAM YAML), True after cutover (use DCL API)
         FeatureFlag.ENABLE_DRIFT_DETECTION: True,  # Phase 4: ENABLED - Detect schema drift in AAM connectors
         FeatureFlag.ENABLE_AUTO_REPAIR: True,  # Phase 4: ENABLED (Task 8) - Auto-repair with 3-tier confidence scoring
         FeatureFlag.ENABLE_HITL_WORKFLOW: True,

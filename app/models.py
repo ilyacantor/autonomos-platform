@@ -384,8 +384,9 @@ class FieldMapping(Base):
     status = Column(String(50), nullable=False, server_default='active')
     notes = Column(String, nullable=True)
     
-    suggested_canonical_field = Column(String(255), nullable=True)
-    llm_reasoning = Column(String, nullable=True)
+    # COMMENTED OUT: These columns don't exist in database schema yet
+    # suggested_canonical_field = Column(String(255), nullable=True)
+    # llm_reasoning = Column(String, nullable=True)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)

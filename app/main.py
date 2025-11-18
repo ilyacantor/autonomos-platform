@@ -35,6 +35,7 @@ from app.security import (
     ACCESS_TOKEN_EXPIRE_MINUTES
 )
 from app.api.v1 import auth, aoa, aam_monitoring, aam_mesh, aam_connections, platform_stubs, filesource, dcl_views, debug, mesh_test, events, dcl_unify, aod_mock, aam_onboarding
+from app.dcl_engine.routers import mappings
 from app import nlp_simple
 from app.middleware.rate_limit import limiter, rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -362,6 +363,7 @@ app.include_router(mesh_test.router, prefix="/api/v1", tags=["Mesh Test (Dev-Onl
 app.include_router(filesource.router, prefix="/api/v1/filesource", tags=["FileSource Connector"])
 app.include_router(dcl_views.router, prefix="/api/v1/dcl/views", tags=["DCL Views"])
 app.include_router(dcl_unify.router, prefix="/api/v1/dcl", tags=["DCL Unification"])
+app.include_router(mappings.router, prefix="/api/v1/dcl", tags=["DCL Mappings"])
 app.include_router(debug.router, prefix="/api/v1", tags=["Debug (Dev-Only)"])
 app.include_router(events.router, prefix="/api/v1/events", tags=["Event Stream"])
 app.include_router(platform_stubs.router, prefix="/api/v1", tags=["Platform Stubs"])
