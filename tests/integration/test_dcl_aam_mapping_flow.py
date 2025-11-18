@@ -170,16 +170,29 @@ def test_e2e_canonical_transformation(client, unique_tenant_name, unique_email):
     """
     from shared.feature_flags import set_feature_flag
     from services.aam.canonical.mapping_registry import mapping_registry
-    from tests.conftest import register_user, login_user, get_auth_headers
+    from tests.conftest import register_user, login_user, get_auth_headers, create_test_connector_and_schema
     
     # Setup: Register and login user as admin (required for POST /dcl/mappings)
-    register_user(client, unique_tenant_name, unique_email, is_admin=True)
+    reg_resp = register_user(client, unique_tenant_name, unique_email, is_admin=True)
+    assert reg_resp.status_code in [200, 201], f"Registration failed: {reg_resp.text}"
+    
     token = login_user(client, unique_email)
+    assert token is not None, "Login failed"
     headers = get_auth_headers(token)
+    
+    # Get tenant_id
+    if reg_resp.status_code == 201:
+        tenant_id = reg_resp.json()["tenant"]["id"]
+    else:
+        tenant_id = reg_resp.json()["tenant_id"]
+    
+    # Create test connector and schema
+    connector_name = f"test_connector_{unique_tenant_name[:8]}"
+    connector_id, entity_schema_id = create_test_connector_and_schema(tenant_id, connector_name)
     
     # 1. Create test mapping via DCL API (admin user)
     mapping_request = {
-        "connector_id": "test_connector",
+        "connector_id": connector_name,
         "source_table": "test_table",
         "source_field": "test_field",
         "canonical_entity": "test_entity",
@@ -200,45 +213,72 @@ def test_e2e_canonical_transformation(client, unique_tenant_name, unique_email):
     assert 'mapping_id' in created_data, "Response missing mapping_id"
     assert created_data['status'] in ['created', 'updated'], f"Unexpected status: {created_data['status']}"
     
-    # 2. Enable DCL API for AAM
-    set_feature_flag('USE_DCL_MAPPING_REGISTRY', True, 'default')
+    # 2. Wire dcl_client's httpx to use ASGITransport for test environment
+    # This allows the REAL dcl_client code to run with its auth/error handling
+    import httpx
+    from unittest.mock import patch
+    from httpx import ASGITransport
+    from shared.feature_flags import set_feature_flag
+    from services.aam.canonical.mapping_registry import mapping_registry
+    from shared.dcl_mapping_client import DCLMappingClient
+    
+    # Create test-compatible DCLMappingClient with ASGITransport
+    # This exercises the real dcl_client logic while routing through TestClient
+    test_dcl_client = DCLMappingClient(base_url="http://testserver")
+    
+    # Patch httpx.get in dcl_mapping_client module to use authenticated ASGITransport
+    def authenticated_httpx_get(url, **kwargs):
+        """Intercept httpx.get calls from dcl_client and add auth + use ASGI"""
+        # Add JWT auth headers to every request
+        if 'headers' not in kwargs:
+            kwargs['headers'] = {}
+        kwargs['headers']['Authorization'] = f'Bearer {token}'
+        
+        # Create httpx.Client with ASGITransport for this request
+        with httpx.Client(transport=ASGITransport(app=client.app), base_url="http://testserver") as test_client:
+            return test_client.get(url, **kwargs)
+    
+    # Enable feature flag for this tenant
+    set_feature_flag('USE_DCL_MAPPING_REGISTRY', True, tenant_id)
     
     try:
-        # 3. AAM fetches mapping from DCL
-        mapping = mapping_registry.get_mapping('test_connector', 'test_table', 'default')
-        
-        assert mapping is not None, "AAM failed to retrieve mapping"
-        assert 'test_field' in mapping.get('fields', {}), "Mapping missing test_field"
-        
-        field_mapping = mapping['fields']['test_field']
-        assert field_mapping.get('canonical') == 'test_canonical', (
-            f"Wrong canonical field: {field_mapping.get('canonical')}"
-        )
-        
-        # 4. Simulate AAM transformation
-        raw_event = {"test_field": "test_value"}
-        canonical_event = {}
-        
-        # Apply mapping transformation
-        for source_field, field_config in mapping.get('fields', {}).items():
-            if source_field in raw_event:
-                canonical_field = field_config.get('canonical')
-                canonical_event[canonical_field] = raw_event[source_field]
-        
-        # 5. Verify canonical event
-        assert 'test_canonical' in canonical_event, "Canonical event missing transformed field"
-        assert canonical_event['test_canonical'] == 'test_value', (
-            f"Wrong value: {canonical_event['test_canonical']}"
-        )
-        
-        print(f"✅ PASS: End-to-end flow complete - DCL API → AAM → Canonical Event")
+        # Patch httpx.get at the module level where dcl_client uses it
+        with patch('shared.dcl_mapping_client.httpx.get', side_effect=authenticated_httpx_get):
+            # 3. AAM fetches mapping via DCL client → httpx (ASGI) → DCL API
+            # This exercises the REAL dcl_client code path with auth
+            mapping = mapping_registry.get_mapping(connector_name, 'test_table', tenant_id)
+            
+            assert mapping is not None, "AAM failed to retrieve mapping via DCL API"
+            assert 'fields' in mapping, "Mapping missing fields"
+            assert 'test_field' in mapping['fields'].values(), "Mapping missing test_field"
+            
+            # Verify field mapping structure (format: {canonical_field: source_field})
+            # Find the canonical field that maps to 'test_field'
+            canonical_key = [k for k, v in mapping['fields'].items() if v == 'test_field'][0]
+            assert canonical_key == 'test_canonical', (
+                f"Wrong canonical field: expected 'test_canonical', got '{canonical_key}'"
+            )
+            
+            # 4. Simulate AAM transformation using the retrieved mapping
+            raw_event = {"test_field": "test_value"}
+            canonical_event = {}
+            
+            # Apply mapping transformation (AAM logic: canonical_field ← source_field)
+            for canonical_key, source_key in mapping['fields'].items():
+                if source_key in raw_event:
+                    canonical_event[canonical_key] = raw_event[source_key]
+            
+            # 5. Verify canonical event
+            assert 'test_canonical' in canonical_event, "Canonical event missing transformed field"
+            assert canonical_event['test_canonical'] == 'test_value', (
+                f"Wrong value: {canonical_event['test_canonical']}"
+            )
+            
+            print(f"✅ PASS: End-to-end flow - mapping_registry→dcl_client→httpx→ASGI→DCL API")
     
     finally:
         # Cleanup
-        set_feature_flag('USE_DCL_MAPPING_REGISTRY', False, 'default')
-        
-        # Delete test mapping
-        # (Would need DELETE endpoint, skipping for now)
+        set_feature_flag('USE_DCL_MAPPING_REGISTRY', False, tenant_id)
 
 
 @pytest.mark.integration
@@ -252,15 +292,42 @@ def test_dcl_api_list_mappings(client, unique_tenant_name, unique_email):
     - Filters work (source_table, canonical_entity)
     - Returns expected count
     """
-    from tests.conftest import register_user, login_user, get_auth_headers
+    from tests.conftest import register_user, login_user, get_auth_headers, create_test_connector_and_schema
     
-    # Setup: Register and login user
-    register_user(client, unique_tenant_name, unique_email)
+    # Setup: Register and login user as admin (for creating test data)
+    reg_resp = register_user(client, unique_tenant_name, unique_email, is_admin=True)
+    assert reg_resp.status_code in [200, 201], f"Registration failed: {reg_resp.text}"
+    
     token = login_user(client, unique_email)
+    assert token is not None, "Login failed"
     headers = get_auth_headers(token)
     
-    # Test list all salesforce mappings
-    response = client.get("/api/v1/dcl/mappings/salesforce?limit=100", headers=headers)
+    # Get tenant_id
+    if reg_resp.status_code == 201:
+        tenant_id = reg_resp.json()["tenant"]["id"]
+    else:
+        tenant_id = reg_resp.json()["tenant_id"]
+    
+    # Create test connector and mappings
+    connector_name = f"test_connector_{unique_tenant_name[:8]}"
+    connector_id, entity_schema_id = create_test_connector_and_schema(tenant_id, connector_name)
+    
+    # Create several test mappings
+    for i in range(5):
+        mapping_req = {
+            "connector_id": connector_name,
+            "source_table": "test_table",
+            "source_field": f"field_{i}",
+            "canonical_entity": "test_entity",
+            "canonical_field": f"canonical_{i}",
+            "confidence": 0.9,
+            "mapping_type": "direct",
+            "transform_expr": None
+        }
+        client.post("/api/v1/dcl/mappings", json=mapping_req, headers=headers)
+    
+    # Test list all mappings for this connector
+    response = client.get(f"/api/v1/dcl/mappings/{connector_name}?limit=100", headers=headers)
     
     assert response.status_code == 200, (
         f"List endpoint failed: {response.status_code}"
@@ -271,8 +338,8 @@ def test_dcl_api_list_mappings(client, unique_tenant_name, unique_email):
     assert 'mappings' in data, "Response missing mappings array"
     assert isinstance(data['mappings'], list), "Mappings not a list"
     
-    # Should have at least a few salesforce mappings
-    assert data['total_count'] > 0, "No salesforce mappings found"
+    # Should have our test mappings
+    assert data['total_count'] >= 5, f"Expected at least 5 mappings, got {data['total_count']}"
     
     print(f"✅ PASS: DCL API list returned {data['total_count']} mappings")
 
@@ -288,23 +355,49 @@ def test_dcl_api_cache_performance(client, unique_tenant_name, unique_email):
     - Cache hit rate > 50% for repeated queries
     """
     import time
-    from tests.conftest import register_user, login_user, get_auth_headers
+    from tests.conftest import register_user, login_user, get_auth_headers, create_test_connector_and_schema
     
-    # Setup: Register and login user
-    register_user(client, unique_tenant_name, unique_email)
+    # Setup: Register and login user as admin
+    reg_resp = register_user(client, unique_tenant_name, unique_email, is_admin=True)
+    assert reg_resp.status_code in [200, 201], f"Registration failed: {reg_resp.text}"
+    
     token = login_user(client, unique_email)
+    assert token is not None, "Login failed"
     headers = get_auth_headers(token)
+    
+    # Get tenant_id
+    if reg_resp.status_code == 201:
+        tenant_id = reg_resp.json()["tenant"]["id"]
+    else:
+        tenant_id = reg_resp.json()["tenant_id"]
+    
+    # Create test connector and mapping
+    connector_name = f"test_connector_{unique_tenant_name[:8]}"
+    connector_id, entity_schema_id = create_test_connector_and_schema(tenant_id, connector_name)
+    
+    mapping_req = {
+        "connector_id": connector_name,
+        "source_table": "opportunity",
+        "source_field": "Amount",
+        "canonical_entity": "opportunity",
+        "canonical_field": "amount",
+        "confidence": 0.95,
+        "mapping_type": "direct",
+        "transform_expr": None
+    }
+    create_resp = client.post("/api/v1/dcl/mappings", json=mapping_req, headers=headers)
+    assert create_resp.status_code == 201, f"Failed to create test mapping: {create_resp.text}"
     
     # First lookup (cache miss)
     start = time.time()
-    response1 = client.get("/api/v1/dcl/mappings/salesforce/opportunity/Amount", headers=headers)
+    response1 = client.get(f"/api/v1/dcl/mappings/{connector_name}/opportunity/Amount", headers=headers)
     duration1 = (time.time() - start) * 1000  # ms
     
     assert response1.status_code == 200
     
     # Second lookup (cache hit)
     start = time.time()
-    response2 = client.get("/api/v1/dcl/mappings/salesforce/opportunity/Amount", headers=headers)
+    response2 = client.get(f"/api/v1/dcl/mappings/{connector_name}/opportunity/Amount", headers=headers)
     duration2 = (time.time() - start) * 1000  # ms
     
     assert response2.status_code == 200

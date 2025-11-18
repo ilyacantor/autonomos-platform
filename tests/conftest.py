@@ -219,17 +219,19 @@ def create_test_connector_and_schema(tenant_id: str, connector_name: str = "test
     Returns (connector_id, entity_schema_id).
     
     Used by integration tests to set up mapping registry prerequisites.
+    
+    IMPORTANT: Uses TestingSessionLocal() to access test database, not production get_db().
     """
-    from app.database import get_db
     from app.models import ConnectorDefinition, EntitySchema
     import uuid
     
-    db = next(get_db())
+    db = TestingSessionLocal()
     try:
-        # Create entity schema
+        # Create entity schema with unique name to avoid constraint violations
+        unique_suffix = str(uuid.uuid4())[:8]
         entity_schema = EntitySchema(
             id=str(uuid.uuid4()),
-            entity_name="test_entity",
+            entity_name=f"test_entity_{unique_suffix}",
             entity_version="1.0.0",
             schema_definition={"type": "object", "properties": {}},
             description="Test entity schema"
