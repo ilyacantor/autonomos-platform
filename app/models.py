@@ -319,3 +319,82 @@ class HITLRepairAudit(Base):
         Index('idx_hitl_tenant_status', 'tenant_id', 'review_status'),
         Index('idx_hitl_drift_event', 'drift_event_id'),
     )
+
+
+class ConnectorDefinition(Base):
+    __tablename__ = "connector_definitions"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    connector_name = Column(String(255), nullable=False)
+    connector_type = Column(String(50), nullable=False)
+    description = Column(String, nullable=True)
+    metadata_json = Column('metadata', JSON, nullable=False, server_default='{}')
+    status = Column(String(50), nullable=False, server_default='active')
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+    
+    __table_args__ = (
+        Index('idx_connector_tenant_status', 'tenant_id', 'status'),
+    )
+
+
+class EntitySchema(Base):
+    __tablename__ = "entity_schemas"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    entity_name = Column(String(255), nullable=False)
+    entity_version = Column(String(50), nullable=False, server_default='1.0.0')
+    schema_definition = Column(JSON, nullable=False)
+    description = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class FieldMapping(Base):
+    __tablename__ = "field_mappings"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    connection_id = Column(UUID(as_uuid=True), nullable=True)
+    connector_id = Column(UUID(as_uuid=True), ForeignKey("connector_definitions.id"), nullable=False)
+    entity_schema_id = Column(UUID(as_uuid=True), ForeignKey("entity_schemas.id"), nullable=False)
+    
+    source_table = Column(String(255), nullable=False)
+    source_field = Column(String(255), nullable=False)
+    source_data_type = Column(String(100), nullable=True)
+    
+    canonical_entity = Column(String(255), nullable=False)
+    canonical_field = Column(String(255), nullable=False)
+    canonical_data_type = Column(String(100), nullable=True)
+    
+    mapping_type = Column(String(50), nullable=False, server_default='direct')
+    transformation_rule = Column(JSON, nullable=True)
+    coercion_function = Column(String(255), nullable=True)
+    
+    confidence_score = Column(Float, nullable=False, server_default='1.0')
+    validation_status = Column(String(50), nullable=False, server_default='pending')
+    success_rate = Column(Float, nullable=True)
+    avg_processing_time_ms = Column(Integer, nullable=True)
+    error_count = Column(Integer, nullable=False, server_default='0')
+    last_validated_at = Column(DateTime(timezone=True), nullable=True)
+    
+    mapping_source = Column(String(50), nullable=False, server_default='manual')
+    version = Column(Integer, nullable=False, server_default='1')
+    status = Column(String(50), nullable=False, server_default='active')
+    notes = Column(String, nullable=True)
+    
+    suggested_canonical_field = Column(String(255), nullable=True)
+    llm_reasoning = Column(String, nullable=True)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+    updated_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    
+    __table_args__ = (
+        Index('idx_mapping_tenant_connector', 'tenant_id', 'connector_id'),
+        Index('idx_mapping_entity', 'canonical_entity'),
+        Index('idx_mapping_status', 'status'),
+        Index('idx_mapping_confidence', 'confidence_score'),
+    )

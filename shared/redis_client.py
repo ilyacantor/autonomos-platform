@@ -1,8 +1,9 @@
 """
 Shared Redis client for AutonomOS.
-Provides a singleton Redis connection with automatic fallback.
+Provides a singleton Redis connection with automatic fallback and TLS/SSL support.
 """
 import os
+import ssl as ssl_module
 from redis import Redis
 from typing import Optional
 import logging
@@ -15,7 +16,7 @@ _redis_available: bool = False
 
 def get_redis_client() -> Optional[Redis]:
     """
-    Get or create the shared Redis client instance.
+    Get or create the shared Redis client instance with TLS/SSL support.
     Returns None if Redis is unavailable.
     """
     global _redis_client, _redis_available
@@ -27,7 +28,32 @@ def get_redis_client() -> Optional[Redis]:
     
     try:
         if REDIS_URL:
-            _redis_client = Redis.from_url(REDIS_URL, decode_responses=True)
+            if REDIS_URL.startswith("rediss://"):
+                # TLS/SSL connection - FAIL FAST if cert missing
+                CA_CERT_PATH = os.path.join(
+                    os.path.dirname(__file__), 
+                    "..", 
+                    "certs", 
+                    "redis_ca.pem"
+                )
+                
+                # ✅ FIX: Fail fast if cert required but missing
+                if not os.path.exists(CA_CERT_PATH):
+                    raise RuntimeError(
+                        f"Redis TLS requires CA certificate at {CA_CERT_PATH} but file not found. "
+                        "Cannot establish secure connection."
+                    )
+                
+                _redis_client = Redis.from_url(
+                    REDIS_URL,
+                    decode_responses=True,
+                    ssl_cert_reqs=ssl_module.CERT_REQUIRED,
+                    ssl_ca_certs=CA_CERT_PATH  # Now guaranteed to exist
+                )
+                logger.info("Redis client initialized with TLS/SSL")
+            else:
+                _redis_client = Redis.from_url(REDIS_URL, decode_responses=True)
+                logger.info("Redis client initialized (non-TLS)")
         else:
             _redis_client = Redis(
                 host=os.getenv("REDIS_HOST", "localhost"),
@@ -35,10 +61,10 @@ def get_redis_client() -> Optional[Redis]:
                 db=int(os.getenv("REDIS_DB", "0")),
                 decode_responses=True
             )
+            logger.info("Redis client initialized with default settings")
         
         _redis_client.ping()
         _redis_available = True
-        logger.info("Redis client initialized successfully")
         return _redis_client
     
     except Exception as e:

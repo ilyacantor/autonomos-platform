@@ -1030,3 +1030,51 @@ def dcl_graph_with_sources(dcl_reset_state):
             print(f"[TEST_CLEANUP] ⚠️ GC warning: {e}", flush=True)
         
         print(f"[TEST_CLEANUP] ✅ Cleanup complete for tenant: {tenant_id}", flush=True)
+
+
+# ===== BULK MAPPING JOB TEST FIXTURES =====
+
+@pytest.fixture
+def redis_client():
+    """Redis client fixture for testing"""
+    from shared.redis_client import get_redis_client
+    return get_redis_client()
+
+
+@pytest.fixture
+def job_state(redis_client):
+    """BulkMappingJobState fixture"""
+    if redis_client is None:
+        pytest.skip("Redis not available for job state tests")
+    from services.mapping_intelligence.job_state import BulkMappingJobState
+    return BulkMappingJobState(redis_client)
+
+
+@pytest.fixture
+def test_tenant_id():
+    """Test tenant ID fixture"""
+    return "test-tenant-123"
+
+
+@pytest.fixture
+def test_connector_ids():
+    """Test connector IDs fixture"""
+    return ["conn-1", "conn-2", "conn-3"]
+
+
+@pytest.fixture
+async def clean_redis_state(redis_client, test_tenant_id):
+    """Clean Redis state before/after tests"""
+    if redis_client is None:
+        pytest.skip("Redis not available for state cleanup")
+    
+    # Clean before
+    pattern = f"job:*:tenant:{test_tenant_id}:*"
+    for key in redis_client.scan_iter(match=pattern):
+        redis_client.delete(key)
+    
+    yield
+    
+    # Clean after
+    for key in redis_client.scan_iter(match=pattern):
+        redis_client.delete(key)
