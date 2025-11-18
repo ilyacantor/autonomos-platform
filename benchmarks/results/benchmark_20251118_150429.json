@@ -1,0 +1,57 @@
+{
+  "metadata": {
+    "workload_profile": "test",
+    "timestamp": "2025-11-18T15:04:28.922780",
+    "tenant_id": "test-tenant",
+    "profile_config": {
+      "connectors": 10,
+      "concurrent_jobs": 5,
+      "fields_per_connector": 50
+    }
+  },
+  "execution": {
+    "total_jobs": 5,
+    "completed": 5,
+    "failed": 0,
+    "timeout": 0,
+    "duration_seconds": 10.5,
+    "success_rate_percent": 100.0,
+    "error_rate_percent": 0.0
+  },
+  "performance": {
+    "throughput": {
+      "jobs_per_sec": 0.48,
+      "fields_per_sec": 23.8
+    },
+    "latency": {
+      "min": 100,
+      "max": 300,
+      "avg": 200,
+      "median": 195,
+      "p50": 195,
+      "p95": 280,
+      "p99": 295
+    },
+    "queue_wait": {
+      "avg": 50,
+      "p50": 48,
+      "p95": 65,
+      "p99": 70
+    },
+    "processing_time": {
+      "avg": 150,
+      "p50": 147,
+      "p95": 215,
+      "p99": 225
+    }
+  },
+  "resources": {
+    "cpu_percent_avg": 45.2,
+    "cpu_percent_max": 78.5,
+    "memory_mb_avg": 256.7,
+    "memory_mb_max": 312.3
+  },
+  "recommendations": [
+    "\u2705 All metrics within acceptable ranges."
+  ]
+}

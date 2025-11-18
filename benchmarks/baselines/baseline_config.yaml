@@ -1,0 +1,71 @@
+# Performance Baseline Configuration
+# Defines environment specs and performance targets for different workload profiles
+
+environment:
+  system: "Replit Production (4 vCPU, 16GB RAM)"
+  postgres: "Supabase Free Tier"
+  redis: "Upstash with TLS"
+  python_version: "3.11"
+  description: "Production-like environment configuration"
+
+targets:
+  small_workload:
+    description: "10 connectors, 5 concurrent jobs"
+    max_latency_p50_ms: 2000   # 2s
+    max_latency_p95_ms: 5000   # 5s
+    max_latency_p99_ms: 8000   # 8s
+    min_throughput_jobs_per_sec: 2
+    min_throughput_fields_per_sec: 1000
+    max_error_rate_percent: 1
+    max_duration_seconds: 30
+    max_cpu_percent: 60
+    max_memory_mb: 500
+  
+  medium_workload:
+    description: "100 connectors, 20 concurrent jobs"
+    max_latency_p50_ms: 5000    # 5s
+    max_latency_p95_ms: 15000   # 15s
+    max_latency_p99_ms: 25000   # 25s
+    min_throughput_jobs_per_sec: 5
+    min_throughput_fields_per_sec: 5000
+    max_error_rate_percent: 2
+    max_duration_seconds: 120
+    max_cpu_percent: 75
+    max_memory_mb: 1000
+  
+  large_workload:
+    description: "500 connectors, 50 concurrent jobs"
+    max_latency_p50_ms: 10000   # 10s
+    max_latency_p95_ms: 30000   # 30s
+    max_latency_p99_ms: 45000   # 45s
+    min_throughput_jobs_per_sec: 10
+    min_throughput_fields_per_sec: 10000
+    max_error_rate_percent: 5
+    max_duration_seconds: 300
+    max_cpu_percent: 85
+    max_memory_mb: 2000
+  
+  enterprise_workload:
+    description: "1000 connectors, 100 concurrent jobs"
+    max_latency_p50_ms: 15000   # 15s
+    max_latency_p95_ms: 60000   # 60s
+    max_latency_p99_ms: 90000   # 90s
+    min_throughput_jobs_per_sec: 20
+    min_throughput_fields_per_sec: 20000
+    max_error_rate_percent: 10
+    max_duration_seconds: 600
+    max_cpu_percent: 90
+    max_memory_mb: 4000
+
+regression_thresholds:
+  latency_p95_increase_percent: 20   # Fail if P95 latency increases by >20%
+  throughput_decrease_percent: 15    # Fail if throughput decreases by >15%
+  error_rate_increase_percent: 5     # Fail if error rate increases by >5%
+  
+metadata:
+  version: "1.0"
+  last_updated: "2025-11-18"
+  owner: "AutonomOS Performance Team"
+  notes: |
+    These baselines are calibrated for the current production environment.
+    Review and update quarterly or after major infrastructure changes.
