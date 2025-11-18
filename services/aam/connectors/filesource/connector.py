@@ -168,7 +168,7 @@ class FileSourceConnector:
                 data.append(dict(row))
         return data
     
-    def build_canonical_event(
+    async def build_canonical_event(
         self,
         entity: str,
         system: str,
@@ -176,7 +176,7 @@ class FileSourceConnector:
         trace_id: str
     ) -> Tuple[CanonicalEvent, List[str]]:
         """
-        Build CanonicalEvent envelope by applying mapping registry with strict typing
+        Build CanonicalEvent envelope by applying mapping registry with strict typing (async)
         
         Returns:
             Tuple of (CanonicalEvent, unknown_fields)
@@ -184,12 +184,13 @@ class FileSourceConnector:
         Raises:
             ValueError: If required canonical fields are missing or validation fails
         """
-        # Apply mapping registry to transform source data
+        # Apply mapping registry to transform source data (async to prevent event loop blocking)
         # Use system-specific mapping based on filename suffix
-        canonical_data, unknown_fields = mapping_registry.apply_mapping(
+        canonical_data, unknown_fields = await mapping_registry.apply_mapping_async(
             system=system,
             entity=entity,
-            source_row=source_row
+            source_row=source_row,
+            tenant_id=self.tenant_id
         )
         
         # Instantiate the appropriate canonical model (enforces strict typing)
@@ -261,9 +262,9 @@ class FileSourceConnector:
         )
         self.db.add(canonical_entry)
     
-    def replay_entity(self, entity: Optional[str] = None, system: Optional[str] = None) -> Dict[str, Any]:
+    async def replay_entity(self, entity: Optional[str] = None, system: Optional[str] = None) -> Dict[str, Any]:
         """
-        Replay CSV files for specified entity/system or all discovered files
+        Replay CSV files for specified entity/system or all discovered files (async)
         
         Collects all canonical events in memory and publishes them in batch via
         dcl_output_adapter for table-based payload format.
@@ -317,7 +318,7 @@ class FileSourceConnector:
             # Transform each row and collect events
             file_unknown_count = 0
             for row in rows:
-                event, unknown_fields = self.build_canonical_event(
+                event, unknown_fields = await self.build_canonical_event(
                     entity=file_info['entity'],
                     system=file_info['system'],
                     source_row=row,
@@ -389,6 +390,6 @@ class FileSourceConnector:
         logger.info(f"Replay complete: {stats['total_records']} records from {stats['files_processed']} files")
         return stats
     
-    def replay_all(self) -> Dict[str, Any]:
-        """Replay all discovered CSV files"""
-        return self.replay_entity(entity=None, system=None)
+    async def replay_all(self) -> Dict[str, Any]:
+        """Replay all discovered CSV files (async)"""
+        return await self.replay_entity(entity=None, system=None)

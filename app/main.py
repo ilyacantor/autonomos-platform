@@ -90,6 +90,27 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.warning(f"⚠️ DCL RAG Engine initialization failed: {e}. Continuing without RAG.")
     
+    # Initialize AsyncDCLMappingClient and inject into mapping_registry (fixes event loop blocking)
+    try:
+        from shared.dcl_mapping_client import AsyncDCLMappingClient
+        from services.aam.canonical.mapping_registry import mapping_registry
+        import httpx
+        
+        # Create shared AsyncClient for the entire application lifecycle
+        async_http_client = httpx.AsyncClient(
+            base_url=os.getenv("DCL_API_URL", "http://localhost:5000"),
+            timeout=5.0
+        )
+        async_dcl_client = AsyncDCLMappingClient(http_client=async_http_client)
+        
+        # Inject into global mapping_registry
+        mapping_registry.async_dcl_client = async_dcl_client
+        logger.info("✅ AsyncDCLMappingClient initialized and injected into mapping_registry (no event loop blocking)")
+    except Exception as e:
+        logger.warning(f"⚠️ AsyncDCLMappingClient initialization failed: {e}. Falling back to sync client.")
+        async_http_client = None
+        async_dcl_client = None
+    
     # Initialize DCL Agent Executor
     if dcl_app and redis_conn:
         from app.dcl_engine.agent_executor import AgentExecutor
@@ -211,6 +232,14 @@ async def lifespan(app: FastAPI):
     
     # SHUTDOWN PHASE
     logger.info("🛑 Shutting down AutonomOS application...")
+    
+    # Close AsyncDCLMappingClient
+    if async_dcl_client:
+        try:
+            await async_dcl_client.close()
+            logger.info("✅ AsyncDCLMappingClient closed gracefully")
+        except Exception as e:
+            logger.warning(f"⚠️ Error closing AsyncDCLMappingClient: {e}")
     
     # Stop feature flag pub/sub listener
     if redis_conn:

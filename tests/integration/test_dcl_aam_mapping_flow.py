@@ -155,16 +155,17 @@ def test_aam_uses_dcl_api_for_mappings(client, unique_tenant_name, unique_email)
         set_feature_flag('USE_DCL_MAPPING_REGISTRY', False, 'default')
 
 
-@pytest.mark.integration  
-def test_e2e_canonical_transformation(client, unique_tenant_name, unique_email):
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_e2e_canonical_transformation(client, unique_tenant_name, unique_email):
     """
-    INTEGRATION TEST: Complete end-to-end canonical transformation flow.
+    INTEGRATION TEST: Complete end-to-end canonical transformation flow (ASYNC).
     
-    Flow: Create Mapping (DCL API) → AAM Fetches → AAM Transforms → Canonical Event
+    Flow: Create Mapping (DCL API) → AAM Fetches (async) → AAM Transforms → Canonical Event
     
     Verifies:
     - Admin can create mappings via DCL API
-    - AAM retrieves mapping from DCL
+    - AAM retrieves mapping from DCL async (no event loop blocking)
     - AAM applies transformation correctly
     - Canonical event matches expected format
     """
@@ -213,40 +214,40 @@ def test_e2e_canonical_transformation(client, unique_tenant_name, unique_email):
     assert 'mapping_id' in created_data, "Response missing mapping_id"
     assert created_data['status'] in ['created', 'updated'], f"Unexpected status: {created_data['status']}"
     
-    # 2. Create DCL client with ASGITransport for test environment
-    # This exercises the REAL dcl_client code with dependency injection
+    # 2. Create AsyncDCLMappingClient with ASGITransport for test environment
+    # This exercises the REAL async dcl_client code with dependency injection (no event loop blocking)
     import httpx
     from httpx import ASGITransport
     from shared.feature_flags import set_feature_flag
     from services.aam.canonical.mapping_registry import mapping_registry
-    from shared.dcl_mapping_client import DCLMappingClient
+    from shared.dcl_mapping_client import AsyncDCLMappingClient
     
-    # Create httpx.Client configured with ASGITransport and auth headers
-    test_http_client = httpx.Client(
+    # Create httpx.AsyncClient configured with ASGITransport and auth headers
+    test_http_client = httpx.AsyncClient(
         transport=ASGITransport(app=client.app),
         base_url="http://testserver",
         headers={'Authorization': f'Bearer {token}'}
     )
     
-    # Create DCL client with injected httpx.Client
-    test_dcl_client = DCLMappingClient(
+    # Create async DCL client with injected httpx.AsyncClient
+    test_dcl_client = AsyncDCLMappingClient(
         base_url="http://testserver",
         http_client=test_http_client
     )
     
-    # Save the original dcl_client to restore later
-    original_dcl_client = mapping_registry.dcl_client
+    # Save the original async_dcl_client to restore later
+    original_async_dcl_client = mapping_registry.async_dcl_client
     
-    # Replace mapping_registry's dcl_client with our test client
-    mapping_registry.dcl_client = test_dcl_client
+    # Replace mapping_registry's async_dcl_client with our test client
+    mapping_registry.async_dcl_client = test_dcl_client
     
     # Enable feature flag for this tenant
     set_feature_flag('USE_DCL_MAPPING_REGISTRY', True, tenant_id)
     
     try:
-        # 3. AAM fetches mapping via DCL client → httpx (ASGI) → DCL API
-        # This exercises the REAL dcl_client code path with auth
-        mapping = mapping_registry.get_mapping(connector_name, 'test_table', tenant_id)
+        # 3. AAM fetches mapping via async DCL client → httpx.AsyncClient → ASGI → DCL API
+        # This exercises the REAL async dcl_client code path with auth (no event loop blocking)
+        mapping = await mapping_registry.get_mapping_async(connector_name, 'test_table', tenant_id)
         
         assert mapping is not None, "AAM failed to retrieve mapping via DCL API"
         assert 'fields' in mapping, "Mapping missing fields"
@@ -279,11 +280,8 @@ def test_e2e_canonical_transformation(client, unique_tenant_name, unique_email):
     finally:
         # Cleanup
         set_feature_flag('USE_DCL_MAPPING_REGISTRY', False, tenant_id)
-        mapping_registry.dcl_client = original_dcl_client
-        try:
-            test_http_client.close()
-        except AttributeError:
-            pass  # ASGITransport doesn't have close() method
+        mapping_registry.async_dcl_client = original_async_dcl_client
+        await test_http_client.aclose()  # AsyncClient has aclose() method
 
 
 @pytest.mark.integration

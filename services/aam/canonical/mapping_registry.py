@@ -2,17 +2,18 @@
 Mapping Registry for vendor → canonical field mappings
 Supports YAML/JSON storage with CRUD operations
 RACI P1.5: Integrated with DCL mapping API behind feature flag
+Now supports async operations to prevent event loop blocking
 """
 import os
 import json
 import yaml
 import logging
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Union
 from pathlib import Path
 from datetime import datetime
 
 from shared.feature_flags import get_feature_flag
-from shared.dcl_mapping_client import DCLMappingClient
+from shared.dcl_mapping_client import DCLMappingClient, AsyncDCLMappingClient
 
 logger = logging.getLogger(__name__)
 
@@ -20,16 +21,26 @@ ENABLE_DUAL_READ_VALIDATION = os.getenv("ENABLE_DUAL_READ_VALIDATION", "false").
 
 
 class MappingRegistry:
-    """Registry for managing field mappings from source systems to canonical schemas"""
+    """Registry for managing field mappings from source systems to canonical schemas
     
-    def __init__(self, registry_path: str = "services/aam/canonical/mappings", dcl_client: Optional[DCLMappingClient] = None):
+    Supports both synchronous and asynchronous operations for flexible usage.
+    """
+    
+    def __init__(
+        self, 
+        registry_path: str = "services/aam/canonical/mappings", 
+        dcl_client: Optional[DCLMappingClient] = None,
+        async_dcl_client: Optional[AsyncDCLMappingClient] = None
+    ):
         self.registry_path = Path(registry_path)
         self.registry_path.mkdir(parents=True, exist_ok=True)
         self._mappings_cache: Dict[str, Dict] = {}
         self._load_all_mappings()
         
+        # Support both sync and async clients
         self.dcl_client = dcl_client or DCLMappingClient()
-        logger.info("MappingRegistry initialized with DCL client support")
+        self.async_dcl_client = async_dcl_client  # Set during app startup
+        logger.info("MappingRegistry initialized with sync DCL client support")
     
     def _load_all_mappings(self):
         """Load all mapping files into cache (YAML fallback)"""
@@ -111,6 +122,37 @@ class MappingRegistry:
             logger.debug(f"Using YAML for {system}.{entity} (feature flag disabled)")
             return self._get_yaml_mapping(system, entity)
     
+    async def get_mapping_async(self, system: str, entity: str, tenant_id: str = "default") -> Optional[Dict[str, Any]]:
+        """
+        Get field mapping for a system and entity (async version to prevent event loop blocking).
+        Uses async DCL API if feature flag enabled and async client available, falls back to YAML.
+        """
+        use_dcl = get_feature_flag("USE_DCL_MAPPING_REGISTRY", tenant_id)
+        
+        if use_dcl and self.async_dcl_client:
+            try:
+                logger.debug(f"Using async DCL API for {system}.{entity}")
+                
+                dcl_mapping = await self.async_dcl_client.get_entity_mapping(system, entity, tenant_id)
+                
+                if dcl_mapping and dcl_mapping.get("fields"):
+                    if ENABLE_DUAL_READ_VALIDATION:
+                        yaml_mapping = self._get_yaml_mapping(system, entity)
+                        if yaml_mapping:
+                            self._compare_mappings(dcl_mapping, yaml_mapping, system, entity)
+                    
+                    return dcl_mapping
+                else:
+                    logger.warning(f"Async DCL API returned empty or no mapping for {system}.{entity}, falling back to YAML")
+                    return self._get_yaml_mapping(system, entity)
+                    
+            except Exception as e:
+                logger.error(f"Async DCL API error for {system}.{entity}: {e}, falling back to YAML")
+                return self._get_yaml_mapping(system, entity)
+        else:
+            logger.debug(f"Using YAML for {system}.{entity} (async DCL client not available or feature flag disabled)")
+            return self._get_yaml_mapping(system, entity)
+    
     def apply_mapping(
         self, 
         system: str, 
@@ -118,7 +160,7 @@ class MappingRegistry:
         source_row: Dict[str, Any]
     ) -> tuple[Dict[str, Any], List[str]]:
         """
-        Apply mapping to transform source row to canonical format
+        Apply mapping to transform source row to canonical format (sync version)
         Returns: (canonical_data, unknown_fields)
         """
         mapping = self.get_mapping(system, entity)
@@ -126,6 +168,31 @@ class MappingRegistry:
             # No mapping found - return source data as-is with high unknown rate
             return source_row, list(source_row.keys())
         
+        return self._transform_with_mapping(mapping, source_row)
+    
+    async def apply_mapping_async(
+        self, 
+        system: str, 
+        entity: str, 
+        source_row: Dict[str, Any],
+        tenant_id: str = "default"
+    ) -> tuple[Dict[str, Any], List[str]]:
+        """
+        Apply mapping to transform source row to canonical format (async version)
+        Returns: (canonical_data, unknown_fields)
+        """
+        mapping = await self.get_mapping_async(system, entity, tenant_id)
+        if not mapping:
+            # No mapping found - return source data as-is with high unknown rate
+            return source_row, list(source_row.keys())
+        
+        return self._transform_with_mapping(mapping, source_row)
+    
+    def _transform_with_mapping(self, mapping: Dict[str, Any], source_row: Dict[str, Any]) -> tuple[Dict[str, Any], List[str]]:
+        """
+        Apply mapping transformation to source row (extracted for reuse by both sync/async)
+        Returns: (canonical_data, unknown_fields)
+        """
         canonical_data = {}
         unknown_fields = []
         field_mappings = mapping.get('fields', {})

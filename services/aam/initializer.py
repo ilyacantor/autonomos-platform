@@ -97,7 +97,7 @@ class AAMInitializer:
             elif hasattr(connector, 'get_latest_files'):
                 # FileSource: Use CSV replay workflow instead of file metadata
                 # This processes actual CSV data with correct entity types
-                stats = connector.replay_all()
+                stats = await connector.replay_all()
                 return stats.get('total_records', 0)
             else:
                 logger.warning(f"  No data fetch method found for {connector.__class__.__name__}")
@@ -106,7 +106,7 @@ class AAMInitializer:
             # Normalize and emit each item
             for item in items:
                 trace_id = str(uuid_lib.uuid4())
-                event = normalize_method(item, trace_id)
+                event = await normalize_method(item, trace_id)
                 connector.emit_canonical_event(event)
                 events_count += 1
         

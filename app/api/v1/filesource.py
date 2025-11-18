@@ -40,8 +40,8 @@ async def replay_filesource(
         
         logger.info(f"Starting FileSource replay: entity={entity}, system={system}, tenant={tenant_id}")
         
-        # Replay with optional filters
-        stats = connector.replay_entity(entity=entity, system=system)
+        # Replay with optional filters (await async method)
+        stats = await connector.replay_entity(entity=entity, system=system)
         
         logger.info(f"FileSource replay complete: {stats['total_records']} records from {stats['files_processed']} files")
         

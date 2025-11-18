@@ -288,13 +288,13 @@ class SupabaseConnector:
             logger.error(f"Failed to fetch accounts: {e}")
             return []
     
-    def normalize_account(
+    async def normalize_account(
         self,
         supabase_account: Dict[str, Any],
         trace_id: str
     ) -> CanonicalEvent:
         """
-        Normalize Supabase account to canonical format
+        Normalize Supabase account to canonical format (async to prevent event loop blocking)
         
         Args:
             supabase_account: Raw Supabase account data
@@ -303,10 +303,11 @@ class SupabaseConnector:
         Returns:
             CanonicalEvent with strict typing
         """
-        canonical_data, unknown_fields = mapping_registry.apply_mapping(
+        canonical_data, unknown_fields = await mapping_registry.apply_mapping_async(
             system="supabase",
             entity="account",
-            source_row=supabase_account
+            source_row=supabase_account,
+            tenant_id=self.tenant_id
         )
         
         try:
@@ -341,13 +342,13 @@ class SupabaseConnector:
         
         return event
     
-    def normalize_opportunity(
+    async def normalize_opportunity(
         self,
         supabase_opportunity: Dict[str, Any],
         trace_id: str
     ) -> CanonicalEvent:
         """
-        Normalize Supabase opportunity to canonical format
+        Normalize Supabase opportunity to canonical format (async to prevent event loop blocking)
         
         Args:
             supabase_opportunity: Raw Supabase opportunity data
@@ -356,10 +357,11 @@ class SupabaseConnector:
         Returns:
             CanonicalEvent with strict typing
         """
-        canonical_data, unknown_fields = mapping_registry.apply_mapping(
+        canonical_data, unknown_fields = await mapping_registry.apply_mapping_async(
             system="supabase",
             entity="opportunity",
-            source_row=supabase_opportunity
+            source_row=supabase_opportunity,
+            tenant_id=self.tenant_id
         )
         
         try:

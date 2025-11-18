@@ -185,13 +185,13 @@ class SalesforceConnector:
             logger.error(f"Failed to fetch Salesforce opportunities: {e}")
             return []
     
-    def normalize_opportunity(
+    async def normalize_opportunity(
         self,
         sf_opportunity: Dict[str, Any],
         trace_id: str
     ) -> CanonicalEvent:
         """
-        Normalize Salesforce Opportunity to canonical format
+        Normalize Salesforce Opportunity to canonical format (async to prevent event loop blocking)
         
         Args:
             sf_opportunity: Raw Salesforce opportunity data
@@ -200,11 +200,12 @@ class SalesforceConnector:
         Returns:
             CanonicalEvent with strict typing
         """
-        # Apply mapping registry to transform Salesforce data to canonical format
-        canonical_data, unknown_fields = mapping_registry.apply_mapping(
+        # Apply mapping registry to transform Salesforce data to canonical format (async)
+        canonical_data, unknown_fields = await mapping_registry.apply_mapping_async(
             system="salesforce",
             entity="opportunity",
-            source_row=sf_opportunity
+            source_row=sf_opportunity,
+            tenant_id=self.tenant_id
         )
         
         # Instantiate canonical model (enforces strict typing)

@@ -268,13 +268,13 @@ class MongoDBConnector:
             logger.error(f"Failed to fetch accounts: {e}")
             return []
     
-    def normalize_account(
+    async def normalize_account(
         self,
         mongo_account: Dict[str, Any],
         trace_id: str
     ) -> CanonicalEvent:
         """
-        Normalize MongoDB account to canonical format
+        Normalize MongoDB account to canonical format (async to prevent event loop blocking)
         
         Args:
             mongo_account: Raw MongoDB account data
@@ -283,10 +283,11 @@ class MongoDBConnector:
         Returns:
             CanonicalEvent with strict typing
         """
-        canonical_data, unknown_fields = mapping_registry.apply_mapping(
+        canonical_data, unknown_fields = await mapping_registry.apply_mapping_async(
             system="mongodb",
             entity="account",
-            source_row=mongo_account
+            source_row=mongo_account,
+            tenant_id=self.tenant_id
         )
         
         try:
@@ -321,13 +322,13 @@ class MongoDBConnector:
         
         return event
     
-    def normalize_opportunity(
+    async def normalize_opportunity(
         self,
         mongo_opportunity: Dict[str, Any],
         trace_id: str
     ) -> CanonicalEvent:
         """
-        Normalize MongoDB opportunity to canonical format
+        Normalize MongoDB opportunity to canonical format (async to prevent event loop blocking)
         
         Args:
             mongo_opportunity: Raw MongoDB opportunity data
@@ -336,10 +337,11 @@ class MongoDBConnector:
         Returns:
             CanonicalEvent with strict typing
         """
-        canonical_data, unknown_fields = mapping_registry.apply_mapping(
+        canonical_data, unknown_fields = await mapping_registry.apply_mapping_async(
             system="mongodb",
             entity="opportunity",
-            source_row=mongo_opportunity
+            source_row=mongo_opportunity,
+            tenant_id=self.tenant_id
         )
         
         try:
