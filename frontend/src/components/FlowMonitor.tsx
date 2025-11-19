@@ -26,9 +26,9 @@ interface FlowSnapshot {
 const statusColors: Record<string, string> = {
   success: 'bg-green-500',
   failure: 'bg-red-500',
-  in_progress: 'bg-yellow-500',
+  in_progress: 'bg-purple-500',
   degraded: 'bg-blue-500',
-  pending: 'bg-gray-400',
+  pending: 'bg-gray-500',
 };
 
 const statusIcons: Record<string, any> = {
@@ -141,18 +141,18 @@ const FlowMonitor = () => {
     const Icon = icon;
 
     return (
-      <div className="flex-1 bg-white rounded-lg shadow-lg p-6 overflow-hidden flex flex-col">
-        <div className="flex items-center gap-3 mb-4 border-b pb-3">
+      <div className="flex-1 bg-gray-800 rounded-lg shadow-lg p-6 overflow-hidden flex flex-col border border-gray-700">
+        <div className="flex items-center gap-3 mb-4 border-b border-gray-700 pb-3">
           <Icon className={`w-6 h-6 ${color}`} />
-          <h2 className="text-lg font-semibold text-gray-800">{title}</h2>
-          <span className="ml-auto bg-gray-100 px-3 py-1 rounded-full text-sm text-gray-600">
+          <h2 className="text-lg font-semibold text-white">{title}</h2>
+          <span className="ml-auto bg-gray-700 px-3 py-1 rounded-full text-sm text-gray-300">
             {events.length} events
           </span>
         </div>
 
         <div className="flex-1 overflow-y-auto space-y-3 pr-2" style={{ maxHeight: '600px' }}>
           {events.length === 0 ? (
-            <div className="text-center text-gray-400 py-8">
+            <div className="text-center text-gray-500 py-8">
               <Activity className="w-12 h-12 mx-auto mb-2 opacity-30" />
               <p>No events yet</p>
             </div>
@@ -165,7 +165,7 @@ const FlowMonitor = () => {
               return (
                 <div
                   key={event.stream_id || `${event.event_id}-${idx}`}
-                  className="border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow bg-gray-50"
+                  className="border border-gray-700 rounded-lg p-3 hover:border-gray-600 transition-colors bg-gray-900"
                 >
                   <div className="flex items-start gap-3">
                     <div className={`${statusColor} rounded-full p-1.5 mt-0.5`}>
@@ -174,13 +174,13 @@ const FlowMonitor = () => {
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium text-gray-900 truncate">{event.entity_id}</span>
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${statusColor} bg-opacity-20 text-gray-700`}>
+                        <span className="font-medium text-white truncate">{event.entity_id}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${statusColor} bg-opacity-20 text-gray-300`}>
                           {event.stage.replace(/_/g, ' ')}
                         </span>
                       </div>
 
-                      <div className="text-xs text-gray-500 space-y-0.5">
+                      <div className="text-xs text-gray-400 space-y-0.5">
                         <div className="flex items-center gap-1">
                           <Clock className="w-3 h-3" />
                           <span>{new Date(event.timestamp).toLocaleTimeString()}</span>
@@ -188,7 +188,7 @@ const FlowMonitor = () => {
                         </div>
 
                         {metadata && Object.keys(metadata).length > 0 && (
-                          <div className="mt-1 text-xs text-gray-600 bg-white rounded px-2 py-1">
+                          <div className="mt-1 text-xs text-gray-300 bg-gray-800 rounded px-2 py-1 border border-gray-700">
                             {Object.entries(metadata).slice(0, 3).map(([key, value]) => (
                               <div key={key} className="truncate">
                                 <span className="font-medium">{key}:</span>{' '}
@@ -210,23 +210,23 @@ const FlowMonitor = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-6">
       <div className="max-w-[1800px] mx-auto">
         <div className="mb-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Live Flow Monitoring</h1>
-              <p className="text-gray-600">Real-time telemetry across AAM → DCL → Agent pipeline</p>
+              <h1 className="text-3xl font-bold text-white mb-2">Live Flow Monitoring</h1>
+              <p className="text-gray-400">Real-time telemetry across AAM → DCL → Agent pipeline</p>
             </div>
 
             <div className="flex items-center gap-3">
-              <div className={`flex items-center gap-2 px-4 py-2 rounded-lg ${connected ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+              <div className={`flex items-center gap-2 px-4 py-2 rounded-lg border ${connected ? 'bg-green-900/30 border-green-700 text-green-400' : 'bg-red-900/30 border-red-700 text-red-400'}`}>
                 <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
                 <span className="text-sm font-medium">{connected ? 'Connected' : 'Disconnected'}</span>
               </div>
 
               {error && (
-                <div className="bg-red-100 text-red-700 px-4 py-2 rounded-lg text-sm flex items-center gap-2">
+                <div className="bg-red-900/30 border border-red-700 text-red-400 px-4 py-2 rounded-lg text-sm flex items-center gap-2">
                   <AlertCircle className="w-4 h-4" />
                   {error}
                 </div>
@@ -236,9 +236,9 @@ const FlowMonitor = () => {
         </div>
 
         <div className="flex gap-6" style={{ height: 'calc(100vh - 180px)' }}>
-          {renderEventTimeline(aamEvents, 'AAM Connections', Database, 'text-blue-600')}
-          {renderEventTimeline(dclEvents, 'DCL Intelligence', Brain, 'text-purple-600')}
-          {renderEventTimeline(agentEvents, 'Agent Execution', Zap, 'text-orange-600')}
+          {renderEventTimeline(aamEvents, 'AAM Connections', Database, 'text-green-400')}
+          {renderEventTimeline(dclEvents, 'DCL Intelligence', Brain, 'text-purple-400')}
+          {renderEventTimeline(agentEvents, 'Agent Execution', Zap, 'text-blue-400')}
         </div>
       </div>
     </div>
