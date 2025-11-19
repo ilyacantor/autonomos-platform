@@ -10,34 +10,36 @@ Design Principles:
 - Graceful degradation: Fallback to heuristics when external services unavailable
 - Observability: Structured errors, metrics, and logging integration
 
-Architectural Decision Record (ADR): Circuit Breaker + Retry Interaction
-------------------------------------------------------------------------
+Architectural Decision Record (ADR): Circuit Breaker + Retry + Timeout Interaction
+-----------------------------------------------------------------------------------
 **Decision**: Circuit breakers count REQUEST-level failures, not individual retry attempts.
+Timeout applies to ENTIRE operation including all retries (hard deadline semantics).
 
-**Resilience Chain Order**: Circuit Breaker → Retry → Timeout → Function
+**Resilience Chain Order**: Circuit Breaker → Timeout → Retry → Function
 
 **Rationale**:
 1. Circuit breakers gate request-level outcomes, preventing cascading failures
-2. Retries happen INSIDE circuit breaker to allow multi-attempt recovery
-3. Moving breaker inside retry would prematurely short-circuit recovery (thundering herd)
+2. Timeout enforces HARD DEADLINE for entire operation (not per-attempt timeout)
+3. Retries happen INSIDE timeout to allow multi-attempt recovery within deadline
 4. Request-level counting matches industry-standard resilience patterns (Hystrix, Polly, resilience4j)
 
-**Example**: LLM service with failure_threshold=3, max_retries=3
-- Request 1 fails → retries 3 times → raises RetryExhaustedError (breaker: 1 failure)
-- Request 2 fails → retries 3 times → raises RetryExhaustedError (breaker: 2 failures)
-- Request 3 fails → retries 3 times → raises RetryExhaustedError (breaker: 3 failures, OPENS)
-- Request 4 → CircuitBreakerOpenError immediately (no function execution, no retries)
-- Total function calls: 9 (3 requests × 3 attempts), but circuit opens after 3 REQUESTS
+**Example**: LLM service with failure_threshold=3, timeout=30s, max_retries=3
+- Request 1: Retries 3 times within 30s total → raises RetryExhaustedError (breaker: 1 failure)
+- Request 2: Retries 3 times within 30s total → raises RetryExhaustedError (breaker: 2 failures)
+- Request 3: Retries 3 times within 30s total → raises RetryExhaustedError (breaker: 3 failures, OPENS)
+- Request 4: CircuitBreakerOpenError immediately (no function execution, no retries)
+- If any request exceeds 30s total (all attempts combined) → TimeoutError
 
 **Tuning Guidance**:
+- Adjust `timeout_seconds` for hard deadline (entire operation including retries)
 - Adjust `failure_threshold` to control how many failed REQUESTS trigger circuit open
-- Adjust `max_retries` to control retry attempts PER request
-- For aggressive circuit breaking: Lower failure_threshold (e.g., 2)
-- For resilient retry: Increase max_retries (e.g., 5) but monitor latency
+- Adjust `max_retries` to control retry attempts WITHIN the timeout window
+- For aggressive timeout: Lower timeout_seconds (e.g., 10s)
+- For resilient retry: Increase max_retries (e.g., 5) but ensure timeout allows multiple attempts
 
 **Observability**:
 - Logs emit both `attempt_count` (function calls) and `request_count` (user requests)
-- Metrics track circuit breaker state transitions and retry exhaustion rates
+- Metrics track circuit breaker state transitions, timeout events, and retry exhaustion rates
 - Correlation IDs link retry attempts to original request for distributed tracing
 
 Dependencies:
@@ -435,23 +437,31 @@ def with_resilience(
             op_name = operation_name or func.__name__
             
             async def resilient_operation():
-                """Full resilience chain: timeout → retry → circuit breaker"""
-                async def timed_operation():
-                    return await with_timeout(
+                """
+                Full resilience chain: Circuit Breaker → Timeout → Retry → Function
+                
+                Timeout wraps the retry operation to enforce hard deadline for entire operation.
+                Retries happen INSIDE timeout window.
+                """
+                async def retry_operation():
+                    """Retry wrapper - executes function with retry logic"""
+                    return await with_retry(
                         func,
-                        config.timeout_seconds,
+                        config,
                         op_name,
                         *args,
                         **kwargs
                     )
                 
-                return await with_retry(
-                    timed_operation,
-                    config=config,
-                    operation_name=op_name
+                # Timeout wraps retry - enforces hard deadline for all attempts
+                return await with_timeout(
+                    retry_operation,
+                    config.timeout_seconds,
+                    op_name
                 )
             
             try:
+                # Circuit breaker wraps entire operation
                 return await circuit_breaker.call(resilient_operation)
             
             except (CircuitBreakerOpenError, TimeoutError, RetryExhaustedError) as e:
