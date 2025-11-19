@@ -35,12 +35,12 @@ router = APIRouter(prefix="/dcl/intelligence", tags=["intelligence"])
 
 class ProposeRequest(BaseModel):
     """Request schema for POST /dcl/intelligence/propose-mapping"""
-    connector: str = Field(..., example="salesforce")
-    source_table: str = Field(..., example="Opportunity")
-    source_field: str = Field(..., example="Amount")
-    sample_values: List[Any] = Field(..., example=[1000.0, 2500.5, 750.25])
-    tenant_id: str = Field(..., example="default")
-    context: Optional[Dict[str, Any]] = Field(None, example={"drift_event_id": "uuid"})
+    connector: str = Field(..., description="Source connector name (e.g., 'salesforce')")
+    source_table: str = Field(..., description="Source table name (e.g., 'Opportunity')")
+    source_field: str = Field(..., description="Source field name (e.g., 'Amount')")
+    sample_values: List[Any] = Field(..., description="Sample values from the field")
+    tenant_id: str = Field(..., description="Tenant identifier")
+    context: Optional[Dict[str, Any]] = Field(None, description="Additional context metadata")
 
 
 class MappingProposalResponse(BaseModel):
@@ -63,14 +63,8 @@ class ConfidenceRequest(BaseModel):
     """Request schema for POST /dcl/intelligence/calculate-confidence"""
     mapping_id: Optional[str] = None
     proposal_id: Optional[str] = None
-    factors: Dict[str, Any] = Field(..., example={
-        "source_quality": 0.9,
-        "usage_frequency": 100,
-        "validation_success": 0.95,
-        "human_approval": False,
-        "rag_similarity": 0.92
-    })
-    tenant_id: str = Field(..., example="default")
+    factors: Dict[str, Any] = Field(..., description="Confidence factors to evaluate")
+    tenant_id: str = Field(..., description="Tenant identifier")
 
 
 class ConfidenceResponse(BaseModel):
@@ -114,7 +108,7 @@ class ApprovalSubmitRequest(BaseModel):
     """Request schema for approval submission"""
     proposal_id: str
     tenant_id: str
-    priority: str = Field("normal", example="normal")
+    priority: str = Field("normal", description="Priority level (normal, high, critical)")
     notes: Optional[str] = None
 
 
