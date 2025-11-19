@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AutonomOS Architecture - Interactive Documentation</title>
-    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <title>AutonomOS Architecture - Platform Guide</title>
     <style>
         * {
             margin: 0;
@@ -22,6 +21,7 @@
             --accent-green: #3fb950;
             --accent-blue: #58a6ff;
             --accent-purple: #bc8cff;
+            --accent-yellow: #ffc107;
             --code-bg: #161b22;
         }
 
@@ -46,6 +46,14 @@
             font-size: 1.75rem;
             font-weight: 600;
             color: var(--accent-blue);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .header h1::before {
+            content: "⚡";
+            font-size: 2rem;
         }
 
         .header .subtitle {
@@ -142,6 +150,12 @@
             border: 1px solid var(--accent-green);
         }
 
+        .status-demo {
+            background: rgba(255, 193, 7, 0.2);
+            color: var(--accent-yellow);
+            border: 1px solid var(--accent-yellow);
+        }
+
         ul, ol {
             margin-left: 1.5rem;
             margin-bottom: 1rem;
@@ -220,6 +234,20 @@
             border-radius: 4px;
         }
 
+        .intro-section {
+            background: var(--bg-lighter);
+            border: 2px solid var(--accent-blue);
+            border-radius: 8px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .intro-section h2 {
+            color: var(--accent-blue);
+            border: none;
+            margin-bottom: 1.5rem;
+        }
+
         @media (max-width: 768px) {
             .container {
                 padding: 1rem;
@@ -245,69 +273,65 @@
 </head>
 <body>
     <div class="header">
-        <h1>🏗️ AutonomOS Architecture</h1>
-        <div class="subtitle">Multi-Tenant AI Orchestration Platform - Platform Guide</div>
+        <h1>AutonomOS Platform Guide</h1>
+        <div class="subtitle">Multi-Tenant AI Orchestration Platform</div>
     </div>
 
     <div class="container">
         <!-- Navigation -->
         <div class="nav">
-            <h2>📑 Quick Navigation</h2>
+            <h2>Quick Navigation</h2>
             <div class="nav-grid">
-                <a href="#overview" class="nav-link">📊 System Overview</a>
-                <a href="#accountability" class="nav-link">📋 Accountability Matrix</a>
-                <a href="#connectors" class="nav-link">🔌 Production Connectors</a>
+                <a href="#what-is" class="nav-link">What is AutonomOS?</a>
+                <a href="#accountability" class="nav-link">Component Ownership</a>
+                <a href="#components" class="nav-link">Platform Components</a>
+                <a href="#connectors" class="nav-link">Production Connectors</a>
             </div>
         </div>
 
-        <!-- System Overview -->
-        <section id="overview" class="section">
-            <h2>📊 System Overview</h2>
-            <span class="status-badge status-operational">Production Ready</span>
+        <!-- Plain English Introduction -->
+        <section id="what-is" class="intro-section">
+            <h2>What is AutonomOS?</h2>
             
+            <p class="text-gray-300" style="margin-bottom: 1rem;">
+                AutonomOS is an AI-native, <strong style="color: #fff;">enterprise-grade</strong> platform that turns your scattered company data into action.
+            </p>
+            
+            <p class="text-gray-300" style="margin-bottom: 1rem;">
+                It autonomously connects to all your apps, databases, and files, learning how they fit together to create a single, unified enterprise <strong style="color: #fff;">ontology</strong>. This allows our specialized AI agents to reason, act, and get work done.
+            </p>
+
             <div class="highlight-box">
-                <strong>Status:</strong> Phase 1 Foundation Complete + Enterprise Infrastructure Operational<br>
-                <strong>Validation:</strong> 25+ architect reviews, 178 tests (93.4% pass rate), zero startup errors<br>
-                <strong>Last Updated:</strong> November 19, 2025
+                <p><strong>The Problem:</strong> Most companies are data-rich but action-poor. They can't bridge the Insight-to-Action Gap between their data and their business goals, leading to inefficiency and inaction.</p>
             </div>
 
-            <h3>Platform Components</h3>
-            
-            <h4><span class="checkmark">✅</span> AOD (Autonomous Object Discovery)</h4>
-            <ul>
-                <li><strong>Asset Cataloging:</strong> Hybrid AI/ML + rules-based discovery microservice</li>
-                <li><strong>Shadow IT Detection:</strong> IsolationForest anomaly detection (P≥0.60, R≥0.60)</li>
-                <li><strong>NLP Query Interface:</strong> Natural language asset discovery (P50 220ms)</li>
-                <li><strong>HITL Triage:</strong> Human-in-the-loop workflow for high-risk assets</li>
-                <li><strong>Enterprise Auto-Connect:</strong> Autonomous onboarding to AAM based on authorization ledger</li>
-            </ul>
+            <div class="highlight-box">
+                <p><strong>Our Solution:</strong> AutonomOS bridges this gap. It not only unifies your data but empowers pre-built AI agents to execute complex workflows. You remain in control with Human-in-the-Loop (HITL) guardrails.</p>
+            </div>
 
-            <h4><span class="checkmark">✅</span> AAM (Adaptive API Mesh)</h4>
-            <ul>
-                <li><strong>Production Connectors:</strong> 4 operational (Salesforce, MongoDB, FileSource, Supabase)</li>
-                <li><strong>Canonical Event Processing:</strong> Pydantic models with 147 events validated</li>
-                <li><strong>Schema Drift Detection:</strong> Fingerprinting with Redis-backed caching</li>
-                <li><strong>Auto-Repair System:</strong> LLM-powered with RAG intelligence</li>
-            </ul>
+            <p class="text-gray-300">
+                We deliver a complete, secure, and scalable solution combining technology with domain expertise to ensure you get <strong style="color: #fff;">results</strong>, not just another proof-of-concept (POC).
+            </p>
 
-            <h4><span class="checkmark">✅</span> DCL (Data Connection Layer)</h4>
-            <ul>
-                <li><strong>Graph State Management:</strong> Redis-backed with WebSocket real-time updates</li>
-                <li><strong>Multi-Tenant Architecture:</strong> Distributed locking, tenant-scoped state</li>
-                <li><strong>Performance:</strong> 3x-7x improvement (62s → 9s for 9-source parallel processing)</li>
-            </ul>
+            <h3 style="margin-top: 2rem; margin-bottom: 1rem; color: var(--accent-blue);">Current Status</h3>
+            <div class="highlight-box">
+                <strong>Phase 4 Complete</strong> - Production Ready<br>
+                <strong>Platform State:</strong> All four phases operational with live telemetry monitoring
+            </div>
 
-            <h4><span class="checkmark">✅</span> Live Flow Telemetry (Phase 4)</h4>
+            <h4 style="color: var(--accent-purple);">Development Phases</h4>
             <ul>
-                <li><strong>Real-Time Dashboard:</strong> React component at <code>/flow-monitor</code></li>
-                <li><strong>Redis Streams:</strong> Three separate streams (aam:flow, dcl:flow, agent:flow)</li>
-                <li><strong>WebSocket Streaming:</strong> &lt;1s latency with XREAD BLOCK polling</li>
+                <li><strong>Phase 1 (Infrastructure):</strong> Database, connectors, schema versioning - <span style="color: var(--accent-green);">Complete</span></li>
+                <li><strong>Phase 2 (Orchestration):</strong> Connection workflows, drift detection, sync triggering - <span style="color: var(--accent-green);">Complete</span></li>
+                <li><strong>Phase 3 (Advanced Intelligence):</strong> LLM-powered auto-repair, canonical events, testing suite - <span style="color: var(--accent-green);">Complete</span></li>
+                <li><strong>Phase 4 (Live Telemetry):</strong> Real-time flow monitoring, WebSocket streaming, event tracking - <span style="color: var(--accent-green);">Complete</span></li>
+                <li><strong>Phase 5 (Multi-Source Intelligence):</strong> Advanced AI capabilities - <span style="color: var(--text-secondary);">Planned (Future)</span></li>
             </ul>
         </section>
 
-        <!-- Accountability Matrix -->
+        <!-- Accountability Matrix BEFORE Platform Components -->
         <section id="accountability" class="section">
-            <h2>📋 Component Accountability Matrix</h2>
+            <h2>Component Accountability Matrix</h2>
             
             <div class="highlight-box">
                 <strong>Purpose:</strong> Clear ownership boundaries ensure architectural integrity and prevent responsibility drift.
@@ -320,73 +344,127 @@
                     <tr>
                         <th style="width: 50%;">Capability</th>
                         <th style="width: 15%;">Owner</th>
-                        <th style="width: 35%;">Description</th>
+                        <th style="width: 35%;">Plain English Description</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        <td colspan="3" style="background: var(--bg-header); font-weight: bold; color: var(--accent-green);">🔍 Data Ingestion & Discovery</td>
+                        <td colspan="3" style="background: var(--bg-header); font-weight: bold; color: var(--accent-green);">Data Discovery & Collection</td>
                     </tr>
                     <tr>
-                        <td>Asset discovery & cataloging</td>
+                        <td>Finding your data sources</td>
                         <td><span class="raci-a">AOD</span></td>
-                        <td>Finding and inventorying available data sources</td>
+                        <td>Automatically discovers where your data lives across your company</td>
                     </tr>
                     <tr>
-                        <td>API authentication & OAuth flows</td>
+                        <td>Connecting to your apps</td>
                         <td><span class="raci-a">AAM</span></td>
-                        <td>Credential management, token refresh, secure auth</td>
+                        <td>Handles logins, passwords, and security for each data source</td>
                     </tr>
                     <tr>
-                        <td>Data fetching & synchronization</td>
+                        <td>Pulling data from sources</td>
                         <td><span class="raci-a">AAM</span></td>
-                        <td>Retrieving data, pagination, rate limiting</td>
+                        <td>Fetches your actual data and keeps it synchronized</td>
                     </tr>
                     <tr>
-                        <td colspan="3" style="background: var(--bg-header); font-weight: bold; color: var(--accent-blue);">🧠 Intelligence & Transformation</td>
+                        <td colspan="3" style="background: var(--bg-header); font-weight: bold; color: var(--accent-blue);">Intelligence & Understanding</td>
                     </tr>
                     <tr>
-                        <td>LLM-powered mapping proposals</td>
+                        <td>Understanding your data structure</td>
                         <td><span class="raci-a">DCL</span></td>
-                        <td>AI-driven field mapping decisions</td>
+                        <td>AI figures out what your data means and how it relates</td>
                     </tr>
                     <tr>
-                        <td>Schema drift detection</td>
+                        <td>Detecting when data changes</td>
                         <td><span class="raci-a">AAM</span></td>
-                        <td>Fingerprinting and detecting schema changes</td>
+                        <td>Notices when your source systems add or change fields</td>
                     </tr>
                     <tr>
-                        <td>Drift auto-repair logic</td>
+                        <td>Fixing broken connections automatically</td>
                         <td><span class="raci-a">DCL</span></td>
-                        <td>LLM proposals to fix broken mappings</td>
+                        <td>AI automatically repairs mappings when sources change</td>
                     </tr>
                     <tr>
-                        <td colspan="3" style="background: var(--bg-header); font-weight: bold; color: var(--accent-purple);">⚡ Orchestration & Execution</td>
+                        <td colspan="3" style="background: var(--bg-header); font-weight: bold; color: var(--accent-purple);">Action & Execution</td>
                     </tr>
                     <tr>
-                        <td>Graph generation & ontology</td>
+                        <td>Building knowledge graphs</td>
                         <td><span class="raci-a">DCL</span></td>
-                        <td>Building knowledge graphs, entity relationships</td>
+                        <td>Creates visual maps showing how all your data connects</td>
                     </tr>
                     <tr>
-                        <td>Agent execution & context</td>
+                        <td>Running AI agents with your data</td>
                         <td><span class="raci-a">DCL</span></td>
-                        <td>Running agents with proper data context</td>
+                        <td>Gives agents the right data context to take actions</td>
                     </tr>
                 </tbody>
             </table>
 
             <h3>Key Principle</h3>
             <div class="warning-box">
-                <strong>AOD = Discovery Layer</strong> - Owns cataloging and asset inventory<br>
-                <strong>AAM = Transport Layer</strong> - Owns connections, fetching, health monitoring, drift detection<br>
-                <strong>DCL = Intelligence Layer</strong> - Owns mappings, transformations, graphs, agents
+                <strong>AOD (Discovery Layer)</strong> - Finds and catalogs all your data sources<br>
+                <strong>AAM (Transport Layer)</strong> - Connects to sources and keeps data flowing<br>
+                <strong>DCL (Intelligence Layer)</strong> - Makes sense of data and powers AI agents
             </div>
+        </section>
+
+        <!-- Platform Components AFTER RACI -->
+        <section id="components" class="section">
+            <h2>Platform Components</h2>
+            
+            <p style="margin-bottom: 1.5rem; color: var(--text-secondary);">The platform consists of three main components that work together to deliver intelligent data orchestration.</p>
+
+            <h3>AOD (Autonomous Object Discovery)</h3>
+            <p style="margin-bottom: 1rem; color: var(--text-secondary);">
+                Finds and catalogs all your data sources across your company, including unauthorized "shadow IT" systems that your IT department might not know about.
+            </p>
+            <ul>
+                <li><strong>Asset Cataloging:</strong> Hybrid AI/ML + rules-based discovery to find databases, APIs, and files</li>
+                <li><strong>Shadow IT Detection:</strong> Machine learning identifies risky unauthorized data sources (precision ≥60%, recall ≥60%)</li>
+                <li><strong>NLP Query Interface:</strong> <span class="status-badge status-demo">Demo</span> Ask questions in plain English to find data sources (example: "show me all production databases")</li>
+                <li><strong>Human Review Workflow:</strong> Security analysts can approve, quarantine, or investigate discovered assets</li>
+                <li><strong>Auto-Connect to AAM:</strong> Approved sources automatically connect to the data mesh</li>
+            </ul>
+
+            <h3>AAM (Adaptive API Mesh)</h3>
+            <p style="margin-bottom: 1rem; color: var(--text-secondary);">
+                The "plumbing" that connects to all your data sources, pulls data, and keeps everything synchronized - even when source systems change.
+            </p>
+            <ul>
+                <li><strong>4 Production Connectors:</strong> Salesforce (CRM), MongoDB (database), FileSource (CSV/Excel), Supabase (PostgreSQL)</li>
+                <li><strong>Unified Data Format:</strong> Converts different data formats into a standard structure your company can use</li>
+                <li><strong>Change Detection:</strong> Automatically notices when a source system adds or removes fields</li>
+                <li><strong>Self-Healing:</strong> AI automatically fixes broken connections when source systems change their structure</li>
+            </ul>
+
+            <h3>DCL (Data Connection Layer)</h3>
+            <p style="margin-bottom: 1rem; color: var(--text-secondary);">
+                The "brain" that understands your data, builds knowledge graphs, and gives AI agents the context they need to take action.
+            </p>
+            <ul>
+                <li><strong>Knowledge Graph:</strong> Visual maps showing how all your data relates (customers → orders → products)</li>
+                <li><strong>AI-Powered Mapping:</strong> LLM automatically understands how fields from different sources match up</li>
+                <li><strong>Multi-Company Support:</strong> Keeps different companies' data completely separate and secure</li>
+                <li><strong>High Performance:</strong> 3-7x faster than traditional approaches (processes 9 sources in 9 seconds)</li>
+            </ul>
+
+            <h3>Live Flow Monitoring</h3>
+            <p style="margin-bottom: 1rem; color: var(--text-secondary);">
+                Real-time dashboard showing data flowing through the system: Discovery → Connection → Intelligence → AI Agents
+            </p>
+            <ul>
+                <li><strong>Real-Time Visualization:</strong> See data move through the pipeline as it happens</li>
+                <li><strong>Event Tracking:</strong> Monitor every step from discovery to AI agent execution</li>
+                <li><strong>Instant Updates:</strong> WebSocket streaming with less than 1 second latency</li>
+            </ul>
         </section>
 
         <!-- Production Connectors -->
         <section id="connectors" class="section">
-            <h2>🔌 Production Connectors (4 Operational)</h2>
+            <h2>Production Connectors (4 Operational)</h2>
+            <p style="margin-bottom: 1.5rem; color: var(--text-secondary);">
+                These are the data sources we can connect to right now. Each connector handles authentication, data fetching, and automatic updates.
+            </p>
 
             <table>
                 <thead>
@@ -394,51 +472,51 @@
                         <th>Connector</th>
                         <th>Type</th>
                         <th>Status</th>
-                        <th>Description</th>
+                        <th>What It Does</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
                         <td><strong>Salesforce</strong></td>
-                        <td>OAuth2 CRM</td>
+                        <td>CRM Platform</td>
                         <td><span class="status-badge status-operational">Live</span></td>
-                        <td>Production Salesforce integration with canonical event normalization</td>
+                        <td>Connects to your Salesforce accounts, contacts, and opportunities</td>
                     </tr>
                     <tr>
                         <td><strong>MongoDB</strong></td>
                         <td>NoSQL Database</td>
                         <td><span class="status-badge status-operational">Live</span></td>
-                        <td>Document database connector with schema introspection</td>
+                        <td>Pulls data from MongoDB document databases</td>
                     </tr>
                     <tr>
                         <td><strong>FileSource</strong></td>
-                        <td>CSV/Excel</td>
+                        <td>Spreadsheets</td>
                         <td><span class="status-badge status-operational">Live</span></td>
-                        <td>File-based data ingestion for spreadsheets and flat files</td>
+                        <td>Reads CSV and Excel files your team uses</td>
                     </tr>
                     <tr>
                         <td><strong>Supabase</strong></td>
-                        <td>PostgreSQL</td>
+                        <td>Cloud Database</td>
                         <td><span class="status-badge status-operational">Live</span></td>
-                        <td>Cloud PostgreSQL database connector with real-time capabilities</td>
+                        <td>Connects to Supabase PostgreSQL databases with real-time sync</td>
                     </tr>
                 </tbody>
             </table>
 
-            <h3>Connector Capabilities</h3>
+            <h3>What Each Connector Can Do</h3>
             <ul>
-                <li><span class="checkmark">✅</span> OAuth 2.0 authentication flows</li>
-                <li><span class="checkmark">✅</span> Automatic schema introspection</li>
-                <li><span class="checkmark">✅</span> Canonical event normalization</li>
-                <li><span class="checkmark">✅</span> Drift detection & auto-repair</li>
-                <li><span class="checkmark">✅</span> Production credentials from Replit Secrets</li>
+                <li><span class="checkmark">✓</span> Secure authentication (OAuth 2.0 where available)</li>
+                <li><span class="checkmark">✓</span> Automatic discovery of data structure</li>
+                <li><span class="checkmark">✓</span> Converts data to unified format</li>
+                <li><span class="checkmark">✓</span> Detects and auto-repairs when source changes</li>
+                <li><span class="checkmark">✓</span> Production credentials stored securely</li>
             </ul>
         </section>
 
         <!-- Footer -->
         <div class="section" style="text-align: center; color: var(--text-secondary);">
             <p>AutonomOS - Multi-Tenant AI Orchestration Platform</p>
-            <p style="font-size: 0.85rem; margin-top: 0.5rem;">Last Updated: November 19, 2025 | Production Ready</p>
+            <p style="font-size: 0.85rem; margin-top: 0.5rem;">Last Updated: November 19, 2025 | Phase 4 Complete - Production Ready</p>
         </div>
     </div>
 </body>
