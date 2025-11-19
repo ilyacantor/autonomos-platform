@@ -10,15 +10,18 @@ A production-ready **full-stack SaaS platform** for AI-driven data orchestration
 
 ## 🎯 Overview
 
-**AutonomOS** is an enterprise-grade platform that combines advanced AI-powered data orchestration with real-time monitoring and self-healing capabilities. The platform features:
+**AutonomOS** is an enterprise-grade platform that combines advanced AI-powered data orchestration with real-time monitoring and self-healing capabilities. The platform consists of three core components:
 
+- 🔍 **AOD (Autonomous Object Discovery)** - Hybrid AI/ML asset cataloging and Shadow IT detection
+- 🔄 **AAM (Adaptive API Mesh)** - Self-healing data connectivity with drift detection
+- 📊 **DCL (Data Connection Layer)** - AI-driven intelligence, mapping, and graph generation
+
+**Platform Features:**
 - 🎨 **Modern Web Interface** - React/TypeScript dashboard with real-time updates
-- 🔄 **Adaptive API Mesh (AAM)** - Self-healing data connectivity with drift detection
-- 📊 **DCL Engine** - AI-driven data source mapping and unified view creation
 - 🏢 **Multi-Tenant Architecture** - Complete data isolation between organizations
 - 🔐 **Enterprise Security** - JWT authentication with Argon2 password hashing
 - ⚡ **Real-Time Monitoring** - Live dashboard with auto-refresh and health metrics
-- 📡 **Live Flow Telemetry** - Real-time data flow visualization across AAM → DCL → Agent pipeline
+- 📡 **Live Flow Telemetry** - Real-time data flow visualization across AOD → AAM → DCL → Agent pipeline
 
 ### Key Capabilities
 

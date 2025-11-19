@@ -22,14 +22,14 @@ export default function TopBar({ onAuthOpen, currentPage, onNavigate }: TopBarPr
 
   const navItems: NavItem[] = [
     { id: 'architecture', label: 'Platform Guide', icon: <BookOpen className="w-5 h-5" />, tooltip: 'Interactive architecture documentation' },
-    { id: 'control-center', label: 'Control Center', icon: <LayoutDashboard className="w-5 h-5" /> },
-    { id: 'discover', label: 'Discovery', icon: <Search className="w-5 h-5" /> },
-    { id: 'connect', label: 'Connections', icon: <Cable className="w-5 h-5" />, tooltip: 'AAM Connect - Self-healing data connectivity' },
-    { id: 'ontology', label: 'Ontology', icon: <Network className="w-5 h-5" /> },
+    { id: 'discover', label: 'AOD (Discover)', icon: <Search className="w-5 h-5" />, tooltip: 'Asset discovery and cataloging' },
+    { id: 'connect', label: 'AAM (Connect)', icon: <Cable className="w-5 h-5" />, tooltip: 'Self-healing data connectivity' },
+    { id: 'ontology', label: 'DCL (Ontology)', icon: <Network className="w-5 h-5" />, tooltip: 'Data intelligence and mapping' },
     { id: 'orchestration', label: 'Orchestration', icon: <Activity className="w-5 h-5" /> },
     { id: 'agents', label: 'Agents', icon: <Activity className="w-5 h-5" /> },
     { id: 'flow-monitor', label: 'Flow Monitor', icon: <MonitorDot className="w-5 h-5" />, tooltip: 'Real-time telemetry monitoring' },
     { id: 'faq', label: 'Help', icon: <HelpCircle className="w-5 h-5" /> },
+    { id: 'control-center', label: 'Control Center', icon: <LayoutDashboard className="w-5 h-5" /> },
   ];
 
   return (

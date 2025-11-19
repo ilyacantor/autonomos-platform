@@ -3,7 +3,14 @@
 **Last Updated:** November 19, 2025
 
 ## Overview
-AutonomOS is a production-ready, multi-tenant SaaS backend system in Python for AI-driven task orchestration. It provides advanced AI-powered data orchestration, including a Data Connection Layer (DCL) engine for AI-driven data source connection, entity mapping, and unified view creation. The platform ensures complete data isolation with JWT authentication and user management, offering secure, scalable, and enterprise-grade task processing. Key features include an Adaptive API Mesh with operational connectors, drift detection with schema fingerprinting, autonomous auto-repair with confidence scoring, and canonical event normalization, aiming to deliver a robust, AI-enhanced data integration and orchestration solution.
+AutonomOS is a production-ready, multi-tenant SaaS platform for AI-driven data orchestration. The platform consists of three core components working together to deliver intelligent, self-healing data integration:
+
+**Core Components:**
+- **AOD (Autonomous Object Discovery)** - External microservice for hybrid AI/ML asset discovery, Shadow IT detection, and NLP-based cataloging. Features HITL triage workflows and enterprise auto-connect to AAM.
+- **AAM (Adaptive API Mesh)** - Transport layer providing self-healing data connectivity with 4 production connectors (Salesforce, MongoDB, FileSource, Supabase). Handles authentication, data fetching, schema drift detection, and canonical event normalization.
+- **DCL (Data Connection Layer)** - Intelligence layer for AI-driven entity mapping, graph generation, LLM-powered proposals, drift auto-repair, and agent execution context.
+
+The platform ensures complete data isolation with JWT authentication and user management, offering secure, scalable, and enterprise-grade orchestration. Data flows through the system as: AOD (discover) → AAM (connect) → DCL (intelligence) → Agents (action).
 
 ## User Preferences
 
