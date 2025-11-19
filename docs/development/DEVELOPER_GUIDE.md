@@ -1,7 +1,7 @@
 # AutonomOS Platform - Developer Guide
 
 **Version:** 1.0  
-**Last Updated:** November 18, 2025  
+**Last Updated:** November 19, 2025  
 **Target Audience:** Software Engineers, Contributors
 
 ---

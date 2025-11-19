@@ -1,5 +1,7 @@
 # Enterprise Performance Benchmarking Suite
 
+**Last Updated:** November 19, 2025
+
 ## Overview
 
 Comprehensive performance benchmarking infrastructure for AutonomOS distributed job queue system, designed to validate enterprise-scale performance (100s-1000s of connections).

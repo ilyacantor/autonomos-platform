@@ -1,5 +1,7 @@
 # Functional Probe - Quick Start Guide
 
+**Last Updated:** November 19, 2025
+
 ## 🎯 What Is This?
 
 A complete end-to-end test that proves the Salesforce → AAM → DCL pipeline works correctly.

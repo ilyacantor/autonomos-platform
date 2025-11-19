@@ -1,5 +1,7 @@
 # Production Baseline Setup
 
+**Last Updated:** November 19, 2025
+
 ## IMPORTANT: Run this ONCE in production shell
 
 When you deploy for the first time with Alembic, you need to tell production 

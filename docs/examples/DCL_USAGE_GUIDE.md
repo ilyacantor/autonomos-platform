@@ -1,5 +1,7 @@
 # DCL Bridge - Usage Guide
 
+**Last Updated:** November 19, 2025
+
 ## Overview
 
 The **DCL Bridge** adds Legacy DCL functionality to the Modern authenticated UI without requiring frontend rebuilds. It injects JavaScript that connects the Modern UI to Legacy DCL endpoints.

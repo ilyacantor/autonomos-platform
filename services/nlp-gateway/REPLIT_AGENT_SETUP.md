@@ -1,5 +1,7 @@
 # Replit Agent Configuration for AOS NLP Gateway
 
+**Last Updated:** November 19, 2025
+
 This guide configures Replit Agent to use the AOS NLP Gateway as its backend, enabling natural language queries over AutonomOS services with tenant-scoped RAG knowledge base.
 
 ## Prerequisites

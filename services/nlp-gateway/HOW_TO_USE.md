@@ -1,5 +1,7 @@
 # How to Use the AOS NLP Gateway
 
+**Last Updated:** November 19, 2025
+
 Welcome! This guide will help you get started with the AOS NLP Gateway - your natural language interface to AutonomOS services.
 
 ## What is the NLP Gateway?

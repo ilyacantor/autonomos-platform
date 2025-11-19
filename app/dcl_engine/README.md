@@ -1,5 +1,7 @@
 # DCL Engine Source Package
 
+**Last Updated:** November 19, 2025
+
 ## Overview
 This package contains the complete Data Connection Layer (DCL) engine for internalization into the unified AOA backend.
 

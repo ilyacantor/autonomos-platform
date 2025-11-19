@@ -1,5 +1,7 @@
 # AAM Hybrid MVP - Adaptive API Mesh
 
+**Last Updated:** November 19, 2025
+
 ## Overview
 
 The **Adaptive API Mesh (AAM)** is a hybrid architecture that combines:

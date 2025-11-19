@@ -1,5 +1,7 @@
 # AutonomOS Color Palette
 
+**Last Updated:** November 19, 2025
+
 ## Brand Identity
 **Typography**: Quicksand (Google Fonts)  
 **Color Philosophy**: Green, Blue, Purple with Cyan accents for a modern, tech-forward aesthetic with dark mode optimization

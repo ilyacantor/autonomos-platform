@@ -1,7 +1,7 @@
 # AutonomOS Platform - API Reference
 
 **Version:** 1.0  
-**Last Updated:** November 18, 2025  
+**Last Updated:** November 19, 2025  
 **Base URL:** `https://your-domain.repl.co` or `http://localhost:5000`
 
 ---

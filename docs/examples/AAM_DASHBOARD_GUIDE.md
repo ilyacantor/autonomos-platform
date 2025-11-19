@@ -1,6 +1,6 @@
 # AAM Monitoring Dashboard - User Guide
 
-**Last Updated:** November 17, 2025  
+**Last Updated:** November 19, 2025  
 **Version:** 3.0 - FULLY OPERATIONAL
 
 ---

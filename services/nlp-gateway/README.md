@@ -1,5 +1,7 @@
 # AOS NLP Gateway
 
+**Last Updated:** November 19, 2025
+
 Production-grade natural language interface for AutonomOS services. Query your infrastructure using plain English.
 
 ## 📚 Documentation

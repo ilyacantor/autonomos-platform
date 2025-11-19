@@ -1,5 +1,7 @@
 # Functional Probe: Salesforce → AAM → DCL
 
+**Last Updated:** November 19, 2025
+
 ## Purpose
 This functional probe validates the complete end-to-end flow from live Salesforce data through AAM normalization into DCL materialized views.
 

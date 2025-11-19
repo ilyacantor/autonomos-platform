@@ -1,5 +1,7 @@
 # AutonomOS - Multi-Tenant AI Orchestration Platform
 
+**Last Updated:** November 19, 2025
+
 A production-ready **full-stack SaaS platform** for AI-driven data orchestration with real-time monitoring, multi-tenant isolation, and intelligent schema management. Built with React, TypeScript, Python, FastAPI, PostgreSQL, and Redis.
 
 ![Platform](https://img.shields.io/badge/Platform-Full--Stack-blue) ![Frontend](https://img.shields.io/badge/Frontend-React%20%2B%20TypeScript-61dafb) ![Backend](https://img.shields.io/badge/Backend-Python%20%2B%20FastAPI-009688) ![Status](https://img.shields.io/badge/Status-Production--Ready-success)

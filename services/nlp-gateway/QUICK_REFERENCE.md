@@ -1,5 +1,7 @@
 # NLP Gateway Quick Reference
 
+**Last Updated:** November 19, 2025
+
 ## 🚀 Getting Started
 
 ```bash
