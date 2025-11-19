@@ -299,15 +299,19 @@
             </p>
             
             <p class="text-gray-300" style="margin-bottom: 1rem;">
-                It autonomously connects to all your apps, databases, and files, learning how they fit together to create a single, unified enterprise <strong style="color: #fff;">ontology</strong>. This allows our specialized AI agents to reason, act, and get work done.
+                It autonomously connects to all your apps, databases, and files, learning how they fit together to create a single, unified enterprise <strong style="color: #fff;">ontology</strong>. This allows our specialized AI agents to reason, act, and get work done. Humans use that same ontology to get real-time, accurate, contextual information.
             </p>
+
+            <div class="highlight-box">
+                <p><strong>Our Core Tenet:</strong> We abstract complexity away. We'll get you context regardless of how disparate, numerous, and complex your data sources are.</p>
+            </div>
 
             <div class="highlight-box">
                 <p><strong>The Problem:</strong> Most companies are data-rich but action-poor. They can't bridge the Insight-to-Action Gap between their data and their business goals, leading to inefficiency and inaction.</p>
             </div>
 
             <div class="highlight-box">
-                <p><strong>Our Solution:</strong> AutonomOS bridges this gap. It not only unifies your data but empowers pre-built AI agents to execute complex workflows. You remain in control with Human-in-the-Loop (HITL) guardrails.</p>
+                <p><strong>What Makes Us Different:</strong> We create autonomous actions, not just insights. AutonomOS doesn't stop at analysis—it empowers pre-built AI agents to execute complex workflows. You remain in control with Human-in-the-Loop (HITL) guardrails.</p>
             </div>
 
             <p class="text-gray-300">
@@ -486,13 +490,19 @@
 
             <h3>DCL (Data Connection Layer)</h3>
             <p style="margin-bottom: 1rem; color: var(--text-secondary);">
-                The "brain" that understands your data, builds knowledge graphs, and gives AI agents the context they need to take action.
+                The "brain" that builds your enterprise ontology—a unified understanding of how all your data connects and relates across every system.
             </p>
+            
+            <div class="highlight-box" style="margin-bottom: 1rem;">
+                <p><strong>Why Ontology Matters:</strong> Without an ontology, each system speaks its own language. "customer_id" in Salesforce, "cust_id" in your database, and "client_num" in your spreadsheets all mean the same thing—but your tools don't know that. DCL creates a single source of truth that both AI agents and humans can use to get accurate, contextual answers across all your data sources.</p>
+            </div>
+            
             <ul>
-                <li><strong>Knowledge Graph:</strong> Visual maps showing how all your data relates (customers → orders → products)</li>
-                <li><strong>AI-Powered Mapping:</strong> LLM automatically understands how fields from different sources match up</li>
-                <li><strong>Multi-Company Support:</strong> Keeps different companies' data completely separate and secure</li>
-                <li><strong>High Performance:</strong> 3-7x faster than traditional approaches (processes 9 sources in 9 seconds)</li>
+                <li><strong>Enterprise Ontology:</strong> Single unified model of your business showing how entities relate (customers → orders → products → suppliers)</li>
+                <li><strong>AI-Powered Mapping:</strong> LLM automatically understands how fields from different sources match up, eliminating manual data engineering</li>
+                <li><strong>Knowledge Graph Generation:</strong> Visual representation of your ontology that updates in real-time as data changes</li>
+                <li><strong>Agent Context Provider:</strong> Gives AI agents the full context they need to take accurate, informed actions</li>
+                <li><strong>Multi-Company Support:</strong> Keeps different companies' data completely separate and secure with tenant isolation</li>
             </ul>
 
             <h3>Live Flow Monitoring</h3>
@@ -596,7 +606,7 @@
             </ul>
             <h4 style="color: var(--accent-blue);">Next Steps</h4>
             <ul>
-                <li>Add more connectors (HubSpot, NetSuite, Snowflake)</li>
+                <li>Scale to several dozen connectors to prove enterprise scalability</li>
                 <li>Enhanced drift repair with multi-model LLM selection</li>
                 <li>Connector marketplace for community-built integrations</li>
             </ul>
@@ -605,11 +615,11 @@
             <p style="margin-bottom: 0.5rem;"><strong>Status:</strong> <span style="color: var(--accent-green);">Production Ready</span></p>
             <h4 style="color: var(--accent-green);">Completed</h4>
             <ul>
+                <li>Enterprise ontology creation and management</li>
                 <li>AI-powered entity mapping with LLM + RAG</li>
                 <li>Knowledge graph generation with real-time updates</li>
                 <li>Multi-tenant architecture with Redis-backed state</li>
                 <li>WebSocket streaming for live visualization</li>
-                <li>3-7x performance improvement (9s for 9 sources)</li>
             </ul>
             <h4 style="color: var(--accent-blue);">Next Steps</h4>
             <ul>
@@ -652,7 +662,7 @@
             </ul>
             <h4 style="color: var(--accent-yellow);">In Progress</h4>
             <ul>
-                <li>Pre-built agent library (FinOps, RevOps, SecOps)</li>
+                <li>Pre-built agent library (FinOps, RevOps)</li>
                 <li>Agent-to-agent communication protocols</li>
                 <li>HITL approval workflows for agent actions</li>
             </ul>
@@ -684,6 +694,25 @@
                 <li>Voice interface integration</li>
                 <li>Proactive insights and recommendations</li>
                 <li>Custom persona creation for domain-specific roles</li>
+            </ul>
+
+            <h3>Security & Compliance</h3>
+            <p style="margin-bottom: 0.5rem;"><strong>Status:</strong> <span style="color: var(--accent-blue);">Planned</span></p>
+            <h4 style="color: var(--accent-green);">Completed</h4>
+            <ul>
+                <li>Multi-tenant data isolation with tenant_id scoping</li>
+                <li>JWT-based authentication with Argon2 password hashing</li>
+                <li>Secure credential storage for production connectors</li>
+                <li>Shadow IT detection and HITL triage workflow</li>
+            </ul>
+            <h4 style="color: var(--accent-blue);">Planned</h4>
+            <ul>
+                <li>SOC 2 Type II compliance certification</li>
+                <li>Role-based access control (RBAC) for team permissions</li>
+                <li>Audit logging and compliance reporting</li>
+                <li>Data encryption at rest and in transit</li>
+                <li>PII detection and redaction automation</li>
+                <li>Security agent for automated threat detection and response</li>
             </ul>
 
             <div class="highlight-box" style="margin-top: 2rem;">
