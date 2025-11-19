@@ -2,6 +2,12 @@
 
 **Last Updated:** November 19, 2025
 
+**Recent Architecture Changes:**
+- Platform Guide converted from static HTML to React component for deployment compatibility
+- ArchitecturePage.tsx removed in favor of PlatformGuidePage.tsx (bundled with frontend)
+- Flow Monitor moved from standalone tab to AAM (Connect) subtab
+- Navigation structure: Platform Guide → AOD → AAM (with Connector Details + Flow Monitor) → DCL → AOA → Control Center → Help
+
 ## Overview
 AutonomOS is a production-ready, multi-tenant SaaS platform for AI-driven data orchestration. The platform is organized into three architectural layers:
 

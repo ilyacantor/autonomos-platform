@@ -3,7 +3,7 @@ import { AutonomyProvider, useAutonomy } from './contexts/AutonomyContext';
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './hooks/useAuth';
 import AppLayout from './components/AppLayout';
-import ArchitecturePage from './components/ArchitecturePage';
+import PlatformGuidePage from './components/PlatformGuidePage';
 import ControlCenterPage from './components/ControlCenterPage';
 import DiscoverPage from './components/DiscoverPage';
 import ConnectPage from './components/ConnectPage';
@@ -71,7 +71,7 @@ function AppContent() {
   const renderPage = () => {
     switch (currentPage) {
       case 'architecture':
-        return <ArchitecturePage />;
+        return <PlatformGuidePage />;
       case 'control-center':
         return <ControlCenterPage />;
       case 'discover':
@@ -85,7 +85,7 @@ function AppContent() {
       case 'faq':
         return <FAQPage />;
       default:
-        return <ArchitecturePage />;
+        return <PlatformGuidePage />;
     }
   };
 
