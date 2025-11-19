@@ -578,20 +578,46 @@
             </p>
 
             <h3>AOD (Autonomous Object Discovery)</h3>
-            <p style="margin-bottom: 0.5rem;"><strong>Status:</strong> <span style="color: var(--accent-green);">Production Ready</span></p>
-            <h4 style="color: var(--accent-green);">Completed</h4>
+            <p style="margin-bottom: 0.5rem;"><strong>Status:</strong> <span style="color: var(--accent-green);">MVP Complete - Production Ready</span></p>
+            <p style="margin-bottom: 1rem; color: var(--text-secondary); font-style: italic;">
+                External microservice managing 415 assets with 62 currently in triage (F1 score 85-92%)
+            </p>
+            
+            <h4 style="color: var(--accent-green);">MVP Complete</h4>
             <ul>
-                <li>Hybrid AI/ML + rules-based asset cataloging</li>
-                <li>Shadow IT detection with IsolationForest (precision ≥60%, recall ≥60%)</li>
-                <li>HITL triage workflow for security analysts</li>
+                <li>Hybrid discovery engine (Rules-only, ML-only, Hybrid modes)</li>
+                <li>Multi-signal ML models (GradientBoosting + IsolationForest)</li>
+                <li>HITL triage system with 4-queue risk categorization (HIGH, MEDIUM, SHADOW IT, DATA CONFLICTS)</li>
+                <li>10+ triage actions with full audit trail and state management</li>
+                <li>Professional SecOps dashboard with 5-tab navigation</li>
                 <li>Enterprise auto-connect to AAM for approved assets</li>
                 <li>NLP query interface for asset discovery <span class="status-badge status-demo">Demo</span></li>
+                <li>Digital twin synthetic data generation (10 archetypes)</li>
             </ul>
-            <h4 style="color: var(--accent-blue);">Next Steps</h4>
+            
+            <h4 style="color: var(--accent-red);">Current Limitations</h4>
             <ul>
-                <li>Deploy NLP query interface to production</li>
-                <li>Add more asset types (APIs, microservices, cloud resources)</li>
-                <li>Enhanced risk scoring algorithms</li>
+                <li>Single-tenant deployment only (no multi-tenancy yet)</li>
+                <li>Connection pool contention under 50+ concurrent users</li>
+                <li>Audit trail stored in files instead of database</li>
+            </ul>
+            
+            <h4 style="color: var(--accent-red);">NOW - Critical Path</h4>
+            <ul>
+                <li><strong>Supabase Migration with Multi-Tenancy:</strong> Schema evolution, Row-Level Security (RLS), tenant isolation, data migration from Neon</li>
+                <li><strong>Performance Optimization:</strong> Connection pool tuning for 100+ concurrent users, query optimization, Redis caching strategy</li>
+            </ul>
+            
+            <h4 style="color: var(--accent-yellow);">NEXT - Value-Adds</h4>
+            <ul>
+                <li><strong>Discovery Intelligence:</strong> Active learning from HITL feedback, Explainable AI (SHAP/LIME), advanced detection patterns</li>
+                <li><strong>API & Integration:</strong> GraphQL endpoints, event streaming, platform integration hooks</li>
+            </ul>
+            
+            <h4 style="color: var(--accent-blue);">LATER - Future</h4>
+            <ul>
+                <li><strong>UX Enhancements:</strong> Bulk triage actions, network graph visualizations, mobile-responsive design</li>
+                <li><strong>Advanced Automation:</strong> Workflow hooks for platform orchestrator (defer to platform AOA)</li>
             </ul>
 
             <h3>AAM (Adaptive API Mesh)</h3>
