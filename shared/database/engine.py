@@ -29,20 +29,22 @@ DATABASE_URL = get_database_url()
 ASYNC_DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg://")
 
 # Sync engine (psycopg2) - for compatibility with existing code
+# Reduced pool sizes for Supabase compatibility (Session mode has ~15 connection limit)
 sync_engine = create_engine(
     DATABASE_URL,
     pool_pre_ping=True,
-    pool_size=10,
-    max_overflow=20,
+    pool_size=2,
+    max_overflow=3,
     pool_recycle=300
 )
 
 # Async engine (psycopg3) - for async endpoints
+# Reduced pool sizes for Supabase compatibility (Session mode has ~15 connection limit)
 async_engine = create_async_engine(
     ASYNC_DATABASE_URL,
     pool_pre_ping=True,
-    pool_size=10,
-    max_overflow=20,
+    pool_size=2,
+    max_overflow=3,
     pool_recycle=300,
     pool_use_lifo=True
 )
