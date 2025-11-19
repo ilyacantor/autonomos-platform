@@ -26,7 +26,6 @@ export default function TopBar({ onAuthOpen, currentPage, onNavigate }: TopBarPr
     { id: 'connect', label: 'AAM (Connect)', icon: <Cable className="w-5 h-5" />, tooltip: 'Self-healing data connectivity' },
     { id: 'ontology', label: 'DCL (Ontology)', icon: <Network className="w-5 h-5" />, tooltip: 'Data intelligence and mapping' },
     { id: 'orchestration', label: 'AOA (Orchestration)', icon: <Activity className="w-5 h-5" /> },
-    { id: 'flow-monitor', label: 'Flow Monitor', icon: <MonitorDot className="w-5 h-5" />, tooltip: 'Real-time telemetry monitoring' },
     { id: 'control-center', label: 'Control Center', icon: <LayoutDashboard className="w-5 h-5" /> },
     { id: 'faq', label: 'Help', icon: <HelpCircle className="w-5 h-5" /> },
   ];
