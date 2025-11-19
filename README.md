@@ -1117,24 +1117,28 @@ This project is licensed under the **MIT License** - see LICENSE file for detail
 
 ## 🗺️ Roadmap
 
-### Current (October 2025)
-- ✅ AAM Monitoring Dashboard with real-time updates
-- ✅ Full-stack platform with React UI
-- ✅ Multi-tenant task orchestration
-- ✅ DCL graph visualization
-- ✅ RAG-powered schema mapping
+For a comprehensive, module-by-module roadmap, visit the **Platform Guide** at `/architecture.html`.
 
-### Q4 2025
-- [ ] Advanced drift detection algorithms
-- [ ] Multi-source schema unification
-- [ ] Enhanced RAG mapping confidence
-- [ ] Kubernetes deployment support
+### Production Ready Modules
+- ✅ **AOD (Autonomous Object Discovery)** - Asset cataloging, Shadow IT detection, HITL triage
+- ✅ **AAM (Adaptive API Mesh)** - 4 production connectors, drift detection, self-healing
+- ✅ **DCL (Data Connection Layer)** - Enterprise ontology, AI mapping, knowledge graphs
+- ✅ **Live Flow Monitoring** - Real-time telemetry across AAM → DCL → Agents pipeline
 
-### Q1 2026
-- [ ] Self-service data source onboarding UI
-- [ ] Advanced analytics dashboard
-- [ ] Schema evolution tracking
-- [ ] Custom connector SDK
+### In Development Modules
+- 🔨 **AOA (Agentic Orchestration Architecture)** - Multi-step workflow engine, cross-domain playbooks
+- 🔨 **Agents** - Pre-built AI agent library (FinOps, RevOps), HITL approval workflows
+- 🔨 **NLP / Intent (Control Center)** - Production RAG knowledge base, real-time data integration
+
+### Planned Priorities
+- [ ] Scale AAM to several dozen connectors for enterprise scalability
+- [ ] Enhanced graph visualization and query language for DCL
+- [ ] Visual workflow designer for AOA
+- [ ] Agent marketplace and custom agent builder
+- [ ] SOC 2 Type II compliance certification
+- [ ] Role-based access control (RBAC)
+
+**Note:** Roadmap items are prioritized based on customer feedback and platform needs. We use an agile, priority-based approach rather than fixed timelines.
 
 ---
 
