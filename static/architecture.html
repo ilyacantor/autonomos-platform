@@ -142,12 +142,6 @@
             border: 1px solid var(--accent-green);
         }
 
-        .status-complete {
-            background: rgba(88, 166, 255, 0.2);
-            color: var(--accent-blue);
-            border: 1px solid var(--accent-blue);
-        }
-
         ul, ol {
             margin-left: 1.5rem;
             margin-bottom: 1rem;
@@ -170,20 +164,6 @@
             font-family: 'Monaco', 'Courier New', monospace;
             font-size: 0.9rem;
             color: var(--accent-purple);
-        }
-
-        pre {
-            background: var(--code-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            padding: 1rem;
-            overflow-x: auto;
-            margin: 1rem 0;
-        }
-
-        pre code {
-            background: none;
-            padding: 0;
         }
 
         table {
@@ -398,9 +378,9 @@
 
             <h3>Key Principle</h3>
             <div class="warning-box">
+                <strong>AOD = Discovery Layer</strong> - Owns cataloging and asset inventory<br>
                 <strong>AAM = Transport Layer</strong> - Owns connections, fetching, health monitoring, drift detection<br>
-                <strong>DCL = Intelligence Layer</strong> - Owns mappings, transformations, graphs, agents<br>
-                <strong>AOD = Discovery Layer</strong> - Owns cataloging and asset inventory
+                <strong>DCL = Intelligence Layer</strong> - Owns mappings, transformations, graphs, agents
             </div>
         </section>
 
