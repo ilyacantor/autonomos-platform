@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Activity, CheckCircle, AlertCircle, Clock, Zap, Database, Brain, Settings } from 'lucide-react';
+import { Activity, CheckCircle, AlertCircle, Clock, Zap, Database, Brain, Settings, X } from 'lucide-react';
 
 interface FlowEvent {
   event_id: string;
@@ -45,6 +45,7 @@ const FlowMonitor = () => {
   const [agentEvents, setAgentEvents] = useState<FlowEvent[]>([]);
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<FlowEvent | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
   // Fetch initial snapshot
@@ -165,7 +166,8 @@ const FlowMonitor = () => {
               return (
                 <div
                   key={event.stream_id || `${event.event_id}-${idx}`}
-                  className="border border-gray-700 rounded-lg p-3 hover:border-gray-600 transition-colors bg-gray-900"
+                  className="border border-gray-700 rounded-lg p-3 hover:border-gray-600 hover:bg-gray-800 transition-all bg-gray-900 cursor-pointer"
+                  onClick={() => setSelectedEvent(event)}
                 >
                   <div className="flex items-start gap-3">
                     <div className={`${statusColor} rounded-full p-1.5 mt-0.5`}>
@@ -241,6 +243,126 @@ const FlowMonitor = () => {
           {renderEventTimeline(agentEvents, 'Agent Execution', Zap, 'text-blue-400')}
         </div>
       </div>
+
+      {/* Event Details Modal */}
+      {selectedEvent && (
+        <div 
+          className="fixed inset-0 bg-black/70 flex items-center justify-center p-6 z-50"
+          onClick={() => setSelectedEvent(null)}
+        >
+          <div 
+            className="bg-gray-800 rounded-lg border border-gray-700 max-w-3xl w-full max-h-[80vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 bg-gray-800 border-b border-gray-700 p-4 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-white">Event Details</h3>
+              <button
+                onClick={() => setSelectedEvent(null)}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {/* Event ID */}
+              <div>
+                <label className="text-xs text-gray-400 uppercase tracking-wide">Event ID</label>
+                <div className="mt-1 text-sm text-white font-mono bg-gray-900 p-2 rounded border border-gray-700">
+                  {selectedEvent.event_id}
+                </div>
+              </div>
+
+              {/* Entity ID */}
+              <div>
+                <label className="text-xs text-gray-400 uppercase tracking-wide">Entity ID</label>
+                <div className="mt-1 text-sm text-white font-mono bg-gray-900 p-2 rounded border border-gray-700">
+                  {selectedEvent.entity_id}
+                </div>
+              </div>
+
+              {/* Layer & Stage */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs text-gray-400 uppercase tracking-wide">Layer</label>
+                  <div className="mt-1 text-sm text-white capitalize bg-gray-900 p-2 rounded border border-gray-700">
+                    {selectedEvent.layer}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 uppercase tracking-wide">Stage</label>
+                  <div className="mt-1 text-sm text-white bg-gray-900 p-2 rounded border border-gray-700">
+                    {selectedEvent.stage.replace(/_/g, ' ')}
+                  </div>
+                </div>
+              </div>
+
+              {/* Status */}
+              <div>
+                <label className="text-xs text-gray-400 uppercase tracking-wide">Status</label>
+                <div className="mt-1">
+                  <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded ${statusColors[selectedEvent.status]} bg-opacity-20 text-white text-sm`}>
+                    {React.createElement(statusIcons[selectedEvent.status] || Clock, { className: "w-4 h-4" })}
+                    {selectedEvent.status}
+                  </span>
+                </div>
+              </div>
+
+              {/* Tenant ID */}
+              <div>
+                <label className="text-xs text-gray-400 uppercase tracking-wide">Tenant ID</label>
+                <div className="mt-1 text-sm text-white font-mono bg-gray-900 p-2 rounded border border-gray-700">
+                  {selectedEvent.tenant_id}
+                </div>
+              </div>
+
+              {/* Timestamp */}
+              <div>
+                <label className="text-xs text-gray-400 uppercase tracking-wide">Timestamp</label>
+                <div className="mt-1 text-sm text-white bg-gray-900 p-2 rounded border border-gray-700">
+                  {new Date(selectedEvent.timestamp).toLocaleString()}
+                </div>
+              </div>
+
+              {/* Duration */}
+              {selectedEvent.duration_ms && (
+                <div>
+                  <label className="text-xs text-gray-400 uppercase tracking-wide">Duration</label>
+                  <div className="mt-1 text-sm text-white bg-gray-900 p-2 rounded border border-gray-700">
+                    {selectedEvent.duration_ms} ms
+                  </div>
+                </div>
+              )}
+
+              {/* Stream ID */}
+              {selectedEvent.stream_id && (
+                <div>
+                  <label className="text-xs text-gray-400 uppercase tracking-wide">Stream ID</label>
+                  <div className="mt-1 text-sm text-white font-mono bg-gray-900 p-2 rounded border border-gray-700">
+                    {selectedEvent.stream_id}
+                  </div>
+                </div>
+              )}
+
+              {/* Metadata */}
+              <div>
+                <label className="text-xs text-gray-400 uppercase tracking-wide">Metadata</label>
+                <div className="mt-1 bg-gray-900 p-3 rounded border border-gray-700">
+                  <pre className="text-xs text-gray-300 overflow-x-auto">
+                    {JSON.stringify(
+                      typeof selectedEvent.metadata === 'string' 
+                        ? JSON.parse(selectedEvent.metadata) 
+                        : selectedEvent.metadata, 
+                      null, 
+                      2
+                    )}
+                  </pre>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
