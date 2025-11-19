@@ -324,21 +324,25 @@
                 <strong>Platform State:</strong> All four phases operational with live telemetry monitoring
             </div>
 
-            <h4 style="color: var(--accent-purple);">Platform Modules</h4>
-            <p style="margin-bottom: 1rem; color: var(--text-secondary);">The platform is built from six core modules, each responsible for specific capabilities.</p>
+            <h4 style="color: var(--accent-purple);">Platform Architecture</h4>
+            <p style="margin-bottom: 1rem; color: var(--text-secondary);">The platform is organized into three layers: operational infrastructure, platform services, and tailored applications.</p>
             
-            <h5 style="color: var(--accent-green); margin-top: 1rem; margin-bottom: 0.5rem;">Operational Modules</h5>
+            <h5 style="color: var(--accent-green); margin-top: 1rem; margin-bottom: 0.5rem;">Operational Infrastructure (Production Ready)</h5>
             <ul>
                 <li><strong>AOD (Autonomous Object Discovery):</strong> Asset cataloging, Shadow IT detection, HITL triage - <span style="color: var(--accent-green);">Production Ready</span></li>
                 <li><strong>AAM (Adaptive API Mesh):</strong> Data connectivity, 4 production connectors, drift detection - <span style="color: var(--accent-green);">Production Ready</span></li>
                 <li><strong>DCL (Data Connection Layer):</strong> AI entity mapping, knowledge graphs, agent context - <span style="color: var(--accent-green);">Production Ready</span></li>
             </ul>
             
-            <h5 style="color: var(--accent-yellow); margin-top: 1rem; margin-bottom: 0.5rem;">Work in Progress Modules</h5>
+            <h5 style="color: var(--accent-yellow); margin-top: 1rem; margin-bottom: 0.5rem;">Platform Services (In Development)</h5>
             <ul>
-                <li><strong>AOA (Agentic Orchestration Architecture):</strong> High-level agent orchestration and workflow automation - <span style="color: var(--accent-yellow);">In Development</span></li>
-                <li><strong>Agents:</strong> Pre-built AI agents for specific business workflows - <span style="color: var(--accent-yellow);">In Development</span></li>
-                <li><strong>NLP Intent / Control Center:</strong> Natural language interface for platform control - <span style="color: var(--accent-yellow);">In Development</span></li>
+                <li><strong>AOA (Agentic Orchestration Architecture):</strong> High-level workflow orchestration and business process automation - <span style="color: var(--accent-yellow);">In Development</span></li>
+                <li><strong>NLP Intent / Control Center:</strong> Natural language interface for platform control and query routing - <span style="color: var(--accent-yellow);">In Development</span></li>
+            </ul>
+            
+            <h5 style="color: var(--accent-purple); margin-top: 1rem; margin-bottom: 0.5rem;">Tailored Applications (In Development)</h5>
+            <ul>
+                <li><strong>Pre-Built Agents:</strong> Domain-specific AI agents (FinOps, RevOps) with execution framework and HITL workflows - <span style="color: var(--accent-yellow);">In Development</span></li>
             </ul>
         </section>
 
@@ -678,8 +682,11 @@
                 <li>Advanced scheduling and triggers</li>
             </ul>
 
-            <h3>Agents</h3>
+            <h3>Tailored Applications (Pre-Built Agents)</h3>
             <p style="margin-bottom: 0.5rem;"><strong>Status:</strong> <span style="color: var(--accent-yellow);">In Development</span></p>
+            <p style="margin-bottom: 1rem; color: var(--text-secondary); font-style: italic;">
+                Domain-specific AI agents that leverage the platform's ontology to execute business workflows
+            </p>
             <h4 style="color: var(--accent-green);">Completed</h4>
             <ul>
                 <li>Agent execution framework via DCL</li>
