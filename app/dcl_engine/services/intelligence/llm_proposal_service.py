@@ -310,6 +310,26 @@ class LLMProposalService:
             tenant_id=tenant_id
         )
         
+        # P4-4: Publish telemetry event for mapping proposal (heuristic path)
+        try:
+            from . import get_flow_publisher
+            publisher = get_flow_publisher()
+            if publisher:
+                await publisher.publish_dcl_mapping_proposed(
+                    mapping_id=proposal.proposal_id,
+                    tenant_id=tenant_id,
+                    confidence_score=proposal.confidence,
+                    metadata={
+                        'connector': connector,
+                        'source_table': source_table,
+                        'source_field': source_field,
+                        'canonical_field': proposal.canonical_field,
+                        'source': 'heuristic'
+                    }
+                )
+        except Exception as e:
+            logger.warning(f"Failed to publish mapping proposal telemetry: {e}")
+        
         return proposal
     
     def _build_llm_prompt(
