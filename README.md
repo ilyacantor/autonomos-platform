@@ -124,16 +124,16 @@ A production-ready **full-stack SaaS platform** for AI-driven data orchestration
 
 ---
 
-## 📊 Interactive Architecture Documentation
+## 📚 Platform Guide (Architecture Documentation)
 
-**🔗 Access:** `/architecture.html` (available when app is running)
+**🔗 Access:** First tab "Platform Guide" or `/architecture` route
 
-The interactive architecture viewer provides comprehensive visual documentation with:
+The interactive Platform Guide is the first tab of the application and provides comprehensive visual documentation:
 
 **Key Sections:**
 - 📊 **System Overview** - Production state, validated capabilities, component status
-- 📋 **RACI Matrix** - Complete component responsibility breakdown
-- 🔄 **AAM Architecture** - Connection runtime, drift detection, canonical events
+- 📋 **Accountability Matrix** - Clear ownership boundaries (AAM/DCL/AOD) by functional category
+- 🔄 **AAM Architecture** - Connection runtime, drift detection, canonical events (4 connectors)
 - 🧠 **DCL Architecture** - Intelligence layer, graph generation, agent orchestration
 - 🌊 **Data Flow Diagrams** - Mermaid visualizations of system pipelines
 - 📡 **Live Telemetry** - Phase 4 flow monitoring architecture
@@ -141,11 +141,11 @@ The interactive architecture viewer provides comprehensive visual documentation 
 - 🛠️ **Technology Stack** - Complete platform dependencies
 
 **Features:**
-- Dark theme optimized for readability
+- Dark theme with GitHub-style aesthetics
 - Interactive Mermaid diagrams
-- Quick navigation between sections
+- Quick navigation sidebar
 - Mobile-responsive design
-- Color-coded RACI responsibilities
+- Simplified accountability matrix (3 functional groups: Data Ingestion, Intelligence & Transformation, Orchestration)
 
 ---
 

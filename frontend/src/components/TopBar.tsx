@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { LayoutDashboard, Cable, Network, Bell, Menu, X, LogIn, UserPlus, HelpCircle, Activity, Search, MonitorDot } from 'lucide-react';
+import { LayoutDashboard, Cable, Network, Bell, Menu, X, LogIn, UserPlus, HelpCircle, Activity, Search, MonitorDot, BookOpen } from 'lucide-react';
 import type { PersonaType } from '../types';
 import autonomosLogo from '../assets/autonomos-logo.png';
 
@@ -21,6 +21,7 @@ export default function TopBar({ onAuthOpen, currentPage, onNavigate }: TopBarPr
   const [hasNotifications] = useState(true);
 
   const navItems: NavItem[] = [
+    { id: 'architecture', label: 'Platform Guide', icon: <BookOpen className="w-5 h-5" />, tooltip: 'Interactive architecture documentation' },
     { id: 'control-center', label: 'Control Center', icon: <LayoutDashboard className="w-5 h-5" /> },
     { id: 'discover', label: 'Discovery', icon: <Search className="w-5 h-5" /> },
     { id: 'connect', label: 'Connections', icon: <Cable className="w-5 h-5" />, tooltip: 'AAM Connect - Self-healing data connectivity' },
@@ -37,7 +38,7 @@ export default function TopBar({ onAuthOpen, currentPage, onNavigate }: TopBarPr
         {/* Logo */}
         <div className="flex-shrink-0 -ml-[10px]">
           <button
-            onClick={() => onNavigate('control-center')}
+            onClick={() => onNavigate('architecture')}
             className="hover:opacity-80 transition-opacity cursor-pointer"
           >
             <img 

@@ -3,6 +3,7 @@ import { AutonomyProvider, useAutonomy } from './contexts/AutonomyContext';
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './hooks/useAuth';
 import AppLayout from './components/AppLayout';
+import ArchitecturePage from './components/ArchitecturePage';
 import ControlCenterPage from './components/ControlCenterPage';
 import DiscoverPage from './components/DiscoverPage';
 import ConnectPage from './components/ConnectPage';
@@ -17,8 +18,8 @@ function AppContent() {
   // Initialize page from URL path
   const getInitialPage = () => {
     const path = window.location.pathname.slice(1); // Remove leading slash
-    const validPages = ['control-center', 'discover', 'connect', 'ontology', 'orchestration', 'agents', 'flow-monitor', 'faq'];
-    return validPages.includes(path) ? path : 'control-center';
+    const validPages = ['architecture', 'control-center', 'discover', 'connect', 'ontology', 'orchestration', 'agents', 'flow-monitor', 'faq'];
+    return validPages.includes(path) ? path : 'architecture';
   };
   
   const [currentPage, setCurrentPage] = useState(getInitialPage());
@@ -48,7 +49,7 @@ function AppContent() {
   useEffect(() => {
     const handlePopState = () => {
       const path = window.location.pathname.slice(1);
-      const validPages = ['control-center', 'discover', 'connect', 'ontology', 'orchestration', 'agents', 'flow-monitor', 'faq'];
+      const validPages = ['architecture', 'control-center', 'discover', 'connect', 'ontology', 'orchestration', 'agents', 'flow-monitor', 'faq'];
       if (validPages.includes(path)) {
         setCurrentPage(path);
       }
@@ -71,6 +72,8 @@ function AppContent() {
 
   const renderPage = () => {
     switch (currentPage) {
+      case 'architecture':
+        return <ArchitecturePage />;
       case 'control-center':
         return <ControlCenterPage />;
       case 'discover':
@@ -88,7 +91,7 @@ function AppContent() {
       case 'faq':
         return <FAQPage />;
       default:
-        return <ControlCenterPage />;
+        return <ArchitecturePage />;
     }
   };
 
