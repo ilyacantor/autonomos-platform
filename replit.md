@@ -29,6 +29,7 @@ The frontend uses React 18 and TypeScript with a responsive design, Quicksand ty
 *   **API Endpoints:** Organized by domain with OpenAPI/Swagger documentation.
 *   **Data Quality Intelligence Layer:** Implements canonical event processing, schema drift detection (fingerprinting with Redis), LLM/RAG-powered auto-repair, and a Human-in-the-Loop (HITL) workflow.
 *   **Resilience Infrastructure:** Async circuit breaker, retry, timeout, and bulkhead decorators for intelligence services.
+*   **Live Flow Telemetry (Phase 4):** Real-time data flow monitoring dashboard with Redis Streams infrastructure. Three separate streams (aam:flow, dcl:flow, agent:flow) track entity lifecycle events across AAM → DCL → Agent pipeline. Features include: FlowEventPublisher for event publishing, REST snapshot API (GET /api/v1/flow-monitor), WebSocket live streaming (/ws/flow-monitor), React dashboard at /flow-monitor with three-column layout, tenant-scoped event filtering, and demo endpoint for integration testing. Each layer publishes its own events maintaining RACI boundaries. Telemetry failures never break business logic (try/except wrappers).
 
 **System Design Choices:**
 The platform uses a "Strangler Fig" pattern with feature flags for zero downtime, structuring data flow as: Data Sources → AAM → DCL → Agents. A single Supabase PostgreSQL database is used for development and production, managed with Alembic for schema versioning. Deployment safety infrastructure prevents destructive database operations.
