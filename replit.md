@@ -41,7 +41,7 @@ The platform ensures complete data isolation with JWT authentication and user ma
 AutonomOS is a full-stack SaaS platform built around a multi-tenant architecture with UUID-based `tenant_id` scoping and JWT authentication for data isolation.
 
 **UI/UX Decisions:**
-The frontend uses React 18 and TypeScript with a responsive design, Quicksand typography, a Green, Blue, Purple color scheme, and dark mode. It features pages for a dashboard, data discovery, API mesh connections, ontology graph visualization, agentic orchestration, and agent demos. Live status indicators (green pulsing dots) distinguish real backend data from mock data, managed via a centralized registry. Page titles follow "AOS [Feature]" branding. Enterprise reporting views include a tabular lineage grid, hierarchical tree view, and an evaluation dashboard.
+The frontend uses React 18 and TypeScript with a responsive design, Quicksand typography, a Green, Blue, Purple color scheme, and dark mode. It features pages for platform guide, data discovery (AOD), API mesh connections (AAM), ontology graph visualization (DCL), agentic orchestration (AOA), flow monitoring, and control center. Live status indicators (green pulsing dots) distinguish real backend data from mock data, managed via a centralized registry. Page titles follow "AOS [Feature]" branding. Enterprise reporting views include a tabular lineage grid, hierarchical tree view, and an evaluation dashboard.
 
 **Technical Implementations:**
 *   **Task Orchestration:** Asynchronous job processing using Python RQ and Redis Queue.
