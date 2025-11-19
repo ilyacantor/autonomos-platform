@@ -66,27 +66,10 @@ async def get_flow_snapshot(
         raise HTTPException(status_code=503, detail="Redis not available")
     
     try:
-        # Read from all three streams
-        streams = {
-            AAM_FLOW_STREAM: "0",  # Start from beginning
-            DCL_FLOW_STREAM: "0",
-            AGENT_FLOW_STREAM: "0"
-        }
-        
-        # XREAD with COUNT to get last N messages
-        stream_data = await _async_redis.xread(
-            streams=streams,
-            count=limit_per_layer,
-            block=None  # Non-blocking for snapshot
-        )
-        
-        aam_events = []
-        dcl_events = []
-        agent_events = []
-        
-        for stream_name, messages in stream_data:
-            stream_name_str = stream_name.decode('utf-8') if isinstance(stream_name, bytes) else stream_name
-            
+        # Helper function to process stream messages
+        def process_stream_messages(messages, tenant_filter: str) -> List[Dict[str, Any]]:
+            """Process raw stream messages into event dictionaries"""
+            events = []
             for message_id, fields in messages:
                 try:
                     # Decode bytes to strings
@@ -100,31 +83,47 @@ async def get_flow_snapshot(
                     event = FlowEvent.from_dict(decoded_fields)
                     
                     # Filter by tenant_id
-                    if event.tenant_id == tenant_id:
+                    if event.tenant_id == tenant_filter:
                         event_dict = event.to_dict()
                         event_dict['stream_id'] = message_id.decode('utf-8') if isinstance(message_id, bytes) else message_id
-                        
-                        # Route to appropriate list
-                        if stream_name_str == AAM_FLOW_STREAM:
-                            aam_events.append(event_dict)
-                        elif stream_name_str == DCL_FLOW_STREAM:
-                            dcl_events.append(event_dict)
-                        elif stream_name_str == AGENT_FLOW_STREAM:
-                            agent_events.append(event_dict)
+                        events.append(event_dict)
                 
                 except Exception as e:
                     logger.warning(f"Failed to parse event: {e}")
                     continue
+            
+            return events
         
-        # Sort by timestamp (most recent first)
-        aam_events.sort(key=lambda e: e['timestamp'], reverse=True)
-        dcl_events.sort(key=lambda e: e['timestamp'], reverse=True)
-        agent_events.sort(key=lambda e: e['timestamp'], reverse=True)
+        # Use XREVRANGE to get most recent events (newest first)
+        # Syntax: XREVRANGE stream_name + - COUNT limit
+        aam_raw = await _async_redis.xrevrange(
+            AAM_FLOW_STREAM, 
+            '+',  # End (most recent)
+            '-',  # Start (oldest)
+            count=limit_per_layer
+        )
+        dcl_raw = await _async_redis.xrevrange(
+            DCL_FLOW_STREAM,
+            '+',
+            '-',
+            count=limit_per_layer
+        )
+        agent_raw = await _async_redis.xrevrange(
+            AGENT_FLOW_STREAM,
+            '+',
+            '-',
+            count=limit_per_layer
+        )
         
-        # Limit to requested count
-        aam_events = aam_events[:limit_per_layer]
-        dcl_events = dcl_events[:limit_per_layer]
-        agent_events = agent_events[:limit_per_layer]
+        # Process each stream's messages
+        aam_events = process_stream_messages(aam_raw, tenant_id)
+        dcl_events = process_stream_messages(dcl_raw, tenant_id)
+        agent_events = process_stream_messages(agent_raw, tenant_id)
+        
+        # Reverse arrays so newest appear last (consistent with WebSocket ordering)
+        aam_events.reverse()
+        dcl_events.reverse()
+        agent_events.reverse()
         
         return JSONResponse({
             "aam_events": aam_events,
@@ -170,81 +169,152 @@ async def flow_monitor_websocket(
         return
     
     # Track last seen IDs for each stream
+    # Start from 0-0 to begin reading from stream start
     last_ids = {
-        AAM_FLOW_STREAM: "$",  # $ = only new messages
-        DCL_FLOW_STREAM: "$",
-        AGENT_FLOW_STREAM: "$"
+        AAM_FLOW_STREAM: "0-0",
+        DCL_FLOW_STREAM: "0-0",
+        AGENT_FLOW_STREAM: "0-0"
     }
     
     try:
         while True:
-            try:
-                # XREAD with BLOCK for real-time streaming (1 second timeout)
-                stream_data = await _async_redis.xread(
-                    streams=last_ids,
-                    count=10,  # Batch up to 10 messages
-                    block=1000  # Block for 1 second waiting for new messages
-                )
-                
-                if stream_data:
-                    for stream_name, messages in stream_data:
-                        stream_name_str = stream_name.decode('utf-8') if isinstance(stream_name, bytes) else stream_name
-                        
-                        for message_id, fields in messages:
-                            try:
-                                # Decode fields
-                                decoded_fields = {}
-                                for key, value in fields.items():
-                                    key_str = key.decode('utf-8') if isinstance(key, bytes) else key
-                                    value_str = value.decode('utf-8') if isinstance(value, bytes) else value
-                                    decoded_fields[key_str] = value_str
-                                
-                                # Parse FlowEvent
-                                event = FlowEvent.from_dict(decoded_fields)
-                                
-                                # Filter by tenant_id
-                                if event.tenant_id == tenant_id:
-                                    # Determine layer
-                                    layer = "unknown"
-                                    if stream_name_str == AAM_FLOW_STREAM:
-                                        layer = "aam"
-                                    elif stream_name_str == DCL_FLOW_STREAM:
-                                        layer = "dcl"
-                                    elif stream_name_str == AGENT_FLOW_STREAM:
-                                        layer = "agent"
-                                    
-                                    # Send to WebSocket
-                                    await websocket.send_json({
-                                        "type": "flow_event",
-                                        "layer": layer,
-                                        "event": event.to_dict()
-                                    })
-                                
-                                # Update last seen ID for this stream
-                                last_ids[stream_name_str] = message_id.decode('utf-8') if isinstance(message_id, bytes) else message_id
-                            
-                            except Exception as e:
-                                logger.warning(f"Failed to process event: {e}")
-                                continue
-                
-                # Check if client is still connected
-                await asyncio.sleep(0.01)  # Small yield to check for disconnections
+            # XREAD BLOCK 1000 to wait for new events (1s timeout)
+            # This polls Redis and blocks until new events arrive or timeout occurs
+            stream_data = await _async_redis.xread(
+                streams=last_ids,
+                count=10,  # Batch up to 10 messages per stream
+                block=1000  # Block for 1 second (1000ms) waiting for new messages
+            )
             
-            except WebSocketDisconnect:
-                logger.info(f"Flow monitor WebSocket disconnected (tenant={tenant_id})")
-                break
-            except Exception as e:
-                logger.error(f"Error in flow monitor WebSocket: {e}")
-                await websocket.send_json({
-                    "type": "error",
-                    "message": str(e)
-                })
-                await asyncio.sleep(1)  # Back off on errors
+            # Process any new events
+            if stream_data:
+                for stream_name, messages in stream_data:
+                    stream_name_str = stream_name.decode('utf-8') if isinstance(stream_name, bytes) else stream_name
+                    
+                    for message_id, fields in messages:
+                        try:
+                            # Decode bytes to strings
+                            decoded_fields = {}
+                            for key, value in fields.items():
+                                key_str = key.decode('utf-8') if isinstance(key, bytes) else key
+                                value_str = value.decode('utf-8') if isinstance(value, bytes) else value
+                                decoded_fields[key_str] = value_str
+                            
+                            # Parse FlowEvent
+                            event = FlowEvent.from_dict(decoded_fields)
+                            
+                            # Filter by tenant_id
+                            if event.tenant_id == tenant_id:
+                                # Determine layer
+                                layer = "unknown"
+                                if stream_name_str == AAM_FLOW_STREAM:
+                                    layer = "aam"
+                                elif stream_name_str == DCL_FLOW_STREAM:
+                                    layer = "dcl"
+                                elif stream_name_str == AGENT_FLOW_STREAM:
+                                    layer = "agent"
+                                
+                                # Send event to WebSocket client
+                                await websocket.send_json({
+                                    "type": "flow_event",
+                                    "layer": layer,
+                                    "event": event.to_dict()
+                                })
+                            
+                            # Update last seen ID for this stream
+                            # This ensures we only get newer messages on next XREAD
+                            message_id_str = message_id.decode('utf-8') if isinstance(message_id, bytes) else message_id
+                            last_ids[stream_name_str] = message_id_str
+                        
+                        except Exception as e:
+                            logger.warning(f"Failed to process event in WebSocket: {e}")
+                            continue
     
+    except WebSocketDisconnect:
+        logger.info(f"Flow monitor WebSocket disconnected (tenant={tenant_id})")
     except Exception as e:
         logger.error(f"Flow monitor WebSocket error: {e}")
+        try:
+            await websocket.send_json({
+                "type": "error",
+                "message": str(e)
+            })
+        except:
+            pass
     finally:
         try:
             await websocket.close()
         except:
             pass
+
+
+@router.post("/flow-monitor/demo")
+async def generate_demo_events(
+    tenant_id: str = Query("default", description="Tenant identifier"),
+    count: int = Query(3, description="Events per layer", ge=1, le=10),
+    current_user: Optional[User] = Depends(get_current_user)
+):
+    """
+    Generate demo flow events for integration testing.
+    
+    Creates N events in each layer (AAM, DCL, Agent) to test the flow monitor dashboard.
+    
+    Query Parameters:
+    - tenant_id: Tenant to scope events to (default: "default")
+    - count: Number of events per layer (default: 3, max: 10)
+    
+    Returns:
+    {
+        "message": "Demo events generated",
+        "events_per_layer": int,
+        "tenant_id": str
+    }
+    """
+    if not _async_redis:
+        raise HTTPException(status_code=503, detail="Redis not available")
+    
+    try:
+        from app.telemetry.flow_publisher import FlowEventPublisher
+        from app.telemetry.flow_events import FlowEventStage
+        import uuid
+        
+        publisher = FlowEventPublisher(_async_redis)
+        
+        # Generate AAM events (connection lifecycle)
+        for i in range(count):
+            connector_name = f"demo-connector-{uuid.uuid4().hex[:8]}"
+            await publisher.publish_aam_connection_start(
+                connector_name=connector_name,
+                tenant_id=tenant_id,
+                metadata={"source": "salesforce", "demo": True, "sequence": i+1}
+            )
+        
+        # Generate DCL events (mapping proposals)
+        for i in range(count):
+            mapping_id = f"demo-mapping-{uuid.uuid4().hex[:8]}"
+            await publisher.publish_dcl_mapping_proposed(
+                mapping_id=mapping_id,
+                tenant_id=tenant_id,
+                confidence_score=0.85 + (i * 0.03),
+                metadata={"field": f"demo_field_{i+1}", "demo": True}
+            )
+        
+        # Generate Agent events (task dispatch)
+        for i in range(count):
+            task_id = f"demo-task-{uuid.uuid4().hex[:8]}"
+            await publisher.publish_agent_task_dispatched(
+                task_id=task_id,
+                tenant_id=tenant_id,
+                metadata={"workflow_name": f"DemoWorkflow_{i+1}", "demo": True, "sequence": i+1}
+            )
+        
+        return {
+            "message": "Demo events generated successfully",
+            "events_per_layer": count,
+            "tenant_id": tenant_id,
+            "total_events": count * 3
+        }
+    
+    except Exception as e:
+        logger.error(f"Failed to generate demo events: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate demo events: {str(e)}")

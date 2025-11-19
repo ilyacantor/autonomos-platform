@@ -82,13 +82,16 @@ class FlowEventPublisher:
             # Serialize to dict
             event_data = event.to_dict()
             
+            # Filter out None values (Redis XADD doesn't accept None)
+            filtered_data = {k: v for k, v in event_data.items() if v is not None}
+            
             # Get stream key for this layer
             stream_key = LAYER_TO_STREAM[layer]
             
             # Publish to Redis Stream with XADD
             stream_id = await self.redis.xadd(
                 name=stream_key,
-                fields=event_data,
+                fields=filtered_data,
                 maxlen=10000,  # Keep last 10k events per stream (prevent unbounded growth)
                 approximate=True  # Allow Redis to trim approximately for performance
             )
