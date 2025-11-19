@@ -329,5 +329,127 @@ async def test_approval_workflow_flow():
         assert status.status == 'pending'
 
 
+@pytest.mark.asyncio
+async def test_llm_failure_invokes_resilience_fallback():
+    """
+    P3-15: Verify resilience decorator invokes fallback when LLM fails
+    
+    Tests END-TO-END failure path through resilience layer:
+    - LLM service fails (all retries exhausted)
+    - Resilience decorator catches failure
+    - Fallback method (_heuristic_fallback) is invoked
+    - System degrades gracefully with fallback result
+    
+    This proves the resilience layer correctly escalates to fallback.
+    """
+    from app.dcl_engine.services.intelligence import (
+        LLMProposalService,
+        RAGLookupService,
+        ConfidenceScoringService
+    )
+    
+    # Real confidence service (needed by fallback)
+    confidence_service = ConfidenceScoringService()
+    
+    # Mock RAG service that returns None (cache miss) without DB dependency
+    rag_mock = AsyncMock(spec=RAGLookupService)
+    rag_mock.lookup_mapping = AsyncMock(return_value=None)
+    rag_mock.index_mapping = AsyncMock(return_value=None)
+    
+    # Mock DB session with required methods
+    db_mock = AsyncMock()
+    db_mock.execute = AsyncMock(return_value=AsyncMock(scalar_one_or_none=AsyncMock(return_value=None)))
+    db_mock.commit = AsyncMock()
+    db_mock.rollback = AsyncMock()
+    db_mock.close = AsyncMock()
+    
+    # Mock LLM that always fails
+    llm_mock = AsyncMock()
+    llm_mock.generate = AsyncMock(side_effect=Exception("LLM service unavailable"))
+    
+    service = LLMProposalService(
+        llm_client=llm_mock,
+        rag_service=rag_mock,
+        confidence_service=confidence_service,
+        db_session=db_mock
+    )
+    
+    # Call the service - should fail LLM but succeed via fallback
+    proposal = await service.propose_mapping(
+        connector='salesforce',
+        source_table='Opportunity',
+        source_field='TotalAmount',
+        sample_values=[1000.0, 2000.0, 3000.0],
+        tenant_id='test-tenant'
+    )
+    
+    # Verify fallback was invoked
+    assert proposal is not None, "Resilience layer should return fallback result"
+    assert proposal.source == 'heuristic', f"Expected heuristic fallback, got source='{proposal.source}'"
+    assert proposal.action == 'hitl_queued', "Fallback proposals should be queued for human review"
+    assert proposal.canonical_field is not None, "Fallback should propose canonical field"
+    
+    # Verify LLM was attempted (retries exhausted before fallback)
+    assert llm_mock.generate.call_count >= 1, "LLM should be attempted before fallback"
+
+
+@pytest.mark.asyncio
+async def test_confidence_scoring_all_three_tiers():
+    """
+    P3-15: Verify confidence scoring tier boundaries
+    
+    Requirements:
+    - High confidence (≥0.85) → auto_apply
+    - Medium confidence (0.60-0.84) → hitl_queued
+    - Low confidence (<0.60) → rejected
+    """
+    from app.dcl_engine.services.intelligence import ConfidenceScoringService
+    
+    service = ConfidenceScoringService()
+    
+    # Tier 1: High confidence → auto_apply
+    high_result = service.calculate_confidence(
+        factors={
+            'rag_similarity': 0.95,
+            'usage_frequency': 100,
+            'validation_success': 1.0,
+            'source_quality': 0.9,
+            'human_approval': True
+        },
+        tenant_id='test-tenant'
+    )
+    assert high_result.score >= 0.85, f"High confidence should be ≥0.85, got {high_result.score}"
+    assert high_result.tier == 'auto_apply', f"Expected auto_apply, got {high_result.tier}"
+    
+    # Tier 2: Medium confidence → hitl_queued
+    # Target ~0.75 score with weights: validation(30%), human(25%), source(20%), usage(15%), rag(10%)
+    medium_result = service.calculate_confidence(
+        factors={
+            'rag_similarity': 0.80,           # 0.80 × 0.10 = 0.080
+            'usage_frequency': 100,           # log10(101)/3 ≈ 0.67 → 0.67 × 0.15 = 0.100
+            'validation_success': 0.85,       # 0.85 × 0.30 = 0.255
+            'source_quality': 0.85,           # 0.85 × 0.20 = 0.170
+            'human_approval': False           # 0.00 × 0.25 = 0.000
+        },                                    # Total ≈ 0.605
+        tenant_id='test-tenant'
+    )
+    assert 0.60 <= medium_result.score < 0.85, f"Medium confidence should be 0.60-0.84, got {medium_result.score}"
+    assert medium_result.tier == 'hitl_queued', f"Expected hitl_queued, got {medium_result.tier}"
+    
+    # Tier 3: Low confidence → rejected
+    low_result = service.calculate_confidence(
+        factors={
+            'rag_similarity': 0.30,
+            'usage_frequency': 0,
+            'validation_success': 0.4,
+            'source_quality': 0.3,
+            'human_approval': False
+        },
+        tenant_id='test-tenant'
+    )
+    assert low_result.score < 0.60, f"Low confidence should be <0.60, got {low_result.score}"
+    assert low_result.tier == 'rejected', f"Expected rejected, got {low_result.tier}"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "--tb=short"])
