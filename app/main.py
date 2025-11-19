@@ -3,7 +3,7 @@ import sys
 import asyncio
 from contextlib import asynccontextmanager
 from uuid import UUID
-from datetime import timedelta
+from datetime import timedelta, datetime
 from typing import Optional
 from fastapi import FastAPI, Depends, HTTPException, status, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -731,6 +731,134 @@ def cancel_task(
 async def health_check():
     """Primary health check endpoint for Autoscale deployment"""
     return {"status": "ok"}
+
+@app.get("/health/live")
+async def health_live():
+    """
+    Kubernetes-style liveness probe.
+    Returns 200 if process is running, 500 if process should be restarted.
+    """
+    return {"status": "ok", "timestamp": datetime.utcnow().isoformat()}
+
+@app.get("/health/ready")
+async def health_ready(db: Session = Depends(get_db)):
+    """
+    Kubernetes-style readiness probe.
+    Returns 200 if service can handle traffic (even degraded), 503 only if completely unavailable.
+    
+    Kubernetes Semantics:
+    - 200: Service is ready to receive traffic (may be degraded but functional)
+    - 503: Service cannot serve traffic, remove from load balancer
+    
+    Status Levels:
+    - "ready": All checks pass, full capacity
+    - "degraded": Some dependencies down, but fallbacks available (still serves traffic)
+    - "unavailable": Critical failures, cannot serve traffic (503)
+    
+    Checks:
+    - Database connectivity (required for core operations)
+    - Redis connectivity (required for state/caching)
+    - Circuit breaker states (informational, service continues with fallbacks)
+    """
+    health_status = {
+        "status": "ready",
+        "timestamp": datetime.utcnow().isoformat(),
+        "checks": {},
+        "can_serve_traffic": True
+    }
+    
+    critical_failures = 0
+    
+    # Check database connection (critical - needed for auth, mappings, state)
+    try:
+        db.execute("SELECT 1")
+        health_status["checks"]["database"] = {"status": "ok"}
+    except Exception as e:
+        critical_failures += 1
+        health_status["status"] = "unavailable"
+        health_status["can_serve_traffic"] = False
+        health_status["checks"]["database"] = {"status": "failed", "error": str(e)[:100]}
+    
+    # Check Redis connection (critical - needed for queues, locks, state)
+    try:
+        redis_conn.ping()
+        health_status["checks"]["redis"] = {"status": "ok"}
+    except Exception as e:
+        critical_failures += 1
+        health_status["status"] = "unavailable"
+        health_status["can_serve_traffic"] = False
+        health_status["checks"]["redis"] = {"status": "failed", "error": str(e)[:100]}
+    
+    # Check circuit breaker states (informational - service continues with fallbacks)
+    try:
+        from app.dcl_engine.services.resilience import get_circuit_breaker_states
+        breaker_states = get_circuit_breaker_states()
+        
+        critical_breakers = ["llm_proposal", "rag_lookup"]
+        open_breakers = [name for name, state in breaker_states.items() 
+                        if state["state"] == "OPEN" and name in critical_breakers]
+        
+        if open_breakers:
+            # Degraded but still functional (fallbacks available)
+            if health_status["status"] == "ready":
+                health_status["status"] = "degraded"
+            health_status["checks"]["circuit_breakers"] = {
+                "status": "degraded",
+                "open_breakers": open_breakers,
+                "message": "Intelligence services using fallbacks (heuristics/cache)"
+            }
+        else:
+            health_status["checks"]["circuit_breakers"] = {"status": "ok"}
+    except Exception as e:
+        health_status["checks"]["circuit_breakers"] = {"status": "unknown", "error": str(e)[:100]}
+    
+    # Return 503 ONLY if critical dependencies are down (DB or Redis)
+    # Degraded state (open breakers) still returns 200 because fallbacks work
+    status_code = 503 if critical_failures > 0 else 200
+    return JSONResponse(content=health_status, status_code=status_code)
+
+@app.get("/health/intelligence")
+async def health_intelligence():
+    """
+    DCL Intelligence Services health check.
+    
+    Returns detailed status of:
+    - Circuit breakers (CLOSED/OPEN/HALF_OPEN)
+    - Bulkhead semaphores (active/max)
+    - LLM service availability
+    - RAG service availability
+    """
+    try:
+        from app.dcl_engine.services.resilience import get_circuit_breaker_states, get_all_bulkheads
+        
+        breaker_states = get_circuit_breaker_states()
+        bulkhead_states = get_all_bulkheads()
+        
+        # Determine overall health
+        open_breakers = [name for name, state in breaker_states.items() if state["state"] == "OPEN"]
+        overall_status = "healthy" if not open_breakers else "degraded"
+        
+        return {
+            "status": overall_status,
+            "timestamp": datetime.utcnow().isoformat(),
+            "circuit_breakers": breaker_states,
+            "bulkheads": bulkhead_states,
+            "open_breakers": open_breakers,
+            "services": {
+                "llm_proposal": "available" if breaker_states.get("llm_proposal", {}).get("state") == "CLOSED" else "degraded",
+                "rag_lookup": "available" if breaker_states.get("rag_lookup", {}).get("state") == "CLOSED" else "degraded",
+                "confidence_scoring": "available" if breaker_states.get("confidence_scoring", {}).get("state") == "CLOSED" else "degraded"
+            }
+        }
+    except Exception as e:
+        return JSONResponse(
+            content={
+                "status": "error",
+                "timestamp": datetime.utcnow().isoformat(),
+                "error": f"Failed to query intelligence services: {str(e)}"
+            },
+            status_code=500
+        )
 
 @app.get("/health/api")
 def health_api():

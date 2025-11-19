@@ -392,7 +392,7 @@ class LLMProposalService:
                 ) VALUES (
                     :id, :tenant_id, :connector, :source_table, :source_field,
                     :canonical_entity, :canonical_field, :confidence, :reasoning,
-                    :alternatives::jsonb, :action, :source, :created_at
+                    :alternatives, :action, :source, :created_at
                 )
             """)
             

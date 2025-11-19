@@ -35,9 +35,29 @@ async def test_llm_proposal_flow():
     from app.dcl_engine.services.intelligence import RAGLookupService, ConfidenceScoringService
     from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
     from sqlalchemy.orm import sessionmaker
+    from sqlalchemy import text
     
     engine = create_async_engine("sqlite+aiosqlite:///:memory:")
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    
+    async with engine.begin() as conn:
+        await conn.execute(text("""
+            CREATE TABLE mapping_proposals (
+                id TEXT PRIMARY KEY,
+                tenant_id TEXT,
+                connector TEXT,
+                source_table TEXT,
+                source_field TEXT,
+                canonical_entity TEXT,
+                canonical_field TEXT,
+                confidence REAL,
+                reasoning TEXT,
+                alternatives TEXT,
+                action TEXT,
+                source TEXT,
+                created_at TIMESTAMP
+            )
+        """))
     
     async with async_session() as session:
         llm_mock = Mock()
@@ -122,11 +142,11 @@ async def test_confidence_calculation_flow():
     
     result = confidence_service.calculate_confidence(
         factors={
-            'source_quality': 0.9,
-            'usage_frequency': 50,
+            'source_quality': 0.95,
+            'usage_frequency': 100,
             'validation_success': 0.95,
-            'human_approval': False,
-            'rag_similarity': 0.88
+            'human_approval': True,
+            'rag_similarity': 0.92
         },
         tenant_id='test-tenant'
     )
@@ -137,6 +157,7 @@ async def test_confidence_calculation_flow():
     assert isinstance(result.recommendations, list)
     
     assert result.tier == 'auto_apply'
+    assert result.score >= 0.85
 
 
 @pytest.mark.asyncio

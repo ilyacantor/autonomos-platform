@@ -282,6 +282,7 @@ class DriftRepairService:
         """Load drift event from database"""
         try:
             from sqlalchemy import text
+            import json
             
             query = text("""
                 SELECT 
@@ -311,6 +312,11 @@ class DriftRepairService:
             
             old_schema = row.old_schema or {}
             new_schema = row.new_schema or {}
+            
+            if isinstance(old_schema, str):
+                old_schema = json.loads(old_schema)
+            if isinstance(new_schema, str):
+                new_schema = json.loads(new_schema)
             
             return {
                 'id': str(row.id),
