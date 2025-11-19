@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Activity, CheckCircle, AlertCircle, Clock, Zap, Database, Brain, Settings, X } from 'lucide-react';
 
 interface FlowEvent {
