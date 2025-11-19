@@ -9,6 +9,7 @@
 - Navigation structure: Platform Guide → AOD → AAM (with Connector Details + Flow Monitor) → DCL → AOA → Control Center → Help
 - Database connection pool reduced (pool_size: 10→2, max_overflow: 20→3) to prevent Supabase Session mode MaxClients errors
 - Platform Guide "What Makes Us Different" section updated to emphasize complexity abstraction and end-to-end platform approach
+- **End-to-End Pipeline Demo**: New admin endpoints to toggle AAM production connectors and demonstrate full AOD→AAM→DCL→Agent flow with real data
 
 ## Overview
 AutonomOS is a production-ready, multi-tenant SaaS platform for AI-driven data orchestration. The platform is organized into three architectural layers:
@@ -55,6 +56,7 @@ The frontend uses React 18 and TypeScript with a responsive design, Quicksand ty
 *   **Task Orchestration:** Asynchronous job processing using Python RQ and Redis Queue.
 *   **Authentication & Security:** JWT-based authentication with Argon2 hashing.
 *   **AOA (Agentic Orchestration Architecture):** High-level orchestration for DCL engine operations.
+*   **End-to-End Pipeline Demo:** Admin API (`/api/v1/admin/feature-flags/*`) for toggling AAM production connectors vs legacy file sources. Demo API (`/api/v1/demo/pipeline/*`) simulates full AOD→AAM→DCL→Agent flow with real production connectors (Salesforce, MongoDB, FileSource, Supabase).
 *   **DCL Engine (Data Connection Layer):** AI-driven, in-process engine for data orchestration, utilizing DuckDB for materialized views and Redis for concurrent access. Supports multiple connectors, AI-powered entity mapping, graph generation, and idempotent operations. LLM Telemetry tracks cumulative LLM calls and token usage via Redis. Includes intelligence services for LLM proposals, RAG lookup, confidence scoring, drift repair, and mapping approval.
 *   **Adaptive API Mesh (AAM):** Provides self-healing data connectivity with production connectors (Salesforce, FileSource, Supabase, MongoDB). Features canonical event normalization (Pydantic), schema fingerprinting for drift detection, LLM-powered auto-repair, RAG intelligence, and an auto-onboarding system with Safe Mode. Integrates with DCL via Redis Streams. Includes Airbyte Sync Monitoring.
 *   **NLP Gateway Service:** Dedicated natural-language processing service for persona-based routing with context-specific prompts. Includes a persona summary endpoint, tenant-scoped RAG knowledge base (Postgres + pgvector), hybrid retrieval, JWT auth, and PII redaction.

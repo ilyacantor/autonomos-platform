@@ -1,0 +1,120 @@
+================================================================================
+  END-TO-END PIPELINE DEMO - READY TO USE
+================================================================================
+
+✅ Platform Guide "What Makes Us Different" section updated with:
+   - Complexity abstraction messaging  
+   - End-to-end platform approach
+   - Autonomous connections, understanding, and actions
+
+✅ NEW API Endpoints Created:
+
+   ADMIN - Feature Flag Management
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   POST   /api/v1/admin/feature-flags/enable-aam    ← Quick enable AAM
+   POST   /api/v1/admin/feature-flags/disable-aam   ← Return to legacy mode
+   GET    /api/v1/admin/feature-flags               ← List all flags
+   POST   /api/v1/admin/feature-flags/toggle        ← Toggle any flag
+
+   DEMO - Pipeline Testing
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   GET    /api/v1/demo/pipeline/status               ← Check readiness
+   POST   /api/v1/demo/pipeline/end-to-end           ← Run full demo
+
+================================================================================
+  QUICK START (3 Steps)
+================================================================================
+
+1️⃣  Enable AAM Production Connectors
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   curl -X POST "http://your-domain/api/v1/admin/feature-flags/enable-aam"
+
+   This switches the platform from legacy file sources (mock data) to
+   real production AAM connectors:
+   • Salesforce (CRM data)
+   • MongoDB (NoSQL database)
+   • FileSource (file-based data)
+   • Supabase (PostgreSQL)
+
+2️⃣  Verify Pipeline Ready
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   curl "http://your-domain/api/v1/demo/pipeline/status"
+
+   Should return:
+   {
+     "ready": true,
+     "status": {
+       "aam_enabled": true,
+       "onboarding_service_ready": true,
+       ...
+     }
+   }
+
+3️⃣  Run Full AOD → AAM → DCL → Agent Demo
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   curl -X POST "http://your-domain/api/v1/demo/pipeline/end-to-end?source_type=salesforce"
+
+   This simulates:
+   • AOD discovering Salesforce data source
+   • AAM auto-onboarding the connection
+   • DCL mapping entities and building graph
+   • Agent executing workflow using DCL context
+
+================================================================================
+  VISUAL CONFIRMATION
+================================================================================
+
+After enabling AAM and running the demo:
+
+1. Platform Guide (Already Updated)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Navigate to: Platform Guide
+   Look for: "What Makes Us Different" section with updated messaging
+             about complexity abstraction and end-to-end platform
+
+2. Flow Monitor (Real-Time Telemetry)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Navigate to: AAM (Connect) → Flow Monitor tab
+   Watch: Real-time events flowing through AOD → AAM → DCL → Agent
+
+3. Connector Details (Production Status)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Navigate to: AAM (Connect) → Connector Details tab
+   See: Active production connectors with sync status and metrics
+
+================================================================================
+  FULL DOCUMENTATION
+================================================================================
+
+📖 Comprehensive Guide:       docs/END_TO_END_PIPELINE_DEMO.md
+📖 Quick Reference:            QUICK_START_END_TO_END.md
+📖 API Docs (Interactive):    http://your-domain/docs
+
+Filter Swagger docs by tags:
+• "Admin - Feature Flags"
+• "Demo Pipeline"
+• "AAM Auto-Onboarding"
+
+================================================================================
+  TESTING EACH CONNECTOR
+================================================================================
+
+curl -X POST "http://your-domain/api/v1/demo/pipeline/end-to-end?source_type=salesforce"
+curl -X POST "http://your-domain/api/v1/demo/pipeline/end-to-end?source_type=mongodb"
+curl -X POST "http://your-domain/api/v1/demo/pipeline/end-to-end?source_type=filesource"
+curl -X POST "http://your-domain/api/v1/demo/pipeline/end-to-end?source_type=supabase"
+
+================================================================================
+  CURRENT STATUS
+================================================================================
+
+✅ Database connection pool fixed (2/3 instead of 10/20)
+✅ Server running without MaxClients errors
+✅ Platform Guide messaging updated
+✅ Admin feature flag endpoints created and registered
+✅ Demo pipeline endpoints created and registered
+✅ Services injected properly (onboarding_service)
+✅ Comprehensive documentation written
+✅ AAM currently in legacy mode (ready to enable production connectors)
+
+================================================================================

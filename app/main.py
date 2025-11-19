@@ -34,7 +34,7 @@ from app.security import (
     get_current_user,
     ACCESS_TOKEN_EXPIRE_MINUTES
 )
-from app.api.v1 import auth, aoa, aam_monitoring, aam_mesh, aam_connections, platform_stubs, filesource, dcl_views, debug, mesh_test, events, dcl_unify, aod_mock, aam_onboarding
+from app.api.v1 import auth, aoa, aam_monitoring, aam_mesh, aam_connections, platform_stubs, filesource, dcl_views, debug, mesh_test, events, dcl_unify, aod_mock, aam_onboarding, admin_feature_flags, demo_pipeline
 from app.dcl_engine.routers import mappings, intelligence
 from app import nlp_simple
 from app.middleware.rate_limit import limiter, rate_limit_exceeded_handler
@@ -138,6 +138,10 @@ async def lifespan(app: FastAPI):
             
             onboarding_service = OnboardingService(funnel_tracker)
             onboarding_module.onboarding_service = onboarding_service
+            
+            # Inject into demo_pipeline module as well
+            import app.api.v1.demo_pipeline as demo_module
+            demo_module.onboarding_service = onboarding_service
             
             logger.info("✅ AAM Auto-Onboarding services initialized (Safe Mode enabled, 90% SLO target)")
         except Exception as e:
@@ -440,6 +444,8 @@ app.include_router(aoa.router, prefix="/api/v1/aoa", tags=["AOA Orchestration"])
 app.include_router(aam_monitoring.router, prefix="/api/v1/aam", tags=["AAM Monitoring"])
 app.include_router(aam_connections.router, prefix="/api/v1/aam", tags=["AAM Connections"])
 app.include_router(aam_onboarding.router, prefix="/api/v1/aam", tags=["AAM Auto-Onboarding"])
+app.include_router(admin_feature_flags.router, prefix="/api/v1/admin", tags=["Admin - Feature Flags"])
+app.include_router(demo_pipeline.router, prefix="/api/v1", tags=["Demo Pipeline"])
 app.include_router(aam_mesh.router, prefix="/api/v1/mesh", tags=["AAM Mesh"])
 app.include_router(mesh_test.router, prefix="/api/v1", tags=["Mesh Test (Dev-Only)"])
 app.include_router(filesource.router, prefix="/api/v1/filesource", tags=["FileSource Connector"])
