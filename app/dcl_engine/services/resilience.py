@@ -10,6 +10,36 @@ Design Principles:
 - Graceful degradation: Fallback to heuristics when external services unavailable
 - Observability: Structured errors, metrics, and logging integration
 
+Architectural Decision Record (ADR): Circuit Breaker + Retry Interaction
+------------------------------------------------------------------------
+**Decision**: Circuit breakers count REQUEST-level failures, not individual retry attempts.
+
+**Resilience Chain Order**: Circuit Breaker → Retry → Timeout → Function
+
+**Rationale**:
+1. Circuit breakers gate request-level outcomes, preventing cascading failures
+2. Retries happen INSIDE circuit breaker to allow multi-attempt recovery
+3. Moving breaker inside retry would prematurely short-circuit recovery (thundering herd)
+4. Request-level counting matches industry-standard resilience patterns (Hystrix, Polly, resilience4j)
+
+**Example**: LLM service with failure_threshold=3, max_retries=3
+- Request 1 fails → retries 3 times → raises RetryExhaustedError (breaker: 1 failure)
+- Request 2 fails → retries 3 times → raises RetryExhaustedError (breaker: 2 failures)
+- Request 3 fails → retries 3 times → raises RetryExhaustedError (breaker: 3 failures, OPENS)
+- Request 4 → CircuitBreakerOpenError immediately (no function execution, no retries)
+- Total function calls: 9 (3 requests × 3 attempts), but circuit opens after 3 REQUESTS
+
+**Tuning Guidance**:
+- Adjust `failure_threshold` to control how many failed REQUESTS trigger circuit open
+- Adjust `max_retries` to control retry attempts PER request
+- For aggressive circuit breaking: Lower failure_threshold (e.g., 2)
+- For resilient retry: Increase max_retries (e.g., 5) but monitor latency
+
+**Observability**:
+- Logs emit both `attempt_count` (function calls) and `request_count` (user requests)
+- Metrics track circuit breaker state transitions and retry exhaustion rates
+- Correlation IDs link retry attempts to original request for distributed tracing
+
 Dependencies:
 - Python circuitbreaker library (for circuit breaker pattern)
 - tenacity library (for retry with exponential backoff)
@@ -271,6 +301,8 @@ async def with_retry(
     
     Only retries idempotent operations (LLM, RAG, HTTP).
     Database writes are NOT retried to prevent duplicate work.
+    
+    Observability: Logs include attempt_count for request-level tracking.
     """
     if not config.retry_enabled:
         return await func(*args, **kwargs)
@@ -282,11 +314,18 @@ async def with_retry(
             result = await func(*args, **kwargs)
             if attempt > 1:
                 logger.info(
-                    f"Operation '{operation_name}' succeeded on attempt {attempt}"
+                    f"Operation '{operation_name}' succeeded on attempt {attempt}/{config.max_retries}",
+                    extra={
+                        'operation': operation_name,
+                        'attempt_count': attempt,
+                        'max_retries': config.max_retries,
+                        'outcome': 'success'
+                    }
                 )
             return result
         
         except CircuitBreakerOpenError:
+            # Circuit breaker open - do not retry, fail fast
             raise
         
         except Exception as e:
@@ -302,12 +341,27 @@ async def with_retry(
                 
                 logger.warning(
                     f"Operation '{operation_name}' failed on attempt {attempt}/{config.max_retries}, "
-                    f"retrying in {wait_time:.2f}s: {str(e)}"
+                    f"retrying in {wait_time:.2f}s: {str(e)}",
+                    extra={
+                        'operation': operation_name,
+                        'attempt_count': attempt,
+                        'max_retries': config.max_retries,
+                        'retry_wait_seconds': wait_time,
+                        'error_type': type(e).__name__,
+                        'outcome': 'retry'
+                    }
                 )
                 await asyncio.sleep(wait_time)
             else:
                 logger.error(
-                    f"Operation '{operation_name}' failed after {config.max_retries} retries: {str(e)}"
+                    f"Operation '{operation_name}' failed after {config.max_retries} retries: {str(e)}",
+                    extra={
+                        'operation': operation_name,
+                        'attempt_count': attempt,
+                        'max_retries': config.max_retries,
+                        'error_type': type(e).__name__,
+                        'outcome': 'retry_exhausted'
+                    }
                 )
     
     if last_error is None:

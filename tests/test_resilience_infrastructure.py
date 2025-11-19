@@ -44,32 +44,53 @@ class TestCircuitBreaker:
     
     @pytest.mark.asyncio
     async def test_circuit_breaker_opens_after_threshold(self):
-        """Circuit breaker OPENS after failure_threshold exceeded"""
-        call_count = 0
+        """
+        Circuit breaker OPENS after failure_threshold exceeded.
+        
+        Important: Circuit breaker counts **requests**, not individual retry attempts.
+        - LLM config: failure_threshold=3 requests, max_retries=3 attempts per request
+        - Expected: 3 failed requests trigger circuit OPEN
+        - Each request executes up to 3 retry attempts (3 requests × 3 attempts = 9 total calls)
+        - After circuit opens, subsequent requests fail immediately with CircuitBreakerOpenError
+        """
+        request_count = 0
+        attempt_count = 0
         
         @with_resilience(DependencyType.LLM, operation_name="test_failures")
         async def failing_operation():
-            nonlocal call_count
-            call_count += 1
+            nonlocal attempt_count
+            attempt_count += 1
             raise Exception("Simulated failure")
         
+        # Request 1: Should fail after 3 retry attempts
         with pytest.raises(Exception, match="Simulated failure"):
+            request_count += 1
             await failing_operation()
         
+        # Request 2: Should fail after 3 retry attempts
         with pytest.raises(Exception):
+            request_count += 1
             await failing_operation()
         
+        # Request 3: Should fail after 3 retry attempts, then circuit OPENS
         with pytest.raises(Exception):
+            request_count += 1
             await failing_operation()
         
+        # Verify circuit breaker opened after 3 failed requests
         breaker = get_circuit_breaker(DependencyType.LLM)
-        assert breaker.state == "OPEN"
-        assert breaker.failure_count >= 3
+        assert breaker.state == "OPEN", f"Expected OPEN, got {breaker.state}"
+        assert breaker.failure_count >= 3, f"Expected >= 3 failures, got {breaker.failure_count}"
         
+        # Request 4: Should fail immediately with CircuitBreakerOpenError (no retries)
         with pytest.raises(CircuitBreakerOpenError):
+            request_count += 1
             await failing_operation()
         
-        assert call_count <= 3
+        # Validate request-level vs attempt-level counting
+        assert request_count == 4, f"Expected 4 requests, got {request_count}"
+        # 3 requests × 3 attempts each = 9 attempts, plus circuit open state (no new attempts)
+        assert 9 <= attempt_count <= 10, f"Expected 9-10 attempts, got {attempt_count}"
 
 
 class TestRetryLogic:
@@ -179,32 +200,51 @@ class TestGracefulFallbacks:
     
     @pytest.mark.asyncio
     async def test_fallback_triggers_on_circuit_open(self):
-        """Fallback executes when circuit breaker opens"""
-        call_count = 0
+        """Fallback executes when circuit breaker opens (name-based invocation pattern)"""
+        # Reset circuit breaker state from previous tests
+        breaker = get_circuit_breaker(DependencyType.LLM)
+        breaker.failure_count = 0
+        breaker.state = "CLOSED"
+        breaker.last_failure_time = None
         
-        async def fallback_func():
-            return "fallback_result"
+        class MockService:
+            def __init__(self):
+                self.call_count = 0
+                self.fallback_invoked = False
+            
+            @with_resilience(
+                DependencyType.LLM,
+                operation_name="test_fallback",
+                fallback_name="_handle_failure"
+            )
+            async def failing_operation(self):
+                self.call_count += 1
+                raise Exception("Force circuit open")
+            
+            async def _handle_failure(self):
+                self.fallback_invoked = True
+                return "fallback_result"
         
-        @with_resilience(
-            DependencyType.LLM,
-            operation_name="test_fallback",
-            fallback=fallback_func
-        )
-        async def failing_operation():
-            nonlocal call_count
-            call_count += 1
-            raise Exception("Force circuit open")
+        service = MockService()
         
-        for _ in range(4):
+        # Force circuit to open (3 failed requests × 3 retries = 9 calls)
+        for _ in range(3):
             try:
-                result = await failing_operation()
-                if result == "fallback_result":
-                    assert True
-                    return
+                await service.failing_operation()
             except Exception:
                 continue
         
-        assert call_count >= 3
+        # Verify circuit is now OPEN
+        assert breaker.state == "OPEN", f"Expected OPEN, got {breaker.state}"
+        assert service.call_count == 9, f"Expected 9 attempts before circuit opened, got {service.call_count}"
+        
+        # Next request should trigger fallback immediately (circuit OPEN, no function execution)
+        result = await service.failing_operation()
+        
+        assert result == "fallback_result", "Fallback should return fallback_result"
+        assert service.fallback_invoked, "Fallback method should have been invoked"
+        # No additional calls should be made when circuit is OPEN (fallback executed immediately)
+        assert service.call_count == 9, f"Expected no additional calls after circuit opened, got {service.call_count}"
 
 
 class TestBulkheadIsolation:
