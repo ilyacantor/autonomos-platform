@@ -64,7 +64,8 @@ class AAMInitializer:
                     logger.info(f"  ✅ {connector_name}: Emitted {events_count} canonical events")
                     
                 except Exception as e:
-                    logger.warning(f"  ⚠️ {connector_name} initialization failed: {e}")
+                    error_name = connector.__class__.__name__.replace('Connector', '')
+                    logger.warning(f"  ⚠️ {error_name} initialization failed: {e}")
                     continue
             
             logger.info(f"✅ AAM Initializer: Emitted {total_events} total canonical events across {len(self.connectors)} connectors")

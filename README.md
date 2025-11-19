@@ -562,6 +562,66 @@ This marks the current production schema as baseline, preventing destructive DRO
 
 ---
 
+## 📋 RACI Matrix - Component Responsibilities
+
+**Critical Finding:** Clear separation of responsibilities between AAM (Adaptive API Mesh) and DCL (Data Connection Layer) is essential for architectural integrity.
+
+### Component Responsibility Matrix (RACI)
+
+| Capability | AOD | AAM | DCL | Notes |
+|------------|-----|-----|-----|-------|
+| **Discovery & Cataloging** |||||
+| Asset discovery (find data sources) | **A/R** | C | I | AOD owns discovery |
+| Schema introspection | I | **A/R** | C | AAM owns runtime schema scanning |
+| Source catalog management | **A/R** | I | C | AOD owns catalog |
+| **Connection Runtime** |||||
+| API authentication/OAuth | I | **A/R** | I | AAM owns credential management |
+| Data fetching/sync | I | **A/R** | I | AAM owns data retrieval |
+| Pagination handling | I | **A/R** | I | AAM owns API pagination |
+| Rate limiting/throttling | I | **A/R** | I | AAM owns API limits |
+| Connection health monitoring | C | **A/R** | I | AAM owns monitoring |
+| **Intelligence & Mapping** |||||
+| LLM-powered mapping proposals | - | I | **A/R** | DCL owns LLM decisions |
+| RAG mapping lookup | - | I | **A/R** | DCL owns RAG system |
+| Mapping registry storage | - | C | **A/R** | DCL owns registry database |
+| Mapping approval workflow | - | I | **A/R** | DCL owns approvals |
+| Confidence scoring | - | I | **A/R** | DCL owns scoring logic |
+| **Transformation** |||||
+| Canonical transformation | - | R | **A** | DCL decides, AAM executes |
+| Schema drift detection | - | **A/R** | C | AAM detects and owns |
+| Drift repair proposals | - | I | **A/R** | DCL owns repair logic |
+| **Graph & Ontology** |||||
+| Ontology management | - | - | **A/R** | DCL fully owns |
+| Graph generation | - | I | **A/R** | DCL owns graph building |
+| Entity resolution | - | I | **A/R** | DCL owns resolution |
+| **Agent Orchestration** |||||
+| Agent execution | - | - | **A/R** | DCL owns execution |
+| Agent context management | - | - | **A/R** | DCL owns context |
+| Multi-agent coordination | - | - | **A/R** | DCL owns coordination |
+
+**RACI Legend:**
+- **A** = Accountable (single owner, ultimately answerable)
+- **R** = Responsible (does the work, can be multiple)
+- **C** = Consulted (provides input, two-way communication)
+- **I** = Informed (kept updated, one-way communication)
+
+**Key Rule:** Each capability has exactly ONE Accountable owner (marked as A or A/R when same component is both)
+
+### Orchestration Boundaries (DCL vs AOA)
+
+**DCL Scope:**
+- Owns agent context/data and low-level actions within data domain
+- Entity mapping, graph generation, single-agent execution
+- Data transformation decisions and confidence scoring
+
+**AOA/xAO Scope (Out of Document Scope):**
+- Higher-level workflow orchestration
+- Cross-domain playbooks (e.g., data + compute + network)
+- Multi-agent coordination across different domains
+- Business process automation spanning multiple systems
+
+---
+
 ## 🔌 API Documentation
 
 ### Interactive Docs
