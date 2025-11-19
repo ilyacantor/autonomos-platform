@@ -3,12 +3,17 @@
 **Last Updated:** November 19, 2025
 
 ## Overview
-AutonomOS is a production-ready, multi-tenant SaaS platform for AI-driven data orchestration. The platform consists of three core components working together to deliver intelligent, self-healing data integration:
+AutonomOS is a production-ready, multi-tenant SaaS platform for AI-driven data orchestration. The platform consists of six modules, three operational and three in development:
 
-**Core Components:**
+**Operational Modules (Production Ready):**
 - **AOD (Autonomous Object Discovery)** - External microservice for hybrid AI/ML asset discovery, Shadow IT detection, and NLP-based cataloging. Features HITL triage workflows and enterprise auto-connect to AAM.
 - **AAM (Adaptive API Mesh)** - Transport layer providing self-healing data connectivity with 4 production connectors (Salesforce, MongoDB, FileSource, Supabase). Handles authentication, data fetching, schema drift detection, and canonical event normalization.
 - **DCL (Data Connection Layer)** - Intelligence layer for AI-driven entity mapping, graph generation, LLM-powered proposals, drift auto-repair, and agent execution context.
+
+**Work in Progress Modules:**
+- **AOA (Agentic Orchestration Architecture)** - High-level workflow orchestration engine with task queue management, AOD integration, and multi-tenant job enforcement. Working toward cross-domain playbooks and business process automation.
+- **Agents** - Pre-built AI agent library with execution framework, context management, and metadata support. Working toward agent marketplace and multi-agent coordination.
+- **NLP / Intent (Control Center)** - Natural language interface with persona classification (CTO, CRO, COO, CFO) and query routing. Working toward production RAG knowledge base and real-time data integration.
 
 The platform ensures complete data isolation with JWT authentication and user management, offering secure, scalable, and enterprise-grade orchestration. Data flows through the system as: AOD (discover) → AAM (connect) → DCL (intelligence) → Agents (action).
 

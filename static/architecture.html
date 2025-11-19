@@ -286,6 +286,7 @@
                 <a href="#accountability" class="nav-link">Component Ownership</a>
                 <a href="#components" class="nav-link">Platform Components</a>
                 <a href="#connectors" class="nav-link">Production Connectors</a>
+                <a href="#roadmap" class="nav-link">Platform Roadmap</a>
             </div>
         </div>
 
@@ -405,6 +406,42 @@
                         <td><span class="raci-a">DCL</span></td>
                         <td>Gives agents the right data context to take actions</td>
                     </tr>
+                    <tr>
+                        <td colspan="3" style="background: var(--bg-header); font-weight: bold; color: var(--accent-purple);">Workflow Orchestration</td>
+                    </tr>
+                    <tr>
+                        <td>Multi-step workflow automation</td>
+                        <td><span class="raci-a">AOA</span></td>
+                        <td>Coordinates complex business processes across systems</td>
+                    </tr>
+                    <tr>
+                        <td>Cross-domain playbook execution</td>
+                        <td><span class="raci-a">AOA</span></td>
+                        <td>Orchestrates workflows spanning data + compute + network</td>
+                    </tr>
+                    <tr>
+                        <td>Task queue management</td>
+                        <td><span class="raci-a">AOA</span></td>
+                        <td>Manages background jobs and async task processing</td>
+                    </tr>
+                    <tr>
+                        <td colspan="3" style="background: var(--bg-header); font-weight: bold; color: var(--accent-blue);">Natural Language Interface</td>
+                    </tr>
+                    <tr>
+                        <td>Understanding user questions</td>
+                        <td><span class="raci-a">NLP</span></td>
+                        <td>Interprets natural language requests and routes to right system</td>
+                    </tr>
+                    <tr>
+                        <td>Persona-based responses</td>
+                        <td><span class="raci-a">NLP</span></td>
+                        <td>Tailors answers based on user role (CTO, CFO, etc.)</td>
+                    </tr>
+                    <tr>
+                        <td>Knowledge base search</td>
+                        <td><span class="raci-a">NLP</span></td>
+                        <td>Finds relevant docs and answers from company knowledge</td>
+                    </tr>
                 </tbody>
             </table>
 
@@ -412,7 +449,9 @@
             <div class="warning-box">
                 <strong>AOD (Discovery Layer)</strong> - Finds and catalogs all your data sources<br>
                 <strong>AAM (Transport Layer)</strong> - Connects to sources and keeps data flowing<br>
-                <strong>DCL (Intelligence Layer)</strong> - Makes sense of data and powers AI agents
+                <strong>DCL (Intelligence Layer)</strong> - Makes sense of data and powers AI agents<br>
+                <strong>AOA (Orchestration Layer)</strong> - Coordinates complex workflows across systems<br>
+                <strong>NLP (Intent Layer)</strong> - Understands and routes natural language requests
             </div>
         </section>
 
@@ -519,6 +558,137 @@
                 <li><span class="checkmark">✓</span> Detects and auto-repairs when source changes</li>
                 <li><span class="checkmark">✓</span> Production credentials stored securely</li>
             </ul>
+        </section>
+
+        <!-- Roadmap -->
+        <section id="roadmap" class="section">
+            <h2>Platform Roadmap</h2>
+            <p style="margin-bottom: 1.5rem; color: var(--text-secondary);">
+                Here's what's built, what's in progress, and what's next for each module of the platform.
+            </p>
+
+            <h3>AOD (Autonomous Object Discovery)</h3>
+            <p style="margin-bottom: 0.5rem;"><strong>Status:</strong> <span style="color: var(--accent-green);">Production Ready</span></p>
+            <h4 style="color: var(--accent-green);">Completed</h4>
+            <ul>
+                <li>Hybrid AI/ML + rules-based asset cataloging</li>
+                <li>Shadow IT detection with IsolationForest (precision ≥60%, recall ≥60%)</li>
+                <li>HITL triage workflow for security analysts</li>
+                <li>Enterprise auto-connect to AAM for approved assets</li>
+                <li>NLP query interface for asset discovery <span class="status-badge status-demo">Demo</span></li>
+            </ul>
+            <h4 style="color: var(--accent-blue);">Next Steps</h4>
+            <ul>
+                <li>Deploy NLP query interface to production</li>
+                <li>Add more asset types (APIs, microservices, cloud resources)</li>
+                <li>Enhanced risk scoring algorithms</li>
+            </ul>
+
+            <h3>AAM (Adaptive API Mesh)</h3>
+            <p style="margin-bottom: 0.5rem;"><strong>Status:</strong> <span style="color: var(--accent-green);">Production Ready</span></p>
+            <h4 style="color: var(--accent-green);">Completed</h4>
+            <ul>
+                <li>4 production connectors (Salesforce, MongoDB, FileSource, Supabase)</li>
+                <li>Canonical event normalization with Pydantic validation</li>
+                <li>Schema drift detection with fingerprinting</li>
+                <li>LLM-powered auto-repair with confidence scoring</li>
+                <li>Safe Mode and 90% SLO targets</li>
+            </ul>
+            <h4 style="color: var(--accent-blue);">Next Steps</h4>
+            <ul>
+                <li>Add more connectors (HubSpot, NetSuite, Snowflake)</li>
+                <li>Enhanced drift repair with multi-model LLM selection</li>
+                <li>Connector marketplace for community-built integrations</li>
+            </ul>
+
+            <h3>DCL (Data Connection Layer)</h3>
+            <p style="margin-bottom: 0.5rem;"><strong>Status:</strong> <span style="color: var(--accent-green);">Production Ready</span></p>
+            <h4 style="color: var(--accent-green);">Completed</h4>
+            <ul>
+                <li>AI-powered entity mapping with LLM + RAG</li>
+                <li>Knowledge graph generation with real-time updates</li>
+                <li>Multi-tenant architecture with Redis-backed state</li>
+                <li>WebSocket streaming for live visualization</li>
+                <li>3-7x performance improvement (9s for 9 sources)</li>
+            </ul>
+            <h4 style="color: var(--accent-blue);">Next Steps</h4>
+            <ul>
+                <li>Enhanced graph visualization with filtering</li>
+                <li>Graph-based query language for complex relationships</li>
+                <li>Automated data lineage tracking</li>
+            </ul>
+
+            <h3>AOA (Agentic Orchestration Architecture)</h3>
+            <p style="margin-bottom: 0.5rem;"><strong>Status:</strong> <span style="color: var(--accent-yellow);">In Development</span></p>
+            <h4 style="color: var(--accent-green);">Completed</h4>
+            <ul>
+                <li>Basic API endpoints (state, connect, reset)</li>
+                <li>Task queue integration with Redis RQ</li>
+                <li>Multi-tenant job enforcement (1 active job per tenant)</li>
+                <li>AOD discovery integration for asset handoff</li>
+                <li>Demo scan functionality</li>
+            </ul>
+            <h4 style="color: var(--accent-yellow);">In Progress</h4>
+            <ul>
+                <li>Multi-step workflow engine</li>
+                <li>Cross-domain playbook execution (data + compute + network)</li>
+                <li>Workflow state machine with error recovery</li>
+                <li>Business process automation templates</li>
+            </ul>
+            <h4 style="color: var(--accent-blue);">Planned</h4>
+            <ul>
+                <li>Visual workflow designer</li>
+                <li>Workflow versioning and rollback</li>
+                <li>Advanced scheduling and triggers</li>
+            </ul>
+
+            <h3>Agents</h3>
+            <p style="margin-bottom: 0.5rem;"><strong>Status:</strong> <span style="color: var(--accent-yellow);">In Development</span></p>
+            <h4 style="color: var(--accent-green);">Completed</h4>
+            <ul>
+                <li>Agent execution framework via DCL</li>
+                <li>Agent context management with data access</li>
+                <li>Agent metadata support (Phase 4)</li>
+            </ul>
+            <h4 style="color: var(--accent-yellow);">In Progress</h4>
+            <ul>
+                <li>Pre-built agent library (FinOps, RevOps, SecOps)</li>
+                <li>Agent-to-agent communication protocols</li>
+                <li>HITL approval workflows for agent actions</li>
+            </ul>
+            <h4 style="color: var(--accent-blue);">Planned</h4>
+            <ul>
+                <li>Agent marketplace and custom agent builder</li>
+                <li>Agent performance analytics</li>
+                <li>Multi-agent swarm coordination</li>
+            </ul>
+
+            <h3>NLP / Intent (Control Center)</h3>
+            <p style="margin-bottom: 0.5rem;"><strong>Status:</strong> <span style="color: var(--accent-yellow);">In Development</span></p>
+            <h4 style="color: var(--accent-green);">Completed</h4>
+            <ul>
+                <li>Persona classification (CTO, CRO, COO, CFO)</li>
+                <li>Query routing to appropriate systems</li>
+                <li>Persona-specific dashboard summaries <span class="status-badge status-demo">Demo</span></li>
+                <li>Knowledge base search stubs</li>
+            </ul>
+            <h4 style="color: var(--accent-yellow);">In Progress</h4>
+            <ul>
+                <li>Production RAG knowledge base with vector search</li>
+                <li>Real-time data integration for dashboard summaries</li>
+                <li>Advanced intent parsing and disambiguation</li>
+            </ul>
+            <h4 style="color: var(--accent-blue);">Planned</h4>
+            <ul>
+                <li>Multi-turn conversation support</li>
+                <li>Voice interface integration</li>
+                <li>Proactive insights and recommendations</li>
+                <li>Custom persona creation for domain-specific roles</li>
+            </ul>
+
+            <div class="highlight-box" style="margin-top: 2rem;">
+                <p><strong>Note:</strong> Roadmap items are prioritized based on customer feedback and platform needs. Timeline details are intentionally omitted as we use an agile, priority-based approach rather than fixed schedules.</p>
+            </div>
         </section>
 
         <!-- Footer -->
