@@ -124,6 +124,31 @@ A production-ready **full-stack SaaS platform** for AI-driven data orchestration
 
 ---
 
+## 📊 Interactive Architecture Documentation
+
+**🔗 Access:** `/architecture.html` (available when app is running)
+
+The interactive architecture viewer provides comprehensive visual documentation with:
+
+**Key Sections:**
+- 📊 **System Overview** - Production state, validated capabilities, component status
+- 📋 **RACI Matrix** - Complete component responsibility breakdown
+- 🔄 **AAM Architecture** - Connection runtime, drift detection, canonical events
+- 🧠 **DCL Architecture** - Intelligence layer, graph generation, agent orchestration
+- 🌊 **Data Flow Diagrams** - Mermaid visualizations of system pipelines
+- 📡 **Live Telemetry** - Phase 4 flow monitoring architecture
+- ⚡ **Performance Metrics** - Validated benchmarks and throughput data
+- 🛠️ **Technology Stack** - Complete platform dependencies
+
+**Features:**
+- Dark theme optimized for readability
+- Interactive Mermaid diagrams
+- Quick navigation between sections
+- Mobile-responsive design
+- Color-coded RACI responsibilities
+
+---
+
 ## ✨ Features
 
 ### 1. AAM Monitoring Dashboard (November 2025)
