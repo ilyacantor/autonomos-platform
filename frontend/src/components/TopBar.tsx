@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { LayoutDashboard, Cable, Network, Bell, Menu, X, LogIn, UserPlus, HelpCircle, Activity, Search } from 'lucide-react';
+import { LayoutDashboard, Cable, Network, Bell, Menu, X, LogIn, UserPlus, HelpCircle, Activity, Search, MonitorDot } from 'lucide-react';
 import type { PersonaType } from '../types';
 import autonomosLogo from '../assets/autonomos-logo.png';
 
@@ -27,6 +27,7 @@ export default function TopBar({ onAuthOpen, currentPage, onNavigate }: TopBarPr
     { id: 'ontology', label: 'Ontology', icon: <Network className="w-5 h-5" /> },
     { id: 'orchestration', label: 'Orchestration', icon: <Activity className="w-5 h-5" /> },
     { id: 'agents', label: 'Agents', icon: <Activity className="w-5 h-5" /> },
+    { id: 'flow-monitor', label: 'Flow Monitor', icon: <MonitorDot className="w-5 h-5" />, tooltip: 'Real-time telemetry monitoring' },
     { id: 'faq', label: 'Help', icon: <HelpCircle className="w-5 h-5" /> },
   ];
 

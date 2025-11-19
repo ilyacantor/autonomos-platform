@@ -118,6 +118,8 @@ async def lifespan(app: FastAPI):
         import app.dcl_engine.app as dcl_app_module
         try:
             agents_config = load_agents_config()
+            # P4-5: Inject flow_publisher into AgentExecutor for telemetry
+            # Note: flow_publisher is initialized later in startup, so we'll inject it after creation
             dcl_app.agent_executor = AgentExecutor(get_db_path, agents_config, AGENT_RESULTS_CACHE, redis_conn)
             dcl_app_module.agent_executor = dcl_app.agent_executor
             logger.info("✅ DCL Agent Executor initialized successfully with Phase 4 metadata support")
@@ -192,6 +194,15 @@ async def lifespan(app: FastAPI):
     if AAM_AVAILABLE:
         logger.info("🚀 Starting AAM Hybrid orchestration services...")
         try:
+            # P4-3: Inject FlowEventPublisher into AAM orchestrator for telemetry
+            if flow_publisher:
+                try:
+                    from aam_hybrid.services.orchestrator.service import set_flow_publisher
+                    set_flow_publisher(flow_publisher)
+                    logger.info("✅ FlowEventPublisher injected into AAM orchestrator")
+                except Exception as e:
+                    logger.warning(f"⚠️ Failed to inject FlowEventPublisher into AAM: {e}")
+            
             # Initialize Event Bus
             await event_bus.connect()
             logger.info("✅ Event Bus connected")
@@ -364,6 +375,37 @@ except Exception as e:
     redis_conn = None
     task_queue = None
 
+# Initialize Phase 4 Flow Event Publisher (Telemetry)
+flow_publisher = None
+async_redis_client = None  # Module-level async Redis client for Flow Monitor API
+if redis_conn:
+    try:
+        from redis.asyncio import Redis as AsyncRedis
+        from app.telemetry.flow_publisher import FlowEventPublisher
+        
+        # Create async Redis client for FlowEventPublisher (and Flow Monitor API)
+        async_redis_client = AsyncRedis.from_url(
+            os.getenv("REDIS_URL") or f"redis://{settings.REDIS_HOST}:{settings.REDIS_PORT}/{settings.REDIS_DB}",
+            decode_responses=False
+        )
+        flow_publisher = FlowEventPublisher(async_redis_client)
+        print("✅ FlowEventPublisher initialized for real-time telemetry")
+    except Exception as e:
+        print(f"⚠️ FlowEventPublisher initialization failed: {e}. Telemetry disabled.")
+        flow_publisher = None
+        async_redis_client = None
+else:
+    print("⚠️ Redis not available - FlowEventPublisher disabled")
+
+# P4-4: Inject FlowEventPublisher into DCL intelligence services
+if flow_publisher:
+    try:
+        from app.dcl_engine.services.intelligence import set_flow_publisher as dcl_set_flow_publisher
+        dcl_set_flow_publisher(flow_publisher)
+        print("✅ FlowEventPublisher injected into DCL intelligence services")
+    except Exception as e:
+        print(f"⚠️ Failed to inject FlowEventPublisher into DCL: {e}")
+
 # Import and mount the DCL engine AFTER Redis initialization
 # This allows us to share the Redis client with DCL engine to avoid connection limit issues
 try:
@@ -379,6 +421,17 @@ except Exception as e:
     print(f"⚠️ Failed to mount DCL Engine: {e}")
     import traceback
     traceback.print_exc()
+
+# P4-5: Inject FlowEventPublisher into AgentExecutor for telemetry
+# Must happen AFTER DCL engine is mounted (agent_executor is created during dcl_app import)
+if flow_publisher:
+    try:
+        from app.dcl_engine.app import agent_executor
+        if agent_executor:
+            agent_executor.flow_publisher = flow_publisher
+            print("✅ FlowEventPublisher injected into AgentExecutor")
+    except Exception as e:
+        print(f"⚠️ Failed to inject FlowEventPublisher into AgentExecutor: {e}")
 
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
@@ -398,6 +451,17 @@ app.include_router(debug.router, prefix="/api/v1", tags=["Debug (Dev-Only)"])
 app.include_router(events.router, prefix="/api/v1/events", tags=["Event Stream"])
 app.include_router(platform_stubs.router, prefix="/api/v1", tags=["Platform Stubs"])
 app.include_router(aod_mock.router, prefix="", tags=["AOD Mock (Testing)"])
+
+# P4-6: Flow Monitor API
+try:
+    from app.api.v1 import flow_monitor
+    if async_redis_client:
+        # Inject shared async Redis client into flow_monitor API
+        flow_monitor.set_async_redis(async_redis_client)
+    app.include_router(flow_monitor.router, prefix="/api/v1", tags=["Flow Monitoring"])
+    print("✅ Flow Monitor API registered")
+except Exception as e:
+    print(f"⚠️ Failed to register Flow Monitor API: {e}")
 
 class NoCacheStaticFiles(StaticFiles):
     """StaticFiles with no-cache headers to prevent Replit CDN caching"""

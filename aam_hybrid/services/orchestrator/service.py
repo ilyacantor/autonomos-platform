@@ -2,6 +2,7 @@ import logging
 import httpx
 import uuid
 import sys
+import time
 from pathlib import Path
 from typing import List, Optional, Set
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,6 +25,15 @@ from aam_hybrid.shared import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Phase 4: Flow Event Publisher for real-time telemetry
+_flow_publisher = None
+
+def set_flow_publisher(publisher):
+    """Inject FlowEventPublisher from main app"""
+    global _flow_publisher
+    _flow_publisher = publisher
+    logger.info("FlowEventPublisher injected into AAM orchestrator")
 
 
 class ConnectionManager:
@@ -103,6 +113,19 @@ async def onboard_connection(
         Created connection object
     """
     logger.info(f"Starting onboarding for: {connection_data.connection_name}")
+    start_time = time.time()
+    tenant_id = getattr(connection_data, 'tenant_id', 'default')
+    
+    # P4-3: Publish connection start event
+    if _flow_publisher:
+        try:
+            await _flow_publisher.publish_aam_connection_start(
+                connector_name=connection_data.connection_name,
+                tenant_id=tenant_id,
+                metadata={"source_type": connection_data.source_type}
+            )
+        except Exception as e:
+            logger.warning(f"Telemetry failed (non-blocking): {e}")
     
     try:
         async with httpx.AsyncClient() as client:
@@ -197,11 +220,46 @@ async def onboard_connection(
         
         logger.info(f"Connection onboarded successfully: {connection.id}")
         
+        # P4-3: Publish connection success event
+        duration_ms = int((time.time() - start_time) * 1000)
+        if _flow_publisher:
+            try:
+                await _flow_publisher.publish_aam_connection_success(
+                    connector_name=connection_data.connection_name,
+                    tenant_id=tenant_id,
+                    duration_ms=duration_ms,
+                    metadata={
+                        "connection_id": str(connection.id),
+                        "source_type": connection_data.source_type,
+                        "stream_count": len(sync_catalog.get('streams', []))
+                    }
+                )
+            except Exception as e:
+                logger.warning(f"Telemetry failed (non-blocking): {e}")
+        
         return ConnectionResponse.model_validate(connection)
     
     except Exception as e:
         await db.rollback()
         logger.error(f"Failed to store connection in registry: {e}")
+        
+        # P4-3: Publish connection failure event
+        duration_ms = int((time.time() - start_time) * 1000)
+        if _flow_publisher:
+            try:
+                from app.telemetry.flow_events import FlowEventLayer, FlowEventStage, FlowEventStatus
+                await _flow_publisher.publish(
+                    layer=FlowEventLayer.AAM,
+                    stage=FlowEventStage.CONNECTION_FAILURE,
+                    status=FlowEventStatus.FAILURE,
+                    entity_id=connection_data.connection_name,
+                    tenant_id=tenant_id,
+                    duration_ms=duration_ms,
+                    metadata={"error": str(e), "source_type": connection_data.source_type}
+                )
+            except Exception as telemetry_error:
+                logger.warning(f"Telemetry failed (non-blocking): {telemetry_error}")
+        
         raise Exception(f"Registry update failed: {e}")
 
 
@@ -254,6 +312,8 @@ async def trigger_connection_sync(
     if not connection.airbyte_connection_id:
         raise Exception(f"Connection has no Airbyte connection ID: {connection_id}")
     
+    tenant_id = getattr(connection, 'tenant_id', 'default')
+    
     try:
         sync_result = await airbyte_client.trigger_sync(str(connection.airbyte_connection_id))
         
@@ -269,6 +329,21 @@ async def trigger_connection_sync(
         await db.commit()
         
         logger.info(f"Sync triggered for connection {connection_id}, job: {job_id}")
+        
+        # P4-3: Publish event ingestion telemetry
+        if _flow_publisher:
+            try:
+                from app.telemetry.flow_events import FlowEventLayer, FlowEventStage, FlowEventStatus
+                await _flow_publisher.publish(
+                    layer=FlowEventLayer.AAM,
+                    stage=FlowEventStage.EVENT_INGESTED,
+                    status=FlowEventStatus.IN_PROGRESS,
+                    entity_id=connection.name,
+                    tenant_id=tenant_id,
+                    metadata={"job_id": job_id, "connection_id": connection_id}
+                )
+            except Exception as e:
+                logger.warning(f"Telemetry failed (non-blocking): {e}")
         
         return {
             "connection_id": connection_id,

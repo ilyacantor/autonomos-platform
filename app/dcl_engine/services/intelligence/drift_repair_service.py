@@ -114,6 +114,23 @@ class DriftRepairService:
         """
         logger.info(f"Proposing repair for drift event: {drift_event_id} (tenant={tenant_id})")
         
+        # P4-4: Publish telemetry event for drift repair requested
+        try:
+            from . import get_flow_publisher
+            from app.telemetry.flow_events import FlowEventLayer, FlowEventStage, FlowEventStatus
+            publisher = get_flow_publisher()
+            if publisher:
+                await publisher.publish(
+                    layer=FlowEventLayer.DCL,
+                    stage=FlowEventStage.DRIFT_REPAIR_REQUESTED,
+                    status=FlowEventStatus.IN_PROGRESS,
+                    entity_id=drift_event_id,
+                    tenant_id=tenant_id,
+                    metadata={'drift_event_id': drift_event_id}
+                )
+        except Exception as e:
+            logger.warning(f"Failed to publish drift repair requested telemetry: {e}")
+        
         drift_event = await self._load_drift_event(drift_event_id, tenant_id)
         
         if not drift_event:

@@ -610,6 +610,20 @@ class AgentExecutor:
                         "timestamp": time.time()
                     })
                 
+                # P4-5: Publish telemetry event for task dispatch
+                if hasattr(self, 'flow_publisher') and self.flow_publisher:
+                    try:
+                        await self.flow_publisher.publish_agent_task_dispatched(
+                            task_id=agent_id,
+                            tenant_id=tenant_id,
+                            metadata={
+                                'agent_name': agent_config.get("name", agent_id),
+                                'workflow_name': agent_config.get("workflow", "unknown")
+                            }
+                        )
+                    except Exception as e:
+                        self.logger.warning(f"Failed to publish task dispatch telemetry: {e}")
+                
                 # Step 1: Prepare input
                 agent_input = self.prepare_agent_input(agent_id, agent_config, tenant_id)
                 
@@ -618,6 +632,23 @@ class AgentExecutor:
                 
                 # Step 3: Store results
                 self.store_results(agent_id, results, tenant_id)
+                
+                # P4-5: Publish telemetry event for task completion
+                if hasattr(self, 'flow_publisher') and self.flow_publisher:
+                    try:
+                        duration_ms = int(results.get("execution_time_seconds", 0) * 1000)
+                        await self.flow_publisher.publish_agent_task_completed(
+                            task_id=agent_id,
+                            tenant_id=tenant_id,
+                            duration_ms=duration_ms,
+                            metadata={
+                                'agent_name': agent_config.get("name", agent_id),
+                                'status': results.get("status"),
+                                'insights_count': len(results.get("insights", []))
+                            }
+                        )
+                    except Exception as e:
+                        self.logger.warning(f"Failed to publish task completion telemetry: {e}")
                 
                 # Broadcast: Agent completed
                 if ws_manager:
@@ -633,6 +664,24 @@ class AgentExecutor:
             
             except Exception as e:
                 self.logger.error(f"Agent execution failed for {agent_id}: {e}")
+                
+                # P4-5: Publish telemetry event for task failure
+                if hasattr(self, 'flow_publisher') and self.flow_publisher:
+                    try:
+                        from app.telemetry.flow_events import FlowEventLayer, FlowEventStage, FlowEventStatus
+                        await self.flow_publisher.publish(
+                            layer=FlowEventLayer.AGENT,
+                            stage=FlowEventStage.TASK_FAILED,
+                            status=FlowEventStatus.FAILURE,
+                            entity_id=agent_id,
+                            tenant_id=tenant_id,
+                            metadata={
+                                'agent_name': agent_config.get("name", agent_id) if agent_config else agent_id,
+                                'error_message': str(e)
+                            }
+                        )
+                    except Exception as telemetry_error:
+                        self.logger.warning(f"Failed to publish task failure telemetry: {telemetry_error}")
                 
                 # Broadcast: Agent failed
                 if ws_manager:

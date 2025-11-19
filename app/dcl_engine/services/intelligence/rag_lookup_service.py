@@ -126,7 +126,7 @@ class RAGLookupService:
             f"(similarity={best_match['similarity']:.3f})"
         )
         
-        return RAGResult(
+        rag_result = RAGResult(
             canonical_field=best_match['canonical_field'],
             canonical_entity=best_match.get('canonical_entity', 'unknown'),
             similarity=best_match['similarity'],
@@ -135,6 +135,28 @@ class RAGLookupService:
             confidence=best_match.get('confidence', 0.0),
             last_used=best_match.get('last_used')
         )
+        
+        # P4-4: Publish telemetry event for RAG cache hit
+        try:
+            from . import get_flow_publisher
+            publisher = get_flow_publisher()
+            if publisher:
+                await publisher.publish_dcl_rag_cache_hit(
+                    mapping_key=query_string,
+                    tenant_id=tenant_id,
+                    similarity_score=rag_result.similarity,
+                    metadata={
+                        'connector': connector,
+                        'source_table': source_table,
+                        'source_field': source_field,
+                        'canonical_field': rag_result.canonical_field,
+                        'usage_count': rag_result.usage_count
+                    }
+                )
+        except Exception as e:
+            logger.warning(f"Failed to publish RAG cache hit telemetry: {e}")
+        
+        return rag_result
     
     async def _cache_fallback(
         self,
