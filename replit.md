@@ -7,6 +7,8 @@
 - ArchitecturePage.tsx removed in favor of PlatformGuidePage.tsx (bundled with frontend)
 - Flow Monitor moved from standalone tab to AAM (Connect) subtab
 - Navigation structure: Platform Guide → AOD → AAM (with Connector Details + Flow Monitor) → DCL → AOA → Control Center → Help
+- Database connection pool reduced (pool_size: 10→2, max_overflow: 20→3) to prevent Supabase Session mode MaxClients errors
+- Platform Guide "What Makes Us Different" section updated to emphasize complexity abstraction and end-to-end platform approach
 
 ## Overview
 AutonomOS is a production-ready, multi-tenant SaaS platform for AI-driven data orchestration. The platform is organized into three architectural layers:
@@ -64,7 +66,7 @@ The frontend uses React 18 and TypeScript with a responsive design, Quicksand ty
 
 **System Design Choices:**
 The platform uses a "Strangler Fig" pattern with feature flags for zero downtime, structuring data flow as: Data Sources → AAM → DCL → Agents. A single Supabase PostgreSQL database is used for development and production, managed with Alembic for schema versioning. Deployment safety infrastructure prevents destructive database operations.
-*   **Database Connection Architecture:** Centralized session factories ensure PgBouncer compatibility for Supabase.
+*   **Database Connection Architecture:** Centralized session factories ensure PgBouncer compatibility for Supabase. Connection pool sizes optimized for Supabase Session mode (pool_size=2, max_overflow=3) to prevent MaxClientsInSessionMode errors.
 *   **Production Database Override:** Prioritizes `SUPABASE_DATABASE_URL` over Replit's auto-provisioned `DATABASE_URL`.
 *   **AAM Production Connections:** Four operational AAM connectors (Salesforce, FileSource, MongoDB, Supabase) use real credentials from Replit Secrets.
 *   **Redis Infrastructure:** All Redis connections (sync, async, RQ worker) use TLS encryption with full certificate validation. Shared Redis client prevents connection pool exhaustion. Includes graceful degradation and monitoring with watchdog processes and retry logic.

@@ -324,7 +324,7 @@ export default function PlatformGuidePage() {
           </div>
 
           <div className="pg-highlight-box">
-            <p><strong>What Makes Us Different:</strong> We create autonomous actions, not just insights. AutonomOS doesn't stop at analysis—it empowers pre-built AI agents to execute complex workflows. You remain in control with Human-in-the-Loop (HITL) guardrails.</p>
+            <p><strong>What Makes Us Different:</strong> We create autonomous actions, not just insights. We abstract the complexity of disparate data stacks so you don't have to worry about integration headaches. AutonomOS is an end-to-end platform that autonomously connects, understands, and acts on your data—empowering pre-built AI agents to execute complex workflows while you remain in control with Human-in-the-Loop (HITL) guardrails.</p>
           </div>
 
           <p className="text-gray-300">
