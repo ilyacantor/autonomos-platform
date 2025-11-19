@@ -10,10 +10,12 @@ import {
   Zap,
   Brain,
   Shield,
-  GitBranch
+  GitBranch,
+  MonitorDot
 } from 'lucide-react';
 import { API_CONFIG, AUTH_TOKEN_KEY } from '../config/api';
 import { useAuth } from '../hooks/useAuth';
+import FlowMonitor from './FlowMonitor';
 
 interface Connector {
   id: string;
@@ -30,8 +32,11 @@ interface Connector {
   last_sync_at: string | null;
 }
 
+type SubTab = 'connectors' | 'flow-monitor';
+
 export default function ConnectPage() {
   const { isAuthenticated } = useAuth();
+  const [activeSubTab, setActiveSubTab] = useState<SubTab>('connectors');
   const [connectors, setConnectors] = useState<Connector[]>([]);
   const [loading, setLoading] = useState(false);
   const [expandedConnector, setExpandedConnector] = useState<string | null>(null);
@@ -171,12 +176,45 @@ export default function ConnectPage() {
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-white mb-2">AOS Connector Details</h1>
+          <h1 className="text-3xl font-bold text-white mb-2">AOS AAM (Connect)</h1>
           <p className="text-gray-400">
-            Individual connection details with mappings and drift status
+            Adaptive API Mesh - Self-healing data connectivity and flow monitoring
           </p>
         </div>
       </div>
+
+      {/* Subtabs */}
+      <div className="flex gap-2 border-b border-gray-700">
+        <button
+          onClick={() => setActiveSubTab('connectors')}
+          className={`flex items-center gap-2 px-4 py-3 font-medium transition-all ${
+            activeSubTab === 'connectors'
+              ? 'text-blue-400 border-b-2 border-blue-400'
+              : 'text-gray-400 hover:text-gray-300'
+          }`}
+        >
+          <Database className="w-4 h-4" />
+          Connector Details
+        </button>
+        <button
+          onClick={() => setActiveSubTab('flow-monitor')}
+          className={`flex items-center gap-2 px-4 py-3 font-medium transition-all ${
+            activeSubTab === 'flow-monitor'
+              ? 'text-blue-400 border-b-2 border-blue-400'
+              : 'text-gray-400 hover:text-gray-300'
+          }`}
+        >
+          <MonitorDot className="w-4 h-4" />
+          Flow Monitor
+        </button>
+      </div>
+
+      {activeSubTab === 'flow-monitor' ? (
+        <div className="-mx-6 -mb-6">
+          <FlowMonitor />
+        </div>
+      ) : (
+        <div className="space-y-6">
 
       <div className="bg-gradient-to-br from-purple-900/20 via-blue-900/20 to-green-900/20 rounded-xl border border-purple-500/30 overflow-hidden">
         <div className="p-6 border-b border-purple-500/20 bg-black/40">
@@ -464,6 +502,8 @@ export default function ConnectPage() {
           </div>
         )}
       </div>
+        </div>
+      )}
     </div>
   );
 }
