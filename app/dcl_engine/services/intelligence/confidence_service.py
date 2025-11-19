@@ -8,6 +8,10 @@ Confidence Tiers:
 - Auto-apply: >=0.85 (high confidence)
 - HITL-queued: 0.6-0.85 (medium confidence, human review required)
 - Rejected: <0.6 (low confidence, too uncertain)
+
+Resilience:
+- Surfaced error classes for callers to handle gracefully
+- Conservative fallback strategy when degraded
 """
 
 import logging
@@ -15,6 +19,21 @@ from typing import Dict, Any, Optional
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
+
+from ..resilience import (
+    CircuitBreakerOpenError,
+    TimeoutError as ResilienceTimeoutError,
+    RetryExhaustedError
+)
+from ..fallbacks import confidence_conservative_fallback
+
+__all__ = [
+    'ConfidenceScoringService',
+    'ConfidenceScore',
+    'CircuitBreakerOpenError',
+    'ResilienceTimeoutError',
+    'RetryExhaustedError'
+]
 
 
 @dataclass

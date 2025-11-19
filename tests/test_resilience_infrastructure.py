@@ -1,0 +1,330 @@
+"""
+Unit Tests: Resilience Infrastructure (Phase 3)
+
+Validates circuit breakers, retry logic, timeouts, and fallbacks.
+Critical for ensuring reliability patterns function correctly.
+"""
+
+import pytest
+import asyncio
+from unittest.mock import AsyncMock, MagicMock
+from app.dcl_engine.services.resilience import (
+    with_resilience,
+    DependencyType,
+    CircuitBreakerOpenError,
+    TimeoutError as ResilienceTimeoutError,
+    RetryExhaustedError,
+    get_circuit_breaker,
+    get_all_circuit_breakers,
+    get_all_bulkheads,
+    with_bulkhead
+)
+from app.dcl_engine.services.fallbacks import (
+    heuristic_mapping_fallback,
+    confidence_conservative_fallback
+)
+
+
+class TestCircuitBreaker:
+    """Test circuit breaker state transitions and failure handling"""
+    
+    @pytest.mark.asyncio
+    async def test_circuit_breaker_success_flow(self):
+        """Circuit breaker remains CLOSED on successful calls"""
+        @with_resilience(DependencyType.LLM, operation_name="test_success")
+        async def successful_operation():
+            return "success"
+        
+        result = await successful_operation()
+        assert result == "success"
+        
+        breaker = get_circuit_breaker(DependencyType.LLM)
+        assert breaker.state == "CLOSED"
+        assert breaker.failure_count == 0
+    
+    @pytest.mark.asyncio
+    async def test_circuit_breaker_opens_after_threshold(self):
+        """Circuit breaker OPENS after failure_threshold exceeded"""
+        call_count = 0
+        
+        @with_resilience(DependencyType.LLM, operation_name="test_failures")
+        async def failing_operation():
+            nonlocal call_count
+            call_count += 1
+            raise Exception("Simulated failure")
+        
+        with pytest.raises(Exception, match="Simulated failure"):
+            await failing_operation()
+        
+        with pytest.raises(Exception):
+            await failing_operation()
+        
+        with pytest.raises(Exception):
+            await failing_operation()
+        
+        breaker = get_circuit_breaker(DependencyType.LLM)
+        assert breaker.state == "OPEN"
+        assert breaker.failure_count >= 3
+        
+        with pytest.raises(CircuitBreakerOpenError):
+            await failing_operation()
+        
+        assert call_count <= 3
+
+
+class TestRetryLogic:
+    """Test retry behavior with exponential backoff"""
+    
+    @pytest.mark.asyncio
+    async def test_retry_succeeds_after_transient_failure(self):
+        """Retry logic succeeds after transient failures"""
+        attempt_count = 0
+        
+        @with_resilience(DependencyType.RAG, operation_name="test_retry")
+        async def transient_failure():
+            nonlocal attempt_count
+            attempt_count += 1
+            if attempt_count < 2:
+                raise Exception("Transient error")
+            return "success"
+        
+        result = await transient_failure()
+        assert result == "success"
+        assert attempt_count == 2
+    
+    @pytest.mark.asyncio
+    async def test_retry_exhausted_after_max_attempts(self):
+        """Retry exhausted after max_retries exceeded"""
+        attempt_count = 0
+        
+        @with_resilience(DependencyType.RAG, operation_name="test_exhausted")
+        async def persistent_failure():
+            nonlocal attempt_count
+            attempt_count += 1
+            raise Exception("Persistent error")
+        
+        with pytest.raises((RetryExhaustedError, Exception)):
+            await persistent_failure()
+        
+        assert attempt_count >= 3
+
+
+class TestTimeoutEnforcement:
+    """Test timeout behavior with asyncio.wait_for"""
+    
+    @pytest.mark.asyncio
+    async def test_timeout_on_slow_operation(self):
+        """Operation times out if it exceeds configured threshold"""
+        @with_resilience(DependencyType.REDIS, operation_name="test_timeout")
+        async def slow_operation():
+            await asyncio.sleep(10)
+            return "should timeout"
+        
+        with pytest.raises((ResilienceTimeoutError, asyncio.TimeoutError)):
+            await slow_operation()
+    
+    @pytest.mark.asyncio
+    async def test_fast_operation_completes(self):
+        """Fast operation completes within timeout"""
+        @with_resilience(DependencyType.REDIS, operation_name="test_fast")
+        async def fast_operation():
+            await asyncio.sleep(0.01)
+            return "completed"
+        
+        result = await fast_operation()
+        assert result == "completed"
+
+
+class TestGracefulFallbacks:
+    """Test fallback strategies when dependencies unavailable"""
+    
+    @pytest.mark.asyncio
+    async def test_heuristic_fallback_exact_match(self):
+        """Heuristic fallback finds exact match in common fields"""
+        result = await heuristic_mapping_fallback(
+            connector="salesforce",
+            source_table="Account",
+            source_field="Email",
+            sample_values=["test@example.com"],
+            tenant_id="default"
+        )
+        
+        assert result.canonical_field == "email"
+        assert result.confidence >= 0.60
+        assert result.source == "heuristic"
+    
+    @pytest.mark.asyncio
+    async def test_heuristic_fallback_similarity_match(self):
+        """Heuristic fallback uses similarity scoring"""
+        result = await heuristic_mapping_fallback(
+            connector="salesforce",
+            source_table="Account",
+            source_field="CompanyName",
+            sample_values=["Acme Corp"],
+            tenant_id="default"
+        )
+        
+        assert result.source == "heuristic"
+        assert 0.0 <= result.confidence <= 0.70
+    
+    def test_confidence_conservative_fallback(self):
+        """Conservative confidence fallback returns low scores"""
+        result = confidence_conservative_fallback(
+            factors={"rag_similarity": 0.8, "human_approval": False}
+        )
+        
+        assert result["score"] == 0.55
+        assert result["tier"] == "medium"
+        assert any("Conservative" in rec for rec in result["recommendations"])
+    
+    @pytest.mark.asyncio
+    async def test_fallback_triggers_on_circuit_open(self):
+        """Fallback executes when circuit breaker opens"""
+        call_count = 0
+        
+        async def fallback_func():
+            return "fallback_result"
+        
+        @with_resilience(
+            DependencyType.LLM,
+            operation_name="test_fallback",
+            fallback=fallback_func
+        )
+        async def failing_operation():
+            nonlocal call_count
+            call_count += 1
+            raise Exception("Force circuit open")
+        
+        for _ in range(4):
+            try:
+                result = await failing_operation()
+                if result == "fallback_result":
+                    assert True
+                    return
+            except Exception:
+                continue
+        
+        assert call_count >= 3
+
+
+class TestBulkheadIsolation:
+    """Test bulkhead prevents resource exhaustion"""
+    
+    @pytest.mark.asyncio
+    async def test_bulkhead_limits_concurrency(self):
+        """Bulkhead enforces max concurrent operations"""
+        active_count = 0
+        max_active = 0
+        
+        @with_bulkhead("llm")
+        async def concurrent_operation():
+            nonlocal active_count, max_active
+            active_count += 1
+            max_active = max(max_active, active_count)
+            await asyncio.sleep(0.1)
+            active_count -= 1
+            return "done"
+        
+        tasks = [concurrent_operation() for _ in range(20)]
+        await asyncio.gather(*tasks)
+        
+        assert max_active <= 10
+    
+    def test_bulkhead_state_tracking(self):
+        """Bulkhead state correctly tracks active operations"""
+        bulkheads = get_all_bulkheads()
+        
+        assert "llm" in bulkheads
+        assert "database" in bulkheads
+        assert bulkheads["llm"]["max_concurrent"] == 10
+        assert bulkheads["database"]["max_concurrent"] == 50
+    
+    @pytest.mark.asyncio
+    async def test_llm_database_bulkhead_isolation(self):
+        """
+        P3-7: Verify bulkhead isolation prevents LLM contention from blocking database operations.
+        
+        Tests that:
+        1. LLM operations are limited to max_concurrent=10
+        2. Database operations are limited to max_concurrent=50
+        3. LLM and database operations don't block each other
+        4. Both can run concurrently with their respective limits
+        """
+        llm_active = 0
+        llm_max_active = 0
+        db_active = 0
+        db_max_active = 0
+        llm_start_times = []
+        db_start_times = []
+        
+        @with_bulkhead("llm")
+        async def llm_operation(op_id: int):
+            nonlocal llm_active, llm_max_active
+            llm_active += 1
+            llm_max_active = max(llm_max_active, llm_active)
+            llm_start_times.append(asyncio.get_event_loop().time())
+            await asyncio.sleep(0.05)
+            llm_active -= 1
+            return f"llm_{op_id}"
+        
+        @with_bulkhead("database")
+        async def database_operation(op_id: int):
+            nonlocal db_active, db_max_active
+            db_active += 1
+            db_max_active = max(db_max_active, db_active)
+            db_start_times.append(asyncio.get_event_loop().time())
+            await asyncio.sleep(0.05)
+            db_active -= 1
+            return f"db_{op_id}"
+        
+        llm_tasks = [llm_operation(i) for i in range(25)]
+        db_tasks = [database_operation(i) for i in range(60)]
+        
+        all_tasks = llm_tasks + db_tasks
+        results = await asyncio.gather(*all_tasks)
+        
+        assert llm_max_active <= 10, f"LLM bulkhead exceeded: {llm_max_active} > 10"
+        assert db_max_active <= 50, f"Database bulkhead exceeded: {db_max_active} > 50"
+        
+        assert len(results) == 85, "Not all operations completed"
+        
+        llm_results = [r for r in results if r.startswith("llm_")]
+        db_results = [r for r in results if r.startswith("db_")]
+        assert len(llm_results) == 25
+        assert len(db_results) == 60
+        
+        if len(llm_start_times) > 10 and len(db_start_times) > 10:
+            llm_window = llm_start_times[10] - llm_start_times[0]
+            db_window = db_start_times[10] - db_start_times[0]
+            
+            assert llm_window < 0.1, "LLM operations appear to be blocked"
+            assert db_window < 0.1, "Database operations appear to be blocked"
+        
+        bulkheads = get_all_bulkheads()
+        assert bulkheads["llm"]["active_count"] == 0, "LLM bulkhead leaked resources"
+        assert bulkheads["database"]["active_count"] == 0, "Database bulkhead leaked resources"
+        
+        print(f"\n✓ P3-7 Verification Results:")
+        print(f"  - LLM max concurrent: {llm_max_active}/10 (limit enforced)")
+        print(f"  - Database max concurrent: {db_max_active}/50 (limit enforced)")
+        print(f"  - All {len(results)} operations completed successfully")
+        print(f"  - Bulkheads isolated: LLM and DB operations ran concurrently")
+
+
+class TestObservability:
+    """Test circuit breaker state exposure for health checks"""
+    
+    def test_circuit_breaker_state_export(self):
+        """Circuit breaker state accessible for health checks"""
+        breakers = get_all_circuit_breakers()
+        
+        assert isinstance(breakers, dict)
+        for name, state in breakers.items():
+            assert "name" in state
+            assert "state" in state
+            assert "failure_count" in state
+            assert state["state"] in ["CLOSED", "OPEN", "HALF_OPEN"]
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

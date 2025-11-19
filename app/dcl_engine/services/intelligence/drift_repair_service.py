@@ -20,6 +20,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .llm_proposal_service import LLMProposalService, MappingProposal
 from .rag_lookup_service import RAGLookupService
 from .confidence_service import ConfidenceScoringService
+from ..resilience import (
+    with_resilience,
+    DependencyType,
+    CircuitBreakerOpenError,
+    TimeoutError as ResilienceTimeoutError,
+    RetryExhaustedError
+)
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +84,10 @@ class DriftRepairService:
         self.db = db_session
         logger.info("DriftRepairService initialized")
     
+    @with_resilience(
+        DependencyType.HTTP,
+        operation_name="drift_repair_orchestration"
+    )
     async def propose_repair(
         self,
         drift_event_id: str,

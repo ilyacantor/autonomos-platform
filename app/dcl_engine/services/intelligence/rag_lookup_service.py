@@ -13,6 +13,16 @@ from dataclasses import dataclass
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 
+from ..resilience import (
+    with_resilience,
+    with_bulkhead,
+    DependencyType,
+    CircuitBreakerOpenError,
+    TimeoutError as ResilienceTimeoutError,
+    RetryExhaustedError
+)
+from ..fallbacks import rag_cache_fallback
+
 logger = logging.getLogger(__name__)
 
 
@@ -49,6 +59,11 @@ class RAGLookupService:
         self.embedding_service = embedding_service
         logger.info("RAGLookupService initialized")
     
+    @with_bulkhead("rag")
+    @with_resilience(
+        DependencyType.RAG,
+        operation_name="rag_lookup_mapping"
+    )
     async def lookup_mapping(
         self,
         connector: str,
@@ -91,17 +106,44 @@ class RAGLookupService:
                 connector, source_table, source_field, tenant_id
             )
         
-        query_embedding = await self._generate_embedding(query_string)
+        try:
+            query_embedding = await self._generate_embedding(query_string)
+            
+            results = await self._similarity_search(
+                query_embedding,
+                tenant_id,
+                similarity_threshold,
+                top_k
+            )
+            
+            if not results:
+                logger.info(f"No RAG matches found for {query_string}")
+                return None
         
-        results = await self._similarity_search(
-            query_embedding,
-            tenant_id,
-            similarity_threshold,
-            top_k
-        )
-        
-        if not results:
-            logger.info(f"No RAG matches found for {query_string}")
+        except (CircuitBreakerOpenError, ResilienceTimeoutError, RetryExhaustedError) as e:
+            logger.warning(
+                f"RAG lookup failed ({type(e).__name__}), checking cache fallback"
+            )
+            
+            cache_result = await rag_cache_fallback(
+                connector=connector,
+                source_table=source_table,
+                source_field=source_field,
+                tenant_id=tenant_id
+            )
+            
+            if cache_result:
+                logger.info("Cache fallback successful")
+                return RAGResult(
+                    canonical_field=cache_result['canonical_field'],
+                    canonical_entity=cache_result.get('canonical_entity', 'unknown'),
+                    similarity=cache_result.get('similarity', 0.8),
+                    source_mapping_id=cache_result.get('id', 'cached'),
+                    usage_count=cache_result.get('usage_count', 0),
+                    confidence=cache_result.get('confidence', 0.7)
+                )
+            
+            logger.warning("No cache available, returning None to trigger LLM fallback")
             return None
         
         best_match = results[0]

@@ -18,6 +18,15 @@ from sqlalchemy import text
 from app.dcl_engine.llm_service import LLMService
 from .rag_lookup_service import RAGLookupService
 from .confidence_service import ConfidenceScoringService
+from ..resilience import (
+    with_resilience, 
+    with_bulkhead, 
+    DependencyType,
+    CircuitBreakerOpenError,
+    TimeoutError as ResilienceTimeoutError,
+    RetryExhaustedError
+)
+from ..fallbacks import heuristic_mapping_fallback
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +76,11 @@ class LLMProposalService:
         self.db = db_session
         logger.info("LLMProposalService initialized")
     
+    @with_bulkhead("llm")
+    @with_resilience(
+        DependencyType.LLM,
+        operation_name="llm_propose_mapping"
+    )
     async def propose_mapping(
         self,
         connector: str,
@@ -146,20 +160,66 @@ class LLMProposalService:
         
         canonical_entity = self._infer_canonical_entity(source_table)
         
-        prompt = self._build_llm_prompt(
-            connector=connector,
-            source_table=source_table,
-            source_field=source_field,
-            sample_values=sample_values,
-            canonical_entity=canonical_entity
-        )
+        try:
+            prompt = self._build_llm_prompt(
+                connector=connector,
+                source_table=source_table,
+                source_field=source_field,
+                sample_values=sample_values,
+                canonical_entity=canonical_entity
+            )
+            
+            llm_response = self.llm.generate(prompt, source_key=f"{connector}.{source_table}")
+            
+            if not llm_response:
+                raise ValueError("LLM failed to generate mapping proposal")
+            
+            canonical_field, alternatives, reasoning = self._parse_llm_response(llm_response)
         
-        llm_response = self.llm.generate(prompt, source_key=f"{connector}.{source_table}")
-        
-        if not llm_response:
-            raise ValueError("LLM failed to generate mapping proposal")
-        
-        canonical_field, alternatives, reasoning = self._parse_llm_response(llm_response)
+        except (CircuitBreakerOpenError, ResilienceTimeoutError, RetryExhaustedError, ValueError) as e:
+            logger.warning(
+                f"LLM generation failed ({type(e).__name__}), using heuristic fallback"
+            )
+            
+            fallback_result = await heuristic_mapping_fallback(
+                connector=connector,
+                source_table=source_table,
+                source_field=source_field,
+                sample_values=sample_values,
+                tenant_id=tenant_id,
+                context=context
+            )
+            
+            canonical_field = fallback_result.canonical_field
+            alternatives = []
+            reasoning = fallback_result.reasoning
+            
+            confidence_result = self.confidence.calculate_confidence(
+                factors={
+                    'rag_similarity': 0.0,
+                    'usage_frequency': 0,
+                    'validation_success': 0.5,
+                    'source_quality': 0.6,
+                    'human_approval': False
+                },
+                tenant_id=tenant_id
+            )
+            
+            proposal = await self._create_proposal(
+                connector=connector,
+                source_table=source_table,
+                source_field=source_field,
+                canonical_entity=canonical_entity,
+                canonical_field=canonical_field,
+                confidence=fallback_result.confidence,
+                reasoning=reasoning,
+                alternatives=alternatives,
+                action="hitl_queued",
+                source=fallback_result.source,
+                tenant_id=tenant_id
+            )
+            
+            return proposal
         
         confidence_result = self.confidence.calculate_confidence(
             factors={
