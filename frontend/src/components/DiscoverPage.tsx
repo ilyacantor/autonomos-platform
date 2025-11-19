@@ -23,7 +23,7 @@ export default function DiscoverPage() {
             </svg>
             <LiveStatusBadge {...getLiveStatus('aod-dashboard')!} />
             <a 
-              href="https://aos-discover.replit.app/" 
+              href="https://autonomos.network" 
               target="_blank" 
               rel="noopener noreferrer"
               className="ml-auto text-sm text-cyan-400 hover:text-cyan-300 underline font-normal"
@@ -34,7 +34,7 @@ export default function DiscoverPage() {
         </div>
         <div className="relative" style={{ paddingBottom: '75%' }}>
           <iframe
-            src="https://aos-discover.replit.app/"
+            src="https://autonomos.network"
             className="absolute inset-0 w-full h-full"
             title="AOS Discover Dashboard"
             allow="fullscreen"
