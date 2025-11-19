@@ -79,7 +79,8 @@ class LLMProposalService:
     @with_bulkhead("llm")
     @with_resilience(
         DependencyType.LLM,
-        operation_name="llm_propose_mapping"
+        operation_name="llm_propose_mapping",
+        fallback_name="_heuristic_fallback"
     )
     async def propose_mapping(
         self,
@@ -160,66 +161,20 @@ class LLMProposalService:
         
         canonical_entity = self._infer_canonical_entity(source_table)
         
-        try:
-            prompt = self._build_llm_prompt(
-                connector=connector,
-                source_table=source_table,
-                source_field=source_field,
-                sample_values=sample_values,
-                canonical_entity=canonical_entity
-            )
-            
-            llm_response = self.llm.generate(prompt, source_key=f"{connector}.{source_table}")
-            
-            if not llm_response:
-                raise ValueError("LLM failed to generate mapping proposal")
-            
-            canonical_field, alternatives, reasoning = self._parse_llm_response(llm_response)
+        prompt = self._build_llm_prompt(
+            connector=connector,
+            source_table=source_table,
+            source_field=source_field,
+            sample_values=sample_values,
+            canonical_entity=canonical_entity
+        )
         
-        except (CircuitBreakerOpenError, ResilienceTimeoutError, RetryExhaustedError, ValueError) as e:
-            logger.warning(
-                f"LLM generation failed ({type(e).__name__}), using heuristic fallback"
-            )
-            
-            fallback_result = await heuristic_mapping_fallback(
-                connector=connector,
-                source_table=source_table,
-                source_field=source_field,
-                sample_values=sample_values,
-                tenant_id=tenant_id,
-                context=context
-            )
-            
-            canonical_field = fallback_result.canonical_field
-            alternatives = []
-            reasoning = fallback_result.reasoning
-            
-            confidence_result = self.confidence.calculate_confidence(
-                factors={
-                    'rag_similarity': 0.0,
-                    'usage_frequency': 0,
-                    'validation_success': 0.5,
-                    'source_quality': 0.6,
-                    'human_approval': False
-                },
-                tenant_id=tenant_id
-            )
-            
-            proposal = await self._create_proposal(
-                connector=connector,
-                source_table=source_table,
-                source_field=source_field,
-                canonical_entity=canonical_entity,
-                canonical_field=canonical_field,
-                confidence=fallback_result.confidence,
-                reasoning=reasoning,
-                alternatives=alternatives,
-                action="hitl_queued",
-                source=fallback_result.source,
-                tenant_id=tenant_id
-            )
-            
-            return proposal
+        llm_response = self.llm.generate(prompt, source_key=f"{connector}.{source_table}")
+        
+        if not llm_response:
+            raise ValueError("LLM failed to generate mapping proposal")
+        
+        canonical_field, alternatives, reasoning = self._parse_llm_response(llm_response)
         
         confidence_result = self.confidence.calculate_confidence(
             factors={
@@ -254,6 +209,65 @@ class LLMProposalService:
             canonical_entity=canonical_entity,
             tenant_id=tenant_id,
             confidence=confidence_result.score
+        )
+        
+        return proposal
+    
+    async def _heuristic_fallback(
+        self,
+        connector: str,
+        source_table: str,
+        source_field: str,
+        sample_values: List[Any],
+        tenant_id: str,
+        context: Optional[Dict[str, Any]] = None
+    ) -> MappingProposal:
+        """
+        Heuristic fallback when LLM is unavailable.
+        
+        Uses field name similarity matching and conservative confidence scoring.
+        All fallback proposals are queued for human review (HITL).
+        
+        Signature matches propose_mapping (excluding 'self') for decorator compatibility.
+        """
+        logger.info(
+            f"Executing heuristic fallback for {connector}.{source_table}.{source_field}"
+        )
+        
+        canonical_entity = self._infer_canonical_entity(source_table)
+        
+        fallback_result = await heuristic_mapping_fallback(
+            connector=connector,
+            source_table=source_table,
+            source_field=source_field,
+            sample_values=sample_values,
+            tenant_id=tenant_id,
+            context=context
+        )
+        
+        confidence_result = self.confidence.calculate_confidence(
+            factors={
+                'rag_similarity': 0.0,
+                'usage_frequency': 0,
+                'validation_success': 0.5,
+                'source_quality': 0.6,
+                'human_approval': False
+            },
+            tenant_id=tenant_id
+        )
+        
+        proposal = await self._create_proposal(
+            connector=connector,
+            source_table=source_table,
+            source_field=source_field,
+            canonical_entity=canonical_entity,
+            canonical_field=fallback_result.canonical_field,
+            confidence=fallback_result.confidence,
+            reasoning=fallback_result.reasoning,
+            alternatives=[],
+            action="hitl_queued",
+            source=fallback_result.source,
+            tenant_id=tenant_id
         )
         
         return proposal

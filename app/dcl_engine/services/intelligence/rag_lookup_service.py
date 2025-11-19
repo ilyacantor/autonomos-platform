@@ -62,7 +62,8 @@ class RAGLookupService:
     @with_bulkhead("rag")
     @with_resilience(
         DependencyType.RAG,
-        operation_name="rag_lookup_mapping"
+        operation_name="rag_lookup_mapping",
+        fallback_name="_cache_fallback"
     )
     async def lookup_mapping(
         self,
@@ -106,44 +107,17 @@ class RAGLookupService:
                 connector, source_table, source_field, tenant_id
             )
         
-        try:
-            query_embedding = await self._generate_embedding(query_string)
-            
-            results = await self._similarity_search(
-                query_embedding,
-                tenant_id,
-                similarity_threshold,
-                top_k
-            )
-            
-            if not results:
-                logger.info(f"No RAG matches found for {query_string}")
-                return None
+        query_embedding = await self._generate_embedding(query_string)
         
-        except (CircuitBreakerOpenError, ResilienceTimeoutError, RetryExhaustedError) as e:
-            logger.warning(
-                f"RAG lookup failed ({type(e).__name__}), checking cache fallback"
-            )
-            
-            cache_result = await rag_cache_fallback(
-                connector=connector,
-                source_table=source_table,
-                source_field=source_field,
-                tenant_id=tenant_id
-            )
-            
-            if cache_result:
-                logger.info("Cache fallback successful")
-                return RAGResult(
-                    canonical_field=cache_result['canonical_field'],
-                    canonical_entity=cache_result.get('canonical_entity', 'unknown'),
-                    similarity=cache_result.get('similarity', 0.8),
-                    source_mapping_id=cache_result.get('id', 'cached'),
-                    usage_count=cache_result.get('usage_count', 0),
-                    confidence=cache_result.get('confidence', 0.7)
-                )
-            
-            logger.warning("No cache available, returning None to trigger LLM fallback")
+        results = await self._similarity_search(
+            query_embedding,
+            tenant_id,
+            similarity_threshold,
+            top_k
+        )
+        
+        if not results:
+            logger.info(f"No RAG matches found for {query_string}")
             return None
         
         best_match = results[0]
@@ -161,6 +135,48 @@ class RAGLookupService:
             confidence=best_match.get('confidence', 0.0),
             last_used=best_match.get('last_used')
         )
+    
+    async def _cache_fallback(
+        self,
+        connector: str,
+        source_table: str,
+        source_field: str,
+        tenant_id: str,
+        similarity_threshold: float = DEFAULT_SIMILARITY_THRESHOLD,
+        top_k: int = DEFAULT_TOP_K
+    ) -> Optional[RAGResult]:
+        """
+        Cache fallback when RAG vector search is unavailable.
+        
+        Attempts to retrieve cached mapping from local storage or memory.
+        Returns None if cache miss, triggering downstream LLM fallback.
+        
+        Signature matches lookup_mapping (excluding 'self') for decorator compatibility.
+        """
+        logger.info(
+            f"Executing cache fallback for {connector}.{source_table}.{source_field}"
+        )
+        
+        cache_result = await rag_cache_fallback(
+            connector=connector,
+            source_table=source_table,
+            source_field=source_field,
+            tenant_id=tenant_id
+        )
+        
+        if cache_result:
+            logger.info("Cache fallback successful")
+            return RAGResult(
+                canonical_field=cache_result['canonical_field'],
+                canonical_entity=cache_result.get('canonical_entity', 'unknown'),
+                similarity=cache_result.get('similarity', 0.8),
+                source_mapping_id=cache_result.get('id', 'cached'),
+                usage_count=cache_result.get('usage_count', 0),
+                confidence=cache_result.get('confidence', 0.7)
+            )
+        
+        logger.warning("No cache available, returning None to trigger LLM fallback")
+        return None
     
     async def index_mapping(
         self,

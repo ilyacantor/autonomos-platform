@@ -341,24 +341,36 @@ async def with_timeout(
 def with_resilience(
     dependency: DependencyType,
     operation_name: Optional[str] = None,
-    fallback: Optional[Callable[..., Awaitable[Any]]] = None
+    fallback_name: Optional[str] = None
 ):
     """
     Decorator that applies full resilience pattern:
     1. Circuit breaker
     2. Timeout enforcement
     3. Retry logic (if enabled)
-    4. Graceful fallback (if provided)
+    4. Graceful fallback (if provided via name-based invocation)
     
     Usage:
-        @with_resilience(DependencyType.LLM, operation_name="generate_proposal")
-        async def propose_mapping(...):
-            ...
+        class MyService:
+            @with_resilience(
+                DependencyType.LLM, 
+                operation_name="generate_proposal",
+                fallback_name="_heuristic_fallback"
+            )
+            async def propose_mapping(self, ...):
+                # Clean business logic only
+                ...
+            
+            async def _heuristic_fallback(self, ...):
+                # Fallback implementation (signature matches primary method excluding 'self')
+                ...
     
     Args:
         dependency: Type of external dependency (LLM, RAG, Redis, etc.)
         operation_name: Human-readable operation name for logging
-        fallback: Optional fallback function to call if operation fails
+        fallback_name: Optional name of fallback method (string) on the instance.
+                       The decorator will invoke it using getattr(instance, fallback_name).
+                       Fallback signature must match the original method (excluding 'self').
     """
     config = DEPENDENCY_CONFIGS[dependency]
     circuit_breaker = get_circuit_breaker(dependency)
@@ -373,8 +385,8 @@ def with_resilience(
                 async def timed_operation():
                     return await with_timeout(
                         func,
-                        timeout_seconds=config.timeout_seconds,
-                        operation_name=op_name,
+                        config.timeout_seconds,
+                        op_name,
                         *args,
                         **kwargs
                     )
@@ -389,15 +401,39 @@ def with_resilience(
                 return await circuit_breaker.call(resilient_operation)
             
             except (CircuitBreakerOpenError, TimeoutError, RetryExhaustedError) as e:
-                if fallback is not None:
-                    logger.warning(
-                        f"Operation '{op_name}' failed with resilience error, "
-                        f"falling back to graceful degradation: {type(e).__name__}"
+                # Name-based fallback invocation for instance methods
+                if fallback_name and args:
+                    instance = args[0]
+                    
+                    if hasattr(instance, fallback_name):
+                        # Get the BOUND method from the instance
+                        fallback_func = getattr(instance, fallback_name)
+                        
+                        logger.warning(
+                            f"Failure in {func.__name__} ({dependency.value}). "
+                            f"Invoking fallback '{fallback_name}': {type(e).__name__}"
+                        )
+                        
+                        try:
+                            # Call the bound fallback method with remaining args (strip 'self')
+                            # The bound method already includes 'self'
+                            result = fallback_func(*args[1:], **kwargs)
+                            if asyncio.iscoroutine(result):
+                                return await result
+                            return result
+                        
+                        except Exception as fallback_e:
+                            logger.error(
+                                f"Fallback method '{fallback_name}' itself failed: {fallback_e}"
+                            )
+                            raise e from fallback_e
+                
+                # No suitable fallback found or fallback not configured
+                if fallback_name:
+                    logger.error(
+                        f"Failure in {func.__name__} ({dependency.value}). "
+                        f"Fallback '{fallback_name}' not found on instance. Error: {e}"
                     )
-                    result = fallback(*args, **kwargs)
-                    if asyncio.iscoroutine(result):
-                        return await result
-                    return result
                 raise
         
         return wrapper
