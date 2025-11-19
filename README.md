@@ -16,6 +16,7 @@ A production-ready **full-stack SaaS platform** for AI-driven data orchestration
 - 🏢 **Multi-Tenant Architecture** - Complete data isolation between organizations
 - 🔐 **Enterprise Security** - JWT authentication with Argon2 password hashing
 - ⚡ **Real-Time Monitoring** - Live dashboard with auto-refresh and health metrics
+- 📡 **Live Flow Telemetry** - Real-time data flow visualization across AAM → DCL → Agent pipeline
 
 ### Key Capabilities
 
@@ -30,6 +31,11 @@ A production-ready **full-stack SaaS platform** for AI-driven data orchestration
 - Connection health tracking
 - Sync job history and metrics
 - Service health status
+- **Live Flow Monitor** - Real-time event streaming dashboard (`/flow-monitor`)
+  - Three-column view: AAM → DCL → Agent pipeline
+  - WebSocket streaming with <1s latency
+  - Click-through event inspection with full metadata
+  - Tenant-scoped event filtering
 
 **For Developers:**
 - RESTful API with OpenAPI documentation

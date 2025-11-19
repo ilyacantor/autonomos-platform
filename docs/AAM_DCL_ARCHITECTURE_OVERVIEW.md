@@ -125,6 +125,29 @@ Live Sankey Visualization (React frontend)
 
 **Files**: `docs/api/`, `docs/operations/`, `docs/deployment/`, etc.
 
+#### Live Flow Telemetry System (Phase 4) ✅
+- **Real-Time Dashboard**: React component at `/flow-monitor` with dark mode UI
+- **Redis Streams Infrastructure**: Three separate streams (aam:flow, dcl:flow, agent:flow)
+- **WebSocket Live Streaming**: <1s latency with XREAD BLOCK polling
+- **Event Publishing**: FlowEventPublisher library injected across AAM, DCL, and Agent layers
+- **RACI Compliance**: Each layer publishes only its own events, telemetry failures isolated
+- **Testing**: 10/10 telemetry tests passing, architect-approved for production
+- **UI Features**: Three-column layout (Green/Blue/Purple palette), click-through event details, tenant scoping
+
+**Architecture:**
+```
+AAM Layer → FlowEventPublisher → aam:flow stream
+DCL Layer → FlowEventPublisher → dcl:flow stream     → FlowMonitor API → React Dashboard
+Agent Layer → FlowEventPublisher → agent:flow stream   ↓ WebSocket /ws/flow-monitor
+```
+
+**API Endpoints:**
+- `GET /api/v1/flow-monitor` - Snapshot API (XREVRANGE returns newest events)
+- `WebSocket /api/v1/ws/flow-monitor` - Live streaming with automatic reconnection
+- `POST /api/v1/flow-monitor/demo` - Demo event generator for integration testing
+
+**Files**: `app/telemetry/`, `app/api/v1/flow_monitor.py`, `frontend/src/components/FlowMonitor.tsx`
+
 ---
 
 ## Validated Performance Metrics (Actual Results)
