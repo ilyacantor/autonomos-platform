@@ -127,15 +127,15 @@ function GraphPanel({ currentStage }: { currentStage: Stage }) {
 
           {vendors.map((vendor, idx) => {
             const y = 50 + idx * 80;
-            const x = 80;
+            const x = 60;
             const isActive = currentStage === 1;
             
             return (
               <g key={vendor.name}>
                 <rect
-                  x={x - 60}
+                  x={x - 50}
                   y={y - 20}
-                  width="120"
+                  width="100"
                   height="40"
                   rx="8"
                   fill={isActive ? `${vendor.color}20` : '#1e293b'}
@@ -148,21 +148,21 @@ function GraphPanel({ currentStage }: { currentStage: Stage }) {
                   y={y + 5}
                   textAnchor="middle"
                   fill={isActive ? vendor.color : '#94a3b8'}
-                  fontSize="13"
+                  fontSize="12"
                   fontWeight="600"
                 >
                   {vendor.name}
                 </text>
 
                 <line
-                  x1={x + 60}
+                  x1={x + 50}
                   y1={y}
-                  x2={280}
+                  x2={180}
                   y2={200}
-                  stroke={currentStage === 2 ? '#0bcad9' : '#334155'}
-                  strokeWidth={currentStage === 2 ? "3" : "2"}
-                  strokeDasharray={currentStage < 2 ? "5,5" : "none"}
-                  className={currentStage === 2 ? 'animate-pulse' : ''}
+                  stroke={currentStage === 1 ? '#f59e0b' : '#334155'}
+                  strokeWidth={currentStage === 1 ? "3" : "2"}
+                  strokeDasharray={currentStage === 1 ? "none" : "5,5"}
+                  className={currentStage === 1 ? 'animate-pulse' : ''}
                 />
               </g>
             );
@@ -170,9 +170,53 @@ function GraphPanel({ currentStage }: { currentStage: Stage }) {
 
           <g>
             <rect
-              x={280}
+              x={180}
               y={180}
-              width="140"
+              width="120"
+              height="50"
+              rx="8"
+              fill={currentStage === 1 ? '#f59e0b20' : '#1e293b'}
+              stroke={currentStage === 1 ? '#f59e0b' : '#334155'}
+              strokeWidth="2"
+              className={currentStage === 1 ? 'animate-pulse' : ''}
+            />
+            <text
+              x={240}
+              y={200}
+              textAnchor="middle"
+              fill={currentStage === 1 ? '#f59e0b' : '#94a3b8'}
+              fontSize="14"
+              fontWeight="700"
+            >
+              AOD
+            </text>
+            <text
+              x={240}
+              y={218}
+              textAnchor="middle"
+              fill={currentStage === 1 ? '#fbbf24' : '#64748b'}
+              fontSize="11"
+            >
+              Discovery
+            </text>
+          </g>
+
+          <line
+            x1={300}
+            y1={205}
+            x2={360}
+            y2={205}
+            stroke={currentStage === 2 ? '#10b981' : '#334155'}
+            strokeWidth={currentStage === 2 ? "3" : "2"}
+            strokeDasharray={currentStage < 2 ? "5,5" : "none"}
+            className={currentStage === 2 ? 'animate-pulse' : ''}
+          />
+
+          <g>
+            <rect
+              x={360}
+              y={180}
+              width="120"
               height="50"
               rx="8"
               fill={currentStage === 2 ? '#10b98120' : '#1e293b'}
@@ -181,7 +225,7 @@ function GraphPanel({ currentStage }: { currentStage: Stage }) {
               className={currentStage === 2 ? 'animate-pulse' : ''}
             />
             <text
-              x={350}
+              x={420}
               y={200}
               textAnchor="middle"
               fill={currentStage === 2 ? '#10b981' : '#94a3b8'}
@@ -191,20 +235,20 @@ function GraphPanel({ currentStage }: { currentStage: Stage }) {
               AAM
             </text>
             <text
-              x={350}
+              x={420}
               y={218}
               textAnchor="middle"
               fill={currentStage === 2 ? '#6ee7b7' : '#64748b'}
               fontSize="11"
             >
-              Adaptive API Mesh
+              Connect
             </text>
           </g>
 
           <line
-            x1={420}
+            x1={480}
             y1={205}
-            x2={500}
+            x2={540}
             y2={205}
             stroke={currentStage === 3 ? '#a855f7' : '#334155'}
             strokeWidth={currentStage === 3 ? "3" : "2"}
@@ -214,9 +258,9 @@ function GraphPanel({ currentStage }: { currentStage: Stage }) {
 
           <g>
             <rect
-              x={500}
+              x={540}
               y={180}
-              width={140}
+              width="120"
               height="50"
               rx="8"
               fill={currentStage === 3 ? '#a855f720' : '#1e293b'}
@@ -225,7 +269,7 @@ function GraphPanel({ currentStage }: { currentStage: Stage }) {
               className={currentStage === 3 ? 'animate-pulse' : ''}
             />
             <text
-              x={570}
+              x={600}
               y={200}
               textAnchor="middle"
               fill={currentStage === 3 ? '#a855f7' : '#94a3b8'}
@@ -235,18 +279,18 @@ function GraphPanel({ currentStage }: { currentStage: Stage }) {
               DCL
             </text>
             <text
-              x={570}
+              x={600}
               y={218}
               textAnchor="middle"
               fill={currentStage === 3 ? '#c084fc' : '#64748b'}
               fontSize="11"
             >
-              Data Connectivity
+              Mapping
             </text>
           </g>
 
           <line
-            x1={640}
+            x1={660}
             y1={205}
             x2={700}
             y2={205}
