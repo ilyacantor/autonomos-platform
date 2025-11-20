@@ -1,5 +1,6 @@
 import os
 import json
+import asyncio
 from datetime import datetime, timedelta
 from fastapi import Request
 from fastapi.responses import JSONResponse
@@ -33,6 +34,7 @@ async def idempotency_middleware(request: Request, call_next: Callable):
     - If exists, check Redis/DB for cached response
     - Return cached response if found (within 10min)
     - Store response after execution
+    - NON-BLOCKING: Uses thread pool for sync Redis calls
     """
     if not REDIS_AVAILABLE or request.method != "POST":
         return await call_next(request)
@@ -46,7 +48,9 @@ async def idempotency_middleware(request: Request, call_next: Callable):
     cache_key = f"idempotency:{tenant_id}:{idempotency_key}"
     
     try:
-        cached_response = redis_client.get(cache_key)
+        # Non-blocking: Run sync Redis GET in thread pool
+        loop = asyncio.get_event_loop()
+        cached_response = await loop.run_in_executor(None, redis_client.get, cache_key)
         
         if cached_response:
             cached_data = json.loads(cached_response)
@@ -72,7 +76,11 @@ async def idempotency_middleware(request: Request, call_next: Callable):
                 "body": json.loads(response_body.decode()) if response_body else {}
             }
             
-            redis_client.setex(
+            # Non-blocking: Fire-and-forget Redis SET in thread pool
+            loop = asyncio.get_event_loop()
+            loop.run_in_executor(
+                None,
+                redis_client.setex,
                 cache_key,
                 IDEMPOTENCY_CACHE_MINUTES * 60,
                 json.dumps(cached_data)

@@ -1,6 +1,7 @@
 import os
 import hashlib
 import time
+import asyncio
 from datetime import datetime
 from fastapi import Request
 from typing import Callable
@@ -19,13 +20,28 @@ except Exception:
     DB_AVAILABLE = False
 
 
+def _write_audit_log_sync(journal_entry):
+    """
+    Synchronous database write - executed in thread pool to avoid blocking event loop.
+    This is a fire-and-forget operation.
+    """
+    try:
+        db = SessionLocal()
+        db.add(journal_entry)
+        db.commit()
+        db.close()
+    except Exception as e:
+        # Log errors but don't fail - audit logging is best-effort
+        print(f"⚠️ Audit log write failed: {e}")
+
+
 async def audit_middleware(request: Request, call_next: Callable):
     """
     AuditJournal Middleware
     - Log every request to ApiJournal table
     - Include tenant_id, route, method, status, latency, trace_id
     - Hash request body (SHA256) for large payloads
-    - Async write to avoid blocking
+    - NON-BLOCKING: Uses background thread pool for DB writes
     """
     start_time = time.time()
     
@@ -61,10 +77,9 @@ async def audit_middleware(request: Request, call_next: Callable):
             created_at=datetime.utcnow()
         )
         
-        db = SessionLocal()
-        db.add(journal_entry)
-        db.commit()
-        db.close()
+        # Fire-and-forget: Execute DB write in thread pool to avoid blocking
+        loop = asyncio.get_event_loop()
+        loop.run_in_executor(None, _write_audit_log_sync, journal_entry)
     
     except Exception:
         pass

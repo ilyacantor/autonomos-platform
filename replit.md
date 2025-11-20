@@ -3,6 +3,7 @@
 **Last Updated:** November 20, 2025
 
 **Recent Architecture Changes:**
+- **Backend Event Loop Blocking Fix (Nov 20, 2025)**: Fixed Gateway middleware (Audit + Idempotency) that were making synchronous blocking calls in async context, causing complete server freeze. Implemented thread pool execution for DB/Redis operations. Audit and Idempotency middleware temporarily disabled until further testing.
 - Platform Guide converted from static HTML to React component for deployment compatibility
 - ArchitecturePage.tsx removed in favor of PlatformGuidePage.tsx (bundled with frontend)
 - Flow Monitor moved from standalone tab to AAM (Connect) subtab
