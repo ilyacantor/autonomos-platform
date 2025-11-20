@@ -57,11 +57,11 @@ export default function DiscoveryDemoPage() {
       <TopBar currentStage={currentStage} isRunningPipeline={isRunningPipeline} />
       
       <div className="flex-1 flex overflow-hidden">
-        <div className="w-1/2 border-r border-slate-800 p-8 bg-slate-950 overflow-hidden">
+        <div className="w-3/4 border-r border-slate-800 p-8 bg-slate-950 overflow-hidden">
           <GraphPanel currentStage={currentStage} isRunningPipeline={isRunningPipeline} />
         </div>
 
-        <div className="w-1/2 p-8 bg-slate-900 overflow-auto">
+        <div className="w-1/4 p-8 bg-slate-900 overflow-auto">
           <DetailPanel currentStage={currentStage} totalCounts={totalCounts} />
         </div>
       </div>
