@@ -14,23 +14,21 @@ export default function DiscoveryDemoPage() {
   const [currentStage, setCurrentStage] = useState<Stage>(1);
   const [isRunningPipeline, setIsRunningPipeline] = useState(false);
 
-  useEffect(() => {
-    if (!isRunningPipeline) return;
-    
-    const timer = setTimeout(() => {
-      if (currentStage < 4) {
-        setCurrentStage((prev) => (prev + 1) as Stage);
-      } else {
-        setIsRunningPipeline(false);
-      }
-    }, 2000);
-
-    return () => clearTimeout(timer);
-  }, [currentStage, isRunningPipeline]);
-
   const handleRunFullPipeline = () => {
     setCurrentStage(1);
     setIsRunningPipeline(true);
+  };
+
+  const handleContinuePipeline = () => {
+    if (currentStage < 4) {
+      setCurrentStage((prev) => (prev + 1) as Stage);
+    } else {
+      setIsRunningPipeline(false);
+    }
+  };
+
+  const handleEndDemo = () => {
+    setIsRunningPipeline(false);
   };
 
   const handleNext = () => {
@@ -73,6 +71,8 @@ export default function DiscoveryDemoPage() {
           onBack={handleBack}
           onNext={handleNext}
           onRunFullPipeline={handleRunFullPipeline}
+          onContinuePipeline={handleContinuePipeline}
+          onEndDemo={handleEndDemo}
           isRunningPipeline={isRunningPipeline}
         />
       </div>
@@ -470,6 +470,8 @@ function StepperNavigation({
   onBack,
   onNext,
   onRunFullPipeline,
+  onContinuePipeline,
+  onEndDemo,
   isRunningPipeline,
 }: {
   currentStage: Stage;
@@ -477,6 +479,8 @@ function StepperNavigation({
   onBack: () => void;
   onNext: () => void;
   onRunFullPipeline: () => void;
+  onContinuePipeline: () => void;
+  onEndDemo: () => void;
   isRunningPipeline: boolean;
 }) {
   const stages = [
@@ -493,11 +497,12 @@ function StepperNavigation({
           <div key={stage.num} className="flex items-center">
             <button
               onClick={() => onStageClick(stage.num as Stage)}
+              disabled={isRunningPipeline}
               className={`flex flex-col items-center gap-2 px-6 py-3 rounded-lg transition-all ${
                 currentStage === stage.num
                   ? 'bg-cyan-500/20 border-2 border-cyan-500'
                   : 'bg-slate-800 border-2 border-slate-700 hover:border-slate-600'
-              }`}
+              } ${isRunningPipeline ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
                 currentStage === stage.num
@@ -523,34 +528,76 @@ function StepperNavigation({
         ))}
       </div>
 
-      <div className="flex items-center justify-between">
-        <button
-          onClick={onBack}
-          disabled={currentStage === 1}
-          className="px-6 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-colors font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <ChevronLeft className="w-4 h-4" />
-          Back
-        </button>
+      {isRunningPipeline ? (
+        <div className="bg-gradient-to-r from-cyan-500/10 to-purple-500/10 border border-cyan-500/30 rounded-lg p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-2">
+                <Zap className="w-5 h-5 text-cyan-400 animate-pulse" />
+                <h3 className="text-lg font-bold text-white">Pipeline Running - Stage {currentStage} of 4</h3>
+              </div>
+              <p className="text-sm text-slate-400">
+                {currentStage < 4 
+                  ? "Review the information on the right panel. Click 'Continue' to proceed to the next stage." 
+                  : "Demo complete! Review the final results or restart the pipeline."}
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={onEndDemo}
+                className="px-6 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors font-semibold"
+              >
+                End Demo
+              </button>
+              {currentStage < 4 ? (
+                <button
+                  onClick={onContinuePipeline}
+                  className="px-6 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg transition-colors font-semibold flex items-center gap-2"
+                >
+                  Continue to Next Stage
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              ) : (
+                <button
+                  onClick={onRunFullPipeline}
+                  className="px-6 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg transition-colors font-semibold flex items-center gap-2"
+                >
+                  <Play className="w-4 h-4" />
+                  Restart Pipeline
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between">
+          <button
+            onClick={onBack}
+            disabled={currentStage === 1}
+            className="px-6 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-colors font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            Back
+          </button>
 
-        <button
-          onClick={onRunFullPipeline}
-          disabled={isRunningPipeline}
-          className="px-6 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg transition-colors font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <Play className="w-4 h-4" />
-          Run Full Pipeline
-        </button>
+          <button
+            onClick={onRunFullPipeline}
+            className="px-6 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg transition-colors font-semibold flex items-center gap-2"
+          >
+            <Play className="w-4 h-4" />
+            Run Full Pipeline
+          </button>
 
-        <button
-          onClick={onNext}
-          disabled={currentStage === 4}
-          className="px-6 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-colors font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Next
-          <ChevronRight className="w-4 h-4" />
-        </button>
-      </div>
+          <button
+            onClick={onNext}
+            disabled={currentStage === 4}
+            className="px-6 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-colors font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Next
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
