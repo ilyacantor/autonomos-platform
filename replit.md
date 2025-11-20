@@ -10,7 +10,7 @@
 - Database connection pool reduced (pool_size: 10→2, max_overflow: 20→3) to prevent Supabase Session mode MaxClients errors
 - Platform Guide "What Makes Us Different" section updated to emphasize complexity abstraction and end-to-end platform approach
 - **End-to-End Pipeline Demo**: New admin endpoints to toggle AAM production connectors and demonstrate full AOD→AAM→DCL→Agent flow with real data
-- **Discovery Demo (Enterprise-Grade)**: Interactive `/demo-discovery` page with auto-selected assets, enterprise complexity storytelling, AAM connector details modal, DCL field mappings modal, and 4-stage pipeline simulation demonstrating AOD→AAM→DCL→Agent flow
+- **Discovery Demo (Stage-Driven)**: Interactive `/demo-discovery` page with stage-driven UI showing pipeline graph and stage-specific detail panels. Each of 4 stages (AOD, AAM, DCL, Agent) displays different complexity with reactive graph animations. Features auto-progression, manual navigation, and enterprise console aesthetic
 
 ## Overview
 AutonomOS is a production-ready, multi-tenant SaaS platform for AI-driven data orchestration. The platform is organized into three architectural layers:
