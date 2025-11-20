@@ -186,8 +186,10 @@ async def lifespan(app: FastAPI):
                     except Exception as e:
                         logger.warning(f"⚠️ Failed to clear DCL cache: {e}")
             
-            await ensure_pubsub_listener(on_flag_change=on_flag_change_callback)
-            logger.info("✅ Main App: Feature flag pub/sub listener started (production-ready)")
+            # TEMPORARILY DISABLED: Feature flag pub/sub listener may be blocking
+            # await ensure_pubsub_listener(on_flag_change=on_flag_change_callback)
+            # logger.info("✅ Main App: Feature flag pub/sub listener started (production-ready)")
+            logger.warning("⚠️ Feature flag pub/sub listener DISABLED temporarily to debug server freezing")
             
         except Exception as e:
             logger.warning(f"⚠️ Feature flag initialization failed: {e}. Using in-memory fallback.")
@@ -228,13 +230,18 @@ async def lifespan(app: FastAPI):
             except Exception as init_error:
                 logger.warning(f"⚠️ AAM connector initialization failed: {init_error}")
             
-            # Start background tasks
-            tasks = [
-                asyncio.create_task(event_bus.listen(), name="event_bus_listener"),  # type: ignore[possibly-unbound]
-                asyncio.create_task(schema_observer.polling_loop(), name="schema_observer"),
-            ]
-            background_tasks.extend(tasks)
-            logger.info(f"✅ Started {len(tasks)} AAM orchestration background tasks")
+            # TEMPORARILY DISABLED: AAM background tasks to prevent event loop blocking
+            # These tasks were causing the FastAPI server to freeze and not respond to any HTTP requests
+            # TODO: Fix event_bus.listen() and schema_observer.polling_loop() to be truly non-blocking
+            logger.warning("⚠️ AAM background tasks DISABLED temporarily to prevent server freezing")
+            logger.warning("⚠️ Event Bus and Schema Observer are not running - AAM features may be limited")
+            
+            # tasks = [
+            #     asyncio.create_task(safe_event_bus_listener(), name="event_bus_listener"),
+            #     asyncio.create_task(safe_schema_observer(), name="schema_observer"),
+            # ]
+            # background_tasks.extend(tasks)
+            # logger.info(f"✅ Started {len(tasks)} AAM orchestration background tasks (with error isolation)")
             
         except Exception as e:
             logger.error(f"⚠️ Failed to start AAM orchestration services: {e}")
