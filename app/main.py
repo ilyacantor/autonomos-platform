@@ -70,9 +70,9 @@ async def lifespan(app: FastAPI):
     # STARTUP PHASE
     logger.info("🚀 Starting AutonomOS application...")
     
-    # Create shared httpx client for proxy routes
-    app.state.http_client = httpx.AsyncClient(timeout=30.0)
-    logger.info("✅ Shared HTTP client initialized for proxy routes")
+    # TEMPORARILY DISABLED: Create shared httpx client for proxy routes
+    # app.state.http_client = httpx.AsyncClient(timeout=30.0)
+    # logger.info("✅ Shared HTTP client initialized for proxy routes")
     
     # Initialize AAM database (create tables and enums)
     try:
@@ -476,96 +476,97 @@ try:
 except Exception as e:
     print(f"⚠️ Failed to register Flow Monitor API: {e}")
 
-# AAM Gauntlet Proxy Routes - Forward browser requests to backend services
-
-def sanitize_headers(headers: dict) -> dict:
-    """Remove hop-by-hop headers that shouldn't be forwarded"""
-    hop_by_hop = {
-        'connection', 'keep-alive', 'transfer-encoding',
-        'te', 'trailer', 'proxy-authorization',
-        'proxy-authenticate', 'upgrade'
-    }
-    return {
-        k: v for k, v in headers.items()
-        if k.lower() not in hop_by_hop
-    }
-
-@app.api_route("/api/gauntlet/backend/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"])
-@app.api_route("/api/gauntlet/backend", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"])
-async def proxy_aam_backend(request: Request, path: str = ""):
-    """Proxy requests to AAM Gauntlet backend (port 8080)"""
-    client = request.app.state.http_client
-    url = f"http://localhost:8080/{path}" if path else "http://localhost:8080"
-    body = await request.body()
-    headers = dict(request.headers)
-    headers.pop("host", None)
-    
-    try:
-        response = await client.request(
-            method=request.method,
-            url=url,
-            content=body,
-            headers=headers,
-            params=request.query_params
-        )
-        return Response(
-            content=response.content,
-            status_code=response.status_code,
-            headers=sanitize_headers(dict(response.headers))
-        )
-    except httpx.RequestError as e:
-        return JSONResponse(
-            status_code=503,
-            content={"error": "AAM Backend unavailable", "detail": str(e)}
-        )
-
-@app.api_route("/api/gauntlet/farm/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"])
-@app.api_route("/api/gauntlet/farm", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"])
-async def proxy_api_farm(request: Request, path: str = ""):
-    """Proxy requests to API Farm (port 8000)"""
-    client = request.app.state.http_client
-    url = f"http://localhost:8000/{path}" if path else "http://localhost:8000"
-    body = await request.body()
-    headers = dict(request.headers)
-    headers.pop("host", None)
-    
-    try:
-        response = await client.request(
-            method=request.method,
-            url=url,
-            content=body,
-            headers=headers,
-            params=request.query_params
-        )
-        return Response(
-            content=response.content,
-            status_code=response.status_code,
-            headers=sanitize_headers(dict(response.headers))
-        )
-    except httpx.RequestError as e:
-        return JSONResponse(
-            status_code=503,
-            content={"error": "API Farm unavailable", "detail": str(e)}
-        )
-
-@app.get("/api/gauntlet/status")
-async def gauntlet_status():
-    """Health check for AAM Gauntlet proxy routes"""
-    results = {}
-    async with httpx.AsyncClient(timeout=5.0) as client:
-        try:
-            backend_resp = await client.get("http://localhost:8080/health")
-            results["backend"] = {"status": "healthy" if backend_resp.status_code == 200 else "unhealthy", "code": backend_resp.status_code}
-        except:
-            results["backend"] = {"status": "unavailable"}
-        
-        try:
-            farm_resp = await client.get("http://localhost:8000/admin/status")
-            results["farm"] = {"status": "healthy" if farm_resp.status_code == 200 else "unhealthy", "code": farm_resp.status_code}
-        except:
-            results["farm"] = {"status": "unavailable"}
-    
-    return results
+# TEMPORARILY DISABLED: AAM Gauntlet Proxy Routes
+# These routes are commented out to debug server hanging issue
+#
+# def sanitize_headers(headers: dict) -> dict:
+#     """Remove hop-by-hop headers that shouldn't be forwarded"""
+#     hop_by_hop = {
+#         'connection', 'keep-alive', 'transfer-encoding',
+#         'te', 'trailer', 'proxy-authorization',
+#         'proxy-authenticate', 'upgrade'
+#     }
+#     return {
+#         k: v for k, v in headers.items()
+#         if k.lower() not in hop_by_hop
+#     }
+#
+# @app.api_route("/api/gauntlet/backend/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"])
+# @app.api_route("/api/gauntlet/backend", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"])
+# async def proxy_aam_backend(request: Request, path: str = ""):
+#     """Proxy requests to AAM Gauntlet backend (port 8080)"""
+#     client = request.app.state.http_client
+#     url = f"http://localhost:8080/{path}" if path else "http://localhost:8080"
+#     body = await request.body()
+#     headers = dict(request.headers)
+#     headers.pop("host", None)
+#     
+#     try:
+#         response = await client.request(
+#             method=request.method,
+#             url=url,
+#             content=body,
+#             headers=headers,
+#             params=request.query_params
+#         )
+#         return Response(
+#             content=response.content,
+#             status_code=response.status_code,
+#             headers=sanitize_headers(dict(response.headers))
+#         )
+#     except httpx.RequestError as e:
+#         return JSONResponse(
+#             status_code=503,
+#             content={"error": "AAM Backend unavailable", "detail": str(e)}
+#         )
+#
+# @app.api_route("/api/gauntlet/farm/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"])
+# @app.api_route("/api/gauntlet/farm", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"])
+# async def proxy_api_farm(request: Request, path: str = ""):
+#     """Proxy requests to API Farm (port 8000)"""
+#     client = request.app.state.http_client
+#     url = f"http://localhost:8000/{path}" if path else "http://localhost:8000"
+#     body = await request.body()
+#     headers = dict(request.headers)
+#     headers.pop("host", None)
+#     
+#     try:
+#         response = await client.request(
+#             method=request.method,
+#             url=url,
+#             content=body,
+#             headers=headers,
+#             params=request.query_params
+#         )
+#         return Response(
+#             content=response.content,
+#             status_code=response.status_code,
+#             headers=sanitize_headers(dict(response.headers))
+#         )
+#     except httpx.RequestError as e:
+#         return JSONResponse(
+#             status_code=503,
+#             content={"error": "API Farm unavailable", "detail": str(e)}
+#         )
+#
+# @app.get("/api/gauntlet/status")
+# async def gauntlet_status():
+#     """Health check for AAM Gauntlet proxy routes"""
+#     results = {}
+#     async with httpx.AsyncClient(timeout=5.0) as client:
+#         try:
+#             backend_resp = await client.get("http://localhost:8080/health")
+#             results["backend"] = {"status": "healthy" if backend_resp.status_code == 200 else "unhealthy", "code": backend_resp.status_code}
+#         except:
+#             results["backend"] = {"status": "unavailable"}
+#         
+#         try:
+#             farm_resp = await client.get("http://localhost:8000/admin/status")
+#             results["farm"] = {"status": "healthy" if farm_resp.status_code == 200 else "unhealthy", "code": farm_resp.status_code}
+#         except:
+#             results["farm"] = {"status": "unavailable"}
+#     
+#     return results
 
 class NoCacheStaticFiles(StaticFiles):
     """StaticFiles with no-cache headers to prevent Replit CDN caching"""
