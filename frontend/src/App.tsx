@@ -11,14 +11,13 @@ import NewOntologyPage from './components/NewOntologyPage';
 import OrchestrationPage from './components/OrchestrationPage';
 import FAQPage from './components/FAQPage';
 import DiscoveryDemoPage from './components/DiscoveryDemoPage';
-// TEMPORARILY DISABLED: import AAMGauntletPage from './components/AAMGauntletPage';
 import AuthModal from './components/AuthModal';
 
 function AppContent() {
   // Initialize page from URL path
   const getInitialPage = () => {
     const path = window.location.pathname.slice(1); // Remove leading slash
-    const validPages = ['architecture', 'control-center', 'discover', 'connect', 'ontology', 'orchestration', 'faq', 'demo-discovery', 'aam-gauntlet'];
+    const validPages = ['architecture', 'control-center', 'discover', 'connect', 'ontology', 'orchestration', 'faq', 'demo-discovery'];
     return validPages.includes(path) ? path : 'architecture';
   };
   
@@ -49,7 +48,7 @@ function AppContent() {
   useEffect(() => {
     const handlePopState = () => {
       const path = window.location.pathname.slice(1);
-      const validPages = ['architecture', 'control-center', 'discover', 'connect', 'ontology', 'orchestration', 'faq', 'demo-discovery', 'aam-gauntlet'];
+      const validPages = ['architecture', 'control-center', 'discover', 'connect', 'ontology', 'orchestration', 'faq', 'demo-discovery'];
       if (validPages.includes(path)) {
         setCurrentPage(path);
       }
@@ -88,9 +87,6 @@ function AppContent() {
         return <FAQPage />;
       case 'demo-discovery':
         return <DiscoveryDemoPage />;
-      case 'aam-gauntlet':
-        // TEMPORARILY DISABLED
-        return <div className="text-white p-6">AAM Gauntlet temporarily disabled for debugging</div>;
       default:
         return <PlatformGuidePage />;
     }

@@ -6,12 +6,11 @@
 - Platform Guide converted from static HTML to React component for deployment compatibility
 - ArchitecturePage.tsx removed in favor of PlatformGuidePage.tsx (bundled with frontend)
 - Flow Monitor moved from standalone tab to AAM (Connect) subtab
-- Navigation structure: Platform Guide → AOD → Discovery Demo → AAM (with Connector Details + Flow Monitor) → AAM Gauntlet → DCL → AOA → Control Center → Help
+- Navigation structure: Platform Guide → AOD → Discovery Demo → AAM (with Connector Details + Flow Monitor) → DCL → AOA → Control Center → Help
 - Database connection pool reduced (pool_size: 10→2, max_overflow: 20→3) to prevent Supabase Session mode MaxClients errors
 - Platform Guide "What Makes Us Different" section updated to emphasize complexity abstraction and end-to-end platform approach
 - **End-to-End Pipeline Demo**: New admin endpoints to toggle AAM production connectors and demonstrate full AOD→AAM→DCL→Agent flow with real data
 - **Discovery Demo (Stage-Driven)**: Interactive `/demo-discovery` page with stage-driven UI showing pipeline graph and stage-specific detail panels. Each of 4 stages (AOD, AAM, DCL, Agent) displays different complexity with reactive graph animations. Features auto-progression, manual navigation, and enterprise console aesthetic
-- **AAM Gauntlet Stress Testing Demo**: Integrated stress-testing system at `/aam-gauntlet` featuring native React components (TopologyView, MetricsChart, ConnectorStatus, ChaosControl) for validating AAM resilience under chaos conditions. Includes FastAPI proxy routes (`/api/gauntlet/backend/*`, `/api/gauntlet/farm/*`) enabling browser access to backend services (ports 8080, 8000) through main server (port 5000). Features connection pooling, header sanitization, and CORS support for all HTTP methods
 
 ## Overview
 AutonomOS is a production-ready, multi-tenant SaaS platform for AI-driven data orchestration. The platform is organized into three architectural layers:
