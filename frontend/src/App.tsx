@@ -11,7 +11,7 @@ import NewOntologyPage from './components/NewOntologyPage';
 import OrchestrationPage from './components/OrchestrationPage';
 import FAQPage from './components/FAQPage';
 import DiscoveryDemoPage from './components/DiscoveryDemoPage';
-import AAMGauntletPage from './components/AAMGauntletPage';
+// TEMPORARILY DISABLED: import AAMGauntletPage from './components/AAMGauntletPage';
 import AuthModal from './components/AuthModal';
 
 function AppContent() {
@@ -89,7 +89,8 @@ function AppContent() {
       case 'demo-discovery':
         return <DiscoveryDemoPage />;
       case 'aam-gauntlet':
-        return <AAMGauntletPage />;
+        // TEMPORARILY DISABLED
+        return <div className="text-white p-6">AAM Gauntlet temporarily disabled for debugging</div>;
       default:
         return <PlatformGuidePage />;
     }
