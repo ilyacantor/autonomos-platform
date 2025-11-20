@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  api_farm:
+    build:
+      context: ./api_farm
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./api_farm/configs:/app/configs
+    environment:
+      - PYTHONUNBUFFERED=1
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/admin/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - aam_network
+
+  aam_backend:
+    build:
+      context: ./aam
+      dockerfile: Dockerfile
+    ports:
+      - "8002:8002"
+    depends_on:
+      - api_farm
+    environment:
+      - API_FARM_URL=http://api_farm:8001
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./aam_data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - aam_network
+
+  frontend:
+    build:
+      context: ./ui
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api_farm
+      - aam_backend
+    environment:
+      - VITE_AAM_API=http://localhost:8002
+      - VITE_FARM_API=http://localhost:8001
+    networks:
+      - aam_network
+
+networks:
+  aam_network:
+    driver: bridge
+
+volumes:
+  aam_data:

@@ -1,0 +1,41 @@
+id: mongodb_mock
+protocol: rest
+base_path: /api/mongodb
+resources:
+  - name: collections
+    endpoints:
+      - method: GET
+        path: /collections
+      - method: POST
+        path: /collections
+  - name: documents
+    endpoints:
+      - method: GET
+        path: /documents
+        paginated: true
+      - method: POST
+        path: /documents
+      - method: PUT
+        path: /documents/{id}
+auth:
+  type: api_key
+  token_ttl_seconds: 0
+rate_limit:
+  max_rps: 20
+  burst: 50
+error_profile: mostly_ok
+network_profile: dns_flakiness
+schema:
+  version: 1
+  fields:
+    - name: _id
+      type: string
+    - name: collection
+      type: string
+    - name: document
+      type: object
+    - name: timestamp
+      type: string
+drift_schedule: []
+tenants:
+  - id: tenant1
