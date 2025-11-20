@@ -10,13 +10,14 @@ import ConnectPage from './components/ConnectPage';
 import NewOntologyPage from './components/NewOntologyPage';
 import OrchestrationPage from './components/OrchestrationPage';
 import FAQPage from './components/FAQPage';
+import DiscoveryDemoPage from './components/DiscoveryDemoPage';
 import AuthModal from './components/AuthModal';
 
 function AppContent() {
   // Initialize page from URL path
   const getInitialPage = () => {
     const path = window.location.pathname.slice(1); // Remove leading slash
-    const validPages = ['architecture', 'control-center', 'discover', 'connect', 'ontology', 'orchestration', 'faq'];
+    const validPages = ['architecture', 'control-center', 'discover', 'connect', 'ontology', 'orchestration', 'faq', 'demo-discovery'];
     return validPages.includes(path) ? path : 'architecture';
   };
   
@@ -47,7 +48,7 @@ function AppContent() {
   useEffect(() => {
     const handlePopState = () => {
       const path = window.location.pathname.slice(1);
-      const validPages = ['architecture', 'control-center', 'discover', 'connect', 'ontology', 'orchestration', 'faq'];
+      const validPages = ['architecture', 'control-center', 'discover', 'connect', 'ontology', 'orchestration', 'faq', 'demo-discovery'];
       if (validPages.includes(path)) {
         setCurrentPage(path);
       }
@@ -84,6 +85,8 @@ function AppContent() {
         return <OrchestrationPage />;
       case 'faq':
         return <FAQPage />;
+      case 'demo-discovery':
+        return <DiscoveryDemoPage />;
       default:
         return <PlatformGuidePage />;
     }

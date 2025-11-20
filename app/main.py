@@ -666,6 +666,21 @@ if os.path.exists(STATIC_DIR) and os.path.isdir(STATIC_DIR):
                 }
             )
         raise HTTPException(status_code=404, detail="Frontend not found")
+
+    @app.get("/demo-discovery")
+    def serve_demo_discovery(request: Request):
+        """Serve Discovery Demo frontend page"""
+        index_path = os.path.join(STATIC_DIR, "index.html")
+        if os.path.exists(index_path):
+            return FileResponse(
+                index_path,
+                headers={
+                    "Cache-Control": "no-cache, no-store, must-revalidate",
+                    "Pragma": "no-cache",
+                    "Expires": "0"
+                }
+            )
+        raise HTTPException(status_code=404, detail="Frontend not found")
 else:
     @app.get("/")
     def read_root():
@@ -966,3 +981,4 @@ def health_worker():
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Redis connection failed: {str(e)}"
         )
+

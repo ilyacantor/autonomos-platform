@@ -1,0 +1,138 @@
+You are the lead front-end engineer on the AutonomOS (AOS) platform.
+
+Context:
+- This Replit project is the main AOS app (React/Vite SPA + FastAPI backend).
+- There is a separate AOS_Discovery_v2 (AOD) project that I do NOT want you to touch from here.
+- For this task, DO NOT modify the DCL engine, AAM logic, or any existing core flows.
+- This is a UI-only demo step: fake AOD, fake pipeline, everything local to the front-end.
+
+Goal:
+Create a new “Discovery → Connect” demo page inside the AOS React UI that visually looks like the existing AOS Discover (AOD) dashboard, but lives inside this app and uses static in-memory data.
+
+High-level UX:
+- Single-page “boring enterprise console”, route something like `/demo/discovery`.
+- Top: summary of “assets” across 4 vendors.
+- Middle: vendor cards.
+- Vendor click: opens a modal showing asset rows (like the existing Salesforce Assets modal in AOD).
+- Each asset row has a checkbox “Include in demo pipeline”.
+- Bottom: a “Connect selected assets” section that shows a 4-stage pipeline status bar:
+  1. AOD Discovery
+  2. AAM Connections
+  3. DCL Mapping
+  4. Agent Execution
+- For this first pass, the pipeline is simulated entirely on the client with timeouts.
+
+Constraints:
+- Do NOT change router/navigation structure in a breaking way. Add a new route/page and a simple nav link (e.g., “Discovery Demo”) in whatever nav pattern already exists.
+- Keep styling consistent with current dark-theme AOS UI and the AOD screenshots: cards, chips, fonts, and color palette. Reuse existing components where possible instead of inventing new styling systems.
+- NO network calls for this prompt. All data must live in a small mock file or constant.
+
+Implementation details:
+
+1) Create a typed model for “fake AOD assets”
+   - In `src/` (or wherever models live), add something like `src/demo/aodMockData.ts` (or the closest equivalent path that fits the current structure).
+   - Define types roughly like:
+
+     type AssetState = 'READY_FOR_CONNECT' | 'PARKED' | 'UNKNOWN' | 'CONNECTED' | 'PROCESSING';
+     type AssetKind = 'service' | 'db' | 'saas' | 'host';
+
+     interface AodAsset {
+       id: string;
+       name: string;
+       vendor: 'salesforce' | 'mongodb' | 'supabase' | 'legacy';
+       kind: AssetKind;
+       environment: 'prod' | 'staging' | 'dev';
+       state: AssetState;
+       ownerEmail: string;
+     }
+
+   - Export:
+     - A small array of 20–40 assets across 4 vendors (salesforce, mongodb, supabase, legacy).
+     - Derived helper functions:
+       - getVendorSummary(assets): returns counts per vendor.
+       - getTotalCounts(assets): total, ready, parked, etc.
+
+   - Use realistic-looking data and emails but no PII.
+
+2) New React page: DiscoveryDemoPage
+   - Place the component in the appropriate folder for pages (e.g., `src/pages/DiscoveryDemoPage.tsx` or equivalent).
+   - Layout:
+     - Title: “AOS Discovery & Connection (Demo)”.
+     - Sub-header text: “Simulated AOD asset catalog across 4 vendors (Salesforce, MongoDB, Supabase, Legacy Files)”.
+   - Top row: 3–4 summary cards (reuse existing Card components if available):
+     - Total Assets
+     - Ready for Connect
+     - Parked (HITL)
+     - Shadow IT / High Risk (can just be a number derived from mock data or a fixed label).
+   - Middle section: vendor list:
+     - Either 4 cards or a table, but should look like AOD’s “Catalogued Inventory by Vendor”:
+       - Each row/card: Vendor name + count of assets + a “View assets” button.
+       - Clicking opens a modal (see next step).
+   - Vendor modal:
+     - Reuse or recreate a modal styled like the AOD “salesforce Assets” modal:
+       - Columns: Asset Name, Kind, Vendor, Environment, State, Owner, and a final column “Include in demo pipeline” with a checkbox.
+       - Show only assets for the selected vendor.
+       - State is displayed as colored chips similar to AOD (READY_FOR_CONNECT = green, PARKED = orange, etc.).
+       - Modal has Close button.
+     - The “Include in demo pipeline” selection should be stored in React state so that when the modal closes/reopens, selections persist.
+
+3) “Connect selected assets” demo pipeline (client-side only)
+   - At the bottom of the page, show a pipeline block summarizing current selection:
+     - Text: “You’ve selected X assets across Y vendors for the demo pipeline.”
+     - Button: “Connect selected assets”.
+   - When button is pressed:
+     - If nothing is selected, show a non-blocking message (e.g., toast or inline warning): “Select at least one asset to connect”.
+     - Otherwise, simulate pipeline progress entirely in the browser:
+       - Maintain a small piece of state like:
+
+         type StageStatus = 'idle' | 'running' | 'success';
+
+         interface PipelineStatus {
+           aodDiscovery: StageStatus;
+           aamConnections: StageStatus;
+           dclMapping: StageStatus;
+           agentExecution: StageStatus;
+         }
+
+       - On click:
+         - Set aodDiscovery to 'success' immediately (since AOD is simulated by the mock assets).
+         - Then, with setTimeouts (e.g., 800ms apart), move aamConnections → running → success, then dclMapping, then agentExecution.
+       - Show these 4 stages as horizontally aligned cards or stepper, with:
+         - Stage name
+         - Short description
+           - Example:
+             - AOD Discovery: “Static asset catalog (fake AOD).”
+             - AAM Connections: “Simulating connector activation for selected vendors.”
+             - DCL Mapping: “Simulating unified view creation (customer_360).”
+             - Agent Execution: “Simulating a simple cross-source query.”
+         - Visual status: idle = grey, running = spinner, success = green check.
+
+4) Routing & navigation
+   - Integrate the new page into the existing router:
+     - Expose it at a clean path, e.g. `/demo/discovery` or `/console/discovery-demo`, matching current conventions.
+   - Add a single nav link in the existing layout to reach this page.
+     - Label: “Discovery Demo” (or “AOS Demo: Discovery → Connect”).
+   - Ensure this page does NOT become the default landing page; it’s a demo corner.
+
+5) Safeguards / non-goals
+   - Do NOT:
+     - Change or remove existing routes.
+     - Touch DCL or AAM code, including DCL graph visualizer or flow monitor.
+     - Wire this to any backend API for now.
+   - Keep all changes additive and easy to revert:
+     - New files under a `demo` or similar namespace.
+     - Minimal, localized updates to nav/routing.
+
+6) Validation
+   - Run the app and verify:
+     - The new route builds without TypeScript errors.
+     - Summary cards render with counts derived from the mock data.
+     - Clicking a vendor opens the modal with vendor-specific assets.
+     - Checkboxes persist while navigating between vendors and reopening the modal.
+     - Clicking “Connect selected assets” animates the 4-stage pipeline statuses with no network.
+
+Please show me:
+- The file tree locations you created/modified.
+- The core React code for the new page and the mock data file.
+- Any changes to routing/nav.
+- Screenshots or a short description of the final UX.
