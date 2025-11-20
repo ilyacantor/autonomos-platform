@@ -1,0 +1,255 @@
+I want to add an interactive graph visualization to my project. Please follow these steps:
+
+1. Install Dependencies
+Run this command to install the required packages:
+
+npm install reactflow framer-motion lucide-react clsx tailwind-merge
+
+2. Create Utility File
+Ensure client/src/lib/utils.ts exists with this content:
+
+import { clsx, type ClassValue } from "clsx"
+import { twMerge } from "tailwind-merge"
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs))
+}
+
+3. Create the Graph Component
+Create a new file client/src/components/GraphView.tsx and paste this code:
+
+import { useCallback, useEffect } from 'react';
+import { 
+  ReactFlow, 
+  Background, 
+  Controls, 
+  useNodesState, 
+  useEdgesState,
+  Handle, 
+  Position,
+  NodeProps,
+  Edge,
+  Node,
+  ConnectionLineType,
+  MarkerType,
+  EdgeProps,
+  BaseEdge,
+  getSmoothStepPath
+} from 'reactflow';
+import 'reactflow/dist/style.css';
+import { motion } from "framer-motion";
+import { 
+  Database, 
+  FileText, 
+  Globe, 
+  Server, 
+  Plug, 
+  Network, 
+  Sparkles, 
+  Search
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+// --- Custom Edge Component ---
+const DataFlowEdge = ({
+  sourceX,
+  sourceY,
+  targetX,
+  targetY,
+  sourcePosition,
+  targetPosition,
+  style = {},
+  markerEnd,
+  data
+}: EdgeProps) => {
+  const [edgePath] = getSmoothStepPath({
+    sourceX,
+    sourceY,
+    sourcePosition,
+    targetX,
+    targetY,
+    targetPosition,
+  });
+  return (
+    <>
+      <BaseEdge path={edgePath} markerEnd={markerEnd} style={style} />
+      {data?.active && (
+        <circle r="4" fill="#0bcad9">
+          <animateMotion dur="1.5s" repeatCount="indefinite" path={edgePath} />
+        </circle>
+      )}
+    </>
+  );
+};
+const edgeTypes = {
+  dataflow: DataFlowEdge,
+};
+// --- Custom Node Components ---
+const VendorNode = ({ data, selected }: NodeProps) => {
+  return (
+    <div className={cn(
+      "flex items-center gap-3 p-3 rounded-lg border bg-slate-900/90 w-52 transition-all shadow-lg",
+      selected ? "border-primary shadow-[0_0_15px_-3px_rgba(11,202,217,0.4)]" : "border-slate-800 hover:border-slate-700",
+      data.active ? "border-primary/50 shadow-[0_0_10px_-3px_rgba(11,202,217,0.3)]" : ""
+    )}>
+      <Handle type="source" position={Position.Right} className="!bg-slate-600 !w-2 !h-2" />
+      <div className={cn("p-2 rounded bg-slate-950/50", data.color)}>
+        {data.icon}
+      </div>
+      <div className="text-left">
+        <div className="text-sm font-medium text-slate-200">{data.label}</div>
+        <div className="text-[10px] text-slate-500">{data.sub}</div>
+      </div>
+    </div>
+  );
+};
+const ProcessingNode = ({ data, selected }: NodeProps) => {
+  const isHex = data.shape === 'hexagon';
+  
+  return (
+    <div className="relative flex items-center justify-center">
+      <Handle type="target" position={Position.Left} className="!bg-slate-600 !w-2 !h-2 -ml-1" />
+      <div 
+        className={cn(
+          "flex flex-col items-center justify-center gap-2 transition-all bg-slate-900/90 border-2 shadow-xl backdrop-blur-md",
+          isHex ? "w-32 h-32" : "w-32 h-32 rounded-full",
+          selected ? "border-primary shadow-[0_0_20px_-5px_rgba(11,202,217,0.5)]" : "border-slate-700",
+          data.active ? "border-primary shadow-[0_0_20px_-5px_rgba(11,202,217,0.5)]" : "",
+          data.complete ? "border-green-500 shadow-[0_0_15px_-5px_rgba(34,197,94,0.5)]" : ""
+        )}
+        style={isHex ? { clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)" } : {}}
+      >
+        <div className={cn(
+            "transition-colors duration-300",
+            data.active ? "text-white scale-110" : "text-slate-400",
+            data.complete ? "text-green-400" : ""
+        )}>
+          {data.icon}
+        </div>
+        <div className="text-center z-10">
+          <div className="text-xs font-bold text-slate-200">{data.label}</div>
+          <div className="text-[9px] text-slate-500 uppercase tracking-wider">{data.sub}</div>
+        </div>
+        
+        {/* Pulse Effect when active */}
+        {data.active && (
+           <div className={cn(
+             "absolute inset-0 z-0 animate-ping opacity-20 bg-primary",
+             isHex ? "" : "rounded-full"
+           )} style={isHex ? { clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)" } : {}} />
+        )}
+      </div>
+      <Handle type="source" position={Position.Right} className="!bg-slate-600 !w-2 !h-2 -mr-1" />
+    </div>
+  );
+};
+const nodeTypes = {
+  vendor: VendorNode,
+  processing: ProcessingNode,
+};
+// --- Initial Data ---
+const initialNodes: Node[] = [
+  { id: 'salesforce', type: 'vendor', position: { x: 50, y: 50 }, data: { label: 'Salesforce', sub: '35 Assets', icon: <Globe className="w-5 h-5" />, color: 'text-blue-400' } },
+  { id: 'mongodb', type: 'vendor', position: { x: 50, y: 150 }, data: { label: 'MongoDB', sub: '28 Assets', icon: <Database className="w-5 h-5" />, color: 'text-green-500' } },
+  { id: 'supabase', type: 'vendor', position: { x: 50, y: 250 }, data: { label: 'Supabase', sub: '42 Assets', icon: <Server className="w-5 h-5" />, color: 'text-emerald-400' } },
+  { id: 'legacy', type: 'vendor', position: { x: 50, y: 350 }, data: { label: 'Legacy Files', sub: '12 Assets', icon: <FileText className="w-5 h-5" />, color: 'text-orange-400' } },
+  { id: 'aod', type: 'processing', position: { x: 350, y: 200 }, data: { label: 'AOD', sub: 'Discovery', icon: <Search className="w-6 h-6" />, shape: 'circle' } },
+  { id: 'aam', type: 'processing', position: { x: 600, y: 200 }, data: { label: 'AAM', sub: 'API Mesh', icon: <Plug className="w-6 h-6" />, shape: 'circle' } },
+  { id: 'dcl', type: 'processing', position: { x: 850, y: 200 }, data: { label: 'DCL', sub: 'Connectivity', icon: <Network className="w-6 h-6" />, shape: 'hexagon' } },
+  { id: 'agents', type: 'processing', position: { x: 1100, y: 200 }, data: { label: 'Agents', sub: 'Intelligence', icon: <Sparkles className="w-6 h-6" />, shape: 'circle' } },
+];
+const initialEdges: Edge[] = [
+  { id: 'e-sf-aod', source: 'salesforce', target: 'aod', type: 'dataflow', animated: false, style: { stroke: '#334155', strokeWidth: 2 } },
+  { id: 'e-mg-aod', source: 'mongodb', target: 'aod', type: 'dataflow', animated: false, style: { stroke: '#334155', strokeWidth: 2 } },
+  { id: 'e-sb-aod', source: 'supabase', target: 'aod', type: 'dataflow', animated: false, style: { stroke: '#334155', strokeWidth: 2 } },
+  { id: 'e-lg-aod', source: 'legacy', target: 'aod', type: 'dataflow', animated: false, style: { stroke: '#334155', strokeWidth: 2 } },
+  { id: 'e-aod-aam', source: 'aod', target: 'aam', type: 'dataflow', animated: false, style: { stroke: '#334155', strokeWidth: 2 } },
+  { id: 'e-aam-dcl', source: 'aam', target: 'dcl', type: 'dataflow', animated: false, style: { stroke: '#334155', strokeWidth: 2 } },
+  { id: 'e-dcl-ag', source: 'dcl', target: 'agents', type: 'dataflow', animated: false, style: { stroke: '#334155', strokeWidth: 2 } },
+];
+// --- Component ---
+interface GraphViewProps {
+  pipelineStep: number;
+  pipelineState: "idle" | "running" | "complete";
+  onNodeClick?: (nodeId: string, type: string) => void;
+}
+export function GraphView({ pipelineStep, pipelineState, onNodeClick }: GraphViewProps) {
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  useEffect(() => {
+    const isRunning = pipelineState === 'running';
+    const isComplete = pipelineState === 'complete';
+    setNodes((nds) => 
+      nds.map((node) => {
+        let active = false;
+        let complete = false;
+        if (isComplete) {
+           complete = true;
+        } else if (isRunning) {
+           if (pipelineStep === 0 && node.id === 'aod') active = true;
+           if (pipelineStep === 1 && node.id === 'aam') active = true;
+           if (pipelineStep === 2 && node.id === 'dcl') active = true;
+           if (pipelineStep === 3 && node.id === 'agents') active = true;
+           
+           if (pipelineStep > 0 && node.id === 'aod') complete = true;
+           if (pipelineStep > 1 && node.id === 'aam') complete = true;
+           if (pipelineStep > 2 && node.id === 'dcl') complete = true;
+        }
+        return { ...node, data: { ...node.data, active, complete } };
+      })
+    );
+    setEdges((eds) => 
+      eds.map((edge) => {
+         let active = false;
+         let stroke = '#334155';
+         
+         if (isComplete) {
+            stroke = '#0bcad9';
+         } else if (isRunning) {
+            if (pipelineStep === 0 && edge.target === 'aod') { active = true; stroke = '#0bcad9'; }
+            if (pipelineStep === 1 && edge.source === 'aod' && edge.target === 'aam') { active = true; stroke = '#0bcad9'; }
+            if (pipelineStep === 2 && edge.source === 'aam' && edge.target === 'dcl') { active = true; stroke = '#0bcad9'; }
+            if (pipelineStep === 3 && edge.source === 'dcl' && edge.target === 'agents') { active = true; stroke = '#0bcad9'; }
+            
+            if (pipelineStep > 0 && edge.target === 'aod') stroke = '#0bcad9';
+            if (pipelineStep > 1 && edge.target === 'aam') stroke = '#0bcad9';
+            if (pipelineStep > 2 && edge.target === 'dcl') stroke = '#0bcad9';
+         }
+         return { ...edge, data: { ...edge.data, active }, style: { stroke, strokeWidth: 2 } };
+      })
+    );
+  }, [pipelineStep, pipelineState, setNodes, setEdges]);
+  const handleNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
+    if (onNodeClick) onNodeClick(node.id, node.type || 'default');
+  }, [onNodeClick]);
+  return (
+    <div className="w-full h-[600px] bg-slate-950/50 rounded-xl border border-slate-800/50 overflow-hidden relative">
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onNodeClick={handleNodeClick}
+        nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
+        fitView
+        attributionPosition="bottom-right"
+        minZoom={0.5}
+        maxZoom={1.5}
+        defaultEdgeOptions={{ type: 'dataflow', markerEnd: { type: MarkerType.ArrowClosed, color: '#334155' } }}
+      >
+        <Background color="#1e293b" gap={20} size={1} />
+        <Controls className="bg-slate-800 border-slate-700 text-slate-200" />
+      </ReactFlow>
+    </div>
+  );
+}
+
+4. Usage
+Import and use the component in your dashboard:
+
+import { GraphView } from "@/components/GraphView";
+// In your component:
+<GraphView 
+  pipelineStep={0} // 0 to 4
+  pipelineState="idle" // "idle", "running", or "complete"
+  onNodeClick={(id) => console.log("Clicked:", id)} 
+/>

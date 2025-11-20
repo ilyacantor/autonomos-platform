@@ -6,6 +6,7 @@ import {
   getVendorDisplayName,
   getVendorColor,
 } from '../demo/demoDclMappings';
+import { GraphView } from './GraphView';
 
 type Stage = 1 | 2 | 3 | 4;
 
@@ -56,8 +57,8 @@ export default function DiscoveryDemoPage() {
       <TopBar currentStage={currentStage} isRunningPipeline={isRunningPipeline} />
       
       <div className="flex-1 flex overflow-hidden">
-        <div className="w-1/2 border-r border-slate-800 p-8 bg-slate-950 overflow-auto">
-          <GraphPanel currentStage={currentStage} />
+        <div className="w-1/2 border-r border-slate-800 p-8 bg-slate-950 overflow-hidden">
+          <GraphPanel currentStage={currentStage} isRunningPipeline={isRunningPipeline} />
         </div>
 
         <div className="w-1/2 p-8 bg-slate-900 overflow-auto">
@@ -103,225 +104,19 @@ function TopBar({ currentStage, isRunningPipeline }: { currentStage: Stage; isRu
   );
 }
 
-function GraphPanel({ currentStage }: { currentStage: Stage }) {
-  const vendors = [
-    { name: 'Salesforce', color: '#0BCAD9' },
-    { name: 'MongoDB', color: '#10B981' },
-    { name: 'Supabase', color: '#A855F7' },
-    { name: 'Legacy Files', color: '#F97316' },
-  ];
+function GraphPanel({ currentStage, isRunningPipeline }: { currentStage: Stage; isRunningPipeline: boolean }) {
+  const pipelineStep = currentStage - 1;
+  const pipelineState = isRunningPipeline ? "running" : "idle";
 
   return (
     <div className="h-full flex flex-col">
       <h2 className="text-2xl font-bold text-white mb-8">Pipeline Graph</h2>
-      
-      <div className="flex-1 relative">
-        <svg width="100%" height="100%" viewBox="0 0 800 400" className="overflow-visible">
-          <defs>
-            <linearGradient id="glowGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#0bcad9" stopOpacity="0" />
-              <stop offset="50%" stopColor="#0bcad9" stopOpacity="1" />
-              <stop offset="100%" stopColor="#0bcad9" stopOpacity="0" />
-            </linearGradient>
-          </defs>
-
-          {vendors.map((vendor, idx) => {
-            const y = 50 + idx * 80;
-            const x = 60;
-            const isActive = currentStage === 1;
-            
-            return (
-              <g key={vendor.name}>
-                <rect
-                  x={x - 50}
-                  y={y - 20}
-                  width="100"
-                  height="40"
-                  rx="8"
-                  fill={isActive ? `${vendor.color}20` : '#1e293b'}
-                  stroke={isActive ? vendor.color : '#334155'}
-                  strokeWidth="2"
-                  className={isActive ? 'animate-pulse' : ''}
-                />
-                <text
-                  x={x}
-                  y={y + 5}
-                  textAnchor="middle"
-                  fill={isActive ? vendor.color : '#94a3b8'}
-                  fontSize="12"
-                  fontWeight="600"
-                >
-                  {vendor.name}
-                </text>
-
-                <line
-                  x1={x + 50}
-                  y1={y}
-                  x2={180}
-                  y2={200}
-                  stroke={currentStage === 1 ? '#f59e0b' : '#334155'}
-                  strokeWidth={currentStage === 1 ? "3" : "2"}
-                  strokeDasharray={currentStage === 1 ? "none" : "5,5"}
-                  className={currentStage === 1 ? 'animate-pulse' : ''}
-                />
-              </g>
-            );
-          })}
-
-          <g>
-            <rect
-              x={180}
-              y={180}
-              width="120"
-              height="50"
-              rx="8"
-              fill={currentStage === 1 ? '#f59e0b20' : '#1e293b'}
-              stroke={currentStage === 1 ? '#f59e0b' : '#334155'}
-              strokeWidth="2"
-              className={currentStage === 1 ? 'animate-pulse' : ''}
-            />
-            <text
-              x={240}
-              y={200}
-              textAnchor="middle"
-              fill={currentStage === 1 ? '#f59e0b' : '#94a3b8'}
-              fontSize="14"
-              fontWeight="700"
-            >
-              AOD
-            </text>
-            <text
-              x={240}
-              y={218}
-              textAnchor="middle"
-              fill={currentStage === 1 ? '#fbbf24' : '#64748b'}
-              fontSize="11"
-            >
-              Discovery
-            </text>
-          </g>
-
-          <line
-            x1={300}
-            y1={205}
-            x2={360}
-            y2={205}
-            stroke={currentStage === 2 ? '#10b981' : '#334155'}
-            strokeWidth={currentStage === 2 ? "3" : "2"}
-            strokeDasharray={currentStage < 2 ? "5,5" : "none"}
-            className={currentStage === 2 ? 'animate-pulse' : ''}
-          />
-
-          <g>
-            <rect
-              x={360}
-              y={180}
-              width="120"
-              height="50"
-              rx="8"
-              fill={currentStage === 2 ? '#10b98120' : '#1e293b'}
-              stroke={currentStage === 2 ? '#10b981' : '#334155'}
-              strokeWidth="2"
-              className={currentStage === 2 ? 'animate-pulse' : ''}
-            />
-            <text
-              x={420}
-              y={200}
-              textAnchor="middle"
-              fill={currentStage === 2 ? '#10b981' : '#94a3b8'}
-              fontSize="14"
-              fontWeight="700"
-            >
-              AAM
-            </text>
-            <text
-              x={420}
-              y={218}
-              textAnchor="middle"
-              fill={currentStage === 2 ? '#6ee7b7' : '#64748b'}
-              fontSize="11"
-            >
-              Connect
-            </text>
-          </g>
-
-          <line
-            x1={480}
-            y1={205}
-            x2={540}
-            y2={205}
-            stroke={currentStage === 3 ? '#a855f7' : '#334155'}
-            strokeWidth={currentStage === 3 ? "3" : "2"}
-            strokeDasharray={currentStage < 3 ? "5,5" : "none"}
-            className={currentStage === 3 ? 'animate-pulse' : ''}
-          />
-
-          <g>
-            <rect
-              x={540}
-              y={180}
-              width="120"
-              height="50"
-              rx="8"
-              fill={currentStage === 3 ? '#a855f720' : '#1e293b'}
-              stroke={currentStage === 3 ? '#a855f7' : '#334155'}
-              strokeWidth="2"
-              className={currentStage === 3 ? 'animate-pulse' : ''}
-            />
-            <text
-              x={600}
-              y={200}
-              textAnchor="middle"
-              fill={currentStage === 3 ? '#a855f7' : '#94a3b8'}
-              fontSize="14"
-              fontWeight="700"
-            >
-              DCL
-            </text>
-            <text
-              x={600}
-              y={218}
-              textAnchor="middle"
-              fill={currentStage === 3 ? '#c084fc' : '#64748b'}
-              fontSize="11"
-            >
-              Mapping
-            </text>
-          </g>
-
-          <line
-            x1={660}
-            y1={205}
-            x2={700}
-            y2={205}
-            stroke={currentStage === 4 ? '#0bcad9' : '#334155'}
-            strokeWidth={currentStage === 4 ? "3" : "2"}
-            strokeDasharray={currentStage < 4 ? "5,5" : "none"}
-            className={currentStage === 4 ? 'animate-pulse' : ''}
-          />
-
-          <g>
-            <circle
-              cx={730}
-              cy={205}
-              r="30"
-              fill={currentStage === 4 ? '#0bcad920' : '#1e293b'}
-              stroke={currentStage === 4 ? '#0bcad9' : '#334155'}
-              strokeWidth="2"
-              className={currentStage === 4 ? 'animate-pulse' : ''}
-            />
-            <text
-              x={730}
-              y={212}
-              textAnchor="middle"
-              fill={currentStage === 4 ? '#0bcad9' : '#94a3b8'}
-              fontSize="13"
-              fontWeight="700"
-            >
-              Agents
-            </text>
-          </g>
-        </svg>
+      <div className="flex-1">
+        <GraphView 
+          pipelineStep={pipelineStep} 
+          pipelineState={pipelineState}
+          onNodeClick={(id) => console.log("Clicked:", id)} 
+        />
       </div>
     </div>
   );
