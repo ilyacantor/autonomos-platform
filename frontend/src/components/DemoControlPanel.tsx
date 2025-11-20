@@ -56,10 +56,12 @@ export default function DemoControlPanel() {
     setIsRunning(true);
     setError(null);
     try {
+      const token = localStorage.getItem('token');
       const response = await fetch('/api/v1/admin/feature-flags/enable-aam', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : ''
         }
       });
 
@@ -82,7 +84,12 @@ export default function DemoControlPanel() {
     setIsRunning(true);
     setError(null);
     try {
-      const response = await fetch('/api/v1/demo/pipeline/status');
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/v1/demo/pipeline/status', {
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : ''
+        }
+      });
       
       if (!response.ok) {
         throw new Error(`Failed to check status: ${response.statusText}`);
@@ -109,12 +116,14 @@ export default function DemoControlPanel() {
     setResult(null);
 
     try {
+      const token = localStorage.getItem('token');
       const response = await fetch(
         `/api/v1/demo/pipeline/end-to-end?source_type=${selectedSource}`,
         {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Authorization': token ? `Bearer ${token}` : ''
           }
         }
       );
