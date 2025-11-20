@@ -57,11 +57,11 @@ export default function DiscoveryDemoPage() {
       <TopBar currentStage={currentStage} isRunningPipeline={isRunningPipeline} />
       
       <div className="flex-1 flex overflow-hidden">
-        <div className="w-3/4 border-r border-slate-800 p-8 bg-slate-950 overflow-hidden">
+        <div className="w-2/3 border-r border-slate-800 p-8 bg-slate-950 overflow-hidden">
           <GraphPanel currentStage={currentStage} isRunningPipeline={isRunningPipeline} />
         </div>
 
-        <div className="w-1/4 p-8 bg-slate-900 overflow-auto">
+        <div className="w-1/3 p-8 bg-slate-900 overflow-auto">
           <DetailPanel currentStage={currentStage} totalCounts={totalCounts} />
         </div>
       </div>
@@ -152,39 +152,38 @@ function Stage1AODDiscovery({ totalCounts }: { totalCounts: any }) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-white mb-2">AOD Discovery — Assets & Risk</h2>
-        <p className="text-sm text-slate-400">Automatically discovered assets across the demo tenant</p>
+        <h2 className="text-xl font-bold text-white mb-2 break-words">AOD Discovery — Assets & Risk</h2>
+        <p className="text-xs text-slate-400 break-words">Automatically discovered assets across the demo tenant</p>
       </div>
 
-      <div className="grid grid-cols-4 gap-4">
-        <div className="bg-slate-800 border border-slate-700 rounded-lg p-4">
-          <div className="text-2xl font-bold text-white">{totalCounts.total}</div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="bg-slate-800 border border-slate-700 rounded-lg p-3">
+          <div className="text-xl font-bold text-white">{totalCounts.total}</div>
           <div className="text-xs text-slate-400 mt-1">Assets</div>
         </div>
-        <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
-          <div className="text-2xl font-bold text-green-400">{totalCounts.ready}</div>
+        <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
+          <div className="text-xl font-bold text-green-400">{totalCounts.ready}</div>
           <div className="text-xs text-slate-400 mt-1">Ready</div>
         </div>
-        <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4">
-          <div className="text-2xl font-bold text-orange-400">{totalCounts.parked}</div>
+        <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-3">
+          <div className="text-xl font-bold text-orange-400">{totalCounts.parked}</div>
           <div className="text-xs text-slate-400 mt-1">Parked</div>
         </div>
-        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
-          <div className="text-2xl font-bold text-red-400">{totalCounts.shadowIT}</div>
-          <div className="text-xs text-slate-400 mt-1">Shadow / High-Risk</div>
+        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+          <div className="text-xl font-bold text-red-400">{totalCounts.shadowIT}</div>
+          <div className="text-xs text-slate-400 mt-1 break-words">Shadow / High-Risk</div>
         </div>
       </div>
 
-      <div className="bg-slate-800 border border-slate-700 rounded-lg overflow-hidden">
-        <table className="w-full">
+      <div className="bg-slate-800 border border-slate-700 rounded-lg overflow-x-auto">
+        <table className="w-full min-w-max">
           <thead className="bg-slate-900 border-b border-slate-700">
             <tr>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase">Asset Name</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase">Vendor</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase">Kind</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase">Environment</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase">Risk</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase">State</th>
+              <th className="text-left px-2 py-2 text-[10px] font-semibold text-slate-400 uppercase">Asset</th>
+              <th className="text-left px-2 py-2 text-[10px] font-semibold text-slate-400 uppercase">Vendor</th>
+              <th className="text-left px-2 py-2 text-[10px] font-semibold text-slate-400 uppercase">Kind</th>
+              <th className="text-left px-2 py-2 text-[10px] font-semibold text-slate-400 uppercase">Env</th>
+              <th className="text-left px-2 py-2 text-[10px] font-semibold text-slate-400 uppercase">Risk</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-700">
@@ -194,18 +193,13 @@ function Stage1AODDiscovery({ totalCounts }: { totalCounts: any }) {
               
               return (
                 <tr key={asset.id} className="hover:bg-slate-700/50">
-                  <td className="px-4 py-3 text-sm text-white">{asset.name}</td>
-                  <td className="px-4 py-3 text-sm">
+                  <td className="px-2 py-2 text-xs text-white truncate max-w-[120px]" title={asset.name}>{asset.name}</td>
+                  <td className="px-2 py-2 text-xs">
                     <span style={{ color: getVendorColor(asset.vendor) }}>{vendorName}</span>
                   </td>
-                  <td className="px-4 py-3 text-sm text-slate-300 capitalize">{asset.kind}</td>
-                  <td className="px-4 py-3 text-sm text-slate-300 uppercase">{asset.environment}</td>
-                  <td className={`px-4 py-3 text-sm font-semibold ${getRiskColor(risk)}`}>{risk}</td>
-                  <td className="px-4 py-3">
-                    <span className="text-xs px-2 py-1 rounded bg-slate-700 text-slate-300">
-                      {asset.state.replace(/_/g, ' ')}
-                    </span>
-                  </td>
+                  <td className="px-2 py-2 text-xs text-slate-300 capitalize">{asset.kind}</td>
+                  <td className="px-2 py-2 text-xs text-slate-300 uppercase">{asset.environment}</td>
+                  <td className={`px-2 py-2 text-xs font-semibold ${getRiskColor(risk)}`}>{risk}</td>
                 </tr>
               );
             })}
@@ -213,11 +207,11 @@ function Stage1AODDiscovery({ totalCounts }: { totalCounts: any }) {
         </table>
       </div>
 
-      <div className="bg-slate-800 border border-slate-700 rounded-lg p-4 space-y-2">
-        <div className="text-sm text-slate-400">
+      <div className="bg-slate-800 border border-slate-700 rounded-lg p-3 space-y-2">
+        <div className="text-xs text-slate-400 break-words">
           <span className="font-semibold text-orange-400">Normally:</span> spreadsheets, interviews, and guesswork to find what's running.
         </div>
-        <div className="text-sm text-cyan-400">
+        <div className="text-xs text-cyan-400 break-words">
           <span className="font-semibold">Here:</span> AOS uses log & config telemetry and AI classifiers to discover and risk-score assets.
         </div>
       </div>
@@ -260,40 +254,40 @@ function Stage2AAMConnections() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-white mb-2">AAM Connections — Connectors, Contracts, OAuth</h2>
-        <p className="text-sm text-slate-400">Adaptive API Mesh connector configurations for demo tenant</p>
+        <h2 className="text-xl font-bold text-white mb-2 break-words">AAM Connections — Connectors</h2>
+        <p className="text-xs text-slate-400 break-words">Adaptive API Mesh connector configurations</p>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-3">
         {connectors.map((connector) => (
-          <div key={connector.vendor} className="bg-slate-800 border border-slate-700 rounded-lg p-5">
-            <h3 className="text-lg font-bold mb-4" style={{ color: connector.color }}>
-              {connector.vendor} Connector
+          <div key={connector.vendor} className="bg-slate-800 border border-slate-700 rounded-lg p-3">
+            <h3 className="text-sm font-bold mb-2 break-words" style={{ color: connector.color }}>
+              {connector.vendor}
             </h3>
             
-            <div className="space-y-3 text-sm">
-              <div className="flex">
-                <div className="w-32 text-slate-400 font-semibold">Authentication:</div>
-                <div className="flex-1 text-slate-300">{connector.auth}</div>
+            <div className="space-y-2 text-xs">
+              <div>
+                <div className="text-slate-400 font-semibold">Auth:</div>
+                <div className="text-slate-300 break-words">{connector.auth}</div>
               </div>
               
-              <div className="flex">
-                <div className="w-32 text-slate-400 font-semibold">Contract:</div>
-                <div className="flex-1 text-slate-300">{connector.contract}</div>
+              <div>
+                <div className="text-slate-400 font-semibold">Contract:</div>
+                <div className="text-slate-300 break-words">{connector.contract}</div>
               </div>
               
-              <div className="flex">
-                <div className="w-32 text-slate-400 font-semibold">Details:</div>
-                <div className="flex-1 text-slate-300">{connector.details}</div>
+              <div>
+                <div className="text-slate-400 font-semibold">Details:</div>
+                <div className="text-slate-300 break-words">{connector.details}</div>
               </div>
             </div>
           </div>
         ))}
       </div>
 
-      <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-lg p-4">
-        <div className="text-sm text-cyan-300">
-          <span className="font-semibold">How AOS configured this:</span> Connector recipes + AI over our configuration corpus choose auth flows, scopes, timeouts, and backoff policies. No manual YAML.
+      <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-lg p-3">
+        <div className="text-xs text-cyan-300 break-words">
+          <span className="font-semibold">How AOS configured this:</span> AI over config corpus chooses auth flows, scopes, timeouts. No manual YAML.
         </div>
       </div>
     </div>
