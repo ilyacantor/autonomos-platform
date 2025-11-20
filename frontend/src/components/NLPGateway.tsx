@@ -17,12 +17,6 @@ interface NLPGatewayProps {
 }
 
 const PERSONA_PROMPTS: Record<PersonaSlug, string[]> = {
-  ceo: [
-    'start demo',
-    'enable production connectors',
-    'check pipeline status',
-    'show platform overview',
-  ],
   cto: [
     'Any connector drift today?',
     'Show dependencies for checkout-service',
@@ -57,56 +51,6 @@ export default function NLPGateway({ persona }: NLPGatewayProps) {
 
   const prompts = PERSONA_PROMPTS[persona];
 
-  const handleCannedCommand = async (query: string): Promise<string | null> => {
-    const lowerQuery = query.toLowerCase().trim();
-
-    if (lowerQuery === 'start demo') {
-      try {
-        const response = await fetch('/api/v1/demo/pipeline/end-to-end?source_type=salesforce', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
-        });
-        const data = await response.json();
-        
-        if (data.success) {
-          return `✅ **Demo Complete!**\n\n${data.message}\n\n**Pipeline Stages:**\n${data.stages.map((s: any) => `• ${s.stage}: ${s.message}`).join('\n')}\n\n**Results:**\n• Connection ID: ${data.connection_id || 'N/A'}\n• Entities: ${data.entities_discovered || 0}\n• Execution ID: ${data.agent_execution_id || 'N/A'}`;
-        } else {
-          return `❌ Demo failed: ${data.message || 'Unknown error'}`;
-        }
-      } catch (err) {
-        return `❌ Error running demo: ${err instanceof Error ? err.message : 'Unknown error'}`;
-      }
-    }
-
-    if (lowerQuery === 'enable production connectors') {
-      try {
-        const response = await fetch('/api/v1/admin/feature-flags/enable-aam', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
-        });
-        const data = await response.json();
-        return data.success 
-          ? `✅ ${data.message}\n\nProduction connectors: Salesforce, MongoDB, FileSource, Supabase`
-          : `❌ Failed: ${data.message}`;
-      } catch (err) {
-        return `❌ Error: ${err instanceof Error ? err.message : 'Unknown error'}`;
-      }
-    }
-
-    if (lowerQuery === 'check pipeline status') {
-      try {
-        const response = await fetch('/api/v1/demo/pipeline/status');
-        const data = await response.json();
-        const status = data.status;
-        return `**Pipeline Status**\n\n• Ready: ${data.ready ? '✅' : '⚠️'}\n• AAM: ${status.aam_enabled ? '✅ Enabled' : '❌ Disabled'}\n• Onboarding: ${status.onboarding_service_ready ? '✅ Ready' : '❌ Not Ready'}\n• DCL: ${status.dcl_client_ready ? '✅ Ready' : '❌ Not Ready'}\n• Agent: ${status.agent_executor_ready ? '✅ Ready' : '❌ Not Ready'}\n\n${data.message}`;
-      } catch (err) {
-        return `❌ Error: ${err instanceof Error ? err.message : 'Unknown error'}`;
-      }
-    }
-
-    return null;
-  };
-
   const handleSubmit = async (e?: React.FormEvent, queryText?: string) => {
     if (e) e.preventDefault();
     
@@ -119,18 +63,6 @@ export default function NLPGateway({ persona }: NLPGatewayProps) {
     setLoading(true);
 
     try {
-      const cannedResponse = await handleCannedCommand(queryToSend);
-      
-      if (cannedResponse) {
-        const assistantMessage: Message = {
-          role: 'assistant',
-          content: cannedResponse,
-        };
-        setMessages(prev => [...prev, assistantMessage]);
-        setLoading(false);
-        return;
-      }
-
       const token = localStorage.getItem('token');
       
       const response = await fetch('/nlp/v1/query', {

@@ -1,8 +1,8 @@
-import { Cpu, TrendingUp, Wallet, Banknote, Crown, type LucideIcon } from 'lucide-react';
+import { Cpu, TrendingUp, Wallet, Banknote, type LucideIcon } from 'lucide-react';
 
-export type PersonaSlug = 'ceo' | 'cto' | 'cro' | 'coo' | 'cfo';
+export type PersonaSlug = 'cto' | 'cro' | 'coo' | 'cfo';
 
-export type PersonaDisplay = 'CEO' | 'CTO' | 'CRO' | 'COO' | 'CFO';
+export type PersonaDisplay = 'CTO' | 'CRO' | 'COO' | 'CFO';
 
 export interface PersonaTile {
   key: string;
@@ -33,7 +33,6 @@ export interface PersonaSummaryResponse {
 }
 
 export const PERSONA_LABELS: Record<PersonaSlug, PersonaDisplay> = {
-  ceo: 'CEO',
   cto: 'CTO',
   cro: 'CRO',
   coo: 'COO',
@@ -41,7 +40,6 @@ export const PERSONA_LABELS: Record<PersonaSlug, PersonaDisplay> = {
 };
 
 export const PERSONA_ICON_MAP: Record<PersonaSlug, LucideIcon> = {
-  ceo: Crown,
   cto: Cpu,
   cro: TrendingUp,
   coo: Wallet,
@@ -49,7 +47,6 @@ export const PERSONA_ICON_MAP: Record<PersonaSlug, LucideIcon> = {
 };
 
 export const PERSONA_COLORS: Record<PersonaSlug, string> = {
-  ceo: 'yellow',
   cto: 'blue',
   cro: 'purple',
   coo: 'green',

@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import NLPGateway from './NLPGateway';
 import PersonaDashboard from './PersonaDashboard';
-import DemoControlPanel from './DemoControlPanel';
 import type { PersonaSlug } from '../types/persona';
 import { slugToLabel, getPersonaIcon } from '../types/persona';
 
@@ -22,7 +21,7 @@ function getInitialPersona(): { persona: PersonaSlug; source: string } {
       return { persona: legacy, source: 'localStorage (migrated)' };
     }
     
-    if (['ceo', 'cto', 'cro', 'coo', 'cfo'].includes(stored)) {
+    if (['cto', 'cro', 'coo', 'cfo'].includes(stored)) {
       return { persona: stored as PersonaSlug, source: 'localStorage' };
     }
   }
@@ -37,7 +36,7 @@ function getInitialPersona(): { persona: PersonaSlug; source: string } {
           base64 += '=';
         }
         const payload = JSON.parse(atob(base64));
-        if (payload.role && ['ceo', 'cto', 'cro', 'coo', 'cfo'].includes(payload.role)) {
+        if (payload.role && ['cto', 'cro', 'coo', 'cfo'].includes(payload.role)) {
           return { persona: payload.role as PersonaSlug, source: 'jwt' };
         }
       }
@@ -52,7 +51,7 @@ function getInitialPersona(): { persona: PersonaSlug; source: string } {
 export default function ControlCenterPage() {
   const [selectedPersona, setSelectedPersona] = useState<PersonaSlug>(() => getInitialPersona().persona);
 
-  const personas: PersonaSlug[] = ['ceo', 'cto', 'cro', 'coo', 'cfo'];
+  const personas: PersonaSlug[] = ['cto', 'cro', 'coo', 'cfo'];
 
   useEffect(() => {
     const { persona, source } = getInitialPersona();
@@ -105,9 +104,6 @@ export default function ControlCenterPage() {
           </div>
         </div>
       </div>
-
-      {/* CEO Demo Control Panel */}
-      {selectedPersona === 'ceo' && <DemoControlPanel />}
 
       {/* NLP Gateway */}
       <NLPGateway persona={selectedPersona} />
