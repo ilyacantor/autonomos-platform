@@ -1,15 +1,16 @@
 # AutonomOS - Multi-Tenant AI Orchestration Platform
 
-**Last Updated:** November 19, 2025
+**Last Updated:** November 20, 2025
 
 **Recent Architecture Changes:**
 - Platform Guide converted from static HTML to React component for deployment compatibility
 - ArchitecturePage.tsx removed in favor of PlatformGuidePage.tsx (bundled with frontend)
 - Flow Monitor moved from standalone tab to AAM (Connect) subtab
-- Navigation structure: Platform Guide → AOD → AAM (with Connector Details + Flow Monitor) → DCL → AOA → Control Center → Help
+- Navigation structure: Platform Guide → AOD → Discovery Demo → AAM (with Connector Details + Flow Monitor) → DCL → AOA → Control Center → Help
 - Database connection pool reduced (pool_size: 10→2, max_overflow: 20→3) to prevent Supabase Session mode MaxClients errors
 - Platform Guide "What Makes Us Different" section updated to emphasize complexity abstraction and end-to-end platform approach
 - **End-to-End Pipeline Demo**: New admin endpoints to toggle AAM production connectors and demonstrate full AOD→AAM→DCL→Agent flow with real data
+- **Discovery Demo (Enterprise-Grade)**: Interactive `/demo-discovery` page with auto-selected assets, enterprise complexity storytelling, AAM connector details modal, DCL field mappings modal, and 4-stage pipeline simulation demonstrating AOD→AAM→DCL→Agent flow
 
 ## Overview
 AutonomOS is a production-ready, multi-tenant SaaS platform for AI-driven data orchestration. The platform is organized into three architectural layers:
