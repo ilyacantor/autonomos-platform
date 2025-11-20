@@ -25,6 +25,7 @@ export default function TopBar({ onAuthOpen, currentPage, onNavigate }: TopBarPr
     { id: 'discover', label: 'AOD (Discover)', icon: <Search className="w-5 h-5" />, tooltip: 'Asset discovery and cataloging' },
     { id: 'demo-discovery', label: 'Discovery Demo', icon: <Zap className="w-5 h-5" />, tooltip: 'Interactive demo: AOD → AAM → DCL → Agent pipeline' },
     { id: 'connect', label: 'AAM (Connect)', icon: <Cable className="w-5 h-5" />, tooltip: 'Self-healing data connectivity' },
+    { id: 'aam-gauntlet', label: 'AAM Gauntlet', icon: <Zap className="w-5 h-5" />, tooltip: 'Stress test AAM under chaos conditions' },
     { id: 'ontology', label: 'DCL (Ontology)', icon: <Network className="w-5 h-5" />, tooltip: 'Data intelligence and mapping' },
     { id: 'orchestration', label: 'AOA (Orchestration)', icon: <Activity className="w-5 h-5" /> },
     { id: 'control-center', label: 'Control Center', icon: <LayoutDashboard className="w-5 h-5" /> },

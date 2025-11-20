@@ -247,7 +247,7 @@ async def run_scenario(request: RunScenarioRequest, background_tasks: Background
     import httpx
     async with httpx.AsyncClient() as client:
         await client.post(
-            "http://localhost:8001/admin/chaos",
+            "http://localhost:8000/admin/chaos",
             json={"level": request.mode}
         )
     
@@ -346,4 +346,4 @@ async def health_check():
 
 
 if __name__ == "__main__":
-    uvicorn.run("api:app", host="0.0.0.0", port=8002, reload=True)
+    uvicorn.run("api:app", host="0.0.0.0", port=8080, reload=True)

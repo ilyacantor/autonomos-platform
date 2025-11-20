@@ -1,7 +1,7 @@
 """Token bucket rate limiter implementation."""
 import asyncio
 import time
-from typing import Dict, Tuple, Optional
+from typing import Dict, Tuple, Optional, Any
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 

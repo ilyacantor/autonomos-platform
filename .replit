@@ -18,6 +18,18 @@ author = "agent"
 task = "workflow.run"
 args = "AutonomOS API"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "AAM Gauntlet API Farm"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "AAM Gauntlet Backend"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "AAM Gauntlet UI"
+
 [[workflows.workflow]]
 name = "AutonomOS API"
 author = "agent"
@@ -30,6 +42,42 @@ waitForPort = 5000
 [workflows.workflow.metadata]
 outputType = "webview"
 
+[[workflows.workflow]]
+name = "AAM Gauntlet API Farm"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd aam_gauntlet/api_farm && pip install -q -r requirements.txt && python main.py"
+waitForPort = 8000
+
+[[workflows.workflow]]
+name = "AAM Gauntlet Backend"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd aam_gauntlet/aam && pip install -q -r requirements.txt && python api.py"
+waitForPort = 8080
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "AAM Gauntlet UI"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd aam_gauntlet/ui && npm install && npm run dev"
+waitForPort = 3001
+
+[workflows.workflow.metadata]
+outputType = "console"
+
 [[ports]]
 localPort = 5000
 externalPort = 80
@@ -37,6 +85,10 @@ externalPort = 80
 [[ports]]
 localPort = 5173
 externalPort = 5173
+
+[[ports]]
+localPort = 8000
+externalPort = 8000
 
 [[ports]]
 localPort = 33209
@@ -47,11 +99,19 @@ localPort = 33815
 externalPort = 3000
 
 [[ports]]
-localPort = 40513
+localPort = 41733
+externalPort = 3001
+
+[[ports]]
+localPort = 45089
 externalPort = 3003
 
 [[ports]]
-localPort = 41733
+localPort = 8080
+externalPort = 8080
+
+[[ports]]
+localPort = 3001
 externalPort = 3001
 
 [deployment]

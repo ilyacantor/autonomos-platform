@@ -1,7 +1,7 @@
 """Authentication and token management for synthetic APIs."""
 import secrets
 import hashlib
-from typing import Dict, Optional
+from typing import Dict, Optional, Any
 from datetime import datetime, timedelta
 from jose import jwt, JWTError
 from passlib.context import CryptContext
