@@ -421,21 +421,21 @@ export default function DCLGraphContainer({ useAamSource, onModeChange, selected
                       </div>
                     </button>
 
-                    {/* DEMO FIX: Hidden - AAM/Legacy toggle (AAM broken, force Legacy mode) */}
-                    {/* <button
+                    {/* AAM/Legacy toggle - Switches between AAM connectors (4 sources) and Legacy CSV files (9 sources) */}
+                    <button
                       onClick={toggleSourceMode}
                       className={`touch-target-h mobile-tap-highlight px-3 py-2 sm:px-2 sm:py-1 rounded text-xs sm:text-[10px] transition-all ${
                         useAamSource
                           ? 'bg-blue-600/20 border border-blue-500/40 text-blue-300 hover:bg-blue-600/30'
                           : 'bg-green-600/20 border border-green-500/40 text-green-300 hover:bg-green-600/30'
                       }`}
-                      title={useAamSource ? 'Using AAM Connectors (Redis Streams)' : 'Using Legacy File Sources (CSV)'}
+                      title={useAamSource ? 'Using AAM Connectors (4 production sources)' : 'Using Legacy File Sources (9 CSV-based sources)'}
                     >
                       <div className="flex items-center gap-2 justify-center">
                         <div className={`w-2 h-2 rounded-full ${useAamSource ? 'bg-blue-400' : 'bg-green-400'}`} />
                         <span className="whitespace-nowrap">{useAamSource ? 'AAM' : 'Legacy'}</span>
                       </div>
-                    </button> */}
+                    </button>
 
                     {/* Data Source Selector */}
                     <select
