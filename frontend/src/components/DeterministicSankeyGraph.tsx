@@ -202,47 +202,48 @@ function renderDeterministicGraph(
   };
 
   // STEP 1: Filter nodes based on selections
-  // DEBUG: Log incoming state
-  console.log('[Deterministic Graph] Raw state from backend:', {
-    totalNodes: state.nodes.length,
-    nodeTypes: state.nodes.reduce((acc: Record<string, number>, n) => {
-      acc[n.type] = (acc[n.type] || 0) + 1;
-      return acc;
-    }, {}),
-    totalEdges: state.edges.length
-  });
-
-  // DEBUG: Sample source nodes to see their sourceSystem values
-  const sampleSources = state.nodes.filter(n => n.type === 'source').slice(0, 5);
-  console.log('[Deterministic Graph] Sample source nodes:', sampleSources.map(n => ({
-    id: n.id,
-    label: n.label,
-    sourceSystem: n.sourceSystem
-  })));
+  // Canonical mapping: backend sourceSystem values → frontend slug values
+  // This is the FUNDAMENTAL FIX for case/format variations from backend
+  const SOURCE_SYSTEM_MAPPING: Record<string, string> = {
+    'Dynamics': 'dynamics',
+    'Salesforce': 'salesforce',
+    'Hubspot': 'hubspot',
+    'Sap': 'sap',
+    'SAP': 'sap',
+    'Netsuite': 'netsuite',
+    'NetSuite': 'netsuite',
+    'Legacy Sql': 'legacy_sql',
+    'Legacy SQL': 'legacy_sql',
+    'legacy_sql': 'legacy_sql',
+    'Snowflake': 'snowflake',
+    'Supabase': 'supabase',
+    'Mongodb': 'mongodb',
+    'MongoDB': 'mongodb'
+  };
 
   let filteredNodes = state.nodes;
 
   if (selectedSources.length > 0) {
-    const beforeCount = filteredNodes.filter(n => n.type === 'source').length;
+    const selectedSet = new Set(selectedSources);
     
     filteredNodes = filteredNodes.filter(node => {
       if (node.type !== 'source') return true;
-      const keep = node.sourceSystem && selectedSources.includes(node.sourceSystem);
-      if (!keep && node.type === 'source') {
-        console.log('[Deterministic Graph] Filtering OUT source node:', {
-          id: node.id,
-          sourceSystem: node.sourceSystem,
-          selectedSources
-        });
+      if (!node.sourceSystem) return false;
+      
+      // Map backend value to canonical slug
+      const canonicalSlug = SOURCE_SYSTEM_MAPPING[node.sourceSystem];
+      if (!canonicalSlug) {
+        console.warn('[Deterministic Graph] Unknown sourceSystem:', node.sourceSystem);
+        return false;
       }
-      return keep;
+      
+      return selectedSet.has(canonicalSlug);
     });
     
-    const afterCount = filteredNodes.filter(n => n.type === 'source').length;
-    console.log('[Deterministic Graph] Source filtering result:', {
-      before: beforeCount,
-      after: afterCount,
-      removed: beforeCount - afterCount
+    console.log('[Deterministic Graph] Source filtering:', {
+      before: state.nodes.filter(n => n.type === 'source').length,
+      after: filteredNodes.filter(n => n.type === 'source').length,
+      selectedSources
     });
   }
 
