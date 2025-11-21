@@ -1,4 +1,4 @@
-import { LayoutDashboard, GitBranch, Cable, Network, X, Activity, Search, HelpCircle } from 'lucide-react';
+import { LayoutDashboard, GitBranch, Cable, Network, X, Activity, Search, HelpCircle, Sparkles } from 'lucide-react';
 import autonomosLogo from '../assets/autonomos-logo.png';
 
 interface LeftNavProps {
@@ -19,6 +19,8 @@ interface NavItem {
 
 export default function LeftNav({ isCollapsed, currentPage, onNavigate, isMobileMenuOpen, onCloseMobile }: LeftNavProps) {
   const navItems: NavItem[] = [
+    { id: 'architecture', label: 'Platform Guide', icon: <GitBranch className="w-5 h-5" /> },
+    { id: 'aos-overview', label: 'AOS Overview', icon: <Sparkles className="w-5 h-5" />, tooltip: 'Interactive discovery demo' },
     { id: 'control-center', label: 'Control Center', icon: <LayoutDashboard className="w-5 h-5" /> },
     { id: 'discover', label: 'Discovery', icon: <Search className="w-5 h-5" /> },
     { id: 'connect', label: 'Connections', icon: <Cable className="w-5 h-5" />, highlight: true, tooltip: 'AAM Connect - Self-healing data connectivity' },

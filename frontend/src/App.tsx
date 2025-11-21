@@ -4,6 +4,7 @@ import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './hooks/useAuth';
 import AppLayout from './components/AppLayout';
 import PlatformGuidePage from './components/PlatformGuidePage';
+import AOSOverviewPage from './components/AOSOverviewPage';
 import ControlCenterPage from './components/ControlCenterPage';
 import DiscoverPage from './components/DiscoverPage';
 import ConnectPage from './components/ConnectPage';
@@ -16,7 +17,7 @@ function AppContent() {
   // Initialize page from URL path
   const getInitialPage = () => {
     const path = window.location.pathname.slice(1); // Remove leading slash
-    const validPages = ['architecture', 'control-center', 'discover', 'connect', 'ontology', 'orchestration', 'faq'];
+    const validPages = ['architecture', 'aos-overview', 'control-center', 'discover', 'connect', 'ontology', 'orchestration', 'faq'];
     return validPages.includes(path) ? path : 'architecture';
   };
   
@@ -47,7 +48,7 @@ function AppContent() {
   useEffect(() => {
     const handlePopState = () => {
       const path = window.location.pathname.slice(1);
-      const validPages = ['architecture', 'control-center', 'discover', 'connect', 'ontology', 'orchestration', 'faq'];
+      const validPages = ['architecture', 'aos-overview', 'control-center', 'discover', 'connect', 'ontology', 'orchestration', 'faq'];
       if (validPages.includes(path)) {
         setCurrentPage(path);
       }
@@ -72,6 +73,8 @@ function AppContent() {
     switch (currentPage) {
       case 'architecture':
         return <PlatformGuidePage />;
+      case 'aos-overview':
+        return <AOSOverviewPage />;
       case 'control-center':
         return <ControlCenterPage />;
       case 'discover':

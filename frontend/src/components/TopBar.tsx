@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { LayoutDashboard, Cable, Network, Bell, Menu, X, LogIn, UserPlus, HelpCircle, Activity, Search, MonitorDot, BookOpen } from 'lucide-react';
+import { LayoutDashboard, Cable, Network, Bell, Menu, X, LogIn, UserPlus, HelpCircle, Activity, Search, MonitorDot, BookOpen, Sparkles } from 'lucide-react';
 import type { PersonaType } from '../types';
 import autonomosLogo from '../assets/autonomos-logo.png';
 
@@ -22,6 +22,7 @@ export default function TopBar({ onAuthOpen, currentPage, onNavigate }: TopBarPr
 
   const navItems: NavItem[] = [
     { id: 'architecture', label: 'Platform Guide', icon: <BookOpen className="w-5 h-5" />, tooltip: 'Interactive architecture documentation' },
+    { id: 'aos-overview', label: 'AOS Overview', icon: <Sparkles className="w-5 h-5" />, tooltip: 'Interactive discovery demo' },
     { id: 'discover', label: 'AOD (Discover)', icon: <Search className="w-5 h-5" />, tooltip: 'Asset discovery and cataloging' },
     { id: 'connect', label: 'AAM (Connect)', icon: <Cable className="w-5 h-5" />, tooltip: 'Self-healing data connectivity' },
     { id: 'ontology', label: 'DCL (Ontology)', icon: <Network className="w-5 h-5" />, tooltip: 'Data intelligence and mapping' },
