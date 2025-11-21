@@ -67,16 +67,17 @@ export default function DeterministicSankeyGraph({
   const [hoveredEdge, setHoveredEdge] = useState<string | null>(null);
 
   // Fetch graph state from backend
+  // IMPORTANT: Use /demo/state for Discovery Demo (25 nodes), NOT /state (332 production nodes)
   useEffect(() => {
     if (!isActive) return;
 
     const fetchState = async () => {
       try {
-        const response = await fetch(API_CONFIG.buildDclUrl('/state'));
+        const response = await fetch(API_CONFIG.buildDclUrl('/demo/state'));
         const data = await response.json();
         setState(data);
       } catch (error) {
-        console.error('[Deterministic Graph] Error fetching state:', error);
+        console.error('[Deterministic Graph] Error fetching demo state:', error);
       }
     };
 

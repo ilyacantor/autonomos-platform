@@ -3182,6 +3182,48 @@ def state(current_user = Depends(get_current_user)):
         "source_mode": source_mode
     }
 
+@app.get("/demo/state")
+def demo_state():
+    """
+    Get static demo graph state from demo_graph.json for Discovery Demo.
+    
+    This endpoint serves the curated 25-node demo graph (~17 sources, 5 ontology, 2 agents)
+    for the Discovery Demo visualization, separate from the production tenant state.
+    
+    Returns:
+        Static demo graph with ~25 nodes and demo edges
+    """
+    demo_graph_path = DCL_BASE_PATH / "demo_graph.json"
+    
+    if not demo_graph_path.exists():
+        return {
+            "error": "Demo graph file not found",
+            "nodes": [],
+            "edges": [],
+            "confidence": 0.0
+        }
+    
+    try:
+        with open(demo_graph_path, 'r') as f:
+            demo_graph = json.load(f)
+        
+        # Return in same format as /state endpoint for frontend compatibility
+        return {
+            "nodes": demo_graph.get("nodes", []),
+            "edges": demo_graph.get("edges", []),
+            "confidence": demo_graph.get("confidence", 0.92),
+            "dev_mode": False,
+            "source_mode": "demo",
+            "demo_version": demo_graph.get("demo_version", "v3.0")
+        }
+    except Exception as e:
+        return {
+            "error": f"Error loading demo graph: {str(e)}",
+            "nodes": [],
+            "edges": [],
+            "confidence": 0.0
+        }
+
 @app.get("/dcl/agents/{agent_id}/results", dependencies=AUTH_DEPENDENCIES)
 async def get_agent_results(
     agent_id: str,
