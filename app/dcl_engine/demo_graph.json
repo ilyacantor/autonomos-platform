@@ -184,16 +184,16 @@
       "type": "ontology"
     },
     {
-      "id": "agent_revenue_analyzer",
-      "label": "Revenue Analyzer",
+      "id": "revops_pilot",
+      "label": "RevOps Pilot",
       "type": "agent",
-      "description": "AI agent for revenue analysis and forecasting"
+      "description": "AI agent for revenue operations and forecasting"
     },
     {
-      "id": "agent_customer_insights",
-      "label": "Customer Insights",
+      "id": "finops_pilot",
+      "label": "FinOps Pilot",
       "type": "agent",
-      "description": "AI agent for customer behavior analysis"
+      "description": "AI agent for financial operations and analysis"
     }
   ],
   "edges": [
@@ -371,32 +371,32 @@
     },
     {
       "source": "ont_Transaction",
-      "target": "agent_revenue_analyzer",
+      "target": "revops_pilot",
       "type": "dataflow"
     },
     {
       "source": "ont_Product",
-      "target": "agent_revenue_analyzer",
+      "target": "revops_pilot",
       "type": "dataflow"
     },
     {
       "source": "sheets_revenue",
-      "target": "agent_revenue_analyzer",
+      "target": "revops_pilot",
       "type": "dataflow"
     },
     {
       "source": "ont_Customer",
-      "target": "agent_customer_insights",
+      "target": "finops_pilot",
       "type": "dataflow"
     },
     {
       "source": "ont_User",
-      "target": "agent_customer_insights",
+      "target": "finops_pilot",
       "type": "dataflow"
     },
     {
       "source": "ont_Event",
-      "target": "agent_customer_insights",
+      "target": "finops_pilot",
       "type": "dataflow"
     }
   ],
