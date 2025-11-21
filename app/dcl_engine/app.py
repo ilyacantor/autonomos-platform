@@ -1856,14 +1856,24 @@ def add_graph_nodes_for_source(source_key: str, tables: Dict[str, Any], tenant_i
     # Get current graph state for this tenant
     current_graph = state_access.get_graph_state(tenant_id)
     
-    # PRAGMATIC FIX: Use single consolidated "from AAM" parent node
+    # Use single consolidated parent node with mode-aware label
     # All sources connect to this parent, making source visible via entity node labels
     parent_node_id = "sys_aam_sources"
-    parent_label = "from AAM"
     
-    # Add consolidated parent node if it doesn't exist yet
-    parent_exists = any(n["id"] == parent_node_id for n in current_graph["nodes"])
-    if not parent_exists:
+    # FUNDAMENTAL FIX: Mode-aware parent label based on feature flag
+    # Legacy mode (CSV files): "from Demo Sources"
+    # AAM mode (production connectors): "from AAM"
+    use_aam_mode = FeatureFlagConfig.is_enabled(FeatureFlag.USE_AAM_AS_SOURCE)
+    parent_label = "from AAM" if use_aam_mode else "from Demo Sources"
+    
+    # Add or update consolidated parent node with correct mode-aware label
+    # CRITICAL: Always update label to match current mode (handles cache invalidation)
+    parent_node = next((n for n in current_graph["nodes"] if n["id"] == parent_node_id), None)
+    if parent_node:
+        # Update existing parent label to reflect current mode
+        parent_node["label"] = parent_label
+    else:
+        # Add new parent node
         current_graph["nodes"].append({
             "id": parent_node_id,
             "label": parent_label,

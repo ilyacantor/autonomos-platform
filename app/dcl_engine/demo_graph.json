@@ -2,7 +2,7 @@
   "nodes": [
     {
       "id": "sys_aam_sources",
-      "label": "from AAM",
+      "label": "from Demo Sources",
       "type": "source_parent"
     },
     {
