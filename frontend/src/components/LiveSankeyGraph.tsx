@@ -303,6 +303,19 @@ function renderSankey(
     nodeIndex++;
   });
 
+  // INSTRUMENTATION: Log layer assignments BEFORE d3-sankey processing
+  console.log('[DCL Debug] Node layer assignments BEFORE d3-sankey:');
+  const layerCounts: Record<number, number> = {};
+  sankeyNodes.forEach((n: any) => {
+    layerCounts[n.layer] = (layerCounts[n.layer] || 0) + 1;
+  });
+  console.log('[DCL Debug] Nodes per layer:', layerCounts);
+  console.log('[DCL Debug] Sample nodes:', sankeyNodes.slice(0, 5).map(n => ({
+    id: n.id,
+    type: n.type,
+    layer: (n as any).layer
+  })));
+
   // Use FILTERED edges
   filteredState.edges.forEach(e => {
     if (nodeIndexMap[e.source] !== undefined && nodeIndexMap[e.target] !== undefined) {
@@ -341,7 +354,7 @@ function renderSankey(
     .attr('height', calculatedHeight)
     .attr('viewBox', `0 0 ${validWidth} ${calculatedHeight}`);
 
-  // Create sankey layout
+  // Create sankey layout with EXPLICIT layer enforcement
   const sankey = d3Sankey<SankeyNode, SankeyLink>()
     .nodeWidth(8)
     .nodePadding(18)
@@ -349,7 +362,15 @@ function renderSankey(
       [1, 20],
       [validWidth - 1, calculatedHeight - 20],
     ])
-    .nodeId((d: any) => d.id);  // Tell d3-sankey to use id field for node identity
+    .nodeId((d: any) => d.id)  // Tell d3-sankey to use id field for node identity
+    .nodeSort((a: any, b: any) => {
+      // CRITICAL FIX: Sort nodes by layer to enforce 4-column layout
+      // This tells d3-sankey to respect our layer assignments during layout calculation
+      const layerDiff = (a.layer !== undefined ? a.layer : 999) - (b.layer !== undefined ? b.layer : 999);
+      if (layerDiff !== 0) return layerDiff;
+      // Within same layer, sort alphabetically by name for consistency
+      return (a.name || '').localeCompare(b.name || '');
+    });
 
   // Run initial layout (d3-sankey will auto-position based on links)
   const graph = sankey({
@@ -376,15 +397,36 @@ function renderSankey(
   
   const { nodes, links } = graph;
   
-  // Debug: Log sankey-computed positions
-  console.log('[Sankey Debug] Sankey computed', nodes.length, 'nodes');
+  // INSTRUMENTATION: Compare BEFORE (layer) vs AFTER (depth) sankey processing
+  console.log('[DCL Debug] D3-Sankey computed', nodes.length, 'nodes');
   const depthCounts: Record<number, number> = {};
+  const layerVsDepthMismatches: any[] = [];
   nodes.forEach((n: any) => {
     depthCounts[n.depth] = (depthCounts[n.depth] || 0) + 1;
+    // Check if d3-sankey respected our layer assignment
+    if (n.layer !== undefined && n.layer !== n.depth) {
+      layerVsDepthMismatches.push({
+        id: n.id,
+        type: n.type,
+        expectedLayer: n.layer,
+        computedDepth: n.depth
+      });
+    }
   });
-  console.log('[Sankey Debug] Nodes per depth level:', depthCounts);
-  console.log('[Sankey Debug] Sample positions:', nodes.slice(0, 10).map((n: any) => ({ 
-    id: n.id, 
+  console.log('[DCL Debug] D3-Sankey depth distribution:', depthCounts);
+  
+  if (layerVsDepthMismatches.length > 0) {
+    console.warn('[DCL Debug] ⚠️ D3-Sankey IGNORED layer assignments!');
+    console.warn('[DCL Debug] Mismatches (expected layer !== computed depth):', layerVsDepthMismatches);
+    console.warn('[DCL Debug] This means .nodeSort() is NOT sufficient - need custom nodeAlign or manual override');
+  } else {
+    console.log('[DCL Debug] ✅ D3-Sankey RESPECTED layer assignments!');
+  }
+  
+  console.log('[DCL Debug] Sample node positions:', nodes.slice(0, 10).map((n: any) => ({ 
+    id: n.id,
+    type: n.type,
+    layer: n.layer,
     depth: n.depth, 
     x0: Math.round(n.x0), 
     x1: Math.round(n.x1) 
