@@ -206,6 +206,7 @@ function renderDeterministicGraph(
   // Canonical mapping: backend sourceSystem values → frontend slug values
   // This is the FUNDAMENTAL FIX for case/format variations from backend
   const SOURCE_SYSTEM_MAPPING: Record<string, string> = {
+    // Production system names
     'Dynamics': 'dynamics',
     'Salesforce': 'salesforce',
     'Hubspot': 'hubspot',
@@ -219,42 +220,28 @@ function renderDeterministicGraph(
     'Snowflake': 'snowflake',
     'Supabase': 'supabase',
     'Mongodb': 'mongodb',
-    'MongoDB': 'mongodb'
+    'MongoDB': 'mongodb',
+    // Demo graph system names (from demo_graph.json)
+    'HubSpot': 'hubspot',
+    'Stripe': 'stripe',
+    'PostgreSQL': 'postgresql',
+    'MySQL': 'mysql',
+    'Google Sheets': 'google_sheets',
+    'CSV Files': 'csv'
   };
 
+  // For demo graph: Show ALL nodes without filtering
+  // Demo graph is pre-curated with exactly the right nodes to display
   let filteredNodes = state.nodes;
-
-  if (selectedSources.length > 0) {
-    const selectedSet = new Set(selectedSources);
-    
-    filteredNodes = filteredNodes.filter(node => {
-      if (node.type !== 'source') return true;
-      if (!node.sourceSystem) return false;
-      
-      // Map backend value to canonical slug
-      const canonicalSlug = SOURCE_SYSTEM_MAPPING[node.sourceSystem];
-      if (!canonicalSlug) {
-        console.warn('[Deterministic Graph] Unknown sourceSystem:', node.sourceSystem);
-        return false;
-      }
-      
-      return selectedSet.has(canonicalSlug);
-    });
-    
-    console.log('[Deterministic Graph] Source filtering:', {
-      before: state.nodes.filter(n => n.type === 'source').length,
-      after: filteredNodes.filter(n => n.type === 'source').length,
-      selectedSources
-    });
-  }
-
-  if (selectedAgents.length > 0) {
-    filteredNodes = filteredNodes.filter(node => {
-      if (node.type !== 'agent') return true;
-      const agentName = node.id.replace('agent_', '');
-      return selectedAgents.includes(agentName);
-    });
-  }
+  
+  // Skip filtering logic for demo - we want to show the complete curated demo graph
+  console.log('[Deterministic Graph] Demo mode - showing all nodes:', {
+    totalNodes: state.nodes.length,
+    nodeTypes: state.nodes.reduce((acc: Record<string, number>, n) => {
+      acc[n.type] = (acc[n.type] || 0) + 1;
+      return acc;
+    }, {})
+  });
 
   console.log('[Deterministic Graph] After filtering:', {
     filteredNodes: filteredNodes.length,
