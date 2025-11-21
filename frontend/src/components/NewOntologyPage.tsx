@@ -93,16 +93,16 @@ export default function NewOntologyPage() {
   // Get connections based on AAM mode
   const connections = useAamSource ? AAM_SOURCES : DEFAULT_SOURCES;
 
-  // DEMO FIX: Disabled feature flag fetch - force Legacy mode
-  // Load feature flags from API (using API_CONFIG for consistency)
-  // useEffect(() => {
-  //   fetch(API_CONFIG.buildDclUrl('/feature_flags'))
-  //     .then(res => res.json())
-  //     .then(flags => {
-  //       setUseAamSource(flags.USE_AAM_AS_SOURCE || false);
-  //     })
-  //     .catch(err => console.error('Failed to load feature flags:', err));
-  // }, []);
+  // Load feature flags from API on mount (using API_CONFIG for consistency)
+  useEffect(() => {
+    fetch(API_CONFIG.buildDclUrl('/feature_flags'))
+      .then(res => res.json())
+      .then(flags => {
+        setUseAamSource(flags.USE_AAM_AS_SOURCE || false);
+        console.log('[Ontology] Feature flags loaded:', flags);
+      })
+      .catch(err => console.error('Failed to load feature flags:', err));
+  }, []);
 
   // Smart merge selected sources when AAM mode changes (preserves valid user selections)
   useEffect(() => {
