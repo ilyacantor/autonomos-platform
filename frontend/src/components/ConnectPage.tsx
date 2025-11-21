@@ -7,7 +7,6 @@ import {
   Shield,
   AlertTriangle
 } from 'lucide-react';
-import EmbeddedApp from './EmbeddedApp';
 
 export default function ConnectPage() {
   const [meshMetrics, setMeshMetrics] = useState({
@@ -149,18 +148,35 @@ export default function ConnectPage() {
         </div>
       </div>
 
-      <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
-        <div className="mb-4">
-          <h3 className="text-lg font-semibold text-white mb-2">Interactive AAM Mesh</h3>
-          <p className="text-sm text-gray-400">
-            Explore the full Adaptive API Mesh interface with live data connectivity and schema management
-          </p>
+      <div className="bg-gray-800 rounded-lg border border-cyan-500/30 overflow-hidden">
+        <div className="bg-gradient-to-r from-purple-600/20 to-blue-600/20 border-b border-purple-500/30 px-4 py-3">
+          <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+            <svg className="w-6 h-6 text-purple-400" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" />
+            </svg>
+            Interactive AAM Mesh
+            <a 
+              href="https://autonomos-mesh-ilyacantor.replit.app/" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="ml-auto text-sm text-purple-400 hover:text-purple-300 underline font-normal"
+            >
+              Open in new tab ↗
+            </a>
+          </h2>
         </div>
-        <EmbeddedApp
-          url="https://autonomos-mesh-ilyacantor.replit.app/"
-          title="AAM Mesh Interface"
-          className="h-[500px] md:h-[600px] lg:h-[700px]"
-        />
+        <div className="relative" style={{ paddingBottom: '75%' }}>
+          <iframe
+            src="https://autonomos-mesh-ilyacantor.replit.app/"
+            className="absolute inset-0 w-full h-full"
+            title="AAM Mesh Interface"
+            allow="fullscreen"
+            style={{
+              border: 'none',
+              backgroundColor: '#1a1a1a'
+            }}
+          />
+        </div>
       </div>
     </div>
   );
