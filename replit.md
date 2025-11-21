@@ -34,7 +34,7 @@ The platform ensures complete data isolation with JWT authentication and user ma
 ## User Preferences
 
 **🚨 MOST CRITICAL PREFERENCE - READ THIS FIRST:**
-**FOUNDATIONAL/FUNDAMENTAL FIXES ONLY** - When facing issues or bugs, ALWAYS choose fundamental/root-cause fixes over workarounds. No band-aids, no quick patches, no shortcuts. Fix the underlying architecture, data model, or type system properly. User explicitly demands "option 2, fundamental fix required always".
+**FOUNDATIONAL/FUNDAMENTAL FIXES ONLY** - When facing issues or bugs, ALWAYS choose fundamental/root-cause fixes over workarounds. No band-aids, no quick patches, no shortcuts. Fix the underlying architecture, data model, or type system properly. User explicitly demands "Fundamental fix required always".
 
 **Communication & Development:**
 - Clear, concise explanations and direct answers
