@@ -1756,7 +1756,8 @@ def apply_plan(con, source_key: str, plan: Dict[str, Any], tenant_id: str = "def
             nodes_to_add.append({
                 "id": target_node_id,
                 "label": f"{ent.replace('_', ' ').title()} (Unified)",
-                "type": "ontology"
+                "type": "ontology",
+                "layer": 2
             })
             
             # Prepare edge from source to ontology
@@ -1867,7 +1868,8 @@ def add_graph_nodes_for_source(source_key: str, tables: Dict[str, Any], tenant_i
         current_graph["nodes"].append({
             "id": parent_node_id,
             "label": parent_label,
-            "type": "source_parent"
+            "type": "source_parent",
+            "layer": 0
         })
     
     # Add source nodes with source name in label (e.g., "Account (Salesforce)")
@@ -1884,6 +1886,7 @@ def add_graph_nodes_for_source(source_key: str, tables: Dict[str, Any], tenant_i
             "id": node_id, 
             "label": label, 
             "type": "source",
+            "layer": 1,
             "sourceSystem": source_system,
             "sourceKey": source_key,
             "parentId": parent_node_id,
@@ -1914,7 +1917,8 @@ def add_graph_nodes_for_source(source_key: str, tables: Dict[str, Any], tenant_i
             current_graph["nodes"].append({
                 "id": f"agent_{agent_id}",
                 "label": agent_info.get("name", agent_id.title()),
-                "type": "agent"
+                "type": "agent",
+                "layer": 3
             })
     
     # Save updated graph state (state_access handles dual-path)
@@ -3068,6 +3072,13 @@ def state(current_user = Depends(get_current_user)):
         # Legacy mode: Show all nodes (9 demo CSV sources + ontology + agents)
         # This ensures users see a complete graph visualization even without connections
         filtered_nodes = current_graph["nodes"]
+    
+    # BACKWARDS COMPATIBILITY: Add layer field to nodes that don't have it yet (from old Redis state)
+    # Layer mapping for d3-sankey horizontal positioning
+    layer_map = {"source_parent": 0, "source": 1, "ontology": 2, "agent": 3}
+    for node in filtered_nodes:
+        if "layer" not in node and node.get("type") in layer_map:
+            node["layer"] = layer_map[node["type"]]
     
     # Filter graph edges for Sankey rendering - exclude join edges to prevent circular references
     # D3-sankey requires a directed acyclic graph (DAG), but join edges create bidirectional cycles

@@ -7,6 +7,7 @@ interface SankeyNode {
   name: string;
   type: string;
   id: string;
+  layer?: number;
   sourceSystem?: string;
   parentId?: string;
 }
@@ -29,7 +30,8 @@ interface GraphState {
   nodes: Array<{ 
     id: string; 
     label: string; 
-    type: string; 
+    type: string;
+    layer?: number;
     fields?: string[]; 
     sourceSystem?: string;
     parentId?: string;
@@ -219,31 +221,33 @@ function renderSankey(
 
   const sankeyNodes: SankeyNode[] = [];
   const sankeyLinks: SankeyLink[] = [];
-  const nodeIndexMap: Record<string, number> = {};
-  let nodeIndex = 0;
-
+  
+  // Build nodes array
   state.nodes.forEach(n => {
-    nodeIndexMap[n.id] = nodeIndex;
     sankeyNodes.push({
       name: n.label,
       type: n.type,
       id: n.id,
+      layer: n.layer,
       sourceSystem: n.sourceSystem,
       parentId: n.parentId
     });
-    nodeIndex++;
   });
 
+  // Create a map for fast node lookup by ID
+  const nodesById = new Map(sankeyNodes.map(n => [n.id, n]));
+
+  // Build links using string IDs (d3-sankey resolves these via nodeId)
   state.edges.forEach(e => {
-    if (nodeIndexMap[e.source] !== undefined && nodeIndexMap[e.target] !== undefined) {
-      const sourceNode = state.nodes.find(n => n.id === e.source);
-      const targetNode = state.nodes.find(n => n.id === e.target);
-      
+    const sourceNode = nodesById.get(e.source);
+    const targetNode = nodesById.get(e.target);
+    
+    if (sourceNode && targetNode) {
       const edgeType = ((e as any).edgeType ?? (e as any).edge_type ?? 'dataflow') as 'hierarchy' | 'dataflow';
 
       sankeyLinks.push({
-        source: nodeIndexMap[e.source],
-        target: nodeIndexMap[e.target],
+        source: e.source,  // Use string ID - d3-sankey resolves via nodeId
+        target: e.target,  // Use string ID - d3-sankey resolves via nodeId
         value: 1,
         edgeType: edgeType,
         sourceSystem: sourceNode?.sourceSystem,
@@ -284,7 +288,8 @@ function renderSankey(
     .extent([
       [1, 20],
       [validWidth - 1, calculatedHeight - 20],
-    ]);
+    ])
+    .nodeId((d: any) => d.id);
 
   const graph = sankey({
     nodes: sankeyNodes.map(d => Object.assign({}, d)),
@@ -304,8 +309,13 @@ function renderSankey(
   ];
   
   nodes.forEach(node => {
-    const nodeData = sankeyNodes.find(n => n.name === node.name);
-    if (nodeData && nodeData.type && layerMap[nodeData.type] !== undefined) {
+    const nodeData = sankeyNodes.find(n => n.id === (node as any).id);
+    if (nodeData && nodeData.layer !== undefined) {
+      const layer = nodeData.layer;
+      node.depth = layer;
+      node.x0 = layerXPositions[layer];
+      node.x1 = layerXPositions[layer] + 8;
+    } else if (nodeData && nodeData.type && layerMap[nodeData.type] !== undefined) {
       const layer = layerMap[nodeData.type];
       node.depth = layer;
       node.x0 = layerXPositions[layer];
@@ -473,8 +483,8 @@ function renderSankey(
     .attr('d', sankeyLinkHorizontal())
     .attr('stroke', (d: any, i: number) => {
       const originalLink = sankeyLinks[i];
-      const sourceNode = state.nodes.find(n => nodeIndexMap[n.id] === originalLink.source);
-      const targetNode = sankeyNodes.find(n => n.name === d.target.name);
+      const sourceNode = nodesById.get(originalLink.source as string);
+      const targetNode = nodesById.get(originalLink.target as string);
       
       // Color hierarchy edges from source_parent (layer 0) to source (layer 1) green
       if (originalLink?.edgeType === 'hierarchy' && sourceNode?.type === 'source_parent') {
@@ -502,8 +512,8 @@ function renderSankey(
         return 0.35;
       }
       
-      const sourceNode = state.nodes.find(n => nodeIndexMap[n.id] === originalLink.source);
-      const targetNode = state.nodes.find(n => nodeIndexMap[n.id] === originalLink.target);
+      const sourceNode = nodesById.get(originalLink.source as string);
+      const targetNode = nodesById.get(originalLink.target as string);
       const edgeKey = `${sourceNode?.id}-${targetNode?.id}`;
       
       if (animatingEdges.has(edgeKey)) return 0.9;
@@ -516,8 +526,8 @@ function renderSankey(
     })
     .attr('class', (_d: any, i: number) => {
       const originalLink = sankeyLinks[i];
-      const sourceNode = state.nodes.find(n => nodeIndexMap[n.id] === originalLink.source);
-      const targetNode = state.nodes.find(n => nodeIndexMap[n.id] === originalLink.target);
+      const sourceNode = nodesById.get(originalLink.source as string);
+      const targetNode = nodesById.get(originalLink.target as string);
       const edgeKey = `${sourceNode?.id}-${targetNode?.id}`;
       return animatingEdges.has(edgeKey) ? 'animate-pulse' : '';
     })
@@ -575,7 +585,7 @@ function renderSankey(
       if (originalLink?.edgeType === 'hierarchy') {
         d3.select(this).attr('stroke-opacity', 0.35);
       } else {
-        const sourceNode = state.nodes.find(n => nodeIndexMap[n.id] === originalLink.source);
+        const sourceNode = nodesById.get(originalLink.source as string);
         if (sourceNode && (sourceNode.type === 'source' || sourceNode.type === 'source_parent')) {
           d3.select(this).attr('stroke-opacity', 0.7);
         } else {
