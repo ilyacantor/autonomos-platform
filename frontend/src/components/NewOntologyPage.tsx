@@ -112,25 +112,29 @@ export default function NewOntologyPage() {
       .catch(err => console.error('Failed to load feature flags:', err));
   }, []);
 
-  // Smart merge selected sources when AAM mode changes (preserves valid user selections)
+  // Smart merge selected sources when AAM mode changes
+  // CRITICAL: Always defaults to ALL sources for the current mode to ensure full visibility
   useEffect(() => {
     const availableSources = useAamSource 
       ? AAM_SOURCES.map(s => s.value) 
       : DEFAULT_SOURCES.map(s => s.value);
     
-    // Keep only selections that are still valid in new mode
-    setSelectedSources(prev => {
-      const validSelections = prev.filter(source => availableSources.includes(source));
-      
-      // If no valid selections remain, default to all available sources
-      const finalSelections = validSelections.length > 0 ? validSelections : availableSources;
-      
-      // Persist immediately to prevent race condition
-      localStorage.setItem('aos.selectedSources', JSON.stringify(finalSelections));
-      console.log(`[Ontology] Smart merge for ${useAamSource ? 'AAM' : 'Legacy'} mode:`, finalSelections);
-      
-      return finalSelections;
-    });
+    // ALWAYS select all sources for current mode (don't preserve previous selections)
+    // This ensures users see all available data sources by default
+    setSelectedSources(availableSources);
+    
+    // Persist immediately to prevent race condition
+    localStorage.setItem('aos.selectedSources', JSON.stringify(availableSources));
+    console.log(`[Ontology] Selected ALL sources for ${useAamSource ? 'AAM' : 'Legacy'} mode:`, availableSources);
+  }, [useAamSource]);
+
+  // Ensure all agents are always selected when mode changes
+  // CRITICAL: Always defaults to ALL agents to ensure full agent visibility
+  useEffect(() => {
+    const allAgents = getAllAgentValues();
+    setSelectedAgents(allAgents);
+    localStorage.setItem('aos.selectedAgents', JSON.stringify(allAgents));
+    console.log('[Ontology] Selected ALL agents:', allAgents);
   }, [useAamSource]);
 
   // Mode toggle updates selections but does NOT auto-run
@@ -141,11 +145,6 @@ export default function NewOntologyPage() {
       setShouldTriggerRun(false);
     }
   }, [shouldTriggerRun]);
-
-  // Load agent selections from localStorage on mount
-  useEffect(() => {
-    setSelectedAgents(getDefaultAgents());
-  }, []);
 
   // FIX 3: Save selections to localStorage whenever they change
   // GUARD: Use synchronous hydration flag (no React batching race)
