@@ -280,8 +280,7 @@ function renderSankey(
     .attr('height', calculatedHeight)
     .attr('viewBox', `0 0 ${validWidth} ${calculatedHeight}`);
 
-  // D3-sankey respects node.layer property natively - no custom nodeAlign needed!
-  // We just need to set .layer on each node and d3-sankey will position them correctly
+  // Create sankey layout
   const sankey = d3Sankey<SankeyNode, SankeyLink>()
     .nodeWidth(8)
     .nodePadding(18)
@@ -291,10 +290,28 @@ function renderSankey(
     ])
     .nodeId((d: any) => d.id);  // Tell d3-sankey to use id field for node identity
 
+  // Run initial layout (d3-sankey will auto-position based on links)
   const graph = sankey({
     nodes: sankeyNodes.map(d => Object.assign({}, d)),
     links: sankeyLinks.map(d => Object.assign({}, d)),
   });
+
+  // FUNDAMENTAL FIX: Manually override x positions based on our layer assignments
+  // D3-sankey's .nodeAlign() only controls vertical positioning, NOT horizontal layers
+  // We must post-process and set x0/x1 directly to achieve fixed layer positioning
+  const totalLayers = 4; // 0, 1, 2, 3
+  const layerWidth = (validWidth - 20) / (totalLayers - 1); // Space between layers
+
+  graph.nodes.forEach((node: any) => {
+    if (node.layer !== undefined) {
+      // Override x position based on layer assignment
+      node.x0 = 1 + (node.layer * layerWidth);
+      node.x1 = node.x0 + sankey.nodeWidth();
+    }
+  });
+
+  // Recompute link paths with new node positions
+  sankey.update(graph);
   
   const { nodes, links } = graph;
   
