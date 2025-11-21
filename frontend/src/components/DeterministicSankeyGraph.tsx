@@ -202,6 +202,16 @@ function renderDeterministicGraph(
   };
 
   // STEP 1: Filter nodes based on selections
+  // DEBUG: Log incoming state
+  console.log('[Deterministic Graph] Raw state from backend:', {
+    totalNodes: state.nodes.length,
+    nodeTypes: state.nodes.reduce((acc: Record<string, number>, n) => {
+      acc[n.type] = (acc[n.type] || 0) + 1;
+      return acc;
+    }, {}),
+    totalEdges: state.edges.length
+  });
+
   let filteredNodes = state.nodes;
 
   if (selectedSources.length > 0) {
@@ -218,6 +228,16 @@ function renderDeterministicGraph(
       return selectedAgents.includes(agentName);
     });
   }
+
+  console.log('[Deterministic Graph] After filtering:', {
+    filteredNodes: filteredNodes.length,
+    nodeTypes: filteredNodes.reduce((acc: Record<string, number>, n) => {
+      acc[n.type] = (acc[n.type] || 0) + 1;
+      return acc;
+    }, {}),
+    selectedSources,
+    selectedAgents
+  });
 
   const validNodeIds = new Set(filteredNodes.map(n => n.id));
   const filteredEdges = state.edges.filter(edge => 
