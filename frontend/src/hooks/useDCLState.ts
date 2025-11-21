@@ -256,18 +256,10 @@ export function useDCLState(): UseDCLStateReturn {
 
   const connectWebSocket = useCallback(() => {
     try {
-      // Build absolute WebSocket URL
-      let wsUrl: string;
-
-      if (API_CONFIG.BASE_URL && API_CONFIG.BASE_URL.match(/^https?:\/\//)) {
-        // BASE_URL is an absolute URL, use it and replace protocol
-        wsUrl = API_CONFIG.buildDclUrl('/ws').replace(/^http/, 'ws');
-      } else {
-        // BASE_URL is empty or relative, construct from window.location
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const host = window.location.host;
-        wsUrl = `${protocol}//${host}/dcl/ws`;
-      }
+      // Build absolute WebSocket URL - always use window.location for same-origin connection
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const host = window.location.host;
+      const wsUrl = `${protocol}//${host}/dcl/ws`;
 
       console.log('[DCL WebSocket] Connecting to:', wsUrl);
 
