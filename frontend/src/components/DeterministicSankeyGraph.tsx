@@ -212,12 +212,37 @@ function renderDeterministicGraph(
     totalEdges: state.edges.length
   });
 
+  // DEBUG: Sample source nodes to see their sourceSystem values
+  const sampleSources = state.nodes.filter(n => n.type === 'source').slice(0, 5);
+  console.log('[Deterministic Graph] Sample source nodes:', sampleSources.map(n => ({
+    id: n.id,
+    label: n.label,
+    sourceSystem: n.sourceSystem
+  })));
+
   let filteredNodes = state.nodes;
 
   if (selectedSources.length > 0) {
+    const beforeCount = filteredNodes.filter(n => n.type === 'source').length;
+    
     filteredNodes = filteredNodes.filter(node => {
       if (node.type !== 'source') return true;
-      return node.sourceSystem && selectedSources.includes(node.sourceSystem);
+      const keep = node.sourceSystem && selectedSources.includes(node.sourceSystem);
+      if (!keep && node.type === 'source') {
+        console.log('[Deterministic Graph] Filtering OUT source node:', {
+          id: node.id,
+          sourceSystem: node.sourceSystem,
+          selectedSources
+        });
+      }
+      return keep;
+    });
+    
+    const afterCount = filteredNodes.filter(n => n.type === 'source').length;
+    console.log('[Deterministic Graph] Source filtering result:', {
+      before: beforeCount,
+      after: afterCount,
+      removed: beforeCount - afterCount
     });
   }
 
