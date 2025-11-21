@@ -67,7 +67,7 @@ export default function DeterministicSankeyGraph({
   const [hoveredEdge, setHoveredEdge] = useState<string | null>(null);
 
   // Fetch graph state from backend
-  // IMPORTANT: Use /demo/state for Discovery Demo (25 nodes), NOT /state (332 production nodes)
+  // IMPORTANT: Use /demo/state endpoint for curated demo data (25 nodes), /state for production data
   useEffect(() => {
     if (!isActive) return;
 
