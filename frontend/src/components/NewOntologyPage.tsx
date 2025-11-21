@@ -83,6 +83,14 @@ export default function NewOntologyPage() {
   const [useAamSource, setUseAamSource] = useState(false); // DEMO FIX: Force Legacy mode (AAM broken)
   const [shouldTriggerRun, setShouldTriggerRun] = useState(false);
   
+  // FIX 1: Mode transition state to block actions during async toggle
+  const [isModeTransitioning, setIsModeTransitioning] = useState(false);
+  const [modeError, setModeError] = useState<string | null>(null);
+  
+  // FIX 3: Hydration flag to prevent React batching race in persistence guard
+  // Synchronous flag tracks whether selections have been fully hydrated with valid data
+  const [isSelectionsHydrated, setIsSelectionsHydrated] = useState(true);
+  
   // OntologyPage state
   const [ontologyData, setOntologyData] = useState<OntologyData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -139,16 +147,34 @@ export default function NewOntologyPage() {
     setSelectedAgents(getDefaultAgents());
   }, []);
 
-  // Save selections to localStorage whenever they change
+  // FIX 3: Save selections to localStorage whenever they change
+  // GUARD: Use synchronous hydration flag (no React batching race)
   useEffect(() => {
-    // Always save selections, even if empty (preserves user's choice)
+    // FIX 3: Skip writes if selections are empty OR not yet hydrated
+    // isSelectionsHydrated is synchronous and guaranteed by React state update order
+    if (selectedSources.length === 0 || !isSelectionsHydrated) {
+      console.log('[Ontology] ⚠️ Skipping selectedSources write - empty or not hydrated', {
+        length: selectedSources.length,
+        hydrated: isSelectionsHydrated
+      });
+      return;
+    }
     localStorage.setItem('aos.selectedSources', JSON.stringify(selectedSources));
-  }, [selectedSources]);
+    console.log('[Ontology] ✅ Persisted selectedSources to localStorage:', selectedSources.length);
+  }, [selectedSources, isSelectionsHydrated]);
 
   useEffect(() => {
-    // Always save selections, even if empty (preserves user's choice)
+    // FIX 3: Skip writes if selections are empty OR not yet hydrated
+    if (selectedAgents.length === 0 || !isSelectionsHydrated) {
+      console.log('[Ontology] ⚠️ Skipping selectedAgents write - empty or not hydrated', {
+        length: selectedAgents.length,
+        hydrated: isSelectionsHydrated
+      });
+      return;
+    }
     localStorage.setItem('aos.selectedAgents', JSON.stringify(selectedAgents));
-  }, [selectedAgents]);
+    console.log('[Ontology] ✅ Persisted selectedAgents to localStorage:', selectedAgents.length);
+  }, [selectedAgents, isSelectionsHydrated]);
 
   // Fetch ontology on mount
   useEffect(() => {
@@ -194,6 +220,19 @@ export default function NewOntologyPage() {
     setSelectedSources(allSources);
     setSelectedAgents(agents.map(a => a.value));
   };
+  
+  // FIX 1 & 2: Callback for child component to select all sources/agents
+  // Parent is single source of truth for selections
+  const handleSelectAllFromChild = () => {
+    const allSources = useAamSource 
+      ? AAM_SOURCES.map(c => c.value)
+      : DEFAULT_SOURCES.map(c => c.value);
+    const allAgents = agents.map(a => a.value);
+    
+    setSelectedSources(allSources);
+    setSelectedAgents(allAgents);
+    console.log('[Ontology] Select All from child - Sources:', allSources.length, 'Agents:', allAgents.length);
+  };
 
   const handleLineageSearch = () => {
     if (lineageSearchQuery.trim()) {
@@ -214,9 +253,106 @@ export default function NewOntologyPage() {
     });
   };
 
-  // Callback for DCLGraphContainer to update AAM mode state
-  const handleModeChange = (newMode: boolean) => {
-    setUseAamSource(newMode);
+  // FIX 2: Callback for child to trigger mode change error notification
+  const handleModeError = (errorMessage: string) => {
+    setModeError(errorMessage);
+    console.error('[Ontology] Mode change error from child:', errorMessage);
+  };
+
+  // FIX 1 & 2: Callback for DCLGraphContainer to update AAM mode state
+  // Implements atomic transition with error handling and timeout fallback
+  const handleModeChange = async (newMode: boolean) => {
+    console.log('[Ontology] Mode change requested:', newMode);
+    
+    // FIX 1: Set transition state to block user actions
+    setIsModeTransitioning(true);
+    setModeError(null); // FIX 2: Clear previous errors at start
+    
+    // FIX 3: Mark selections as NOT hydrated to block localStorage writes
+    setIsSelectionsHydrated(false);
+    console.log('[Ontology] 🔒 Hydration flag set to FALSE - blocking localStorage writes');
+    
+    // Store current mode for rollback on failure
+    const previousMode = useAamSource;
+    
+    // Timeout fallback: automatically re-enable UI after 10 seconds
+    const timeoutId = setTimeout(() => {
+      console.error('[Ontology] ⚠️ Mode change timeout - re-enabling UI');
+      setIsModeTransitioning(false);
+      setIsSelectionsHydrated(true); // FIX 3: Re-enable persistence on timeout
+      setModeError('Mode change timed out. Please try again.');
+    }, 10000);
+    
+    try {
+      // STEP 1: Clear localStorage keys first (prevent race conditions)
+      localStorage.removeItem('aos.selectedSources');
+      localStorage.removeItem('aos.selectedAgents');
+      console.log('[Ontology] ✅ Selection cache cleared');
+      
+      // STEP 2: Reset parent state arrays to empty
+      // This prevents stale selections from bleeding into new mode
+      // FIX 3: isSelectionsHydrated=false prevents empty array writes
+      setSelectedSources([]);
+      setSelectedAgents([]);
+      console.log('[Ontology] ✅ Parent state arrays reset (writes blocked by hydration flag)');
+      
+      // STEP 3: Fetch new feature flags from backend to ensure frontend reflects Redis truth
+      const response = await fetch(API_CONFIG.buildDclUrl('/feature_flags'));
+      
+      // FIX 2: Handle refetch failures - DO NOT update mode, keep prior state
+      if (!response.ok) {
+        throw new Error(`Failed to fetch feature flags: ${response.statusText}`);
+      }
+      
+      const flags = await response.json();
+      
+      // STEP 4: Update useAamSource state with confirmed backend value
+      setUseAamSource(flags.USE_AAM_AS_SOURCE);
+      console.log('[Ontology] ✅ Feature flags refetched, USE_AAM_AS_SOURCE:', flags.USE_AAM_AS_SOURCE);
+      
+      // STEP 5: Let useEffect(useAamSource) smart merge handle new source list
+      // The useEffect at line 108 will trigger and populate selections for new mode
+      console.log('[Ontology] ✅ Smart merge will populate selections for new mode');
+      
+      // FIX 2: Clear modeError on success (parent controls error state)
+      setModeError(null);
+      console.log('[Ontology] ✅ Mode error cleared on successful transition');
+      
+      clearTimeout(timeoutId); // Clear timeout on success
+      
+    } catch (err) {
+      // FIX 2: On refetch failure, rollback to previous mode and notify user
+      console.error('[Ontology] ❌ Failed to refetch feature flags:', err);
+      
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch feature flags';
+      setModeError(errorMessage);
+      
+      // Rollback: restore previous mode
+      setUseAamSource(previousMode);
+      console.log('[Ontology] ⚠️ Rolled back to previous mode:', previousMode);
+      
+      // Re-populate selections for previous mode to recover from empty state
+      const fallbackSources = previousMode 
+        ? AAM_SOURCES.map(s => s.value)
+        : DEFAULT_SOURCES.map(s => s.value);
+      const fallbackAgents = DEFAULT_AGENTS.map(a => a.value);
+      
+      setSelectedSources(fallbackSources);
+      setSelectedAgents(fallbackAgents);
+      console.log('[Ontology] ✅ Restored selections for previous mode');
+      
+      clearTimeout(timeoutId);
+      
+    } finally {
+      // FIX 1: Always re-enable UI in finally block
+      setIsModeTransitioning(false);
+      
+      // FIX 3: Mark selections as hydrated - re-enable localStorage writes
+      setIsSelectionsHydrated(true);
+      console.log('[Ontology] 🔓 Hydration flag set to TRUE - localStorage writes enabled');
+      console.log('[Ontology] ✅ Mode transition complete, UI re-enabled');
+    }
+    
     setShouldTriggerRun(true); // Defer run until after selections update
   };
 
@@ -242,6 +378,10 @@ export default function NewOntologyPage() {
         onModeChange={handleModeChange}
         selectedSources={selectedSources}
         selectedAgents={selectedAgents}
+        onSelectAll={handleSelectAllFromChild}
+        isModeTransitioning={isModeTransitioning}
+        onModeError={handleModeError}
+        modeError={modeError}
       />
 
       {/* Section 1: Data Connection Section */}

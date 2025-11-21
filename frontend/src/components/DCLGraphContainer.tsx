@@ -1,5 +1,5 @@
 import React from 'react';
-import { Activity, ChevronDown, Play, X, CheckCircle } from 'lucide-react';
+import { Activity, ChevronDown, Play, X, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import type { AgentNode, DCLStats, MappingReview, SchemaChange } from '../types';
 import LazyGraphShell from './LazyGraphShell';
@@ -14,9 +14,13 @@ interface DCLGraphContainerProps {
   onModeChange: (newMode: boolean) => void;
   selectedSources: string[];
   selectedAgents: string[];
+  onSelectAll: () => void; // Callback to parent for "Select All" action
+  isModeTransitioning: boolean; // FIX 1: Transition state to block actions
+  onModeError: (error: string) => void; // FIX 2: Error callback for refetch failures
+  modeError: string | null; // FIX 2: Mode error from parent to display
 }
 
-export default function DCLGraphContainer({ useAamSource, onModeChange, selectedSources, selectedAgents }: DCLGraphContainerProps) {
+export default function DCLGraphContainer({ useAamSource, onModeChange, selectedSources, selectedAgents, onSelectAll, isModeTransitioning, onModeError, modeError }: DCLGraphContainerProps) {
   const [devMode, setDevMode] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showProgress, setShowProgress] = useState(false); // Separate flag to control progress bar visibility
@@ -35,6 +39,9 @@ export default function DCLGraphContainer({ useAamSource, onModeChange, selected
   
   // Track if we've attempted auto-run to prevent infinite retry loops
   const autoRunAttemptedRef = React.useRef(false);
+  
+  // Toggle error state for user-visible errors
+  const [toggleError, setToggleError] = useState<string | null>(null);
 
   // Auth helper - follows same pattern as aoaApi.ts
   const getAuthHeader = (): Record<string, string> => {
@@ -50,32 +57,22 @@ export default function DCLGraphContainer({ useAamSource, onModeChange, selected
     window.dispatchEvent(new CustomEvent('auth:unauthorized'));
   };
 
-  // Get selections from parent props (single source of truth, no localStorage race)
+  // Get selections from parent props (single source of truth, NO localStorage)
   const getPersistedSources = () => {
-    // Use parent-provided selections with fallback
+    // CONTROLLED: Use ONLY parent-provided selections with fallback
     const sources = selectedSources.length > 0 
       ? selectedSources 
       : (useAamSource ? getAamSourceValues() : getAllSourceValues());
     
-    console.log('[DCL] Current sources from parent:', sources);
+    console.log('[DCL] Current sources from parent (controlled):', sources);
     return sources.join(',');
   };
   
   const getPersistedAgents = () => {
-    // Use parent-provided selections with fallback
+    // CONTROLLED: Use ONLY parent-provided selections with fallback
     const agents = selectedAgents.length > 0 ? selectedAgents : getDefaultAgents();
-    console.log('[DCL] Current agents from parent:', agents);
+    console.log('[DCL] Current agents from parent (controlled):', agents);
     return agents.join(',');
-  };
-  
-  // Select all sources/agents (selection only, doesn't run)
-  const selectAllSources = () => {
-    // Select all sources based on current mode (now using prop)
-    const allSources = useAamSource ? getAamSourceValues() : getAllSourceValues();
-    const allAgents = ['revops_pilot', 'finops_pilot'];
-    localStorage.setItem('aos.selectedSources', JSON.stringify(allSources));
-    localStorage.setItem('aos.selectedAgents', JSON.stringify(allAgents));
-    console.log('[DCL] ✅ Selected ALL sources and agents:', allSources, allAgents);
   };
 
   // Sync dev mode from backend state
@@ -87,12 +84,20 @@ export default function DCLGraphContainer({ useAamSource, onModeChange, selected
 
   // Listen for connection-triggered run events from ConnectionsPage
   // CRITICAL: Include selectedSources/selectedAgents in dependencies to prevent stale closure
+  // FIX 1: Gate event listener with transition check to prevent malformed /connect payloads
   useEffect(() => {
     const handleTriggerRun = (event: Event) => {
       const customEvent = event as CustomEvent;
       const source = customEvent.detail?.source;
       console.log(`[DCL] Received trigger-run event from: ${source}`);
       console.log(`[DCL] Current selections: sources=${selectedSources.length}, agents=${selectedAgents.length}`);
+      
+      // FIX 1: Reject run if mode transition in progress (fail-safe guard)
+      if (isModeTransitioning) {
+        console.warn('[DCL] ⚠️ Ignoring trigger-run event - mode transition in progress');
+        console.warn('[DCL] ⚠️ Running now would produce malformed /connect payload with empty arrays');
+        return;
+      }
       
       // Trigger run with progress bar
       if (!isProcessing) {
@@ -104,7 +109,7 @@ export default function DCLGraphContainer({ useAamSource, onModeChange, selected
     return () => {
       window.removeEventListener('dcl:trigger-run', handleTriggerRun);
     };
-  }, [isProcessing, selectedSources, selectedAgents]);
+  }, [isProcessing, selectedSources, selectedAgents, isModeTransitioning]);
 
   // Track new events and animate them with typing effect
   useEffect(() => {
@@ -214,7 +219,16 @@ export default function DCLGraphContainer({ useAamSource, onModeChange, selected
 
   // Run - calls /connect with persisted sources, agents, and selected LLM model
   // Shows progress bar for manual user-triggered runs
+  // FIX 1: Gate with transition check to prevent malformed /connect payloads
   const handleRun = async () => {
+    // FIX 1: Fail-safe guard - reject run if mode transition in progress
+    if (isModeTransitioning) {
+      console.warn('[DCL] ⚠️ Rejecting handleRun() - mode transition in progress');
+      console.warn('[DCL] ⚠️ Running now would produce malformed /connect payload with empty arrays');
+      console.warn('[DCL] ⚠️ User must wait for transition to complete before running');
+      return;
+    }
+    
     // Reset timer, progress, and LLM count on NEW run
     setElapsedTime(0);
     setProgress(0);
@@ -308,7 +322,10 @@ export default function DCLGraphContainer({ useAamSource, onModeChange, selected
   };
 
   // Toggle AAM mode handler - switches between AAM connectors (4 sources) and Legacy files (9 sources)
+  // FIX 2: Call parent's onModeError callback for error propagation
   const toggleSourceMode = async () => {
+    setToggleError(null); // Clear local errors
+    
     try {
       // Call endpoint that toggles flag AND clears backend DCL cache
       const response = await fetch(API_CONFIG.buildDclUrl('/dcl/toggle_aam_mode'), {
@@ -322,29 +339,39 @@ export default function DCLGraphContainer({ useAamSource, onModeChange, selected
       // Handle 401 unauthorized
       if (response.status === 401) {
         handleUnauthorized();
+        const errorMsg = 'Session expired. Please login again.';
+        setToggleError(errorMsg);
+        onModeError(errorMsg); // FIX 2: Propagate to parent
         console.error('[DCL] Session expired. Please login again.');
         return;
       }
 
       if (!response.ok) {
         const error = await response.json().catch(() => ({ detail: 'Request failed' }));
-        throw new Error(error.detail || `HTTP error! status: ${response.status}`);
+        const errorMessage = error.detail || `HTTP error! status: ${response.status}`;
+        setToggleError(errorMessage);
+        onModeError(errorMessage); // FIX 2: Propagate to parent
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
       if (data.ok) {
-        // Notify parent component to update shared state (parent will trigger run after selections update)
+        // Clear DCL cache ONLY (parent handles selection cache clearing)
+        localStorage.removeItem('dcl_graph_state');
+        localStorage.removeItem('dcl_last_updated');
+        console.log('[DCL] ✅ Frontend DCL cache cleared');
+        
+        // Notify parent component to handle full cache clearing sequence
+        // Parent will: clear selection cache, refetch feature flags, update state
         onModeChange(data.USE_AAM_AS_SOURCE);
         console.log(`[DCL] ✅ AAM Mode toggled to: ${data.mode}`);
         console.log(`[DCL] ✅ Backend cache cleared: ${data.cache_cleared}`);
-        
-        // Clear localStorage DCL cache
-        localStorage.removeItem('dcl_graph_state');
-        localStorage.removeItem('dcl_last_updated');
-        console.log('[DCL] ✅ Frontend localStorage cache cleared');
-        console.log('[DCL] ✅ Parent will trigger run after selections update (deferred execution)');
+        console.log('[DCL] ✅ Parent will handle cache clearing and flag refetch');
       }
     } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to toggle AAM mode';
+      setToggleError(errorMessage);
+      onModeError(errorMessage); // FIX 2: Propagate to parent
       console.error('[DCL] ❌ Failed to toggle AAM mode:', err);
     }
   };
@@ -372,6 +399,45 @@ export default function DCLGraphContainer({ useAamSource, onModeChange, selected
             <span className="text-white text-[10px] tracking-wide drop-shadow-lg">
               {Math.round(progress)}% Complete
             </span>
+          </div>
+        </div>
+      )}
+      
+      {/* FIX 2: Error Banner - Shows both local toggle errors and parent mode errors */}
+      {/* Parent errors (modeError) are NOT dismissible by child - only parent can clear them */}
+      {(toggleError || modeError) && (
+        <div className="relative -mx-2 sm:-mx-3 -mt-2 sm:-mt-3 mb-3 p-3 bg-red-900/20 border border-red-500/50 rounded-lg">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+              <span className="text-sm text-red-300">
+                {modeError || toggleError}
+                {modeError && ' (controlled by parent)'}
+              </span>
+            </div>
+            {/* FIX 2: Only allow dismissing local toggleError, NOT parent modeError */}
+            {toggleError && !modeError && (
+              <button
+                onClick={() => setToggleError(null)}
+                className="text-red-400 hover:text-red-300 transition-colors"
+                title="Dismiss error"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+            {modeError && (
+              <span className="text-xs text-red-400/70 italic">Parent-controlled</span>
+            )}
+          </div>
+        </div>
+      )}
+      
+      {/* FIX 1: Transition Loading Indicator */}
+      {isModeTransitioning && (
+        <div className="relative -mx-2 sm:-mx-3 -mt-2 sm:-mt-3 mb-3 p-3 bg-blue-900/20 border border-blue-500/50 rounded-lg">
+          <div className="flex items-center gap-2">
+            <Loader2 className="w-4 h-4 text-blue-400 flex-shrink-0 animate-spin" />
+            <span className="text-sm text-blue-300">Switching modes, please wait...</span>
           </div>
         </div>
       )}
@@ -422,22 +488,29 @@ export default function DCLGraphContainer({ useAamSource, onModeChange, selected
                     </button>
 
                     {/* AAM/Legacy toggle - Switches between AAM connectors (4 sources) and Legacy CSV files (9 sources) */}
+                    {/* FIX 1: Disable during mode transition */}
                     <button
                       onClick={toggleSourceMode}
-                      className={`touch-target-h mobile-tap-highlight px-3 py-2 sm:px-2 sm:py-1 rounded text-xs sm:text-[10px] transition-all ${
+                      disabled={isModeTransitioning || isProcessing}
+                      className={`touch-target-h mobile-tap-highlight px-3 py-2 sm:px-2 sm:py-1 rounded text-xs sm:text-[10px] transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
                         useAamSource
                           ? 'bg-blue-600/20 border border-blue-500/40 text-blue-300 hover:bg-blue-600/30'
                           : 'bg-green-600/20 border border-green-500/40 text-green-300 hover:bg-green-600/30'
                       }`}
-                      title={useAamSource ? 'Using AAM Connectors (4 production sources)' : 'Using Legacy File Sources (9 CSV-based sources)'}
+                      title={isModeTransitioning ? 'Mode transition in progress...' : (useAamSource ? 'Using AAM Connectors (4 production sources)' : 'Using Legacy File Sources (9 CSV-based sources)')}
                     >
                       <div className="flex items-center gap-2 justify-center">
-                        <div className={`w-2 h-2 rounded-full ${useAamSource ? 'bg-blue-400' : 'bg-green-400'}`} />
+                        {isModeTransitioning ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <div className={`w-2 h-2 rounded-full ${useAamSource ? 'bg-blue-400' : 'bg-green-400'}`} />
+                        )}
                         <span className="whitespace-nowrap">{useAamSource ? 'AAM' : 'Legacy'}</span>
                       </div>
                     </button>
 
                     {/* Data Source Selector */}
+                    {/* FIX 1: Disable during mode transition */}
                     <select
                       onChange={(e) => {
                         if (e.target.value === 'select') {
@@ -446,25 +519,27 @@ export default function DCLGraphContainer({ useAamSource, onModeChange, selected
                             dataSourcesSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
                           }
                         } else if (e.target.value === 'all') {
-                          selectAllSources();
+                          // FIX 1 & 2: Call parent callback instead of writing to localStorage
+                          onSelectAll();
                         }
                         e.target.value = 'all';
                       }}
-                      disabled={isProcessing}
+                      disabled={isProcessing || isModeTransitioning}
                       className="touch-target-h mobile-tap-highlight px-3 py-2 sm:px-2 sm:py-1 bg-gray-800 border border-gray-700 rounded text-xs sm:text-[10px] text-white focus:outline-none focus:border-blue-500 hover:border-gray-600 transition-colors disabled:opacity-50 cursor-pointer"
-                      title="Select data sources"
+                      title={isModeTransitioning ? "Mode transition in progress..." : "Select data sources"}
                     >
                       <option value="all">All Sources</option>
                       <option value="select">Select Sources...</option>
                     </select>
 
                     {/* LLM Model Selector */}
+                    {/* FIX 1: Disable during mode transition */}
                     <select
                       value={selectedModel}
                       onChange={(e) => setSelectedModel(e.target.value)}
-                      disabled={isProcessing}
+                      disabled={isProcessing || isModeTransitioning}
                       className="touch-target-h mobile-tap-highlight px-3 py-2 sm:px-2 sm:py-1 bg-gray-800 border border-gray-700 rounded text-xs sm:text-[10px] text-white focus:outline-none focus:border-blue-500 hover:border-gray-600 transition-colors disabled:opacity-50 cursor-pointer"
-                      title="Select LLM model for intelligent mapping"
+                      title={isModeTransitioning ? "Mode transition in progress..." : "Select LLM model for intelligent mapping"}
                     >
                       <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
                       <option value="gpt-5-mini">GPT-5 mini ⚡</option>
@@ -472,11 +547,12 @@ export default function DCLGraphContainer({ useAamSource, onModeChange, selected
                     </select>
                     
                     {/* Run Button */}
+                    {/* FIX 1: Disable during mode transition to prevent malformed /connect payloads with empty arrays */}
                     <button
                       onClick={handleRun}
-                      disabled={isProcessing}
-                      className="touch-target-h mobile-tap-highlight flex items-center gap-1.5 px-4 sm:px-2 py-2 sm:py-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 rounded-md text-xs sm:text-[10px] text-white shadow-lg shadow-emerald-500/30 transition-all disabled:opacity-50 justify-center"
-                      title="Run mapping with selected configuration"
+                      disabled={isProcessing || isModeTransitioning}
+                      className="touch-target-h mobile-tap-highlight flex items-center gap-1.5 px-4 sm:px-2 py-2 sm:py-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 rounded-md text-xs sm:text-[10px] text-white shadow-lg shadow-emerald-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed justify-center"
+                      title={isModeTransitioning ? "Mode transition in progress..." : "Run mapping with selected configuration"}
                     >
                       {isProcessing ? (
                         <>
