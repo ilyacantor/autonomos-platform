@@ -231,14 +231,14 @@ function renderSankey(
 
   state.nodes.forEach(n => {
     nodeIndexMap[n.id] = nodeIndex;
-    const fixedLayer = layerMap[n.type] !== undefined ? layerMap[n.type] : 1;
+    const targetLayer = layerMap[n.type] !== undefined ? layerMap[n.type] : 1;
     sankeyNodes.push({
       name: n.label,
       type: n.type,
       id: n.id,
       sourceSystem: n.sourceSystem,
       parentId: n.parentId,
-      fixedLayer: fixedLayer  // Use fixedLayer (d3-sankey won't overwrite this)
+      layer: targetLayer  // Use 'layer' - d3-sankey respects this property natively
     } as any);
     nodeIndex++;
   });
@@ -280,17 +280,8 @@ function renderSankey(
     .attr('height', calculatedHeight)
     .attr('viewBox', `0 0 ${validWidth} ${calculatedHeight}`);
 
-  // Custom nodeAlign function that uses our fixedLayer property
-  // (d3-sankey overwrites 'depth' during layout, so we use a different property)
-  const customNodeAlign = (node: any, n: number) => {
-    const layer = node.fixedLayer !== undefined ? node.fixedLayer : 1;
-    // Debug: Log first 5 node alignments
-    if (n < 5) {
-      console.log('[nodeAlign Debug] node:', node.id, 'fixedLayer:', node.fixedLayer, 'returning:', layer);
-    }
-    return layer;
-  };
-
+  // D3-sankey respects node.layer property natively - no custom nodeAlign needed!
+  // We just need to set .layer on each node and d3-sankey will position them correctly
   const sankey = d3Sankey<SankeyNode, SankeyLink>()
     .nodeWidth(8)
     .nodePadding(18)
@@ -298,8 +289,7 @@ function renderSankey(
       [1, 20],
       [validWidth - 1, calculatedHeight - 20],
     ])
-    .nodeId((d: any) => d.id)  // Tell d3-sankey to use id field for node identity
-    .nodeAlign(customNodeAlign);  // Use our custom alignment based on fixedLayer
+    .nodeId((d: any) => d.id);  // Tell d3-sankey to use id field for node identity
 
   const graph = sankey({
     nodes: sankeyNodes.map(d => Object.assign({}, d)),
