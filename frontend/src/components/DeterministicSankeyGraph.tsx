@@ -324,16 +324,22 @@ function renderDeterministicGraph(
     bounds: layout.bounds
   });
 
-  // STEP 5: Set SVG dimensions
-  const calculatedHeight = Math.min(
-    containerSize.height,
-    100 + (layout.nodes.length * 40)
-  );
+  // STEP 5: Set SVG dimensions with proper viewBox for responsive scaling
+  // Use actual layout bounds to ensure graph fits at all zoom levels
+  const padding = 20; // Padding around graph edges
+  const viewBoxX = layout.bounds.minX - padding;
+  const viewBoxY = layout.bounds.minY - padding;
+  const viewBoxWidth = (layout.bounds.maxX - layout.bounds.minX) + (padding * 2);
+  const viewBoxHeight = (layout.bounds.maxY - layout.bounds.minY) + (padding * 2);
 
+  // Set viewBox to encompass entire graph with padding
+  // preserveAspectRatio="xMidYMid meet" ensures graph scales proportionally to fit container
   svg
-    .attr('width', containerSize.width)
-    .attr('height', calculatedHeight)
-    .attr('viewBox', `0 0 ${containerSize.width} ${calculatedHeight}`);
+    .attr('viewBox', `${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}`)
+    .attr('preserveAspectRatio', 'xMidYMid meet')
+    .style('width', '100%')
+    .style('height', 'auto')
+    .style('max-height', `${containerSize.height}px`);
 
   // Helper function to get edge stroke color
   const getEdgeColor = (edge: PositionedEdge, sourceNode: PositionedNode | undefined, targetNode: PositionedNode | undefined) => {
