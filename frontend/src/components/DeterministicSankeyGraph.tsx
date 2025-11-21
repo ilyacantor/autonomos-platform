@@ -346,12 +346,74 @@ function renderDeterministicGraph(
     bounds: layout.bounds
   });
 
-  // STEP 5: Set SVG dimensions with proper viewBox for responsive scaling
-  // Use actual layout bounds to ensure graph fits at all zoom levels
-  const padding = 20; // Padding around graph edges
+  // STEP 5: Calculate label dimensions to determine true content bounds
+  // Labels extend to the right of nodes, so we need to include them in bounds calculation
+  const labelGap = 8; // Gap between node and label
+  
+  // Collect label data to calculate true content extent
+  const labelData: Array<{
+    node: PositionedNode;
+    label: string;
+    fontSize: number;
+    pillHeight: number;
+    pillWidth: number;
+    padding: number;
+    borderColor: string;
+  }> = [];
+
+  layout.nodes.forEach(node => {
+    if (node.type === 'source_parent' || node.type === 'source' || node.type === 'ontology' || node.type === 'agent') {
+      // For source nodes (L1), use sourceSystem as label
+      // For ontology nodes, remove "(Unified)" or "(unified)" suffix
+      let label = node.label || 'Unknown';
+      
+      if (node.type === 'source' && node.sourceSystem) {
+        label = node.sourceSystem;
+      } else if (node.type === 'ontology') {
+        label = label.replace(/\s*\(unified\)\s*/i, '').trim();
+      }
+      
+      const padding = 4;
+      const fontSize = 10;
+      const pillHeight = 16;
+      const textWidth = label.length * 6;
+      const pillWidth = textWidth + (padding * 2);
+      
+      let borderColor = '#475569';
+      if (node.type === 'source_parent') {
+        borderColor = '#22c55e';
+      } else if (node.type === 'source') {
+        const sourceKey = node.sourceSystem?.toLowerCase() || '';
+        borderColor = sourceColorMap[sourceKey]?.parent || '#60a5fa';
+      } else if (node.type === 'ontology') {
+        borderColor = '#60a5fa';
+      } else if (node.type === 'agent') {
+        borderColor = '#9333ea';
+      }
+      
+      labelData.push({
+        node,
+        label,
+        fontSize,
+        pillHeight,
+        pillWidth,
+        padding,
+        borderColor
+      });
+    }
+  });
+
+  // Calculate true content bounds including labels
+  const contentMaxX = Math.max(
+    layout.bounds.maxX,
+    ...labelData.map(item => item.node.x0 + item.node.width + labelGap + item.pillWidth)
+  );
+
+  // STEP 6: Set SVG dimensions with proper viewBox for responsive scaling
+  const padding = 20;
   const viewBoxX = layout.bounds.minX - padding;
   const viewBoxY = layout.bounds.minY - padding;
-  const viewBoxWidth = (layout.bounds.maxX - layout.bounds.minX) + (padding * 2);
+  const viewBoxWidth = (contentMaxX - layout.bounds.minX) + (padding * 2);
   const viewBoxHeight = (layout.bounds.maxY - layout.bounds.minY) + (padding * 2);
 
   // Set viewBox to encompass entire graph with padding
@@ -573,66 +635,7 @@ function renderDeterministicGraph(
     .attr('stroke-opacity', d => getNodeStrokeOpacity(d, hoveredNode === d.id))
     .attr('rx', 2);
 
-  // Pillbox labels for source_parent, ontology, and agent nodes
-  const labelData: Array<{
-    node: PositionedNode;
-    label: string;
-    fontSize: number;
-    pillHeight: number;
-    pillWidth: number;
-    padding: number;
-    borderColor: string;
-  }> = [];
-
-  // Collect label data
-  layout.nodes.forEach(node => {
-    if (node.type === 'source_parent' || node.type === 'source' || node.type === 'ontology' || node.type === 'agent') {
-      // For source nodes (L1), use sourceSystem as label
-      // For ontology nodes, remove "(Unified)" or "(unified)" suffix
-      let label = node.label || 'Unknown';
-      
-      if (node.type === 'source' && node.sourceSystem) {
-        // Use sourceSystem for L1 source nodes
-        label = node.sourceSystem;
-      } else if (node.type === 'ontology') {
-        label = label.replace(/\s*\(unified\)\s*/i, '').trim();
-      }
-      
-      const padding = 4;
-      const fontSize = 10;
-      const pillHeight = 16;
-      
-      // Estimate text width (approximation)
-      const textWidth = label.length * 6;
-      const pillWidth = textWidth + (padding * 2);
-      
-      // Determine border color based on node type
-      let borderColor = '#475569';
-      if (node.type === 'source_parent') {
-        borderColor = '#22c55e';
-      } else if (node.type === 'source') {
-        // Use source-specific color based on sourceSystem
-        const sourceKey = node.sourceSystem?.toLowerCase() || '';
-        borderColor = sourceColorMap[sourceKey]?.parent || '#60a5fa';
-      } else if (node.type === 'ontology') {
-        borderColor = '#60a5fa';
-      } else if (node.type === 'agent') {
-        borderColor = '#9333ea';
-      }
-      
-      labelData.push({
-        node,
-        label,
-        fontSize,
-        pillHeight,
-        pillWidth,
-        padding,
-        borderColor
-      });
-    }
-  });
-
-  // Render pillbox labels
+  // Render pillbox labels (labelData already calculated in STEP 5)
   labelData.forEach(item => {
     const pillGroup = nodeGroup
       .append('g')
