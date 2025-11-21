@@ -586,10 +586,15 @@ function renderDeterministicGraph(
 
   // Collect label data
   layout.nodes.forEach(node => {
-    if (node.type === 'source_parent' || node.type === 'ontology' || node.type === 'agent') {
+    if (node.type === 'source_parent' || node.type === 'source' || node.type === 'ontology' || node.type === 'agent') {
+      // For source nodes (L1), use sourceSystem as label
       // For ontology nodes, remove "(Unified)" or "(unified)" suffix
       let label = node.label || 'Unknown';
-      if (node.type === 'ontology') {
+      
+      if (node.type === 'source' && node.sourceSystem) {
+        // Use sourceSystem for L1 source nodes
+        label = node.sourceSystem;
+      } else if (node.type === 'ontology') {
         label = label.replace(/\s*\(unified\)\s*/i, '').trim();
       }
       
@@ -605,6 +610,10 @@ function renderDeterministicGraph(
       let borderColor = '#475569';
       if (node.type === 'source_parent') {
         borderColor = '#22c55e';
+      } else if (node.type === 'source') {
+        // Use source-specific color based on sourceSystem
+        const sourceKey = node.sourceSystem?.toLowerCase() || '';
+        borderColor = sourceColorMap[sourceKey]?.parent || '#60a5fa';
       } else if (node.type === 'ontology') {
         borderColor = '#60a5fa';
       } else if (node.type === 'agent') {
