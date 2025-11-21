@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import LiveSankeyGraph from './LiveSankeyGraph';
+import DeterministicSankeyGraph from './DeterministicSankeyGraph';
 
 interface LazyGraphShellProps {
   selectedSources?: string[];
   selectedAgents?: string[];
 }
+
+const USE_DETERMINISTIC_GRAPH = true;
 
 export default function LazyGraphShell({ selectedSources = [], selectedAgents = [] }: LazyGraphShellProps) {
   const [isGraphActive, setIsGraphActive] = useState(false);
@@ -41,10 +44,12 @@ export default function LazyGraphShell({ selectedSources = [], selectedAgents = 
     };
   }, [isGraphActive]);
 
+  const GraphComponent = USE_DETERMINISTIC_GRAPH ? DeterministicSankeyGraph : LiveSankeyGraph;
+
   return (
     <div ref={observerRef} className="w-full">
       {isGraphActive ? (
-        <LiveSankeyGraph 
+        <GraphComponent 
           isActive={isGraphActive} 
           selectedSources={selectedSources}
           selectedAgents={selectedAgents}
