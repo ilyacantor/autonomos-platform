@@ -1,8 +1,9 @@
 # AutonomOS - Multi-Tenant AI Orchestration Platform
 
-**Last Updated:** November 20, 2025
+**Last Updated:** November 21, 2025
 
 **Recent Architecture Changes:**
+- **DCL Sankey Graph Rendering Fix (Nov 21, 2025)**: Fixed critical d3-sankey "missing: 189" error that prevented graph rendering. Root cause: links used numeric indices while `.nodeId()` configuration required string IDs. **Fundamental fix**: Changed `SankeyLink` source/target from `number` to `number | string`, updated link generation to use actual node IDs (`e.source`, `e.target`) instead of array indices (`nodeIndexMap[e.source]`). Graph now renders correctly with proper 4-column layout (L0-L3 layers).
 - **Backend Event Loop Blocking Fix (Nov 20, 2025)**: Fixed Gateway middleware (Audit + Idempotency) that were making synchronous blocking calls in async context, causing complete server freeze. Implemented thread pool execution for DB/Redis operations. Audit and Idempotency middleware temporarily disabled until further testing.
 - Platform Guide converted from static HTML to React component for deployment compatibility
 - ArchitecturePage.tsx removed in favor of PlatformGuidePage.tsx (bundled with frontend)

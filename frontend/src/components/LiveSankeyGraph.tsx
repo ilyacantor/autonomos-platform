@@ -12,8 +12,8 @@ interface SankeyNode {
 }
 
 interface SankeyLink {
-  source: number;
-  target: number;
+  source: number | string;
+  target: number | string;
   value: number;
   edgeType?: 'hierarchy' | 'dataflow';
   sourceSystem?: string;
@@ -242,8 +242,8 @@ function renderSankey(
       const edgeType = ((e as any).edgeType ?? (e as any).edge_type ?? 'dataflow') as 'hierarchy' | 'dataflow';
 
       sankeyLinks.push({
-        source: nodeIndexMap[e.source],
-        target: nodeIndexMap[e.target],
+        source: e.source,
+        target: e.target,
         value: 1,
         edgeType: edgeType,
         sourceSystem: sourceNode?.sourceSystem,
