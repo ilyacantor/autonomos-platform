@@ -230,18 +230,40 @@ function renderDeterministicGraph(
     'CSV Files': 'csv'
   };
 
-  // For demo graph: Show ALL nodes without filtering
-  // Demo graph is pre-curated with exactly the right nodes to display
+  // Apply user-selected filters for sources and agents
   let filteredNodes = state.nodes;
-  
-  // Skip filtering logic for demo - we want to show the complete curated demo graph
-  console.log('[Deterministic Graph] Demo mode - showing all nodes:', {
-    totalNodes: state.nodes.length,
-    nodeTypes: state.nodes.reduce((acc: Record<string, number>, n) => {
-      acc[n.type] = (acc[n.type] || 0) + 1;
-      return acc;
-    }, {})
-  });
+
+  // Filter source nodes based on selectedSources
+  if (selectedSources.length > 0) {
+    filteredNodes = filteredNodes.filter(node => {
+      // Always keep source_parent, ontology, and agent nodes
+      if (node.type === 'source_parent' || node.type === 'ontology' || node.type === 'agent') {
+        // For agents, filter by selectedAgents
+        if (node.type === 'agent') {
+          return selectedAgents.length === 0 || selectedAgents.includes(node.id);
+        }
+        return true;
+      }
+      
+      // For source nodes, check if their sourceSystem is in selectedSources
+      if (node.type === 'source' && node.sourceSystem) {
+        const normalizedSource = SOURCE_SYSTEM_MAPPING[node.sourceSystem] || node.sourceSystem.toLowerCase();
+        return selectedSources.includes(normalizedSource);
+      }
+      
+      return true;
+    });
+  }
+
+  // Also filter by selectedAgents if specified
+  if (selectedAgents.length > 0) {
+    filteredNodes = filteredNodes.filter(node => {
+      if (node.type === 'agent') {
+        return selectedAgents.includes(node.id);
+      }
+      return true;
+    });
+  }
 
   console.log('[Deterministic Graph] After filtering:', {
     filteredNodes: filteredNodes.length,
