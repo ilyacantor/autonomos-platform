@@ -47,11 +47,7 @@ interface GraphState {
   confidence?: number;
 }
 
-interface LiveSankeyGraphProps {
-  isActive?: boolean;
-}
-
-export default function LiveSankeyGraph({ isActive = true }: LiveSankeyGraphProps) {
+export default function LiveSankeyGraph() {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<GraphState | null>(null);
@@ -61,9 +57,6 @@ export default function LiveSankeyGraph({ isActive = true }: LiveSankeyGraphProp
   const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
-    // Only fetch if graph is active (visible)
-    if (!isActive) return;
-
     const fetchState = async () => {
       try {
         const response = await fetch(API_CONFIG.buildDclUrl('/state'));
@@ -80,7 +73,27 @@ export default function LiveSankeyGraph({ isActive = true }: LiveSankeyGraphProp
     window.addEventListener('dcl-state-changed', handleRefetch);
     
     return () => window.removeEventListener('dcl-state-changed', handleRefetch);
-  }, [isActive]);
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!containerRef.current) return;
+    
+    const rect = containerRef.current.getBoundingClientRect();
+    let width = rect.width;
+    let height = rect.height;
+    
+    if (width === 0) {
+      width = containerRef.current.clientWidth || 320;
+    }
+    
+    if (height === 0) {
+      const isDesktop = window.innerWidth >= 768;
+      height = containerRef.current.clientHeight || (isDesktop ? 400 : 200);
+    }
+    
+    console.log('[DCL Graph] Initial containerSize from getBoundingClientRect:', { width, height });
+    setContainerSize({ width, height });
+  }, []);
 
   useLayoutEffect(() => {
     if (!state || !svgRef.current || !containerRef.current) return;
@@ -142,7 +155,15 @@ export default function LiveSankeyGraph({ isActive = true }: LiveSankeyGraphProp
         for (const entry of entries) {
           const { width, height } = entry.contentRect;
           if (width > 0) {
-            setContainerSize({ width, height: height || 400 });
+            // FIX: ResizeObserver fallback for height=0
+            // When contentRect.height is 0 but container has md:min-h-[400px],
+            // use 400px fallback for desktop (>=768px) or 200px for mobile
+            let finalHeight = height;
+            if (height === 0) {
+              const isDesktop = window.innerWidth >= 768; // md breakpoint
+              finalHeight = isDesktop ? 400 : 200;
+            }
+            setContainerSize({ width, height: finalHeight });
           }
         }
       });
@@ -158,24 +179,24 @@ export default function LiveSankeyGraph({ isActive = true }: LiveSankeyGraphProp
     };
   }, []);
 
-  // Block rendering until ResizeObserver provides valid dimensions
-  if (!containerSize.width || !containerSize.height) {
-    return (
-      <div ref={containerRef} className="rounded-xl bg-gray-800/40 border border-gray-700 shadow-sm ring-1 ring-cyan-500/10 p-1 w-full md:min-h-[400px] flex items-center justify-center">
+  // FIX: Persistent wrapper prevents ResizeObserver deadlock
+  // containerRef stays mounted while content changes
+  return (
+    <div 
+      ref={containerRef} 
+      className="rounded-xl bg-gray-800/40 border border-gray-700 shadow-sm ring-1 ring-cyan-500/10 p-1 w-full md:min-h-[400px] flex items-center justify-center"
+    >
+      {(!containerSize.width || !containerSize.height) ? (
         <div className="flex items-center justify-center md:min-h-[400px]">
           <div className="text-sm text-gray-400 animate-pulse">Loading graph...</div>
         </div>
-      </div>
-    );
-  }
-
-  return (
-    <div ref={containerRef} className="rounded-xl bg-gray-800/40 border border-gray-700 shadow-sm ring-1 ring-cyan-500/10 p-1 w-full md:min-h-[400px] flex items-center justify-center">
-      <svg
-        ref={svgRef}
-        className="w-full h-auto"
-        style={{ display: 'block' }}
-      />
+      ) : (
+        <svg
+          ref={svgRef}
+          className="w-full h-auto"
+          style={{ display: 'block' }}
+        />
+      )}
     </div>
   );
 }
@@ -331,6 +352,11 @@ function renderSankey(
     typeFailures: typeFailures.slice(0, 5)
   });
   
+  // FIX: Issue #3 - Console logging to verify node distribution
+  console.log(`[DCL Graph] X distribution: {x0_count: ${layerCounts[0] || 0}, x1_count: ${layerCounts[1] || 0}, x2_count: ${layerCounts[2] || 0}, x3_count: ${layerCounts[3] || 0}}`);
+  
+  // FIX: Preserve d3-sankey computed Y positions
+  // Only recalculate link positions based on node positions (no manual Y override)
   const recalculateLinkPositions = () => {
     links.forEach((link: any) => {
       const source = link.source;
@@ -343,48 +369,11 @@ function renderSankey(
   
   recalculateLinkPositions();
 
-  const ontologyNodesInSankey = nodes.filter(n => {
-    const nodeData = sankeyNodes.find(sn => sn.name === n.name);
-    return nodeData && nodeData.type === 'ontology';
-  });
+  // REMOVED: Manual ontology Y-position override
+  // d3-sankey already computed optimal vertical distribution
   
-  if (ontologyNodesInSankey.length > 1) {
-    const totalOntologyHeight = ontologyNodesInSankey.reduce((sum, n) => sum + (n.y1! - n.y0!), 0);
-    const availableSpace = calculatedHeight - totalOntologyHeight - 80;
-    const spacing = availableSpace / (ontologyNodesInSankey.length - 1);
-    
-    let currentY = 40;
-    ontologyNodesInSankey.forEach(node => {
-      const nodeHeight = node.y1! - node.y0!;
-      node.y0 = currentY;
-      node.y1 = currentY + nodeHeight;
-      currentY += nodeHeight + spacing;
-    });
-    
-    recalculateLinkPositions();
-  }
-
-  const agentNodesInSankey = nodes.filter(n => {
-    const nodeData = sankeyNodes.find(sn => sn.name === n.name);
-    return nodeData && nodeData.type === 'agent';
-  });
-  
-  if (agentNodesInSankey.length > 0) {
-    const totalAgentHeight = agentNodesInSankey.reduce((sum, n) => sum + (n.y1! - n.y0!), 0);
-    const agentSpacing = 40;
-    const totalPadding = (agentNodesInSankey.length - 1) * agentSpacing;
-    const centerY = (calculatedHeight - totalAgentHeight - totalPadding) / 2;
-    
-    let currentY = centerY;
-    agentNodesInSankey.forEach(node => {
-      const nodeHeight = node.y1! - node.y0!;
-      node.y0 = currentY;
-      node.y1 = currentY + nodeHeight;
-      currentY += nodeHeight + agentSpacing;
-    });
-    
-    recalculateLinkPositions();
-  }
+  // REMOVED: Manual agent Y-position override  
+  // d3-sankey already computed optimal vertical distribution
 
   const sourceColorMap: Record<string, { parent: string; child: string }> = {
     dynamics: { parent: '#3b82f6', child: '#60a5fa' },
