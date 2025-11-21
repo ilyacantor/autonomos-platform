@@ -37,11 +37,11 @@ export default function LazyGraphShell() {
   }, [isGraphActive]);
 
   return (
-    <div ref={observerRef} className="w-full">
+    <div ref={observerRef} className="w-full min-h-[500px]">
       {isGraphActive ? (
-        <LiveSankeyGraph isActive={isGraphActive} />
+        <LiveSankeyGraph />
       ) : (
-        <div className="rounded-xl bg-gray-800/40 border border-gray-700 shadow-sm ring-1 ring-cyan-500/10 p-8 w-full md:min-h-[400px] flex items-center justify-center">
+        <div className="rounded-xl bg-gray-800/40 border border-gray-700 shadow-sm ring-1 ring-cyan-500/10 p-8 w-full h-[500px] flex items-center justify-center">
           <p className="text-sm text-gray-400">Scroll to view interactive graph...</p>
         </div>
       )}

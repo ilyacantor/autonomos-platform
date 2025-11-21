@@ -47,16 +47,16 @@ localPort = 33815
 externalPort = 3000
 
 [[ports]]
-localPort = 39973
-externalPort = 4200
-
-[[ports]]
 localPort = 41733
 externalPort = 3001
 
 [[ports]]
 localPort = 42445
 externalPort = 3003
+
+[[ports]]
+localPort = 45603
+externalPort = 4200
 
 [deployment]
 run = ["bash", "start.sh"]
