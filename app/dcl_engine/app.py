@@ -2675,11 +2675,12 @@ async def broadcast_state_change(event_type: str = "state_update", tenant_id: st
             "type": event_type,
             "timestamp": time.time(),
             "data": {
+                "nodes": filtered_graph["nodes"],
+                "edges": filtered_graph["edges"],
                 "sources": current_sources,
                 "agents": current_agents,
                 "devMode": get_dev_mode(),
                 "sourceMode": source_mode,
-                "graph": filtered_graph,  # Send filtered graph instead of raw GRAPH_STATE
                 "llmCalls": llm_stats["calls"],
                 "llmTokens": llm_stats["tokens"],
                 "llmCallsSaved": llm_stats["calls_saved"],
