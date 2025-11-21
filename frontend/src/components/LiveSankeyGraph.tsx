@@ -303,6 +303,10 @@ function renderSankey(
     validWidth - rightPadding - 8
   ];
   
+  // Debug: Count nodes by type and layer
+  const layerCounts: Record<number, number> = {};
+  const typeFailures: string[] = [];
+  
   nodes.forEach(node => {
     const nodeData = sankeyNodes.find(n => n.name === node.name);
     if (nodeData && nodeData.type && layerMap[nodeData.type] !== undefined) {
@@ -310,11 +314,21 @@ function renderSankey(
       node.depth = layer;
       node.x0 = layerXPositions[layer];
       node.x1 = layerXPositions[layer] + 8;
+      layerCounts[layer] = (layerCounts[layer] || 0) + 1;
     } else {
       node.depth = 1;
       node.x0 = layerXPositions[1];
       node.x1 = layerXPositions[1] + 8;
+      layerCounts[1] = (layerCounts[1] || 0) + 1;
+      typeFailures.push(node.name);
     }
+  });
+  
+  console.log('[DCL Graph] Node positioning:', {
+    totalNodes: nodes.length,
+    layerCounts,
+    layerXPositions,
+    typeFailures: typeFailures.slice(0, 5)
   });
   
   const recalculateLinkPositions = () => {
