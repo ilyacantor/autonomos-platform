@@ -64,6 +64,7 @@ export default function DeterministicSankeyGraph({
   const [state, setState] = useState<GraphState | null>(null);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
+  const [hoveredEdge, setHoveredEdge] = useState<string | null>(null);
 
   // Fetch graph state from backend
   useEffect(() => {
@@ -131,9 +132,11 @@ export default function DeterministicSankeyGraph({
       selectedSources,
       selectedAgents,
       hoveredNode,
-      setHoveredNode
+      setHoveredNode,
+      hoveredEdge,
+      setHoveredEdge
     );
-  }, [state, containerSize, selectedSources, selectedAgents, hoveredNode]);
+  }, [state, containerSize, selectedSources, selectedAgents, hoveredNode, hoveredEdge]);
 
   // Loading state
   if (!containerSize.width || !containerSize.height) {
@@ -167,7 +170,9 @@ function renderDeterministicGraph(
   selectedSources: string[],
   selectedAgents: string[],
   hoveredNode: string | null,
-  setHoveredNode: (id: string | null) => void
+  setHoveredNode: (id: string | null) => void,
+  hoveredEdge: string | null,
+  setHoveredEdge: (id: string | null) => void
 ) {
   const svg = d3.select(svgElement);
   svg.selectAll('*').remove();
@@ -183,6 +188,18 @@ function renderDeterministicGraph(
       .text('No data available. Click "Connect & Map" to start.');
     return;
   }
+
+  // Source color map for visual styling
+  const sourceColorMap: Record<string, { parent: string; child: string }> = {
+    dynamics: { parent: '#3b82f6', child: '#60a5fa' },
+    salesforce: { parent: '#8b5cf6', child: '#a78bfa' },
+    sap: { parent: '#10b981', child: '#34d399' },
+    netsuite: { parent: '#f59e0b', child: '#fbbf24' },
+    legacy_sql: { parent: '#ef4444', child: '#f87171' },
+    snowflake: { parent: '#06b6d4', child: '#22d3ee' },
+    supabase: { parent: '#14b8a6', child: '#2dd4bf' },
+    mongodb: { parent: '#10b981', child: '#34d399' },
+  };
 
   // STEP 1: Filter nodes based on selections
   let filteredNodes = state.nodes;
@@ -284,8 +301,105 @@ function renderDeterministicGraph(
     .attr('height', calculatedHeight)
     .attr('viewBox', `0 0 ${containerSize.width} ${calculatedHeight}`);
 
+  // Helper function to get edge stroke color
+  const getEdgeColor = (edge: PositionedEdge, sourceNode: PositionedNode | undefined, targetNode: PositionedNode | undefined) => {
+    // Color hierarchy edges from source_parent (layer 0) to source (layer 1) green
+    if (edge.edgeType === 'hierarchy' && sourceNode?.type === 'source_parent') {
+      return '#22c55e';
+    }
+    
+    // Other hierarchy edges remain gray
+    if (edge.edgeType === 'hierarchy') {
+      return '#475569';
+    }
+    
+    if (targetNode && targetNode.type === 'agent') {
+      return '#9333ea';
+    }
+    if (edge.sourceSystem) {
+      return sourceColorMap[edge.sourceSystem]?.child || '#0bcad9';
+    }
+    return '#94a3b8';
+  };
+
+  // Helper function to get edge opacity
+  const getEdgeOpacity = (edge: PositionedEdge, sourceNode: PositionedNode | undefined, isHovered: boolean) => {
+    if (isHovered) {
+      return edge.edgeType === 'hierarchy' ? 0.6 : 0.7;
+    }
+    
+    if (edge.edgeType === 'hierarchy') {
+      return 0.35;
+    }
+    
+    if (sourceNode && (sourceNode.type === 'source' || sourceNode.type === 'source_parent')) {
+      return 0.7;
+    }
+    
+    return 0.4;
+  };
+
+  // Helper function to check if source node has outgoing dataflow
+  const hasOutgoingDataflow = (nodeId: string) => {
+    return state.edges.some(e => 
+      e.source === nodeId && (e.edgeType ?? 'dataflow') === 'dataflow'
+    );
+  };
+
+  // Helper function to get node fill opacity
+  const getNodeFillOpacity = (node: PositionedNode, isHovered: boolean) => {
+    if (node.type === 'ontology') {
+      return isHovered ? 1 : 0.9;
+    } else if (node.type === 'source') {
+      const hasDataflow = hasOutgoingDataflow(node.id);
+      return hasDataflow ? 1 : 0.5;
+    } else if (node.type === 'agent') {
+      return 0;
+    } else if (node.type === 'source_parent') {
+      return 0.7;
+    }
+    return 0.7;
+  };
+
+  // Helper function to get node stroke opacity
+  const getNodeStrokeOpacity = (node: PositionedNode, isHovered: boolean) => {
+    if (isHovered && (node.type === 'source' || node.type === 'agent')) {
+      return 1;
+    }
+    
+    if (node.type === 'source') {
+      const hasDataflow = hasOutgoingDataflow(node.id);
+      return hasDataflow ? 1 : 0.6;
+    } else if (node.type === 'agent' || node.type === 'source_parent') {
+      return 1;
+    }
+    
+    return 0;
+  };
+
   // STEP 6: Render edges (drawn first, so nodes appear on top)
   const edgeGroup = svg.append('g').attr('class', 'edges');
+
+  // Create edge tooltip
+  const edgeTooltip = d3.select('body')
+    .selectAll('.sankey-edge-tooltip')
+    .data([null])
+    .join('div')
+    .attr('class', 'sankey-edge-tooltip')
+    .style('position', 'fixed')
+    .style('background', 'rgba(15, 23, 42, 0.95)')
+    .style('color', '#e2e8f0')
+    .style('padding', '8px 12px')
+    .style('border-radius', '6px')
+    .style('border', '1px solid #475569')
+    .style('font-size', '12px')
+    .style('pointer-events', 'none')
+    .style('z-index', '10000')
+    .style('box-shadow', '0 4px 6px rgba(0, 0, 0, 0.3)')
+    .style('max-width', '400px')
+    .style('font-family', 'system-ui, -apple-system, sans-serif')
+    .style('opacity', '0')
+    .style('display', 'none');
 
   edgeGroup
     .selectAll('path')
@@ -293,13 +407,64 @@ function renderDeterministicGraph(
     .join('path')
     .attr('d', d => d.path)
     .attr('fill', 'none')
-    .attr('stroke', '#475569')
-    .attr('stroke-width', 2)
-    .attr('opacity', 0.4)
-    .attr('stroke-linecap', 'round');
+    .attr('stroke', d => {
+      const sourceNode = layout.nodes.find(n => n.id === d.source);
+      const targetNode = layout.nodes.find(n => n.id === d.target);
+      return getEdgeColor(d, sourceNode, targetNode);
+    })
+    .attr('stroke-width', d => Math.min(Math.max(0.5, d.value * 2), 20))
+    .attr('opacity', d => {
+      const sourceNode = layout.nodes.find(n => n.id === d.source);
+      const edgeKey = `${d.source}-${d.target}`;
+      const isHovered = hoveredEdge === edgeKey;
+      return getEdgeOpacity(d, sourceNode, isHovered);
+    })
+    .attr('stroke-linecap', 'round')
+    .style('cursor', 'pointer')
+    .on('mouseenter', function(event: MouseEvent, d: PositionedEdge) {
+      const edgeKey = `${d.source}-${d.target}`;
+      setHoveredEdge(edgeKey);
+      
+      const sourceNode = layout.nodes.find(n => n.id === d.source);
+      const targetNode = layout.nodes.find(n => n.id === d.target);
+      const tooltipContent = getEdgeTooltip(sourceNode, targetNode, d);
+      
+      edgeTooltip
+        .html(tooltipContent)
+        .style('left', (event.pageX + 10) + 'px')
+        .style('top', (event.pageY - 10) + 'px')
+        .style('opacity', '1')
+        .style('display', 'block');
+    })
+    .on('mousemove', function(event: MouseEvent) {
+      edgeTooltip
+        .style('left', (event.pageX + 10) + 'px')
+        .style('top', (event.pageY - 10) + 'px');
+    })
+    .on('mouseleave', function() {
+      setHoveredEdge(null);
+      edgeTooltip.style('opacity', '0').style('display', 'none');
+    });
 
   // STEP 7: Render nodes
   const nodeGroup = svg.append('g').attr('class', 'nodes');
+
+  const nodeTooltip = d3.select('body')
+    .selectAll('.sankey-tooltip')
+    .data([null])
+    .join('div')
+    .attr('class', 'sankey-tooltip')
+    .style('position', 'absolute')
+    .style('background', 'rgba(15, 23, 42, 0.95)')
+    .style('color', '#e2e8f0')
+    .style('padding', '8px 12px')
+    .style('border-radius', '6px')
+    .style('border', '1px solid #475569')
+    .style('font-size', '12px')
+    .style('pointer-events', 'none')
+    .style('opacity', '0')
+    .style('z-index', '1000')
+    .style('box-shadow', '0 4px 6px rgba(0, 0, 0, 0.3)');
 
   const nodeElements = nodeGroup
     .selectAll('g')
@@ -308,17 +473,30 @@ function renderDeterministicGraph(
     .attr('class', 'node')
     .attr('transform', d => `translate(${d.x0},${d.y0})`)
     .style('cursor', 'pointer')
-    .on('mouseenter', function(event, d) {
+    .on('mouseenter', function(event: MouseEvent, d: PositionedNode) {
       setHoveredNode(d.id);
-      d3.select(this).select('rect')
-        .attr('stroke-width', 2)
-        .attr('stroke', '#06b6d4');
+      
+      let tooltipContent = `<strong>${d.label}</strong><br/>`;
+      tooltipContent += `Type: ${d.type}`;
+      
+      if (d.type === 'source' || d.type === 'source_parent') {
+        tooltipContent += `<br/>System: ${d.sourceSystem || 'Unknown'}`;
+      }
+      
+      nodeTooltip
+        .html(tooltipContent)
+        .style('opacity', '1')
+        .style('left', (event.pageX + 10) + 'px')
+        .style('top', (event.pageY - 10) + 'px');
     })
-    .on('mouseleave', function(event, d) {
+    .on('mousemove', function(event: MouseEvent) {
+      nodeTooltip
+        .style('left', (event.pageX + 10) + 'px')
+        .style('top', (event.pageY - 10) + 'px');
+    })
+    .on('mouseleave', function() {
       setHoveredNode(null);
-      d3.select(this).select('rect')
-        .attr('stroke-width', 1)
-        .attr('stroke', '#475569');
+      nodeTooltip.style('opacity', '0');
     });
 
   // Node rectangles
@@ -327,30 +505,171 @@ function renderDeterministicGraph(
     .attr('width', d => d.width)
     .attr('height', d => d.height)
     .attr('fill', '#1e293b')
+    .attr('fill-opacity', d => getNodeFillOpacity(d, hoveredNode === d.id))
     .attr('stroke', '#475569')
     .attr('stroke-width', 1)
+    .attr('stroke-opacity', d => getNodeStrokeOpacity(d, hoveredNode === d.id))
     .attr('rx', 2);
 
-  // Node labels (for ontology, agent, and source_parent nodes)
-  nodeElements
-    .filter(d => d.type === 'ontology' || d.type === 'agent' || d.type === 'source_parent')
-    .append('text')
-    .attr('x', d => d.width + 8)
-    .attr('y', d => d.height / 2)
-    .attr('dy', '0.35em')
-    .attr('fill', '#94a3b8')
-    .attr('font-size', '10px')
-    .attr('font-family', 'system-ui, -apple-system, sans-serif')
-    .text(d => {
-      let label = d.label || 'Unknown';
-      if (d.type === 'ontology') {
+  // Pillbox labels for source_parent, ontology, and agent nodes
+  const labelData: Array<{
+    node: PositionedNode;
+    label: string;
+    fontSize: number;
+    pillHeight: number;
+    pillWidth: number;
+    padding: number;
+    borderColor: string;
+  }> = [];
+
+  // Collect label data
+  layout.nodes.forEach(node => {
+    if (node.type === 'source_parent' || node.type === 'ontology' || node.type === 'agent') {
+      // For ontology nodes, remove "(Unified)" or "(unified)" suffix
+      let label = node.label || 'Unknown';
+      if (node.type === 'ontology') {
         label = label.replace(/\s*\(unified\)\s*/i, '').trim();
       }
-      return label;
-    });
+      
+      const padding = 4;
+      const fontSize = 10;
+      const pillHeight = 16;
+      
+      // Estimate text width (approximation)
+      const textWidth = label.length * 6;
+      const pillWidth = textWidth + (padding * 2);
+      
+      // Determine border color based on node type
+      let borderColor = '#475569';
+      if (node.type === 'source_parent') {
+        borderColor = '#22c55e';
+      } else if (node.type === 'ontology') {
+        borderColor = '#60a5fa';
+      } else if (node.type === 'agent') {
+        borderColor = '#9333ea';
+      }
+      
+      labelData.push({
+        node,
+        label,
+        fontSize,
+        pillHeight,
+        pillWidth,
+        padding,
+        borderColor
+      });
+    }
+  });
+
+  // Render pillbox labels
+  labelData.forEach(item => {
+    const pillGroup = nodeGroup
+      .append('g')
+      .attr('class', 'node-label-group')
+      .attr('transform', `translate(${item.node.x0 + item.node.width + 8}, ${item.node.y0 + item.node.height / 2})`);
+    
+    // Background pill
+    pillGroup.append('rect')
+      .attr('x', 0)
+      .attr('y', -item.pillHeight / 2)
+      .attr('width', item.pillWidth)
+      .attr('height', item.pillHeight)
+      .attr('rx', item.pillHeight / 2)
+      .attr('ry', item.pillHeight / 2)
+      .attr('fill', '#1e293b')
+      .attr('stroke', item.borderColor)
+      .attr('stroke-width', 1.5)
+      .attr('fill-opacity', 0.9)
+      .attr('stroke-opacity', 0.9);
+    
+    // Text label positioned inside pill
+    pillGroup.append('text')
+      .attr('x', item.pillWidth / 2)
+      .attr('y', 0)
+      .attr('text-anchor', 'middle')
+      .attr('dominant-baseline', 'central')
+      .attr('fill', '#e2e8f0')
+      .attr('font-size', item.fontSize)
+      .attr('font-family', 'system-ui, -apple-system, sans-serif')
+      .attr('font-weight', '500')
+      .attr('pointer-events', 'none')
+      .text(item.label);
+  });
 
   console.log('[Deterministic Graph] Rendered successfully:', {
     nodes: layout.nodes.length,
     edges: layout.edges.length
   });
+}
+
+/**
+ * Generate tooltip content for edges
+ */
+function getEdgeTooltip(
+  sourceNode: PositionedNode | undefined,
+  targetNode: PositionedNode | undefined,
+  edge: PositionedEdge
+): string {
+  if (!sourceNode || !targetNode) return 'Data Flow';
+  
+  const sourceName = sourceNode.label || 'Unknown';
+  const targetName = targetNode.label || 'Unknown';
+  
+  let flowDescription = '';
+  if (sourceNode.type === 'source_parent' && targetNode.type === 'source') {
+    flowDescription = 'System to table connection';
+  } else if (sourceNode.type === 'source' && targetNode.type === 'ontology') {
+    flowDescription = 'Raw data mapped to unified schema';
+  } else if (sourceNode.type === 'ontology' && targetNode.type === 'agent') {
+    flowDescription = 'Ontology field consumed by agent';
+  } else {
+    flowDescription = 'Data flow';
+  }
+  
+  let tooltip = `
+    <strong>Data Flow</strong><br>
+    <span style="color: #94a3b8; font-size: 10px;">${flowDescription}</span><br>
+    <div style="margin-top: 4px; padding-top: 4px; border-top: 1px solid #475569;">
+      <span style="color: #60a5fa;">From:</span> ${sourceName}<br>
+      <span style="color: #34d399;">To:</span> ${targetName}
+    </div>
+  `;
+  
+  if (edge.fieldMappings && edge.fieldMappings.length > 0) {
+    tooltip += `
+      <div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid #475569;">
+        <strong style="color: #a78bfa; font-size: 10px;">Field Mappings:</strong><br>
+        <div style="max-height: 120px; overflow-y: auto; margin-top: 4px;">
+    `;
+    edge.fieldMappings.forEach((field: any) => {
+      const sourceField = field.source || 'N/A';
+      const ontoField = field.onto_field || 'N/A';
+      const confidence = field.confidence ? `(${Math.round(field.confidence * 100)}%)` : '';
+      tooltip += `
+        <div style="font-size: 10px; margin: 2px 0; color: #cbd5e1;">
+          <span style="color: #60a5fa;">${sourceField}</span> → <span style="color: #34d399;">${ontoField}</span> <span style="color: #94a3b8;">${confidence}</span>
+        </div>
+      `;
+    });
+    tooltip += `</div></div>`;
+  }
+  
+  if (sourceNode.type === 'ontology' && targetNode.type === 'agent' && edge.entityFields && edge.entityFields.length > 0) {
+    const entityName = edge.entityName || 'entity';
+    tooltip += `
+      <div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid #475569;">
+        <strong style="color: #a78bfa; font-size: 10px;">Unified ${entityName.replace('_', ' ').toUpperCase()} Fields:</strong><br>
+        <div style="max-height: 120px; overflow-y: auto; margin-top: 4px;">
+    `;
+    edge.entityFields.forEach(field => {
+      tooltip += `
+        <div style="font-size: 10px; margin: 2px 0; color: #cbd5e1;">
+          <span style="color: #34d399;">•</span> ${field}
+        </div>
+      `;
+    });
+    tooltip += `</div></div>`;
+  }
+  
+  return tooltip;
 }
