@@ -222,15 +222,24 @@ function renderSankey(
   const nodeIndexMap: Record<string, number> = {};
   let nodeIndex = 0;
 
+  const layerMap: Record<string, number> = {
+    'source_parent': 0,
+    'source':        1,
+    'ontology':      2,
+    'agent':         3
+  };
+
   state.nodes.forEach(n => {
     nodeIndexMap[n.id] = nodeIndex;
+    const depth = layerMap[n.type] !== undefined ? layerMap[n.type] : 1;
     sankeyNodes.push({
       name: n.label,
       type: n.type,
       id: n.id,
       sourceSystem: n.sourceSystem,
-      parentId: n.parentId
-    });
+      parentId: n.parentId,
+      depth: depth  // Set depth BEFORE sankey layout
+    } as any);
     nodeIndex++;
   });
 
@@ -261,13 +270,6 @@ function renderSankey(
   // Allow mobile to shrink below 400px, only enforce minimum on desktop
   const isMobile = window.innerWidth < 768; // md breakpoint
   const validHeight = Math.max(containerRect.height, isMobile ? 200 : 400);
-
-  const layerMap: Record<string, number> = {
-    'source_parent': 0,
-    'source':        1,
-    'ontology':      2,
-    'agent':         3
-  };
   
   const totalNodeCount = sankeyNodes.length;
   const calculatedHeight = Math.min(validHeight, 100 + (totalNodeCount * 40));
@@ -304,6 +306,12 @@ function renderSankey(
     validWidth - rightPadding - 8
   ];
   
+  // Debug: Log layer positions
+  console.log('[Sankey Debug] Layer X Positions:', layerXPositions);
+  console.log('[Sankey Debug] Processing', nodes.length, 'nodes');
+  
+  let debugCounts = { source_parent: 0, source: 0, ontology: 0, agent: 0, unknown: 0 };
+  
   nodes.forEach(node => {
     const nodeData = sankeyNodes.find(n => n.id === (node as any).id);  // Match by ID, not name
     if (nodeData && nodeData.type && layerMap[nodeData.type] !== undefined) {
@@ -311,12 +319,17 @@ function renderSankey(
       node.depth = layer;
       node.x0 = layerXPositions[layer];
       node.x1 = layerXPositions[layer] + 8;
+      debugCounts[nodeData.type as keyof typeof debugCounts]++;
     } else {
       node.depth = 1;
       node.x0 = layerXPositions[1];
       node.x1 = layerXPositions[1] + 8;
+      debugCounts.unknown++;
     }
   });
+  
+  console.log('[Sankey Debug] Node distribution:', debugCounts);
+  console.log('[Sankey Debug] Sample x0 values:', nodes.slice(0, 10).map((n: any) => ({ id: (n as any).id, x0: n.x0 })));
   
   const recalculateLinkPositions = () => {
     links.forEach((link: any) => {
