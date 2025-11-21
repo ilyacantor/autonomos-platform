@@ -284,7 +284,8 @@ function renderSankey(
     .extent([
       [1, 20],
       [validWidth - 1, calculatedHeight - 20],
-    ]);
+    ])
+    .nodeId((d: any) => d.id);  // Tell d3-sankey to use id field for node identity
 
   const graph = sankey({
     nodes: sankeyNodes.map(d => Object.assign({}, d)),
@@ -304,7 +305,7 @@ function renderSankey(
   ];
   
   nodes.forEach(node => {
-    const nodeData = sankeyNodes.find(n => n.name === node.name);
+    const nodeData = sankeyNodes.find(n => n.id === (node as any).id);  // Match by ID, not name
     if (nodeData && nodeData.type && layerMap[nodeData.type] !== undefined) {
       const layer = layerMap[nodeData.type];
       node.depth = layer;
@@ -330,7 +331,7 @@ function renderSankey(
   recalculateLinkPositions();
 
   const ontologyNodesInSankey = nodes.filter(n => {
-    const nodeData = sankeyNodes.find(sn => sn.name === n.name);
+    const nodeData = sankeyNodes.find(sn => sn.id === (n as any).id);  // Match by ID
     return nodeData && nodeData.type === 'ontology';
   });
   
@@ -351,7 +352,7 @@ function renderSankey(
   }
 
   const agentNodesInSankey = nodes.filter(n => {
-    const nodeData = sankeyNodes.find(sn => sn.name === n.name);
+    const nodeData = sankeyNodes.find(sn => sn.id === (n as any).id);  // Match by ID
     return nodeData && nodeData.type === 'agent';
   });
   
@@ -399,7 +400,7 @@ function renderSankey(
   const tempGroup = svg.append('g');
   
   nodes.forEach((d: any) => {
-    const nodeData = sankeyNodes.find(n => n.name === d.name);
+    const nodeData = sankeyNodes.find(n => n.id === d.id);  // Match by ID
     
     // Only measure labels for source_parent, ontology, and agent nodes (same as label creation logic)
     if (nodeData && (nodeData.type === 'source_parent' || nodeData.type === 'ontology' || nodeData.type === 'agent')) {
@@ -474,7 +475,7 @@ function renderSankey(
     .attr('stroke', (d: any, i: number) => {
       const originalLink = sankeyLinks[i];
       const sourceNode = state.nodes.find(n => nodeIndexMap[n.id] === originalLink.source);
-      const targetNode = sankeyNodes.find(n => n.name === d.target.name);
+      const targetNode = sankeyNodes.find(n => n.id === d.target.id);  // Match by ID
       
       // Color hierarchy edges from source_parent (layer 0) to source (layer 1) green
       if (originalLink?.edgeType === 'hierarchy' && sourceNode?.type === 'source_parent') {
@@ -533,8 +534,8 @@ function renderSankey(
         d3.select(this).attr('stroke-opacity', 0.7);
       }
       
-      const sourceNodeData = sankeyNodes.find(n => n.name === d.source.name);
-      const targetNodeData = sankeyNodes.find(n => n.name === d.target.name);
+      const sourceNodeData = sankeyNodes.find(n => n.id === d.source.id);  // Match by ID
+      const targetNodeData = sankeyNodes.find(n => n.id === d.target.id);  // Match by ID
       
       const tooltipContent = getEdgeTooltip(sourceNodeData, targetNodeData, originalLink);
       
@@ -616,7 +617,7 @@ function renderSankey(
     })
     .attr('fill-opacity', (d: any) => {
       const nodeStyle = getNodeStyle(d, sankeyNodes);
-      const nodeData = sankeyNodes.find(n => n.name === d.name);
+      const nodeData = sankeyNodes.find(n => n.id === d.id);  // Match by ID
       
       if (nodeData?.type === 'ontology') {
         return 0.9;
@@ -642,7 +643,7 @@ function renderSankey(
       return nodeStyle.strokeWidth || 0;
     })
     .attr('stroke-opacity', (d: any) => {
-      const nodeData = sankeyNodes.find(n => n.name === d.name);
+      const nodeData = sankeyNodes.find(n => n.id === d.id);  // Match by ID
       
       if (nodeData?.type === 'source') {
         const hasOutgoingDataflow = state.edges.some(e => 
@@ -657,7 +658,7 @@ function renderSankey(
     })
     .style('cursor', 'pointer')
     .on('mouseenter', function(event: MouseEvent, d: any) {
-      const nodeData = sankeyNodes.find(n => n.name === d.name);
+      const nodeData = sankeyNodes.find(n => n.id === d.id);  // Match by ID
       if (!nodeData) return;
       
       if (nodeData.type === 'ontology') {
@@ -685,7 +686,7 @@ function renderSankey(
         .style('top', (event.pageY - 10) + 'px');
     })
     .on('mouseleave', function(event: MouseEvent, d: any) {
-      const nodeData = sankeyNodes.find(n => n.name === d.name);
+      const nodeData = sankeyNodes.find(n => n.id === d.id);  // Match by ID
       
       if (nodeData?.type === 'ontology') {
         d3.select(this).attr('fill-opacity', 0.9);
@@ -706,7 +707,7 @@ function renderSankey(
       tooltip.style('opacity', '0');
     })
     .on('click', async function(_event: MouseEvent, d: any) {
-      const nodeData = sankeyNodes.find(n => n.name === d.name);
+      const nodeData = sankeyNodes.find(n => n.id === d.id);  // Match by ID
       if (!nodeData) return;
       
       try {
@@ -739,7 +740,7 @@ function renderSankey(
   }> = [];
   
   nodeGroups.each(function (this: any, d: any) {
-    const nodeData = sankeyNodes.find(n => n.name === d.name);
+    const nodeData = sankeyNodes.find(n => n.id === d.id);  // Match by ID
     
     // Add labels to source_parent nodes (data sources), ontology nodes, and agent nodes
     if (nodeData && (nodeData.type === 'source_parent' || nodeData.type === 'ontology' || nodeData.type === 'agent')) {
