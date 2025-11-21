@@ -5,7 +5,7 @@ export const API_CONFIG = {
   BASE_URL,
   // Helper functions for consistent endpoint construction
   buildApiUrl: (path: string) => `${BASE_URL}/api/v1${path}`,
-  buildDclUrl: (path: string) => `${BASE_URL}/dcl${path}`,  // DCL app mounted at /dcl in main.py
+  buildDclUrl: (path: string) => `${BASE_URL}/dcl${path}`,
 };
 
 export const AUTH_TOKEN_KEY = 'aoa_jwt';

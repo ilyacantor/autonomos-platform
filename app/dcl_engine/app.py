@@ -608,17 +608,14 @@ class ConnectionManager:
             
             try:
                 await conn["websocket"].send_json(message)
-                print(f"[WS_BROADCAST] Successfully sent message to client (tenant: {conn.get('tenant_id', 'unknown')})", flush=True)
-            except Exception as e:
+            except Exception:
                 # Client disconnected - mark for removal
-                print(f"[WS_BROADCAST] Failed to send to client: {type(e).__name__}: {e} (tenant: {conn.get('tenant_id', 'unknown')})", flush=True)
                 disconnected.append(conn)
         
         # Remove disconnected clients
         for conn in disconnected:
             if conn in self.active_connections:
                 self.active_connections.remove(conn)
-                print(f"[WS_BROADCAST] Removed disconnected client from active connections", flush=True)
 
 ws_manager = ConnectionManager()
 
@@ -1759,8 +1756,7 @@ def apply_plan(con, source_key: str, plan: Dict[str, Any], tenant_id: str = "def
             nodes_to_add.append({
                 "id": target_node_id,
                 "label": f"{ent.replace('_', ' ').title()} (Unified)",
-                "type": "ontology",
-                "layer": 2
+                "type": "ontology"
             })
             
             # Prepare edge from source to ontology
@@ -1871,8 +1867,7 @@ def add_graph_nodes_for_source(source_key: str, tables: Dict[str, Any], tenant_i
         current_graph["nodes"].append({
             "id": parent_node_id,
             "label": parent_label,
-            "type": "source_parent",
-            "layer": 0
+            "type": "source_parent"
         })
     
     # Add source nodes with source name in label (e.g., "Account (Salesforce)")
@@ -1889,7 +1884,6 @@ def add_graph_nodes_for_source(source_key: str, tables: Dict[str, Any], tenant_i
             "id": node_id, 
             "label": label, 
             "type": "source",
-            "layer": 1,
             "sourceSystem": source_system,
             "sourceKey": source_key,
             "parentId": parent_node_id,
@@ -1920,8 +1914,7 @@ def add_graph_nodes_for_source(source_key: str, tables: Dict[str, Any], tenant_i
             current_graph["nodes"].append({
                 "id": f"agent_{agent_id}",
                 "label": agent_info.get("name", agent_id.title()),
-                "type": "agent",
-                "layer": 3
+                "type": "agent"
             })
     
     # Save updated graph state (state_access handles dual-path)
@@ -2675,12 +2668,11 @@ async def broadcast_state_change(event_type: str = "state_update", tenant_id: st
             "type": event_type,
             "timestamp": time.time(),
             "data": {
-                "nodes": filtered_graph["nodes"],
-                "edges": filtered_graph["edges"],
                 "sources": current_sources,
                 "agents": current_agents,
                 "devMode": get_dev_mode(),
                 "sourceMode": source_mode,
+                "graph": filtered_graph,  # Send filtered graph instead of raw GRAPH_STATE
                 "llmCalls": llm_stats["calls"],
                 "llmTokens": llm_stats["tokens"],
                 "llmCallsSaved": llm_stats["calls_saved"],
@@ -2942,11 +2934,6 @@ async def websocket_endpoint(
         - WebSocket connection is tagged with tenant_id
         - Broadcasts are filtered to only reach connections with matching tenant_id
     
-    Keep-Alive Strategy:
-        - Uses asyncio.wait_for with 30s timeout on receive_text()
-        - Sends ping frames every 25s to maintain connection
-        - Prevents connection timeout when client is in listen-only mode
-    
     Note: WebSocket authentication uses token query param instead of Depends()
           due to ASGI spec incompatibility with WebSocket upgrade handshake.
     """
@@ -2957,68 +2944,26 @@ async def websocket_endpoint(
             from app.security import decode_access_token
             payload = decode_access_token(token)
             tenant_id = payload.get("tenant_id", "default")
-        except Exception as e:
+        except Exception:
             # Invalid token - use default tenant (graceful fallback)
-            log(f"⚠️ WebSocket auth failed: {e}, using default tenant", "default")
             tenant_id = "default"
     
     # Connect with tenant_id tagging
     await ws_manager.connect(websocket, tenant_id=tenant_id)
-    
     try:
-        # Send immediate lightweight acknowledgment to keep connection alive
-        # This prevents client timeout while we build the full state payload
-        log(f"📡 Sending connection acknowledgment to WebSocket client (tenant: {tenant_id})", tenant_id)
-        try:
-            await websocket.send_json({
-                "type": "connection_ack",
-                "timestamp": time.time(),
-                "tenant_id": tenant_id,
-                "message": "Connection established, loading state..."
-            })
-            log(f"✅ Connection acknowledgment sent (tenant: {tenant_id})", tenant_id)
-        except Exception as ack_error:
-            log(f"⚠️ Failed to send connection ack: {ack_error} (tenant: {tenant_id})", tenant_id)
-            raise  # Re-raise to trigger disconnect
-        
-        # Now send the full state (this may take a while due to large payload)
-        log(f"📡 Building and sending full state to WebSocket client (tenant: {tenant_id})", tenant_id)
+        # Send initial state on connection
         await broadcast_state_change("connection_established", tenant_id)
-        log(f"✅ Full state sent successfully (tenant: {tenant_id})", tenant_id)
         
-        log(f"🔄 Starting message receive loop (tenant: {tenant_id})", tenant_id)
-        
-        # Keep connection alive with timeout-based receive loop
-        # This prevents indefinite blocking when client is in listen-only mode
+        # Keep connection alive and listen for client messages (if needed)
         while True:
-            try:
-                log(f"⏳ Waiting for client message... (tenant: {tenant_id})", tenant_id)
-                # Wait for client message with 30s timeout
-                # If no message received, timeout triggers and we send a ping
-                data = await asyncio.wait_for(websocket.receive_text(), timeout=30.0)
-                
-                # Client can request state refresh by sending "refresh"
-                if data == "refresh":
-                    log(f"🔄 Client requested state refresh (tenant: {tenant_id})", tenant_id)
-                    await broadcast_state_change("state_refresh", tenant_id)
-                else:
-                    log(f"📨 Received WebSocket message: {data[:100]} (tenant: {tenant_id})", tenant_id)
-            
-            except asyncio.TimeoutError:
-                # No message received in 30s - send ping to keep connection alive
-                log(f"⏰ No message in 30s, sending ping (tenant: {tenant_id})", tenant_id)
-                try:
-                    await websocket.send_json({"type": "ping", "timestamp": time.time()})
-                    log(f"✅ Ping sent successfully (tenant: {tenant_id})", tenant_id)
-                except Exception as ping_error:
-                    log(f"⚠️ Failed to send ping: {ping_error} (tenant: {tenant_id})", tenant_id)
-                    raise  # Re-raise to trigger disconnect
-    
+            data = await websocket.receive_text()
+            # Client can request state refresh by sending "refresh"
+            if data == "refresh":
+                await broadcast_state_change("state_refresh", tenant_id)
     except WebSocketDisconnect:
-        log(f"🔌 WebSocket client disconnected normally (tenant: {tenant_id})", tenant_id)
         ws_manager.disconnect(websocket)
     except Exception as e:
-        log(f"⚠️ WebSocket error: {type(e).__name__}: {e} (tenant: {tenant_id})", tenant_id)
+        log(f"⚠️ WebSocket error: {e}", tenant_id)
         ws_manager.disconnect(websocket)
 
 
@@ -3123,13 +3068,6 @@ def state(current_user = Depends(get_current_user)):
         # Legacy mode: Show all nodes (9 demo CSV sources + ontology + agents)
         # This ensures users see a complete graph visualization even without connections
         filtered_nodes = current_graph["nodes"]
-    
-    # BACKWARDS COMPATIBILITY: Add layer field to nodes that don't have it yet (from old Redis state)
-    # Layer mapping for d3-sankey horizontal positioning
-    layer_map = {"source_parent": 0, "source": 1, "ontology": 2, "agent": 3}
-    for node in filtered_nodes:
-        if "layer" not in node and node.get("type") in layer_map:
-            node["layer"] = layer_map[node["type"]]
     
     # Filter graph edges for Sankey rendering - exclude join edges to prevent circular references
     # D3-sankey requires a directed acyclic graph (DAG), but join edges create bidirectional cycles
