@@ -608,14 +608,17 @@ class ConnectionManager:
             
             try:
                 await conn["websocket"].send_json(message)
-            except Exception:
+                print(f"[WS_BROADCAST] Successfully sent message to client (tenant: {conn.get('tenant_id', 'unknown')})", flush=True)
+            except Exception as e:
                 # Client disconnected - mark for removal
+                print(f"[WS_BROADCAST] Failed to send to client: {type(e).__name__}: {e} (tenant: {conn.get('tenant_id', 'unknown')})", flush=True)
                 disconnected.append(conn)
         
         # Remove disconnected clients
         for conn in disconnected:
             if conn in self.active_connections:
                 self.active_connections.remove(conn)
+                print(f"[WS_BROADCAST] Removed disconnected client from active connections", flush=True)
 
 ws_manager = ConnectionManager()
 
@@ -2938,6 +2941,11 @@ async def websocket_endpoint(
         - WebSocket connection is tagged with tenant_id
         - Broadcasts are filtered to only reach connections with matching tenant_id
     
+    Keep-Alive Strategy:
+        - Uses asyncio.wait_for with 30s timeout on receive_text()
+        - Sends ping frames every 25s to maintain connection
+        - Prevents connection timeout when client is in listen-only mode
+    
     Note: WebSocket authentication uses token query param instead of Depends()
           due to ASGI spec incompatibility with WebSocket upgrade handshake.
     """
@@ -2948,26 +2956,68 @@ async def websocket_endpoint(
             from app.security import decode_access_token
             payload = decode_access_token(token)
             tenant_id = payload.get("tenant_id", "default")
-        except Exception:
+        except Exception as e:
             # Invalid token - use default tenant (graceful fallback)
+            log(f"⚠️ WebSocket auth failed: {e}, using default tenant", "default")
             tenant_id = "default"
     
     # Connect with tenant_id tagging
     await ws_manager.connect(websocket, tenant_id=tenant_id)
+    
     try:
-        # Send initial state on connection
-        await broadcast_state_change("connection_established", tenant_id)
+        # Send immediate lightweight acknowledgment to keep connection alive
+        # This prevents client timeout while we build the full state payload
+        log(f"📡 Sending connection acknowledgment to WebSocket client (tenant: {tenant_id})", tenant_id)
+        try:
+            await websocket.send_json({
+                "type": "connection_ack",
+                "timestamp": time.time(),
+                "tenant_id": tenant_id,
+                "message": "Connection established, loading state..."
+            })
+            log(f"✅ Connection acknowledgment sent (tenant: {tenant_id})", tenant_id)
+        except Exception as ack_error:
+            log(f"⚠️ Failed to send connection ack: {ack_error} (tenant: {tenant_id})", tenant_id)
+            raise  # Re-raise to trigger disconnect
         
-        # Keep connection alive and listen for client messages (if needed)
+        # Now send the full state (this may take a while due to large payload)
+        log(f"📡 Building and sending full state to WebSocket client (tenant: {tenant_id})", tenant_id)
+        await broadcast_state_change("connection_established", tenant_id)
+        log(f"✅ Full state sent successfully (tenant: {tenant_id})", tenant_id)
+        
+        log(f"🔄 Starting message receive loop (tenant: {tenant_id})", tenant_id)
+        
+        # Keep connection alive with timeout-based receive loop
+        # This prevents indefinite blocking when client is in listen-only mode
         while True:
-            data = await websocket.receive_text()
-            # Client can request state refresh by sending "refresh"
-            if data == "refresh":
-                await broadcast_state_change("state_refresh", tenant_id)
+            try:
+                log(f"⏳ Waiting for client message... (tenant: {tenant_id})", tenant_id)
+                # Wait for client message with 30s timeout
+                # If no message received, timeout triggers and we send a ping
+                data = await asyncio.wait_for(websocket.receive_text(), timeout=30.0)
+                
+                # Client can request state refresh by sending "refresh"
+                if data == "refresh":
+                    log(f"🔄 Client requested state refresh (tenant: {tenant_id})", tenant_id)
+                    await broadcast_state_change("state_refresh", tenant_id)
+                else:
+                    log(f"📨 Received WebSocket message: {data[:100]} (tenant: {tenant_id})", tenant_id)
+            
+            except asyncio.TimeoutError:
+                # No message received in 30s - send ping to keep connection alive
+                log(f"⏰ No message in 30s, sending ping (tenant: {tenant_id})", tenant_id)
+                try:
+                    await websocket.send_json({"type": "ping", "timestamp": time.time()})
+                    log(f"✅ Ping sent successfully (tenant: {tenant_id})", tenant_id)
+                except Exception as ping_error:
+                    log(f"⚠️ Failed to send ping: {ping_error} (tenant: {tenant_id})", tenant_id)
+                    raise  # Re-raise to trigger disconnect
+    
     except WebSocketDisconnect:
+        log(f"🔌 WebSocket client disconnected normally (tenant: {tenant_id})", tenant_id)
         ws_manager.disconnect(websocket)
     except Exception as e:
-        log(f"⚠️ WebSocket error: {e}", tenant_id)
+        log(f"⚠️ WebSocket error: {type(e).__name__}: {e} (tenant: {tenant_id})", tenant_id)
         ws_manager.disconnect(websocket)
 
 
