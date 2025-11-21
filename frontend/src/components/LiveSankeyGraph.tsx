@@ -231,14 +231,14 @@ function renderSankey(
 
   state.nodes.forEach(n => {
     nodeIndexMap[n.id] = nodeIndex;
-    const depth = layerMap[n.type] !== undefined ? layerMap[n.type] : 1;
+    const fixedLayer = layerMap[n.type] !== undefined ? layerMap[n.type] : 1;
     sankeyNodes.push({
       name: n.label,
       type: n.type,
       id: n.id,
       sourceSystem: n.sourceSystem,
       parentId: n.parentId,
-      depth: depth  // Set depth BEFORE sankey layout
+      fixedLayer: fixedLayer  // Use fixedLayer (d3-sankey won't overwrite this)
     } as any);
     nodeIndex++;
   });
@@ -280,10 +280,15 @@ function renderSankey(
     .attr('height', calculatedHeight)
     .attr('viewBox', `0 0 ${validWidth} ${calculatedHeight}`);
 
-  // Custom nodeAlign function that uses our pre-assigned depth values
+  // Custom nodeAlign function that uses our fixedLayer property
+  // (d3-sankey overwrites 'depth' during layout, so we use a different property)
   const customNodeAlign = (node: any, n: number) => {
-    // Use the depth we pre-assigned based on node type
-    return node.depth !== undefined ? node.depth : 1;
+    const layer = node.fixedLayer !== undefined ? node.fixedLayer : 1;
+    // Debug: Log first 5 node alignments
+    if (n < 5) {
+      console.log('[nodeAlign Debug] node:', node.id, 'fixedLayer:', node.fixedLayer, 'returning:', layer);
+    }
+    return layer;
   };
 
   const sankey = d3Sankey<SankeyNode, SankeyLink>()
@@ -294,7 +299,7 @@ function renderSankey(
       [validWidth - 1, calculatedHeight - 20],
     ])
     .nodeId((d: any) => d.id)  // Tell d3-sankey to use id field for node identity
-    .nodeAlign(customNodeAlign);  // Use our custom alignment based on depth
+    .nodeAlign(customNodeAlign);  // Use our custom alignment based on fixedLayer
 
   const graph = sankey({
     nodes: sankeyNodes.map(d => Object.assign({}, d)),
