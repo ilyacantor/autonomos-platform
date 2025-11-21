@@ -539,7 +539,7 @@ export default function DCLGraphContainer({ useAamSource, onModeChange, selected
           </div>
 
           <div className="relative pb-2 md:min-h-[500px]">
-            <LazyGraphShell />
+            <LazyGraphShell selectedSources={selectedSources} selectedAgents={selectedAgents} />
           </div>
         </div>
 

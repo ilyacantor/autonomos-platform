@@ -49,9 +49,15 @@ interface GraphState {
 
 interface LiveSankeyGraphProps {
   isActive?: boolean;
+  selectedSources?: string[];
+  selectedAgents?: string[];
 }
 
-export default function LiveSankeyGraph({ isActive = true }: LiveSankeyGraphProps) {
+export default function LiveSankeyGraph({ 
+  isActive = true,
+  selectedSources = [],
+  selectedAgents = []
+}: LiveSankeyGraphProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<GraphState | null>(null);
@@ -94,7 +100,7 @@ export default function LiveSankeyGraph({ isActive = true }: LiveSankeyGraphProp
     }
 
     rafRef.current = requestAnimationFrame(() => {
-      renderSankey(state, svgRef.current!, containerRef.current!, animatingEdges);
+      renderSankey(state, svgRef.current!, containerRef.current!, animatingEdges, selectedSources, selectedAgents);
       setIsRendering(false);
     });
 
@@ -103,7 +109,7 @@ export default function LiveSankeyGraph({ isActive = true }: LiveSankeyGraphProp
         cancelAnimationFrame(rafRef.current);
       }
     };
-  }, [state, animatingEdges, containerSize]);
+  }, [state, animatingEdges, containerSize, selectedSources, selectedAgents]);
 
   const triggerEdgeAnimation = (edgeKey: string) => {
     setAnimatingEdges(prev => new Set(prev).add(edgeKey));
@@ -200,7 +206,9 @@ function renderSankey(
   state: GraphState,
   svgElement: SVGSVGElement,
   container: HTMLDivElement,
-  animatingEdges: Set<string>
+  animatingEdges: Set<string>,
+  selectedSources: string[] = [],
+  selectedAgents: string[] = []
 ) {
   const svg = d3.select(svgElement);
   svg.selectAll('*').remove();
@@ -217,6 +225,57 @@ function renderSankey(
     return;
   }
 
+  // FILTER nodes based on selections
+  let filteredNodes = state.nodes;
+
+  // Filter by sources if selections provided
+  if (selectedSources.length > 0) {
+    filteredNodes = filteredNodes.filter(node => {
+      // Keep non-source nodes (ontology, agents, parent)
+      if (node.type !== 'source') return true;
+      // For source nodes, only keep if their sourceSystem is selected
+      return node.sourceSystem && selectedSources.includes(node.sourceSystem);
+    });
+  }
+
+  // Filter by agents if selections provided
+  if (selectedAgents.length > 0) {
+    filteredNodes = filteredNodes.filter(node => {
+      // Keep non-agent nodes
+      if (node.type !== 'agent') return true;
+      // For agent nodes, only keep if selected (id format: agent_<name>)
+      const agentName = node.id.replace('agent_', '');
+      return selectedAgents.includes(agentName);
+    });
+  }
+
+  // Create set of valid node IDs for edge filtering
+  const validNodeIds = new Set(filteredNodes.map(n => n.id));
+
+  // FILTER edges - only keep edges where both endpoints exist in filtered nodes
+  const filteredEdges = state.edges.filter(edge => 
+    validNodeIds.has(edge.source) && validNodeIds.has(edge.target)
+  );
+
+  // Build filtered graph state
+  const filteredState: GraphState = {
+    ...state,
+    nodes: filteredNodes,
+    edges: filteredEdges
+  };
+
+  if (filteredNodes.length === 0) {
+    svg
+      .append('text')
+      .attr('x', '50%')
+      .attr('y', '50%')
+      .attr('text-anchor', 'middle')
+      .attr('fill', '#94a3b8')
+      .attr('font-size', '14px')
+      .text('No nodes match current filters.');
+    return;
+  }
+
   const sankeyNodes: SankeyNode[] = [];
   const sankeyLinks: SankeyLink[] = [];
   const nodeIndexMap: Record<string, number> = {};
@@ -229,7 +288,8 @@ function renderSankey(
     'agent':         3
   };
 
-  state.nodes.forEach(n => {
+  // Use FILTERED nodes
+  filteredState.nodes.forEach(n => {
     nodeIndexMap[n.id] = nodeIndex;
     const targetLayer = layerMap[n.type] !== undefined ? layerMap[n.type] : 1;
     sankeyNodes.push({
@@ -243,10 +303,11 @@ function renderSankey(
     nodeIndex++;
   });
 
-  state.edges.forEach(e => {
+  // Use FILTERED edges
+  filteredState.edges.forEach(e => {
     if (nodeIndexMap[e.source] !== undefined && nodeIndexMap[e.target] !== undefined) {
-      const sourceNode = state.nodes.find(n => n.id === e.source);
-      const targetNode = state.nodes.find(n => n.id === e.target);
+      const sourceNode = filteredState.nodes.find(n => n.id === e.source);
+      const targetNode = filteredState.nodes.find(n => n.id === e.target);
       
       const edgeType = ((e as any).edgeType ?? (e as any).edge_type ?? 'dataflow') as 'hierarchy' | 'dataflow';
 
