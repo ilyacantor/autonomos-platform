@@ -1,7 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import { sankey as d3Sankey, sankeyLinkHorizontal } from 'd3-sankey';
-import { useDCLState } from '../hooks/useDCLState';
 import { API_CONFIG } from '../config/api';
 
 interface SankeyNode {
@@ -10,7 +9,6 @@ interface SankeyNode {
   id: string;
   sourceSystem?: string;
   parentId?: string;
-  depth?: number;
 }
 
 interface SankeyLink {
@@ -49,42 +47,40 @@ interface GraphState {
   confidence?: number;
 }
 
-export default function LiveSankeyGraph() {
+interface LiveSankeyGraphProps {
+  isActive?: boolean;
+}
+
+export default function LiveSankeyGraph({ isActive = true }: LiveSankeyGraphProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const { state: dclState } = useDCLState(); // Use WebSocket-powered state hook
+  const [state, setState] = useState<GraphState | null>(null);
   const [animatingEdges, setAnimatingEdges] = useState<Set<string>>(new Set());
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [isRendering, setIsRendering] = useState(false);
   const rafRef = useRef<number | null>(null);
-  
-  // Convert DCLState to GraphState format for renderSankey
-  const state: GraphState | null = dclState ? {
-    nodes: dclState.nodes,
-    edges: dclState.edges,
-    dev_mode: dclState.dev_mode,
-    confidence: dclState.confidence || undefined,
-  } : null;
 
-  useLayoutEffect(() => {
-    if (!containerRef.current) return;
+  useEffect(() => {
+    // Only fetch if graph is active (visible)
+    if (!isActive) return;
+
+    const fetchState = async () => {
+      try {
+        const response = await fetch(API_CONFIG.buildDclUrl('/state'));
+        const data = await response.json();
+        setState(data);
+      } catch (error) {
+        console.error('Error fetching state:', error);
+      }
+    };
+
+    fetchState();
     
-    const rect = containerRef.current.getBoundingClientRect();
-    let width = rect.width;
-    let height = rect.height;
+    const handleRefetch = () => fetchState();
+    window.addEventListener('dcl-state-changed', handleRefetch);
     
-    if (width === 0) {
-      width = containerRef.current.clientWidth || 320;
-    }
-    
-    if (height === 0) {
-      const isDesktop = window.innerWidth >= 768;
-      height = containerRef.current.clientHeight || (isDesktop ? 400 : 200);
-    }
-    
-    console.log('[DCL Graph] Initial containerSize from getBoundingClientRect:', { width, height });
-    setContainerSize({ width, height });
-  }, []);
+    return () => window.removeEventListener('dcl-state-changed', handleRefetch);
+  }, [isActive]);
 
   useLayoutEffect(() => {
     if (!state || !svgRef.current || !containerRef.current) return;
@@ -146,15 +142,7 @@ export default function LiveSankeyGraph() {
         for (const entry of entries) {
           const { width, height } = entry.contentRect;
           if (width > 0) {
-            // FIX: ResizeObserver fallback for height=0
-            // When contentRect.height is 0 but container has md:min-h-[400px],
-            // use 400px fallback for desktop (>=768px) or 200px for mobile
-            let finalHeight = height;
-            if (height === 0) {
-              const isDesktop = window.innerWidth >= 768; // md breakpoint
-              finalHeight = isDesktop ? 400 : 200;
-            }
-            setContainerSize({ width, height: finalHeight });
+            setContainerSize({ width, height: height || 400 });
           }
         }
       });
@@ -170,24 +158,24 @@ export default function LiveSankeyGraph() {
     };
   }, []);
 
-  // FIX: Persistent wrapper prevents ResizeObserver deadlock
-  // containerRef stays mounted while content changes
-  return (
-    <div 
-      ref={containerRef} 
-      className="rounded-xl bg-gray-800/40 border border-gray-700 shadow-sm ring-1 ring-cyan-500/10 p-1 w-full md:min-h-[400px] flex items-center justify-center"
-    >
-      {(!containerSize.width || !containerSize.height) ? (
+  // Block rendering until ResizeObserver provides valid dimensions
+  if (!containerSize.width || !containerSize.height) {
+    return (
+      <div ref={containerRef} className="rounded-xl bg-gray-800/40 border border-gray-700 shadow-sm ring-1 ring-cyan-500/10 p-1 w-full md:min-h-[400px] flex items-center justify-center">
         <div className="flex items-center justify-center md:min-h-[400px]">
           <div className="text-sm text-gray-400 animate-pulse">Loading graph...</div>
         </div>
-      ) : (
-        <svg
-          ref={svgRef}
-          className="w-full h-auto"
-          style={{ display: 'block' }}
-        />
-      )}
+      </div>
+    );
+  }
+
+  return (
+    <div ref={containerRef} className="rounded-xl bg-gray-800/40 border border-gray-700 shadow-sm ring-1 ring-cyan-500/10 p-1 w-full md:min-h-[400px] flex items-center justify-center">
+      <svg
+        ref={svgRef}
+        className="w-full h-auto"
+        style={{ display: 'block' }}
+      />
     </div>
   );
 }
@@ -290,17 +278,9 @@ function renderSankey(
     .attr('height', calculatedHeight)
     .attr('viewBox', `0 0 ${validWidth} ${calculatedHeight}`);
 
-  // Configure d3-sankey to use our layerMap - set depth BEFORE calling sankey()
-  sankeyNodes.forEach(node => {
-    if (node.type && layerMap[node.type] !== undefined) {
-      node.depth = layerMap[node.type];
-    }
-  });
-
   const sankey = d3Sankey<SankeyNode, SankeyLink>()
     .nodeWidth(8)
     .nodePadding(18)
-    .nodeSort(null as any) // Disable automatic sorting
     .extent([
       [1, 20],
       [validWidth - 1, calculatedHeight - 20],
@@ -313,29 +293,84 @@ function renderSankey(
   
   const { nodes, links } = graph;
   
-  // Debug: Count nodes by type and layer
-  const layerCounts: Record<number, number> = {};
-  const typeFailures: string[] = [];
+  const leftPadding = 20;
+  const rightPadding = 20;
+  const layerWidth = (validWidth - leftPadding - rightPadding) / 3;
+  const layerXPositions = [
+    leftPadding,
+    leftPadding + layerWidth,
+    leftPadding + layerWidth * 2,
+    validWidth - rightPadding - 8
+  ];
   
   nodes.forEach(node => {
     const nodeData = sankeyNodes.find(n => n.name === node.name);
     if (nodeData && nodeData.type && layerMap[nodeData.type] !== undefined) {
       const layer = layerMap[nodeData.type];
-      layerCounts[layer] = (layerCounts[layer] || 0) + 1;
+      node.depth = layer;
+      node.x0 = layerXPositions[layer];
+      node.x1 = layerXPositions[layer] + 8;
     } else {
-      layerCounts[1] = (layerCounts[1] || 0) + 1;
-      typeFailures.push(node.name);
+      node.depth = 1;
+      node.x0 = layerXPositions[1];
+      node.x1 = layerXPositions[1] + 8;
     }
   });
   
-  console.log('[DCL Graph] Node positioning:', {
-    totalNodes: nodes.length,
-    layerCounts,
-    typeFailures: typeFailures.slice(0, 5)
+  const recalculateLinkPositions = () => {
+    links.forEach((link: any) => {
+      const source = link.source;
+      const target = link.target;
+      
+      link.y0 = source.y0 + (source.y1 - source.y0) / 2;
+      link.y1 = target.y0 + (target.y1 - target.y0) / 2;
+    });
+  };
+  
+  recalculateLinkPositions();
+
+  const ontologyNodesInSankey = nodes.filter(n => {
+    const nodeData = sankeyNodes.find(sn => sn.name === n.name);
+    return nodeData && nodeData.type === 'ontology';
   });
   
-  // FIX: Issue #3 - Console logging to verify node distribution
-  console.log(`[DCL Graph] X distribution: {x0_count: ${layerCounts[0] || 0}, x1_count: ${layerCounts[1] || 0}, x2_count: ${layerCounts[2] || 0}, x3_count: ${layerCounts[3] || 0}}`);
+  if (ontologyNodesInSankey.length > 1) {
+    const totalOntologyHeight = ontologyNodesInSankey.reduce((sum, n) => sum + (n.y1! - n.y0!), 0);
+    const availableSpace = calculatedHeight - totalOntologyHeight - 80;
+    const spacing = availableSpace / (ontologyNodesInSankey.length - 1);
+    
+    let currentY = 40;
+    ontologyNodesInSankey.forEach(node => {
+      const nodeHeight = node.y1! - node.y0!;
+      node.y0 = currentY;
+      node.y1 = currentY + nodeHeight;
+      currentY += nodeHeight + spacing;
+    });
+    
+    recalculateLinkPositions();
+  }
+
+  const agentNodesInSankey = nodes.filter(n => {
+    const nodeData = sankeyNodes.find(sn => sn.name === n.name);
+    return nodeData && nodeData.type === 'agent';
+  });
+  
+  if (agentNodesInSankey.length > 0) {
+    const totalAgentHeight = agentNodesInSankey.reduce((sum, n) => sum + (n.y1! - n.y0!), 0);
+    const agentSpacing = 40;
+    const totalPadding = (agentNodesInSankey.length - 1) * agentSpacing;
+    const centerY = (calculatedHeight - totalAgentHeight - totalPadding) / 2;
+    
+    let currentY = centerY;
+    agentNodesInSankey.forEach(node => {
+      const nodeHeight = node.y1! - node.y0!;
+      node.y0 = currentY;
+      node.y1 = currentY + nodeHeight;
+      currentY += nodeHeight + agentSpacing;
+    });
+    
+    recalculateLinkPositions();
+  }
 
   const sourceColorMap: Record<string, { parent: string; child: string }> = {
     dynamics: { parent: '#3b82f6', child: '#60a5fa' },
