@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import { sankey as d3Sankey, sankeyLinkHorizontal } from 'd3-sankey';
+import { useDCLState } from '../hooks/useDCLState';
 import { API_CONFIG } from '../config/api';
 
 interface SankeyNode {
@@ -9,6 +10,7 @@ interface SankeyNode {
   id: string;
   sourceSystem?: string;
   parentId?: string;
+  depth?: number;
 }
 
 interface SankeyLink {
@@ -50,30 +52,19 @@ interface GraphState {
 export default function LiveSankeyGraph() {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [state, setState] = useState<GraphState | null>(null);
+  const { state: dclState } = useDCLState(); // Use WebSocket-powered state hook
   const [animatingEdges, setAnimatingEdges] = useState<Set<string>>(new Set());
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [isRendering, setIsRendering] = useState(false);
   const rafRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    const fetchState = async () => {
-      try {
-        const response = await fetch(API_CONFIG.buildDclUrl('/state'));
-        const data = await response.json();
-        setState(data);
-      } catch (error) {
-        console.error('Error fetching state:', error);
-      }
-    };
-
-    fetchState();
-    
-    const handleRefetch = () => fetchState();
-    window.addEventListener('dcl-state-changed', handleRefetch);
-    
-    return () => window.removeEventListener('dcl-state-changed', handleRefetch);
-  }, []);
+  
+  // Convert DCLState to GraphState format for renderSankey
+  const state: GraphState | null = dclState ? {
+    nodes: dclState.nodes,
+    edges: dclState.edges,
+    dev_mode: dclState.dev_mode,
+    confidence: dclState.confidence || undefined,
+  } : null;
 
   useLayoutEffect(() => {
     if (!containerRef.current) return;
@@ -299,9 +290,17 @@ function renderSankey(
     .attr('height', calculatedHeight)
     .attr('viewBox', `0 0 ${validWidth} ${calculatedHeight}`);
 
+  // Configure d3-sankey to use our layerMap - set depth BEFORE calling sankey()
+  sankeyNodes.forEach(node => {
+    if (node.type && layerMap[node.type] !== undefined) {
+      node.depth = layerMap[node.type];
+    }
+  });
+
   const sankey = d3Sankey<SankeyNode, SankeyLink>()
     .nodeWidth(8)
     .nodePadding(18)
+    .nodeSort(null as any) // Disable automatic sorting
     .extent([
       [1, 20],
       [validWidth - 1, calculatedHeight - 20],
@@ -314,16 +313,6 @@ function renderSankey(
   
   const { nodes, links } = graph;
   
-  const leftPadding = 20;
-  const rightPadding = 20;
-  const layerWidth = (validWidth - leftPadding - rightPadding) / 3;
-  const layerXPositions = [
-    leftPadding,
-    leftPadding + layerWidth,
-    leftPadding + layerWidth * 2,
-    validWidth - rightPadding - 8
-  ];
-  
   // Debug: Count nodes by type and layer
   const layerCounts: Record<number, number> = {};
   const typeFailures: string[] = [];
@@ -332,14 +321,8 @@ function renderSankey(
     const nodeData = sankeyNodes.find(n => n.name === node.name);
     if (nodeData && nodeData.type && layerMap[nodeData.type] !== undefined) {
       const layer = layerMap[nodeData.type];
-      node.depth = layer;
-      node.x0 = layerXPositions[layer];
-      node.x1 = layerXPositions[layer] + 8;
       layerCounts[layer] = (layerCounts[layer] || 0) + 1;
     } else {
-      node.depth = 1;
-      node.x0 = layerXPositions[1];
-      node.x1 = layerXPositions[1] + 8;
       layerCounts[1] = (layerCounts[1] || 0) + 1;
       typeFailures.push(node.name);
     }
@@ -348,32 +331,11 @@ function renderSankey(
   console.log('[DCL Graph] Node positioning:', {
     totalNodes: nodes.length,
     layerCounts,
-    layerXPositions,
     typeFailures: typeFailures.slice(0, 5)
   });
   
   // FIX: Issue #3 - Console logging to verify node distribution
   console.log(`[DCL Graph] X distribution: {x0_count: ${layerCounts[0] || 0}, x1_count: ${layerCounts[1] || 0}, x2_count: ${layerCounts[2] || 0}, x3_count: ${layerCounts[3] || 0}}`);
-  
-  // FIX: Preserve d3-sankey computed Y positions
-  // Only recalculate link positions based on node positions (no manual Y override)
-  const recalculateLinkPositions = () => {
-    links.forEach((link: any) => {
-      const source = link.source;
-      const target = link.target;
-      
-      link.y0 = source.y0 + (source.y1 - source.y0) / 2;
-      link.y1 = target.y0 + (target.y1 - target.y0) / 2;
-    });
-  };
-  
-  recalculateLinkPositions();
-
-  // REMOVED: Manual ontology Y-position override
-  // d3-sankey already computed optimal vertical distribution
-  
-  // REMOVED: Manual agent Y-position override  
-  // d3-sankey already computed optimal vertical distribution
 
   const sourceColorMap: Record<string, { parent: string; child: string }> = {
     dynamics: { parent: '#3b82f6', child: '#60a5fa' },
