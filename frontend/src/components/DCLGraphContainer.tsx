@@ -324,12 +324,10 @@ export default function DCLGraphContainer({ useAamSource, onModeChange, selected
   // Toggle AAM mode handler - switches between AAM connectors (4 sources) and Legacy files (9 sources)
   // FIX 2: Call parent's onModeError callback for error propagation
   const toggleSourceMode = async () => {
-    console.log('[DCL] 🔄 toggleSourceMode() called - initiating mode toggle...');
     setToggleError(null); // Clear local errors
     
     try {
       // Call endpoint that toggles flag AND clears backend DCL cache
-      console.log('[DCL] 📡 Calling /dcl/toggle_aam_mode endpoint...');
       const response = await fetch(API_CONFIG.buildDclUrl('/dcl/toggle_aam_mode'), {
         method: 'POST',
         headers: { 
@@ -492,14 +490,7 @@ export default function DCLGraphContainer({ useAamSource, onModeChange, selected
                     {/* AAM/Legacy toggle - Switches between AAM connectors (4 sources) and Legacy CSV files (9 sources) */}
                     {/* FIX 1: Disable during mode transition */}
                     <button
-                      onClick={() => {
-                        console.log('[DCL] 🖱️ Legacy/AAM button clicked! Disabled:', isModeTransitioning || isProcessing, 'isModeTransitioning:', isModeTransitioning, 'isProcessing:', isProcessing);
-                        if (!isModeTransitioning && !isProcessing) {
-                          toggleSourceMode();
-                        } else {
-                          console.warn('[DCL] ⚠️ Button click blocked - mode transition or processing in progress');
-                        }
-                      }}
+                      onClick={toggleSourceMode}
                       disabled={isModeTransitioning || isProcessing}
                       className={`touch-target-h mobile-tap-highlight px-3 py-2 sm:px-2 sm:py-1 rounded text-xs sm:text-[10px] transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
                         useAamSource
