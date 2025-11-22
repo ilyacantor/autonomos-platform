@@ -1759,9 +1759,11 @@ def apply_plan(con, source_key: str, plan: Dict[str, Any], tenant_id: str = "def
                 "type": "ontology"
             })
             
-            # Prepare edge from source to ontology
+            # FUNDAMENTAL FIX: Create edge from SOURCE-LEVEL node (not table-level)
+            # This matches the new node structure where each source is one node
+            source_node_id = f"src_{source_key}"  # Use source-level ID (e.g., src_dynamics)
             edges_to_add.append({
-                "source": src_table, 
+                "source": source_node_id, 
                 "target": target_node_id, 
                 "label": f"{m['source_table']} → {ent}", 
                 "type": "mapping",
@@ -1779,14 +1781,9 @@ def apply_plan(con, source_key: str, plan: Dict[str, Any], tenant_id: str = "def
         except Exception as e:
             blockers.append(f"{ent}: union failed: {e}")
     
+    # Store joins metadata but don't create join edges (not meaningful at source-level)
     for j in plan.get("joins", []):
         joins.append({"left": j["left"], "right": j["right"], "reason": j.get("reason","")})
-        edges_to_add.append({
-            "source": f"src_{source_key}_{j['left'].split('.')[0]}",
-            "target": f"src_{source_key}_{j['right'].split('.')[0]}",
-            "label": j["left"].split('.')[-1] + " ↔ " + j["right"].split('.')[-1],
-            "type": "join"
-        })
     
     # Apply all graph state updates atomically (caller holds distributed lock)
     current_graph = state_access.get_graph_state(tenant_id)
@@ -1902,33 +1899,42 @@ def add_graph_nodes_for_source(source_key: str, tables: Dict[str, Any], tenant_i
                                    if not (e["target"] in existing_node_ids and e.get("edgeType") == "hierarchy")]
         log(f"🗑️  Removed {len(existing_node_ids)} existing nodes for source '{source_key}' before adding fresh data")
     
-    # Add source nodes with source name in label (e.g., "Account (Salesforce)")
+    # FUNDAMENTAL FIX: Create ONE source-level node per source (not per table)
+    # This matches frontend expectations: 9 Legacy sources or 4 AAM sources
     source_system = source_key.replace('_', ' ').title()
+    node_id = f"src_{source_key}"  # Single node ID per source (e.g., src_dynamics)
+    label = source_system  # Clean source name (e.g., "Dynamics")
     
+    # Aggregate all tables under this source into metadata
+    table_list = []
+    all_fields = []
     for t, table_data in tables.items():
-        node_id = f"src_{source_key}_{t}"
-        label = f"{source_system} - {t}"  # Source name displayed on node
-        # Extract field names from the schema
-        fields = list(table_data.get("schema", {}).keys()) if isinstance(table_data, dict) else []
-        
-        # Add source node with metadata
-        current_graph["nodes"].append({
-            "id": node_id, 
-            "label": label, 
-            "type": "source",
-            "sourceSystem": source_system,
-            "sourceKey": source_key,
-            "parentId": parent_node_id,
-            "fields": fields
+        table_fields = list(table_data.get("schema", {}).keys()) if isinstance(table_data, dict) else []
+        table_list.append({
+            "name": t,
+            "fields": table_fields
         })
-        
-        # Create hierarchy edge from consolidated parent to source table
-        current_graph["edges"].append({
-            "source": parent_node_id,
-            "target": node_id,
-            "edgeType": "hierarchy",
-            "value": 1
-        })
+        all_fields.extend(table_fields)
+    
+    # Add single source node with aggregated table metadata
+    current_graph["nodes"].append({
+        "id": node_id, 
+        "label": label, 
+        "type": "source",
+        "sourceSystem": source_system,
+        "sourceKey": source_key,
+        "parentId": parent_node_id,
+        "tables": table_list,  # All tables stored in metadata
+        "fields": list(set(all_fields))  # Unique fields across all tables
+    })
+    
+    # Create single hierarchy edge from consolidated parent to source
+    current_graph["edges"].append({
+        "source": parent_node_id,
+        "target": node_id,
+        "edgeType": "hierarchy",
+        "value": len(table_list)  # Edge weight reflects number of tables
+    })
     
     # Note: Ontology nodes will be added dynamically in apply_plan() 
     # only when they actually receive data from sources
