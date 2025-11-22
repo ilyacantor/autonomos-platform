@@ -1856,15 +1856,23 @@ def add_graph_nodes_for_source(source_key: str, tables: Dict[str, Any], tenant_i
     # Get current graph state for this tenant
     current_graph = state_access.get_graph_state(tenant_id)
     
-    # Use single consolidated parent node with mode-aware label
-    # All sources connect to this parent, making source visible via entity node labels
-    parent_node_id = "sys_aam_sources"
-    
-    # FUNDAMENTAL FIX: Mode-aware parent label based on feature flag
-    # Legacy mode (CSV files): "from Demo Sources"
-    # AAM mode (production connectors): "from AAM"
+    # FUNDAMENTAL FIX: Mode-aware parent ID and label based on feature flag
+    # Legacy mode (CSV files): sys_legacy_sources, "from Demo Sources"
+    # AAM mode (production connectors): sys_aam_sources, "from AAM"
     use_aam_mode = FeatureFlagConfig.is_enabled(FeatureFlag.USE_AAM_AS_SOURCE)
+    parent_node_id = "sys_aam_sources" if use_aam_mode else "sys_legacy_sources"
+    old_parent_id = "sys_legacy_sources" if use_aam_mode else "sys_aam_sources"
     parent_label = "from AAM" if use_aam_mode else "from Demo Sources"
+    
+    # CRITICAL: Remove old parent node when mode switches to prevent dual parents
+    old_parent = next((n for n in current_graph["nodes"] if n["id"] == old_parent_id), None)
+    if old_parent:
+        # Remove old parent node
+        current_graph["nodes"] = [n for n in current_graph["nodes"] if n["id"] != old_parent_id]
+        # Remove edges pointing to old parent (hierarchy edges)
+        current_graph["edges"] = [e for e in current_graph["edges"] 
+                                   if not (e["source"] == old_parent_id or e["target"] == old_parent_id)]
+        log(f"🔄 Mode switch detected: Removed old parent '{old_parent_id}'")
     
     # Add or update consolidated parent node with correct mode-aware label
     # CRITICAL: Always update label to match current mode (handles cache invalidation)
