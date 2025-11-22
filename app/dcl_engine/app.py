@@ -1880,6 +1880,20 @@ def add_graph_nodes_for_source(source_key: str, tables: Dict[str, Any], tenant_i
             "type": "source_parent"
         })
     
+    # FUNDAMENTAL FIX: Remove existing source nodes for this source_key before adding new ones
+    # This prevents duplicate accumulation when reconnecting sources
+    existing_node_ids = {n["id"] for n in current_graph["nodes"] if n.get("sourceKey") == source_key and n.get("type") == "source"}
+    if existing_node_ids:
+        # Remove old source nodes for this source
+        current_graph["nodes"] = [n for n in current_graph["nodes"] if n["id"] not in existing_node_ids]
+        
+        # CRITICAL: Only remove hierarchy edges (parent→source), preserve dataflow edges
+        # apply_plan() creates dataflow edges (source→ontology) BEFORE this function runs,
+        # using the same source node IDs we're about to recreate. Keep those edges.
+        current_graph["edges"] = [e for e in current_graph["edges"] 
+                                   if not (e["target"] in existing_node_ids and e.get("edgeType") == "hierarchy")]
+        log(f"🗑️  Removed {len(existing_node_ids)} existing nodes for source '{source_key}' before adding fresh data")
+    
     # Add source nodes with source name in label (e.g., "Account (Salesforce)")
     source_system = source_key.replace('_', ' ').title()
     
