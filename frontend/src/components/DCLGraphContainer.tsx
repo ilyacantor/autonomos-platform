@@ -636,7 +636,7 @@ export default function DCLGraphContainer({ useAamSource, onModeChange, selected
                 {dclState?.events.length || 0} events
               </span>
             </div>
-            <div className="text-xs space-y-1 overflow-y-auto">
+            <div className="text-xs space-y-1 overflow-y-auto max-h-[300px]">
               {typingEvents.length === 0 ? (
                 <div className="text-gray-500 italic text-[11px]">
                   No events yet. Start mapping to see the narration.
