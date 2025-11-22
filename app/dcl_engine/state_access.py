@@ -173,8 +173,7 @@ def append_event(tenant_id: str, message: str) -> None:
         import app.dcl_engine.app as app_module
         if not app_module.EVENT_LOG or app_module.EVENT_LOG[-1] != message:
             app_module.EVENT_LOG.append(message)
-        if len(app_module.EVENT_LOG) > 200:
-            app_module.EVENT_LOG.pop(0)
+        # No limit on event log size - keep all events for full narration
 
 
 def reset_all_state(tenant_id: str) -> None:

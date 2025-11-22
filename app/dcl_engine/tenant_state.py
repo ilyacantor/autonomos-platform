@@ -529,14 +529,14 @@ class TenantStateManager:
         key = self._get_key(tenant_id, "event_log")
         self._persist_state(key, events)
     
-    def append_event(self, tenant_id: str, event: str, max_events: int = 200) -> None:
+    def append_event(self, tenant_id: str, event: str, max_events: int = None) -> None:
         """
         Append event to tenant's event log (deduplicates consecutive duplicates).
         
         Args:
             tenant_id: Tenant identifier
             event: Event message to append
-            max_events: Maximum events to keep (oldest removed first)
+            max_events: Maximum events to keep (None = unlimited)
         """
         events = self.get_event_log(tenant_id)
         
@@ -544,8 +544,8 @@ class TenantStateManager:
         if not events or events[-1] != event:
             events.append(event)
         
-        # Trim to max_events
-        if len(events) > max_events:
+        # Trim to max_events only if specified
+        if max_events is not None and len(events) > max_events:
             events = events[-max_events:]
         
         self.set_event_log(tenant_id, events)
