@@ -2247,15 +2247,49 @@ def _blocking_source_pipeline(
         if not agents_config:
             agents_config = load_agents_config()
         
-        # Get adapter based on feature flag
-        adapter = get_source_adapter()
-        source_mode = "aam_connectors" if FeatureFlagConfig.is_enabled(FeatureFlag.USE_AAM_AS_SOURCE) else "demo_files"
+        # FUNDAMENTAL FIX: Per-source adapter selection with automatic fallback
+        # Try AAM adapter first if mode enabled, fall back to files if source not found
+        tables = None
+        source_mode = "unknown"
+        adapter_used = None
         
-        print(f"[TRACE_DCL] Using adapter mode: {source_mode}", flush=True)
-        log(f"📂 Using {source_mode} for source: {source_key} (tenant: {tenant_id})")
+        if FeatureFlagConfig.is_enabled(FeatureFlag.USE_AAM_AS_SOURCE):
+            # AAM mode: Try AAM adapter first, fall back to files if source not in AAM
+            try:
+                aam_adapter = AAMSourceAdapter()
+                available_aam_sources = aam_adapter.discover_sources(tenant_id)
+                
+                if source_key in available_aam_sources:
+                    tables = aam_adapter.load_tables(source_key, tenant_id)
+                    source_mode = "aam_connector"
+                    adapter_used = "AAMSourceAdapter"
+                    print(f"[TRACE_DCL] Using AAM connector for: {source_key}", flush=True)
+                else:
+                    # Source not in AAM, fall back to file adapter
+                    from app.dcl_engine.source_loader import FileSourceAdapter
+                    file_adapter = FileSourceAdapter()
+                    tables = file_adapter.load_tables(source_key, tenant_id)
+                    source_mode = "demo_files_fallback"
+                    adapter_used = "FileSourceAdapter (AAM fallback)"
+                    print(f"[TRACE_DCL] Source '{source_key}' not in AAM, using file fallback", flush=True)
+            except Exception as e:
+                # AAM adapter failed, fall back to files
+                from app.dcl_engine.source_loader import FileSourceAdapter
+                file_adapter = FileSourceAdapter()
+                tables = file_adapter.load_tables(source_key, tenant_id)
+                source_mode = "demo_files_fallback"
+                adapter_used = "FileSourceAdapter (AAM error fallback)"
+                log(f"⚠️ AAM adapter failed for {source_key}, using file fallback: {e}")
+        else:
+            # Legacy mode: Use file adapter only
+            from app.dcl_engine.source_loader import FileSourceAdapter
+            file_adapter = FileSourceAdapter()
+            tables = file_adapter.load_tables(source_key, tenant_id)
+            source_mode = "demo_files"
+            adapter_used = "FileSourceAdapter"
+            print(f"[TRACE_DCL] Using file adapter for: {source_key}", flush=True)
         
-        # BLOCKING I/O: Load source data (pandas read_csv - ~1-2s)
-        tables = adapter.load_tables(source_key, tenant_id)
+        log(f"📂 Using {adapter_used} for source: {source_key} (tenant: {tenant_id})")
         
         if not tables:
             print(f"[TRACE_DCL] ❌ No tables found for source '{source_key}'", flush=True)
