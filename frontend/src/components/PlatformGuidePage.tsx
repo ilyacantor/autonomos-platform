@@ -328,7 +328,7 @@ export default function PlatformGuidePage() {
           </div>
 
           <p className="text-gray-300">
-            We deliver a complete, secure, and scalable solution combining technology with domain expertise to ensure you get <strong style={{color: '#fff'}}>results</strong>, not just another proof-of-concept (POC).
+            We deliver a complete, secure, and scalable solution combining technology with domain expertise to ensure you get <strong style={{color: '#fff'}}>results</strong>.
           </p>
 
           <h3 style={{marginTop: '2rem', marginBottom: '1rem', color: '#58a6ff'}}>Current Status</h3>
@@ -371,7 +371,7 @@ export default function PlatformGuidePage() {
               <tr>
                 <th style={{width: '50%'}}>Capability</th>
                 <th style={{width: '15%'}}>Owner</th>
-                <th style={{width: '35%'}}>Plain English Description</th>
+                <th style={{width: '35%'}}>Description</th>
               </tr>
             </thead>
             <tbody>
@@ -451,7 +451,7 @@ export default function PlatformGuidePage() {
 
         {/* Platform Components */}
         <section id="components" className="pg-section">
-          <h2>Platform Components (Plain English)</h2>
+          <h2>Platform Components</h2>
           <p style={{marginBottom: '1.5rem', color: '#8b949e'}}>
             Here's what each part of the platform does, explained in simple terms.
           </p>
@@ -462,7 +462,7 @@ export default function PlatformGuidePage() {
           </p>
           <ul>
             <li><strong>Asset Discovery:</strong> Automatically scans your network and cloud to find data sources</li>
-            <li><strong>Shadow IT Detection:</strong> Machine learning identifies risky unauthorized data sources (precision ≥60%, recall ≥60%)</li>
+            <li><strong>Shadow IT Detection:</strong> Machine learning identifies risky unauthorized data sources.</li>
             <li><strong>NLP Query Interface:</strong> <span className="pg-status-badge pg-status-demo">Demo</span> Ask questions in plain English to find data sources (example: "show me all production databases")</li>
             <li><strong>Human Review Workflow:</strong> Security analysts can approve, quarantine, or investigate discovered assets</li>
             <li><strong>Auto-Connect to AAM:</strong> Approved sources automatically connect to the data mesh</li>
