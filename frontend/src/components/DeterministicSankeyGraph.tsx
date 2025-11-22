@@ -67,17 +67,17 @@ export default function DeterministicSankeyGraph({
   const [hoveredEdge, setHoveredEdge] = useState<string | null>(null);
 
   // Fetch graph state from backend
-  // IMPORTANT: Use /state endpoint for real DCL data with source-level nodes
+  // IMPORTANT: Use /demo/state endpoint for curated demo data (25 nodes), /state for production data
   useEffect(() => {
     if (!isActive) return;
 
     const fetchState = async () => {
       try {
-        const response = await fetch(API_CONFIG.buildDclUrl('/state'));
+        const response = await fetch(API_CONFIG.buildDclUrl('/demo/state'));
         const data = await response.json();
         setState(data);
       } catch (error) {
-        console.error('[Deterministic Graph] Error fetching state:', error);
+        console.error('[Deterministic Graph] Error fetching demo state:', error);
       }
     };
 
@@ -416,23 +416,14 @@ function renderDeterministicGraph(
   const viewBoxWidth = (contentMaxX - layout.bounds.minX) + (padding * 2);
   const viewBoxHeight = (layout.bounds.maxY - layout.bounds.minY) + (padding * 2);
 
-  // Debug logging for visibility troubleshooting
-  console.log('[Deterministic Graph] SVG Geometry:', {
-    containerSize,
-    viewBox: { x: viewBoxX, y: viewBoxY, width: viewBoxWidth, height: viewBoxHeight },
-    bounds: layout.bounds,
-    sampleNode: layout.nodes[0] ? { id: layout.nodes[0].id, x: layout.nodes[0].x0, y: layout.nodes[0].y0 } : null
-  });
-
-  // FUNDAMENTAL FIX: Set explicit height instead of 'auto' to prevent flexbox collapse
-  // The container uses 'flex items-center' which can cause SVG with h-auto to collapse to 0
-  const svgHeight = Math.max(400, containerSize.height || 400);
-  
+  // Set viewBox to encompass entire graph with padding
+  // preserveAspectRatio="xMidYMid meet" ensures graph scales proportionally to fit container
   svg
     .attr('viewBox', `${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}`)
     .attr('preserveAspectRatio', 'xMidYMid meet')
     .style('width', '100%')
-    .style('height', `${svgHeight}px`);
+    .style('height', 'auto')
+    .style('max-height', `${containerSize.height}px`);
 
   // Helper function to get edge stroke color
   const getEdgeColor = (edge: PositionedEdge, sourceNode: PositionedNode | undefined, targetNode: PositionedNode | undefined) => {
