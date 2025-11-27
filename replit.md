@@ -1,20 +1,53 @@
 # AutonomOS - Multi-Tenant AI Orchestration Platform
 
 ## Overview
-AutonomOS is a production-ready, multi-tenant SaaS platform for AI-driven data orchestration. It aims to abstract complexity and provide an end-to-end platform for data management.
+AutonomOS (AOS) is an AI-native "operating system" for the enterprise data/agent stack. It sits between chaotic source systems and domain agents, providing:
+1. **Discover & classify** everything that runs in your estate (AOD)
+2. **Connect & normalize** business data into a canonical ontology (AAM + DCL)
+3. **Feed agents & humans** clean, persona-specific streams of information (FinOps, RevOps, etc.)
 
 The platform is structured into three architectural layers:
 -   **Operational Infrastructure (Production Ready):**
-    -   **AOD (Autonomous Object Discovery):** External microservice for AI/ML asset discovery, Shadow IT detection, and NLP-based cataloging with HITL workflows.
-    -   **AAM (Adaptive API Mesh):** Transport layer providing self-healing data connectivity with 4 production connectors (Salesforce, MongoDB, FileSource, Supabase), handling authentication, data fetching, schema drift detection, and canonical event normalization.
-    -   **DCL (Data Connection Layer):** Intelligence layer for AI-driven entity mapping, graph generation, LLM-powered proposals, drift auto-repair, and agent execution context.
+    -   **AOD (Asset & Observability Discovery):** Component that discovers, catalogs, and scores everything running in the environment. Ingests infrastructure and SaaS telemetry, builds the Asset Graph, and flags shadow IT, risky assets, and anomalies.
+    -   **AAM (Adaptive API Mesh):** The connection and auth layer between AOS and external systems. Manages connectors (Salesforce, NetSuite, Stripe, etc.), mediates authentication, and exposes a uniform API for DCL, AOD, and Agents.
+    -   **DCL (Data Connectivity Layer):** The unification and ontology engine. Maintains the ontology (Account, Opportunity, Revenue, Cost, Usage), maps source fields to canonical fields, performs entity resolution, and produces canonical streams.
 -   **Platform Services (In Development):**
     -   **AOA (Agentic Orchestration Architecture):** High-level workflow orchestration engine for cross-domain playbooks and business process automation.
-    -   **NLP / Intent (Control Center):** Natural language interface with persona classification and query routing, moving towards a production RAG knowledge base.
+    -   **NLP / Intent (Control Center):** Natural language interface with persona classification and query routing.
 -   **Tailored Applications (In Development):**
-    -   **Pre-Built Agents:** Domain-specific AI agent library (FinOps, RevOps) with execution framework and context management, aiming for an agent marketplace.
+    -   **Pre-Built Agents:** Domain-specific AI agents (FinOps, RevOps) that consume DCL's canonical streams, combine domain rules with LLM/RAG reasoning, and produce recommendations, alerts, and actions.
 
-The platform ensures complete data isolation through JWT authentication and user management, providing secure, scalable, and enterprise-grade orchestration. The data flow is designed as: AOD (discover) → AAM (connect) → DCL (intelligence) → Agents (action).
+The platform ensures complete data isolation through JWT authentication and user management. Data flow: AOD (discover) → AAM (connect) → DCL (intelligence) → Agents (action).
+
+## Canonical Glossary
+
+### Core Concepts
+
+| Term | Definition |
+|------|------------|
+| **Asset** | Anything that RUNS: has a runtime/process, can be up or down, consumes CPU/RAM/IO, has blast radius. NOT Assets: CSV files, table definitions, GitHub repos, docs. |
+| **Source** | Logical system-of-record for one or more ontology entities in DCL. About business meaning, not infrastructure. |
+| **Ontology** | Formal definition of business entities (Account, Opportunity, Revenue, Cost, Usage, Health) and their relationships. |
+| **Canonical Entity** | Unified, deduplicated representation of a real-world thing across multiple Sources. |
+| **Canonical Stream** | Time-ordered stream of canonical entities produced by DCL for Agents and dashboards. |
+
+### Source Types
+
+| Type | Role | Is DCL Source? |
+|------|------|----------------|
+| SYSTEM_OF_RECORD | Where events originate (Salesforce, Stripe) | Yes |
+| CURATED | Cleaned/modeled warehouse tables (dim_customer) | Yes |
+| AGGREGATED | Rollups for reporting (MRR by segment) | Usually No |
+| CONSUMER_ONLY | Read-only visualization (Tableau, Looker) | No |
+
+### Personas
+
+| Persona | Primary Entities |
+|---------|-----------------|
+| CFO | Revenue, Cost, Margin, Cash, Risk |
+| CRO | Account, Opportunity, Pipeline, Churn |
+| COO | Usage, Health, SLAs, Incidents |
+| CTO | Assets, CloudResources, Cost, Risk, TechDebt |
 
 ## User Preferences
 

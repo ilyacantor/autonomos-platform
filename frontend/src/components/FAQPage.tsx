@@ -1,15 +1,19 @@
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, HelpCircle, BookOpen } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import GlossaryPage from './GlossaryPage';
 
 interface FAQItem {
   id: string;
   question: string;
   answer: string | JSX.Element;
   category: string;
-  searchableText?: string; // Plain text version for searching JSX answers
+  searchableText?: string;
 }
 
+type HelpTab = 'faq' | 'glossary';
+
 export default function FAQPage() {
+  const [activeTab, setActiveTab] = useState<HelpTab>('faq');
   const [openIndex, setOpenIndex] = useState<number | null>(0);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -511,44 +515,77 @@ export default function FAQPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0A1628] py-8 px-4 safe-area">
+    <div className="min-h-screen bg-[#0A1628] py-4 sm:py-8 px-3 sm:px-4 safe-area">
       <div className="w-full">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-medium text-white mb-4">
-            Help
+        <div className="text-center mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-medium text-white mb-3 sm:mb-4">
+            Help & Glossary
           </h1>
-          <p className="text-gray-400 text-lg">
-            Complete guide to every feature and element in AutonomOS
+          <p className="text-sm sm:text-base lg:text-lg text-gray-400">
+            Complete guide to every feature and canonical terminology in AutonomOS
           </p>
         </div>
 
-        {/* Search Box */}
-        <div className="mb-6">
-          <input
-            type="text"
-            placeholder="Search help topics..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full px-4 py-3 bg-[#0D2F3F] border border-[#1A4D5E] rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-[#0BCAD9] focus:ring-1 focus:ring-[#0BCAD9]"
-          />
-        </div>
-
-        {/* Category Filter */}
-        <div className="mb-8 flex flex-wrap gap-2 justify-center">
-          {categories.map(category => (
+        {/* Tab Navigation */}
+        <div className="flex justify-center mb-6 sm:mb-8">
+          <div className="inline-flex bg-gray-800/50 rounded-lg p-1 border border-gray-700">
             <button
-              key={category}
-              onClick={() => setSelectedCategory(category)}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                selectedCategory === category
-                  ? 'bg-[#0BCAD9] text-white'
-                  : 'bg-[#0D2F3F] text-gray-400 hover:bg-[#0F3A4F]'
+              onClick={() => setActiveTab('faq')}
+              className={`flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-2.5 rounded-md text-sm sm:text-base font-medium transition-all ${
+                activeTab === 'faq'
+                  ? 'bg-cyan-600 text-white shadow-lg'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
               }`}
             >
-              {category === 'all' ? 'All Topics' : category}
+              <HelpCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span>FAQ</span>
             </button>
-          ))}
+            <button
+              onClick={() => setActiveTab('glossary')}
+              className={`flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-2.5 rounded-md text-sm sm:text-base font-medium transition-all ${
+                activeTab === 'glossary'
+                  ? 'bg-cyan-600 text-white shadow-lg'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
+              }`}
+            >
+              <BookOpen className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span>Glossary</span>
+            </button>
+          </div>
         </div>
+
+        {/* Conditional Content */}
+        {activeTab === 'glossary' ? (
+          <GlossaryPage />
+        ) : (
+          <>
+            {/* Search Box */}
+            <div className="mb-6">
+              <input
+                type="text"
+                placeholder="Search help topics..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full px-4 py-3 bg-[#0D2F3F] border border-[#1A4D5E] rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-[#0BCAD9] focus:ring-1 focus:ring-[#0BCAD9]"
+              />
+            </div>
+
+            {/* Category Filter */}
+            <div className="mb-8 flex flex-wrap gap-2 justify-center">
+              {categories.map(category => (
+                <button
+                  key={category}
+                  onClick={() => setSelectedCategory(category)}
+                  className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-sm font-medium transition-colors ${
+                    selectedCategory === category
+                      ? 'bg-[#0BCAD9] text-white'
+                      : 'bg-[#0D2F3F] text-gray-400 hover:bg-[#0F3A4F]'
+                  }`}
+                >
+                  {category === 'all' ? 'All Topics' : category}
+                </button>
+              ))}
+            </div>
 
         {/* Results count */}
         {searchQuery && (
@@ -614,6 +651,8 @@ export default function FAQPage() {
             </button>
           </div>
         </div>
+          </>
+        )}
       </div>
     </div>
   );
