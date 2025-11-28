@@ -477,7 +477,56 @@ export default function FAQPage() {
       id: "hitl-workflow",
       category: "Security",
       question: "Human-in-the-Loop (HITL) - How does this work?",
-      answer: "HITL is a governance mechanism requiring human approval for high-risk operations. When AI confidence is below threshold (typically 80%), the system queues the decision for human review. Applies to: schema mapping conflicts, auto-repair suggestions, agent actions affecting production data. Reviews are tracked in audit logs with full decision history."
+      answer: "HITL is a governance mechanism requiring human approval for high-risk operations. When AI confidence is below threshold (typically 80%), the system queues the decision for human review. Applies to: schema mapping conflicts, auto-repair suggestions, agent actions affecting production data. The HITLRepairAudit database table is available for persistent audit logging (implementation in progress)."
+    },
+    {
+      id: "security-technical",
+      category: "Security",
+      question: "What technical security controls are implemented?",
+      searchableText: "Authentication JWT HS256 Argon2 bcrypt password hashing TLS Redis certificate validation API rate limiting SlowAPI 429 credential sanitization REDACTED tenant isolation UUID tenant_id Pydantic validation SQLAlchemy ORM SQL injection prevention schema fingerprinting drift detection",
+      answer: (
+        <div className="space-y-4">
+          <div>
+            <h4 className="text-[#0BCAD9] font-medium mb-2">Authentication & Access Control</h4>
+            <ul className="list-disc list-inside text-gray-300 space-y-1 text-sm">
+              <li><strong>JWT Authentication:</strong> HS256 signed tokens with user_id claim (gateway adds tenant context)</li>
+              <li><strong>Password Security:</strong> Argon2 hashing (OWASP recommended) with bcrypt fallback</li>
+              <li><strong>Multi-Tenant Isolation:</strong> UUID-based tenant_id filtering (requires auth enabled; dev mode bypasses)</li>
+            </ul>
+          </div>
+          <div>
+            <h4 className="text-[#0BCAD9] font-medium mb-2">Transport & Network Security</h4>
+            <ul className="list-disc list-inside text-gray-300 space-y-1 text-sm">
+              <li><strong>TLS for Redis:</strong> Supported via rediss:// URLs (requires configuration)</li>
+              <li><strong>Production Config:</strong> Upstash Redis with TLS is recommended deployment</li>
+              <li><strong>Secrets Management:</strong> Environment-based secrets for production deployments</li>
+            </ul>
+          </div>
+          <div>
+            <h4 className="text-[#0BCAD9] font-medium mb-2">API Security</h4>
+            <ul className="list-disc list-inside text-gray-300 space-y-1 text-sm">
+              <li><strong>Rate Limiting:</strong> Per-endpoint limits via SlowAPI with 429 + Retry-After headers</li>
+              <li><strong>Input Validation:</strong> Pydantic models on all API endpoints</li>
+              <li><strong>SQL Injection Prevention:</strong> SQLAlchemy ORM (no raw SQL)</li>
+              <li><strong>Credential Sanitization:</strong> Sensitive fields marked ***REDACTED*** in responses</li>
+            </ul>
+          </div>
+          <div>
+            <h4 className="text-[#0BCAD9] font-medium mb-2">Data Integrity</h4>
+            <ul className="list-disc list-inside text-gray-300 space-y-1 text-sm">
+              <li><strong>Schema Fingerprinting:</strong> SHA-256 hashes detect data drift</li>
+              <li><strong>HITL Audit Logging:</strong> Database schema ready; integration in progress</li>
+              <li><strong>Tenant Scoping:</strong> Queries filtered by tenant_id (when auth enabled)</li>
+            </ul>
+          </div>
+        </div>
+      )
+    },
+    {
+      id: "security-rate-limiting",
+      category: "Security",
+      question: "How does API rate limiting work?",
+      answer: "API rate limiting protects against abuse and ensures fair resource allocation. Limits are configurable per-endpoint using SlowAPI. When limits are exceeded, the API returns HTTP 429 (Too Many Requests) with a Retry-After header indicating when to retry. Rate limiting is disabled in test environments to allow automated testing. Production defaults are tuned for typical enterprise usage patterns."
     }
   ];
 
