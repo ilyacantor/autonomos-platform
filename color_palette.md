@@ -134,6 +134,47 @@ bg-gradient-to-br from-blue-900/20 to-purple-900/20
 | `/50` | Focus rings, prominent overlays |
 | `/60` | Semi-transparent cards, modals |
 
+## Navigation & Menu
+
+### Sidebar (LeftNav)
+```
+Container: bg-gray-900 border-r border-gray-800
+Nav item default: text-gray-400
+Nav item hover: hover:bg-gray-800 hover:text-gray-200
+Nav item active: bg-blue-600 text-white
+Nav item pressed: active:bg-gray-700
+Highlight ring: ring-1 ring-blue-500/30
+```
+
+### Top Bar
+```
+Container: bg-gray-900 border-b border-gray-800
+Nav item default: text-gray-400
+Nav item hover: hover:bg-gray-800 hover:text-gray-200
+Nav item active: bg-blue-600 text-white
+Help CTA pulse: ring-2 ring-[#0BCAD9]/50 shadow-lg shadow-[#0BCAD9]/30 animate-pulse
+```
+
+### Mobile Menu
+```
+Backdrop: bg-black/60
+Panel: bg-gray-900 border-l border-gray-800
+Close button: text-gray-400 hover:bg-gray-800
+Divider: border-gray-800
+```
+
+### Auth Buttons (in nav)
+```
+Login: bg-gray-800 hover:bg-gray-700 text-gray-200
+Sign Up: bg-cyan-600 hover:bg-cyan-500 text-white
+```
+
+### Notification Badge
+```
+Indicator dot: bg-red-500
+Icon: text-gray-400
+```
+
 ## Component Patterns
 
 ### Cards & Panels
