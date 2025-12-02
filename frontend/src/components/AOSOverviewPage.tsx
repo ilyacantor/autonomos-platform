@@ -17,7 +17,7 @@ export default function AOSOverviewPage() {
             src={OVERVIEW_IFRAME_URL}
             title="AOS Discovery Demo"
             allow="fullscreen"
-            minHeight="600px"
+            minHeight="700px"
           />
         </DemoStep>
       </div>
