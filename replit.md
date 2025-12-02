@@ -127,6 +127,7 @@ The platform employs a "Strangler Fig" pattern with feature flags for zero downt
 | `replit.md` | Project state, user preferences, system architecture (this file) |
 | `SECURITY.md` | Security architecture, implemented controls, compliance roadmap |
 | `color_palette.md` | UI color system, navigation styling, component patterns |
+| `DCL_REMOVAL_ASSESSMENT.md` | Impact analysis for DCL decommission (assessment only, no action) |
 | `DOCUMENTATION_INDEX.md` | Complete documentation directory with all file paths |
 
 ### Frontend Help Resources

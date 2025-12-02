@@ -14,6 +14,7 @@ This index provides a comprehensive guide to all AutonomOS platform documentatio
 | **Main README** | Platform overview, quick start, features | [`README.md`](./README.md) |
 | **Project State** | Current status, user preferences, architecture summary | [`replit.md`](./replit.md) |
 | **Security Overview** | Security architecture, controls, compliance roadmap | [`SECURITY.md`](./SECURITY.md) |
+| **DCL Removal Assessment** | Impact analysis for DCL decommission (no action taken) | [`DCL_REMOVAL_ASSESSMENT.md`](./DCL_REMOVAL_ASSESSMENT.md) |
 | **Archive Log** | History of archived documentation | [`ARCHIVE_LOG.md`](./ARCHIVE_LOG.md) |
 
 ---
