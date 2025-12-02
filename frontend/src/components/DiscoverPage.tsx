@@ -1,4 +1,5 @@
 import DemoStep from './DemoStep';
+import DemoIframeContainer from './DemoIframeContainer';
 import HITLQueue from './HITLQueue';
 
 const AOD_IFRAME_URL = 'https://autonomos.network';
@@ -14,18 +15,11 @@ export default function DiscoverPage() {
           openInNewTabHref={AOD_IFRAME_URL}
           instructions="Click on any discovered asset to see its relationships, dependencies, and metadata."
         >
-          <div className="relative w-full h-full" style={{ minHeight: '400px' }}>
-            <iframe
-              src={AOD_IFRAME_URL}
-              className="absolute inset-0 w-full h-full"
-              title="AOS Discover Dashboard"
-              allow="fullscreen"
-              style={{
-                border: 'none',
-                backgroundColor: '#1a1a1a'
-              }}
-            />
-          </div>
+          <DemoIframeContainer
+            src={AOD_IFRAME_URL}
+            title="AOS Discover Dashboard"
+            allow="fullscreen"
+          />
         </DemoStep>
       </div>
 

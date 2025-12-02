@@ -1,4 +1,5 @@
 import DemoStep from './DemoStep';
+import DemoIframeContainer from './DemoIframeContainer';
 
 const OVERVIEW_IFRAME_URL = 'https://discovery-demo-standalone-ilyacantor.replit.app/';
 
@@ -35,18 +36,11 @@ export default function AOSOverviewPage() {
           openInNewTabHref={OVERVIEW_IFRAME_URL}
           instructions="Navigate through the demo to see how AutonomOS discovers, connects, and unifies your enterprise data stack."
         >
-          <div className="relative w-full h-full" style={{ minHeight: '400px' }}>
-            <iframe
-              src={OVERVIEW_IFRAME_URL}
-              className="absolute inset-0 w-full h-full"
-              title="AOS Discovery Demo"
-              allow="fullscreen"
-              style={{
-                border: 'none',
-                backgroundColor: '#1a1a1a'
-              }}
-            />
-          </div>
+          <DemoIframeContainer
+            src={OVERVIEW_IFRAME_URL}
+            title="AOS Discovery Demo"
+            allow="fullscreen"
+          />
         </DemoStep>
       </div>
     </div>

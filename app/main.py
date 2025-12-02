@@ -738,6 +738,111 @@ if os.path.exists(STATIC_DIR) and os.path.isdir(STATIC_DIR):
                 }
             )
         raise HTTPException(status_code=404, detail="Frontend not found")
+
+    @app.get("/overview")
+    def serve_overview(request: Request):
+        """Serve Overview frontend page"""
+        index_path = os.path.join(STATIC_DIR, "index.html")
+        if os.path.exists(index_path):
+            return FileResponse(
+                index_path,
+                headers={
+                    "Cache-Control": "no-cache, no-store, must-revalidate",
+                    "Pragma": "no-cache",
+                    "Expires": "0"
+                }
+            )
+        raise HTTPException(status_code=404, detail="Frontend not found")
+
+    @app.get("/discover")
+    def serve_discover(request: Request):
+        """Serve Discover frontend page"""
+        index_path = os.path.join(STATIC_DIR, "index.html")
+        if os.path.exists(index_path):
+            return FileResponse(
+                index_path,
+                headers={
+                    "Cache-Control": "no-cache, no-store, must-revalidate",
+                    "Pragma": "no-cache",
+                    "Expires": "0"
+                }
+            )
+        raise HTTPException(status_code=404, detail="Frontend not found")
+
+    @app.get("/aos-overview")
+    def serve_aos_overview(request: Request):
+        """Serve AOS Overview frontend page"""
+        index_path = os.path.join(STATIC_DIR, "index.html")
+        if os.path.exists(index_path):
+            return FileResponse(
+                index_path,
+                headers={
+                    "Cache-Control": "no-cache, no-store, must-revalidate",
+                    "Pragma": "no-cache",
+                    "Expires": "0"
+                }
+            )
+        raise HTTPException(status_code=404, detail="Frontend not found")
+
+    @app.get("/connect")
+    def serve_connect(request: Request):
+        """Serve Connect frontend page"""
+        index_path = os.path.join(STATIC_DIR, "index.html")
+        if os.path.exists(index_path):
+            return FileResponse(
+                index_path,
+                headers={
+                    "Cache-Control": "no-cache, no-store, must-revalidate",
+                    "Pragma": "no-cache",
+                    "Expires": "0"
+                }
+            )
+        raise HTTPException(status_code=404, detail="Frontend not found")
+
+    @app.get("/control-center")
+    def serve_control_center(request: Request):
+        """Serve Control Center frontend page"""
+        index_path = os.path.join(STATIC_DIR, "index.html")
+        if os.path.exists(index_path):
+            return FileResponse(
+                index_path,
+                headers={
+                    "Cache-Control": "no-cache, no-store, must-revalidate",
+                    "Pragma": "no-cache",
+                    "Expires": "0"
+                }
+            )
+        raise HTTPException(status_code=404, detail="Frontend not found")
+
+    @app.get("/faq")
+    def serve_faq(request: Request):
+        """Serve FAQ frontend page"""
+        index_path = os.path.join(STATIC_DIR, "index.html")
+        if os.path.exists(index_path):
+            return FileResponse(
+                index_path,
+                headers={
+                    "Cache-Control": "no-cache, no-store, must-revalidate",
+                    "Pragma": "no-cache",
+                    "Expires": "0"
+                }
+            )
+        raise HTTPException(status_code=404, detail="Frontend not found")
+
+    @app.get("/architecture")
+    def serve_architecture_page(request: Request):
+        """Serve Architecture frontend page"""
+        index_path = os.path.join(STATIC_DIR, "index.html")
+        if os.path.exists(index_path):
+            return FileResponse(
+                index_path,
+                headers={
+                    "Cache-Control": "no-cache, no-store, must-revalidate",
+                    "Pragma": "no-cache",
+                    "Expires": "0"
+                }
+            )
+        raise HTTPException(status_code=404, detail="Frontend not found")
 else:
     @app.get("/")
     def read_root():

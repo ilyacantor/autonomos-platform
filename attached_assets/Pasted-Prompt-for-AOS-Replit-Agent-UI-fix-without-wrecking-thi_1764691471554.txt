@@ -1,0 +1,154 @@
+Prompt for AOS Replit Agent (UI fix without wrecking things)
+
+You are working in the AutonomOS (AOS) frontend only.
+Goal: standardize iframe containers using the already-working AOS Overview layout, and avoid UI regressions or tech debt.
+
+VERY IMPORTANT CONSTRAINTS
+
+Do NOT change:
+
+The current iframe container implementation on the AOS Overview page.
+
+Whatever container is wrapping the iframe there (with minHeight: 'calc(100vh - 280px)') is the canonical layout.
+
+Any global layout, root app layout, or routing.
+
+Any business logic, data fetching, or API calls.
+
+Do NOT:
+
+Introduce new calc(...) height rules anywhere else.
+
+Add new CSS files or global styles.
+
+Add nested flex/height tricks that could fight with the existing layout.
+
+Scope your edits to:
+
+The React component that renders the AOS Overview iframe (e.g. AOSOverviewPage.tsx) – only for extracting a small helper component, not changing behavior.
+
+The components that render:
+
+The embedded AOD interface (iframe with src="https://autonomos.network").
+
+The embedded AAM connection interface (whatever component contains that iframe).
+
+Step 1 – Extract a reusable DemoIframeContainer from AOS Overview
+
+Locate the AOS Overview React component, e.g. frontend/src/components/AOSOverviewPage.tsx, and find the exact container that wraps the iframe. It should look roughly like:
+
+<div className="relative ..." style={{ minHeight: 'calc(100vh - 280px)' }}>
+  <iframe
+    src="..."
+    className="absolute inset-0 w-full h-full"
+    ...
+  />
+</div>
+
+
+Create a small reusable component in a shared location, for example:
+
+frontend/src/components/DemoIframeContainer.tsx
+
+Move ONLY the container pattern into this component, keeping the height logic exactly the same:
+
+Props:
+
+src: string
+
+title: string
+
+allow?: string (optional)
+
+Implementation:
+
+Wraps the iframe in the same div with:
+
+className="relative w-full"
+
+style={{ minHeight: 'calc(100vh - 280px)' }} (exact same value as AOS Overview)
+
+The <iframe> inside uses:
+
+className="absolute inset-0 w-full h-full"
+
+src, title, and allow passed through from props.
+
+Replace the inline iframe container in AOS Overview with <DemoIframeContainer ... /> using the same props/values as before.
+
+AOS Overview should look visually identical after this change.
+
+You are not allowed to change any other layout or styles in that file.
+
+Step 2 – Use DemoIframeContainer for AOD and AAM embeds
+
+Find the component that renders the AOD / Discover iframe.
+
+Search for: src="https://autonomos.network"
+
+This will likely be in something like DiscoverPage.tsx or similar.
+
+In that component:
+
+Remove the existing div that wraps the iframe and the iframe itself.
+
+Replace that block with:
+
+<DemoIframeContainer
+  src="https://autonomos.network"
+  title="AOS Discover Dashboard"
+  allow="fullscreen"
+/>
+
+
+Keep any header / instructions / “Open in new tab” link outside this container; only replace the iframe wrapper itself.
+
+Find the component that renders the AAM connection interface iframe.
+
+Search for the iframe that references your AAM app URL (e.g. replit.app or similar).
+
+Do the same replacement there:
+
+Replace that iframe wrapper with DemoIframeContainer with the correct src, title, and allow props.
+
+Again, keep surrounding layout and instructional text unchanged.
+
+Do not modify any other pages or containers.
+
+Step 3 – Sanity checks & constraints
+
+After changes, confirm that:
+
+AOS Overview page still:
+
+Shows the visualization correctly.
+
+Uses almost full viewport height (thanks to minHeight: 'calc(100vh - 280px)').
+
+Has no regressions in the header / buttons.
+
+AOD / Discover page:
+
+Uses the same iframe container height behavior.
+
+Shows the full AOD UI inside the iframe without clipping.
+
+Maintains any “Open in new tab” link or surrounding header as before.
+
+AAM page:
+
+Same as above, consistent container behavior.
+
+Make sure you did not:
+
+Introduce new inline height styles.
+
+Add new calc(...) height expressions anywhere.
+
+Change any global layout logic.
+
+Keep the diff minimal and focused on:
+
+New DemoIframeContainer component.
+
+Replacing three iframe wrappers with that component.

@@ -8,6 +8,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import DemoStep from './DemoStep';
+import DemoIframeContainer from './DemoIframeContainer';
 
 const AAM_IFRAME_URL = 'https://autonomos-mesh-ilyacantor.replit.app/';
 
@@ -136,18 +137,12 @@ export default function ConnectPage() {
 
       <div className="flex-1 min-h-0 px-3 sm:px-4 lg:px-6 pb-4">
         <div className="h-full bg-gray-800 rounded-lg border border-gray-700/50 overflow-hidden shadow-lg">
-          <div className="relative w-full h-full" style={{ minHeight: '300px' }}>
-            <iframe
-              src={AAM_IFRAME_URL}
-              className="absolute inset-0 w-full h-full"
-              title="AAM Mesh Interface"
-              allow="fullscreen"
-              style={{
-                border: 'none',
-                backgroundColor: '#1a1a1a'
-              }}
-            />
-          </div>
+          <DemoIframeContainer
+            src={AAM_IFRAME_URL}
+            title="AAM Mesh Interface"
+            allow="fullscreen"
+            minHeight="300px"
+          />
         </div>
       </div>
 
