@@ -16,7 +16,16 @@ import AuthModal from './components/AuthModal';
 function AppContent() {
   // Initialize page from URL path
   const getInitialPage = () => {
-    const path = window.location.pathname.slice(1); // Remove leading slash
+    let path = window.location.pathname.slice(1); // Remove leading slash
+    // Map URL paths to internal page names
+    const pathAliases: Record<string, string> = {
+      'overview': 'aos-overview',
+      'connections': 'connect',
+      'control': 'control-center'
+    };
+    if (pathAliases[path]) {
+      path = pathAliases[path];
+    }
     const validPages = ['architecture', 'aos-overview', 'control-center', 'discover', 'connect', 'unify-ask', 'demo', 'faq'];
     return validPages.includes(path) ? path : 'architecture';
   };
@@ -47,7 +56,16 @@ function AppContent() {
   // Sync URL changes (browser back/forward) with currentPage
   useEffect(() => {
     const handlePopState = () => {
-      const path = window.location.pathname.slice(1);
+      let path = window.location.pathname.slice(1);
+      // Map URL paths to internal page names
+      const pathAliases: Record<string, string> = {
+        'overview': 'aos-overview',
+        'connections': 'connect',
+        'control': 'control-center'
+      };
+      if (pathAliases[path]) {
+        path = pathAliases[path];
+      }
       const validPages = ['architecture', 'aos-overview', 'control-center', 'discover', 'connect', 'unify-ask', 'demo', 'faq'];
       if (validPages.includes(path)) {
         setCurrentPage(path);

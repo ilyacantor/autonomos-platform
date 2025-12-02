@@ -28,14 +28,14 @@ export default function AOSOverviewPage() {
         </div>
       </div>
 
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 px-3 sm:px-4 lg:px-6 pb-4">
         <DemoStep
           title="AOS Overview"
           description="Interactive demonstration of AutonomOS platform capabilities. Explore the complete data orchestration pipeline from discovery to intelligent mapping to agent execution."
           openInNewTabHref={OVERVIEW_IFRAME_URL}
           instructions="Navigate through the demo to see how AutonomOS discovers, connects, and unifies your enterprise data stack."
         >
-          <div className="relative w-full h-full" style={{ minHeight: '400px' }}>
+          <div className="relative w-full" style={{ minHeight: 'calc(100vh - 280px)', height: '100%' }}>
             <iframe
               src={OVERVIEW_IFRAME_URL}
               className="absolute inset-0 w-full h-full"

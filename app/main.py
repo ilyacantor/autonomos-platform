@@ -634,6 +634,21 @@ if os.path.exists(STATIC_DIR) and os.path.isdir(STATIC_DIR):
             )
         raise HTTPException(status_code=404, detail="Frontend not found")
 
+    @app.get("/overview")
+    def serve_overview(request: Request):
+        """Serve AOS Overview frontend page"""
+        index_path = os.path.join(STATIC_DIR, "index.html")
+        if os.path.exists(index_path):
+            return FileResponse(
+                index_path,
+                headers={
+                    "Cache-Control": "no-cache, no-store, must-revalidate",
+                    "Pragma": "no-cache",
+                    "Expires": "0"
+                }
+            )
+        raise HTTPException(status_code=404, detail="Frontend not found")
+
     @app.get("/connections")
     def serve_connections(request: Request):
         """Serve Connections frontend page"""
