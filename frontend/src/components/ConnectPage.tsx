@@ -7,6 +7,9 @@ import {
   Shield,
   AlertTriangle
 } from 'lucide-react';
+import DemoStep from './DemoStep';
+
+const AAM_IFRAME_URL = 'https://autonomos-mesh-ilyacantor.replit.app/';
 
 export default function ConnectPage() {
   const [meshMetrics, setMeshMetrics] = useState({
@@ -34,148 +37,124 @@ export default function ConnectPage() {
   }, []);
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-white mb-2">AOS AAM (Connect)</h1>
-          <p className="text-gray-400">
-            Adaptive API Mesh - Self-healing data connectivity
-          </p>
-        </div>
-      </div>
-
-      <div className="bg-gradient-to-br from-purple-900/20 via-blue-900/20 to-green-900/20 rounded-xl border border-purple-500/30 overflow-hidden">
-        <div className="p-6 border-b border-purple-500/20 bg-black/40">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <Network className="w-6 h-6 text-purple-400" />
-                <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                  AAM Adaptive API Mesh
-                  <span className="px-2 py-0.5 bg-amber-500/20 border border-amber-500/40 rounded text-xs font-medium text-amber-400">
-                    DEMO
-                  </span>
-                </h2>
-                <p className="text-sm text-gray-400">Real-time orchestration intelligence and self-healing infrastructure</p>
-              </div>
-            </div>
+    <div className="h-full flex flex-col overflow-hidden">
+      <div className="flex-shrink-0 px-3 sm:px-4 lg:px-6 pt-4 sm:pt-6 pb-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+          <div>
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white flex items-center gap-2 sm:gap-3">
+              <span className="inline-flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-cyan-500 to-purple-600 text-white text-sm sm:text-base font-bold">
+                2
+              </span>
+              Connect Your Systems
+            </h1>
+            <p className="text-sm sm:text-base text-gray-300 mt-1">
+              Adaptive API Mesh with self-healing data connectivity
+            </p>
           </div>
-        </div>
-
-        <div className="p-6 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-black/40 backdrop-blur-sm border border-green-500/30 rounded-lg p-4">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <GitBranch className="w-4 h-4 text-green-400" />
-                  <span className="text-sm font-medium text-gray-300">Active Connections</span>
-                </div>
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-              </div>
-              <div className="text-3xl font-bold text-white mb-1">{meshMetrics.activeConnections}</div>
-              <div className="text-xs text-gray-400">Across 47 data sources</div>
-            </div>
-
-            <div className="bg-black/40 backdrop-blur-sm border border-blue-500/30 rounded-lg p-4">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <Shield className="w-4 h-4 text-blue-400" />
-                  <span className="text-sm font-medium text-gray-300">Self-Healing Events</span>
-                </div>
-                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-              </div>
-              <div className="text-3xl font-bold text-white mb-1">{meshMetrics.healingEvents}</div>
-              <div className="text-xs text-gray-400">Auto-repairs last hour</div>
-            </div>
-
-            <div className="bg-black/40 backdrop-blur-sm border border-orange-500/30 rounded-lg p-4">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-orange-400" />
-                  <span className="text-sm font-medium text-gray-300">Schema Drift</span>
-                </div>
-                <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" />
-              </div>
-              <div className="text-3xl font-bold text-white mb-1">{meshMetrics.driftAlerts}</div>
-              <div className="text-xs text-gray-400">Alerts detected</div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-black/40 backdrop-blur-sm border border-purple-500/30 rounded-lg p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Zap className="w-4 h-4 text-purple-400" />
-                <span className="text-sm font-medium text-gray-300">LLM Intelligence</span>
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-400">Total Calls</span>
-                  <span className="text-lg font-bold text-white">{meshMetrics.llmCalls.toLocaleString()}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-400">Tokens Processed</span>
-                  <span className="text-lg font-bold text-white">{(meshMetrics.llmTokens / 1000000).toFixed(2)}M</span>
-                </div>
-                <div className="mt-2 h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-purple-500 to-blue-500 animate-pulse" style={{ width: '73%' }} />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-black/40 backdrop-blur-sm border border-green-500/30 rounded-lg p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Brain className="w-4 h-4 text-green-400" />
-                <span className="text-sm font-medium text-gray-300">RAG Learning</span>
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-400">Field Mappings</span>
-                  <span className="text-lg font-bold text-white">{meshMetrics.ragMappings.toLocaleString()}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-400">Confidence Score</span>
-                  <span className="text-lg font-bold text-green-400">86%</span>
-                </div>
-                <div className="mt-2 h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-green-500 to-emerald-500 animate-pulse" style={{ width: '86%' }} />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-gray-800 rounded-lg border border-cyan-500/30 overflow-hidden">
-        <div className="bg-gradient-to-r from-purple-600/20 to-blue-600/20 border-b border-purple-500/30 px-4 py-3">
-          <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-            <svg className="w-6 h-6 text-purple-400" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" />
+          <a
+            href={AAM_IFRAME_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-cyan-600/20 hover:bg-cyan-600/30 border border-cyan-500/40 hover:border-cyan-500/60 rounded-lg text-cyan-400 hover:text-cyan-300 text-xs sm:text-sm font-medium transition-all duration-200 self-start"
+          >
+            Full Screen
+            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
             </svg>
-            Interactive AAM Mesh
-            <a 
-              href="https://autonomos-mesh-ilyacantor.replit.app/" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="ml-auto text-sm text-purple-400 hover:text-purple-300 underline font-normal"
-            >
-              Open in new tab ↗
-            </a>
-          </h2>
+          </a>
         </div>
-        <div className="relative" style={{ paddingBottom: '75%' }}>
-          <iframe
-            src="https://autonomos-mesh-ilyacantor.replit.app/"
-            className="absolute inset-0 w-full h-full"
-            title="AAM Mesh Interface"
-            allow="fullscreen"
-            style={{
-              border: 'none',
-              backgroundColor: '#1a1a1a'
-            }}
-          />
+
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
+          <div className="bg-black/40 backdrop-blur-sm border border-green-500/30 rounded-lg p-2 sm:p-3">
+            <div className="flex items-center justify-between mb-1 sm:mb-2">
+              <div className="flex items-center gap-1.5">
+                <GitBranch className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-400" />
+                <span className="text-xs font-medium text-gray-300 hidden sm:inline">Active Connections</span>
+                <span className="text-xs font-medium text-gray-300 sm:hidden">Connections</span>
+              </div>
+              <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-500 rounded-full animate-pulse" />
+            </div>
+            <div className="text-xl sm:text-2xl font-bold text-white">{meshMetrics.activeConnections}</div>
+          </div>
+
+          <div className="bg-black/40 backdrop-blur-sm border border-blue-500/30 rounded-lg p-2 sm:p-3">
+            <div className="flex items-center justify-between mb-1 sm:mb-2">
+              <div className="flex items-center gap-1.5">
+                <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-400" />
+                <span className="text-xs font-medium text-gray-300 hidden sm:inline">Self-Healing</span>
+                <span className="text-xs font-medium text-gray-300 sm:hidden">Healing</span>
+              </div>
+              <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-blue-500 rounded-full animate-pulse" />
+            </div>
+            <div className="text-xl sm:text-2xl font-bold text-white">{meshMetrics.healingEvents}</div>
+          </div>
+
+          <div className="bg-black/40 backdrop-blur-sm border border-orange-500/30 rounded-lg p-2 sm:p-3 col-span-2 lg:col-span-1">
+            <div className="flex items-center justify-between mb-1 sm:mb-2">
+              <div className="flex items-center gap-1.5">
+                <AlertTriangle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-orange-400" />
+                <span className="text-xs font-medium text-gray-300">Schema Drift</span>
+              </div>
+              <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-orange-500 rounded-full animate-pulse" />
+            </div>
+            <div className="text-xl sm:text-2xl font-bold text-white">{meshMetrics.driftAlerts}</div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 mt-2 sm:mt-3">
+          <div className="bg-black/40 backdrop-blur-sm border border-purple-500/30 rounded-lg p-2 sm:p-3">
+            <div className="flex items-center gap-1.5 mb-1 sm:mb-2">
+              <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-400" />
+              <span className="text-xs font-medium text-gray-300">LLM Intelligence</span>
+            </div>
+            <div className="flex items-center justify-between text-xs sm:text-sm">
+              <span className="text-gray-400">Calls</span>
+              <span className="font-bold text-white">{meshMetrics.llmCalls.toLocaleString()}</span>
+            </div>
+            <div className="flex items-center justify-between text-xs sm:text-sm mt-0.5">
+              <span className="text-gray-400">Tokens</span>
+              <span className="font-bold text-white">{(meshMetrics.llmTokens / 1000000).toFixed(2)}M</span>
+            </div>
+          </div>
+
+          <div className="bg-black/40 backdrop-blur-sm border border-green-500/30 rounded-lg p-2 sm:p-3">
+            <div className="flex items-center gap-1.5 mb-1 sm:mb-2">
+              <Brain className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-400" />
+              <span className="text-xs font-medium text-gray-300">RAG Learning</span>
+            </div>
+            <div className="flex items-center justify-between text-xs sm:text-sm">
+              <span className="text-gray-400">Mappings</span>
+              <span className="font-bold text-white">{meshMetrics.ragMappings.toLocaleString()}</span>
+            </div>
+            <div className="flex items-center justify-between text-xs sm:text-sm mt-0.5">
+              <span className="text-gray-400">Confidence</span>
+              <span className="font-bold text-green-400">86%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex-1 min-h-0 px-3 sm:px-4 lg:px-6 pb-4">
+        <div className="h-full bg-gray-800 rounded-lg border border-gray-700/50 overflow-hidden shadow-lg">
+          <div className="relative w-full h-full" style={{ minHeight: '300px' }}>
+            <iframe
+              src={AAM_IFRAME_URL}
+              className="absolute inset-0 w-full h-full"
+              title="AAM Mesh Interface"
+              allow="fullscreen"
+              style={{
+                border: 'none',
+                backgroundColor: '#1a1a1a'
+              }}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="flex-shrink-0 px-3 sm:px-4 lg:px-6 pb-3">
+        <div className="flex items-start gap-2 text-xs sm:text-sm text-gray-400 bg-gray-800/50 rounded-lg px-3 py-2 border border-gray-700/30">
+          <span className="text-cyan-400 font-medium flex-shrink-0">Try this:</span>
+          <span className="text-gray-300">Add a new data source and watch the mesh automatically configure the connection and detect schema.</span>
         </div>
       </div>
     </div>

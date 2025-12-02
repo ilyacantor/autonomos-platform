@@ -1,0 +1,332 @@
+Here’s a ready-to-paste prompt for the **AOS Replit Agent**, covering steps 1–5 of the plan.
+
+---
+
+**PROMPT FOR AOS REPLIT AGENT**
+
+You are working in the **AutonomOS (AOS) platform repo**.
+Goal: turn this into a **single-link, investor-ready demo** that is:
+
+* One URL (this app)
+* Fast and responsive
+* Mobile-friendly
+* Clearly structured as a guided flow:
+
+  1. Overview
+  2. Discover (AOD)
+  3. Connect (AAM)
+  4. Unify & Ask (DCL v2)
+  5. Outcomes / Demo Orchestration
+
+We already have:
+
+* A functioning **AOD UI** and **AAM UI** as separate apps, embedded via iframes.
+* A legacy, heavy **DCL v1** implementation inside this repo (to be removed).
+* A newer DCL implementation in a **separate repo** (DCL v2) that you do **not** know the internals of yet.
+
+Your job is to make the AOS repo into a polished demo shell and wire in clean interfaces to DCL v2, while strangling and removing the old DCL.
+
+---
+
+## 0. Before you start
+
+1. **Scan the repo** and read existing docs that describe architecture and DCL removal, for example:
+
+   * README / architecture docs
+   * Any `replit*.md`, `DCL_REMOVAL_ASSESSMENT.md` or similar files
+   * Existing DCL-related code under `app/`, `frontend/`, `scripts/`, `alembic/`
+2. Do **not** change:
+
+   * Secrets, environment variables, or Supabase credentials
+   * Multi-tenancy/auth fundamentals
+   * `/replit` config beyond what is strictly necessary to run the app
+
+Treat AOD, AAM, and DCL v2 as **external services**: you can define bridges and env vars for them, but you don’t know their internal code.
+
+---
+
+## 1. UX pass: create a standard “Demo Step” layout and wrap existing iframes
+
+### Goal
+
+Create a **consistent, guided UI** for the core demo steps while **preserving the existing AOD/AAM/Overview iframes** and their URLs.
+
+### Tasks
+
+1. **Create a reusable Demo Step layout component** in the frontend (for example in `frontend/src/components/`):
+
+   * Props should include things like:
+
+     * `stepNumber` (number or string)
+     * `title`
+     * `description`
+     * `children` (main content, e.g., iframe or native UI)
+     * `instructions` (short “Try this:” text at bottom)
+     * Optional `openInNewTabHref`
+   * Layout should:
+
+     * Have a header with the step title + 1–2 line description.
+     * Show an “Open full screen” link if `openInNewTabHref` is provided.
+     * Have a main content area that fills the available height.
+     * Have a small instructions area at the bottom (`text-xs` style).
+
+2. **Wrap the existing embedded pages with this layout**:
+
+   * The **Overview / AOSOverviewPage** (where the overview iframe lives).
+   * The **Discover / AOD page** (where the AOD iframe lives).
+   * The **AAM connection UI page** (iframe).
+
+   For each, do NOT change the existing iframe `src` URLs—just move them inside the new layout component and provide:
+
+   * A clear **step title** (e.g., “Step 1 – Discover your assets”).
+   * A short **description** (1–2 sentences).
+   * A short **instruction** line (“Try this: click X inside the embedded app”).
+   * `openInNewTabHref` set to the same URL as the iframe.
+
+3. **Add a placeholder slot at the top of the Overview page** for a future “AI Startup Ecosystem” hero graphic:
+
+   * For now, this can be a simple card/banner area above the iframe with:
+
+     * A placeholder title like “AI Startup Ecosystem – Where AutonomOS Fits”.
+     * A note that this is where a hero diagram image will be inserted later.
+   * Keep it visually distinct but lightweight (no heavy logic).
+
+4. Ensure these pages look good on **desktop and mobile widths**:
+
+   * Use responsive layout classes (e.g., Tailwind) already used in the project.
+   * Check that iframes scale properly and that the header + instructions are readable on small screens.
+
+---
+
+## 2. DCL v2 integration: backend bridge + minimal Demo UI
+
+We want to integrate a **new DCL v2 service** via a clean API boundary, without assuming its detailed implementation. The AOS repo will talk to DCL v2 via a **bridge module** and expose demo endpoints.
+
+### Backend
+
+1. **Create a DCL v2 bridge module** in the backend, for example `app/api/v1/dcl_bridge_v2.py` (or a similar name consistent with the project structure).
+
+2. In this bridge, define:
+
+   * A base URL for DCL v2 read from an environment variable, e.g. `DCL_V2_BASE_URL`.
+   * Two main demo-oriented endpoints (FastAPI routes under `/api/v1/demo/dcl/...`):
+
+     * `GET /api/v1/demo/dcl/graph`
+
+       * Returns the current DCL graph / canonical view in a JSON format.
+       * Behavior:
+
+         * If `DCL_V2_BASE_URL` is set, proxy to `GET {DCL_V2_BASE_URL}/demo/graph` (or similar) and return the result.
+         * If the env var is NOT set, return a **static stub** graph payload with:
+
+           * A small set of nodes and links representing a few accounts, systems, and canonical entities.
+           * Enough detail so the frontend demo still works even with no external DCL connected.
+     * `POST /api/v1/demo/dcl/query`
+
+       * Accepts a JSON body with fields like `question` and optionally `persona`.
+       * Behavior:
+
+         * If `DCL_V2_BASE_URL` is set, proxy to DCL v2’s query endpoint.
+         * If not set, return a **stubbed intent + answer** that looks realistic (e.g., “You have $X in MRR, Y% at risk,” etc.).
+
+3. Make sure error handling is robust:
+
+   * Timeouts or errors from DCL v2 should produce a clear demo-safe error message rather than crashing.
+
+### Frontend
+
+1. **Create a new “Unify & Ask” / “Ontology” demo page**:
+
+   * Either:
+
+     * Replace the existing Ontology / DCL demo page with a new version, or
+     * Create a new `OntologyPageV2` and route to it via the existing nav.
+   * Use the `Demo Step` layout.
+   * Inside the layout, create a simple, performant UI that:
+
+     * Shows a small graph/summary of canonical entities using the data from `/api/v1/demo/dcl/graph`.
+
+       * This does NOT need to be as complex as the old D3 Sankey; keep it lightweight and responsive.
+       * If it’s easier, start with a simple schematic list/mini-diagram that proves the concept.
+     * Provides a text box + submit button for questions.
+
+       * Submits to `/api/v1/demo/dcl/query`.
+       * Displays the answer and any structured fields returned.
+
+2. Keep the UI **simple and responsive**:
+
+   * Focus on clarity and speed.
+   * Avoid reintroducing the heavy CPU/latency issues that existed in the old DCL graph.
+
+---
+
+## 3. DCL v1 strangler: disable and then remove legacy DCL
+
+We want to **fully remove** the legacy DCL engine, but in a safe, staged way.
+
+### 3.1 Phase A – Detach / Disable
+
+1. **Identify DCL v1 code paths and feature flags**:
+
+   * Find where DCL v1 is implemented (e.g. `app/dcl_engine/`, DCL routers, any `dcl_*` modules).
+   * Find any config/flags like `USE_DCL_INTELLIGENCE_API` or similar that toggle DCL behavior.
+
+2. Implement Phase A:
+
+   * Disable or bypass legacy DCL endpoints:
+
+     * For user-facing routes, either:
+
+       * Remove them from the router if they’re not needed anymore, or
+       * Make them return a clear “DCL v1 disabled – use /api/v1/demo/dcl/* instead” message.
+   * Ensure no frontend page still relies on the old DCL endpoints.
+
+     * All DCL-related UI should be using the new demo endpoints through `dcl_bridge_v2`.
+
+3. Confirm that:
+
+   * The app runs without invoking any DCL v1 code.
+   * Navigation is coherent (no broken links to old DCL pages).
+
+### 3.2 Phases B–E – Clean removal
+
+Once Phase A is working:
+
+1. **Backend cleanup**:
+
+   * Remove DCL v1 routers from `main.py` and related modules.
+   * Delete or archive DCL v1 engine modules and helper functions that are no longer used.
+
+2. **Frontend cleanup**:
+
+   * Remove DCL v1-specific components, hooks, or services (e.g., old Ontology page, DCL graph containers, etc.) that are no longer referenced.
+
+3. **Database cleanup**:
+
+   * Identify DCL-specific tables/columns used only by DCL v1.
+   * Create Alembic migrations to drop or archive those tables/columns.
+   * Be conservative and only drop things clearly tied to DCL v1.
+   * Ensure migrations run successfully in this environment.
+
+4. **Dependencies**:
+
+   * Remove any libraries that are now only used by DCL v1 (e.g., DuckDB or similar, if they are no longer needed).
+   * Keep anything still used by other parts of the app (NLP, general utilities, etc.).
+
+---
+
+## 4. Demo orchestrator: “Run full demo” backend + page
+
+We want a **single button** in the UI that kicks off an end-to-end demo pipeline: AOD → AAM → DCL v2.
+
+### Backend
+
+1. Create a module, e.g. `app/api/v1/demo_orchestrator.py`, with endpoints:
+
+   * `POST /api/v1/demo/run_pipeline`
+
+     * Starts a background job (using the existing task/queue system in the repo, e.g., RQ or Celery, whichever is already configured).
+     * The job should:
+
+       * Log or simulate the main steps:
+
+         1. “Run discovery in AOD”
+         2. “Connect systems with AAM”
+         3. “Send normalized data into DCL v2”
+       * Actual external HTTP calls to AOD/AAM/DCL v2 should:
+
+         * Use base URLs from env variables if configured, OR
+         * Be stubbed/logged if not configured (so the demo still runs in a self-contained way).
+       * Return a job ID for tracking.
+
+   * `GET /api/v1/demo/pipeline_status?job_id=...`
+
+     * Returns the current status and a simple timeline/array of steps with states:
+
+       * e.g., `pending | running | success | failed` for each of the three steps.
+
+2. Reuse existing logging and task infrastructure from the repo rather than inventing a new system.
+
+### Frontend
+
+1. Create a **“Demo” page** (if not already present) that uses the Demo Step layout:
+
+   * Title: “Run full AutonomOS demo”.
+   * Description: 1–2 sentences.
+   * A large button: “Run Full Demo”.
+
+2. When the button is clicked:
+
+   * Call `POST /api/v1/demo/run_pipeline`.
+   * Poll `/api/v1/demo/pipeline_status` with the returned job ID.
+   * Display a simple stepper/timeline with 3 steps:
+
+     * Discover (AOD)
+     * Connect (AAM)
+     * Unify & Ask (DCL)
+   * Update each step’s status as it progresses.
+
+3. Provide links/buttons on this page to quickly navigate to:
+
+   * Overview
+   * Discovery
+   * Connections
+   * Unify & Ask (DCL)
+   * Outcomes (if a dashboard exists)
+
+---
+
+## 5. Final polish & mobile check
+
+1. **Navigation & coherence**
+
+   * Ensure the main nav or sidebar clearly exposes the demo steps in a logical order:
+
+     * Overview
+     * Discover
+     * Connect
+     * Unify & Ask
+     * Demo / Outcomes
+   * Use consistent naming and icons.
+
+2. **Mobile behavior**
+
+   * For each demo page using the Demo Step layout, verify:
+
+     * Header text is readable.
+     * Primary action(s) are visible without awkward scrolling.
+     * Iframes are usable, and the “Open full screen” link works.
+
+3. **Performance sanity check**
+
+   * Ensure no heavy, unused DCL v1 logic or huge data loads are left.
+   * Confirm the app boots quickly and each demo page renders without obvious jank.
+
+4. **Code quality**
+
+   * Keep changes consistent with the existing code style (TypeScript/React/Tailwind, Python/FastAPI patterns, etc.).
+   * Remove dead code where safe to do so (especially DCL v1 artifacts).
+
+---
+
+## Deliverables Summary
+
+By the end, the repo should have:
+
+* A **Demo Step layout component** used across:
+
+  * Overview (with hero placeholder + overview iframe)
+  * AOD (Discover iframe)
+  * AAM (Connections iframe)
+  * DCL v2 demo page (native UI using bridge endpoints)
+  * Demo/Orchestrator page
+* A **DCL v2 bridge** with stubbed behavior and clean endpoints:
+
+  * `GET /api/v1/demo/dcl/graph`
+  * `POST /api/v1/demo/dcl/query`
+* A **new DCL demo page** (“Unify & Ask”) using those endpoints.
+* A **Demo Orchestrator** backend (`run_pipeline` + `pipeline_status`) and a front-end page with a “Run Full Demo” button and simple progress tracking.
+* Legacy **DCL v1 fully removed** from active code paths (and code/DB cleaned up accordingly).
+* The entire demo flows cleanly as a **single, investor-ready experience** at one URL, with good behavior on mobile.
+
+Please implement all of the above in a cohesive way, making reasonable decisions that fit the existing architecture and code style.

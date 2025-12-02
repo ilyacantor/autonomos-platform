@@ -34,7 +34,7 @@ from app.security import (
     get_current_user,
     ACCESS_TOKEN_EXPIRE_MINUTES
 )
-from app.api.v1 import auth, aoa, aam_monitoring, aam_mesh, aam_connections, platform_stubs, filesource, dcl_views, debug, mesh_test, events, dcl_unify, aod_mock, aam_onboarding, admin_feature_flags, demo_pipeline
+from app.api.v1 import auth, aoa, aam_monitoring, aam_mesh, aam_connections, platform_stubs, filesource, dcl_views, debug, mesh_test, events, dcl_unify, aod_mock, aam_onboarding, admin_feature_flags, demo_pipeline, dcl_bridge_v2, demo_orchestrator
 from app.dcl_engine.routers import mappings, intelligence
 from app import nlp_simple
 from app.middleware.rate_limit import limiter, rate_limit_exceeded_handler
@@ -455,6 +455,8 @@ app.include_router(aam_connections.router, prefix="/api/v1/aam", tags=["AAM Conn
 app.include_router(aam_onboarding.router, prefix="/api/v1/aam", tags=["AAM Auto-Onboarding"])
 app.include_router(admin_feature_flags.router, prefix="/api/v1/admin", tags=["Admin - Feature Flags"])
 app.include_router(demo_pipeline.router, prefix="/api/v1", tags=["Demo Pipeline"])
+app.include_router(dcl_bridge_v2.router, prefix="/api/v1", tags=["DCL v2 Bridge"])
+app.include_router(demo_orchestrator.router, prefix="/api/v1", tags=["Demo Orchestrator"])
 app.include_router(aam_mesh.router, prefix="/api/v1/mesh", tags=["AAM Mesh"])
 app.include_router(mesh_test.router, prefix="/api/v1", tags=["Mesh Test (Dev-Only)"])
 app.include_router(filesource.router, prefix="/api/v1/filesource", tags=["FileSource Connector"])
@@ -695,6 +697,36 @@ if os.path.exists(STATIC_DIR) and os.path.isdir(STATIC_DIR):
     @app.get("/demo-discovery")
     def serve_demo_discovery(request: Request):
         """Serve Discovery Demo frontend page"""
+        index_path = os.path.join(STATIC_DIR, "index.html")
+        if os.path.exists(index_path):
+            return FileResponse(
+                index_path,
+                headers={
+                    "Cache-Control": "no-cache, no-store, must-revalidate",
+                    "Pragma": "no-cache",
+                    "Expires": "0"
+                }
+            )
+        raise HTTPException(status_code=404, detail="Frontend not found")
+
+    @app.get("/demo")
+    def serve_demo(request: Request):
+        """Serve Demo Orchestrator frontend page"""
+        index_path = os.path.join(STATIC_DIR, "index.html")
+        if os.path.exists(index_path):
+            return FileResponse(
+                index_path,
+                headers={
+                    "Cache-Control": "no-cache, no-store, must-revalidate",
+                    "Pragma": "no-cache",
+                    "Expires": "0"
+                }
+            )
+        raise HTTPException(status_code=404, detail="Frontend not found")
+
+    @app.get("/unify-ask")
+    def serve_unify_ask(request: Request):
+        """Serve Unify & Ask frontend page"""
         index_path = os.path.join(STATIC_DIR, "index.html")
         if os.path.exists(index_path):
             return FileResponse(
