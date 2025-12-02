@@ -1,7 +1,7 @@
 import DemoStep from './DemoStep';
 import DemoIframeContainer from './DemoIframeContainer';
 
-const OVERVIEW_IFRAME_URL = 'https://discovery-demo-standalone-ilyacantor.replit.app/';
+const OVERVIEW_IFRAME_URL = 'https://overview.autonomos.software';
 
 export default function AOSOverviewPage() {
   return (
