@@ -118,3 +118,18 @@ The platform employs a "Strangler Fig" pattern with feature flags for zero downt
 -   **Slack Incoming Webhooks:** For notifications.
 -   **AOS Discover (AOD):** External microservice for asset discovery.
 -   **pgvector:** PostgreSQL extension for vector embeddings.
+
+## Documentation Files
+
+| File | Purpose |
+|------|---------|
+| `README.md` | Platform overview, quick start, features, architecture |
+| `replit.md` | Project state, user preferences, system architecture (this file) |
+| `SECURITY.md` | Security architecture, implemented controls, compliance roadmap |
+| `color_palette.md` | UI color system, navigation styling, component patterns |
+| `DOCUMENTATION_INDEX.md` | Complete documentation directory with all file paths |
+
+### Frontend Help Resources
+- **FAQ Page** (`/faq`): Searchable FAQ with category filters
+- **Glossary Tab**: 30+ canonical terms across 7 categories (Core Concepts, Components, Data Types, Personas, Source Types, Technical Terms, AI/ML)
+- Both accessible via Help navigation item

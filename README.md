@@ -1,6 +1,6 @@
 # AutonomOS - Multi-Tenant AI Orchestration Platform
 
-**Last Updated:** November 19, 2025
+**Last Updated:** December 2, 2025
 
 A production-ready **full-stack SaaS platform** for AI-driven data orchestration with real-time monitoring, multi-tenant isolation, and intelligent schema management. Built with React, TypeScript, Python, FastAPI, PostgreSQL, and Redis.
 
@@ -421,8 +421,26 @@ open http://localhost:5000
 ├── requirements.txt              # Python dependencies
 ├── start.sh                      # Startup script (auto-runs migrations)
 ├── replit.md                     # Project memory/notes
+├── SECURITY.md                   # Security architecture & controls
+├── color_palette.md              # UI color system & patterns
 └── README.md                     # This file
 ```
+
+---
+
+## 📖 Documentation
+
+| File | Purpose |
+|------|---------|
+| [`README.md`](./README.md) | Platform overview, quick start, features |
+| [`replit.md`](./replit.md) | Project state, user preferences, architecture |
+| [`SECURITY.md`](./SECURITY.md) | Security controls, compliance roadmap |
+| [`color_palette.md`](./color_palette.md) | UI colors, navigation, component patterns |
+| [`DOCUMENTATION_INDEX.md`](./DOCUMENTATION_INDEX.md) | Complete doc directory (30+ files) |
+
+**Frontend Help Resources:**
+- **FAQ Page** (`/faq`): Searchable FAQ with category filters
+- **Glossary Tab**: 30+ canonical terms across 7 categories
 
 ---
 

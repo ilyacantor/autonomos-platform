@@ -1,6 +1,6 @@
 # AutonomOS Documentation Index
 
-**Last Updated:** November 19, 2025  
+**Last Updated:** December 2, 2025  
 **Status:** Phase 4 Complete - Live Flow Monitoring Operational
 
 This index provides a comprehensive guide to all AutonomOS platform documentation, organized by category for easy navigation.
@@ -13,6 +13,7 @@ This index provides a comprehensive guide to all AutonomOS platform documentatio
 |----------|-------------|------|
 | **Main README** | Platform overview, quick start, features | [`README.md`](./README.md) |
 | **Project State** | Current status, user preferences, architecture summary | [`replit.md`](./replit.md) |
+| **Security Overview** | Security architecture, controls, compliance roadmap | [`SECURITY.md`](./SECURITY.md) |
 | **Archive Log** | History of archived documentation | [`ARCHIVE_LOG.md`](./ARCHIVE_LOG.md) |
 
 ---
@@ -56,7 +57,7 @@ This index provides a comprehensive guide to all AutonomOS platform documentatio
 | **AAM Dashboard Guide** | AAM monitoring dashboard usage | [`docs/examples/AAM_DASHBOARD_GUIDE.md`](./docs/examples/AAM_DASHBOARD_GUIDE.md) |
 | **DCL Ontology Examples** | DCL ontology engine usage examples | [`docs/examples/DCL_ONTOLOGY_ENGINE_EXAMPLES.md`](./docs/examples/DCL_ONTOLOGY_ENGINE_EXAMPLES.md) |
 | **DCL Usage Guide** | Step-by-step DCL usage guide | [`docs/examples/DCL_USAGE_GUIDE.md`](./docs/examples/DCL_USAGE_GUIDE.md) |
-| **Color Palette** | UI color scheme and design guidelines | [`docs/examples/COLOR_PALETTE.md`](./docs/examples/COLOR_PALETTE.md) |
+| **Color Palette** | UI color scheme, navigation, and design guidelines | [`color_palette.md`](./color_palette.md) |
 
 ---
 
@@ -164,4 +165,4 @@ Historical documentation has been moved to `docs/archive/` for reference:
 
 **Platform Status:** ✅ Phase 4 Complete - Production Ready  
 **Total Active Documentation:** 30+ files organized across 6 categories  
-**Last Major Update:** Live Flow Telemetry System (Phase 4) - November 19, 2025
+**Last Major Update:** Security Documentation & Glossary (December 2, 2025)
