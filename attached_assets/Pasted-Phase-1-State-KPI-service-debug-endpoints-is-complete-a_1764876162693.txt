@@ -1,0 +1,64 @@
+Phase 1 (State & KPI service + debug endpoints) is complete and verified.
+
+State:
+- assets has canonical fields: lifecycle_state (DISCOVERED/PARKED/CATALOGED), is_shadow_it, is_zombie, has_data_conflicts.
+- src/services/state_kpi.py exists with:
+  - get_debug_counts(tenant_id)
+  - get_kpis(tenant_id)
+  - list_assets_by_kpi(tenant_id, kpi_name, page, page_size)
+  - verify_counts_match_sql(tenant_id)
+- /debug/aod/state, /debug/aod/kpis, /debug/aod/assets/{kpi_name}, /debug/aod/verify all work.
+- verify_counts_match_sql reports match=true (service_counts == sql_counts).
+
+TASK (PHASE 2): Wire the dashboard KPIs and asset drilldowns to the new state_kpi service WITHOUT changing queues or schema.
+
+CONSTRAINTS
+- Do NOT modify:
+  - Database schema or migrations.
+  - HITL queue logic (Q1–Q4) or their endpoints.
+  - Any AAM or “connect”/integration code.
+- You MAY modify:
+  - The existing dashboard KPI endpoints.
+  - The endpoints used by dashboard “clickthrough” modals to list assets for:
+    - Parked, Shadow, Data Conflicts, etc.
+- UI response shapes must remain compatible (do not break the React/frontend expectations).
+
+REQUIRED BEHAVIOR
+
+1) Dashboard KPI endpoints:
+   - Replace any existing KPI computation (raw SQL, queue counts, legacy state strings) with calls to state_kpi.get_kpis(tenant_id).
+   - The KPI values returned to the UI MUST be exactly those from get_kpis.
+
+2) Dashboard asset drilldowns:
+   - For KPI clickthroughs (Parked, Shadow, Conflicts, etc.), wire the backend to call:
+     - state_kpi.list_assets_by_kpi(tenant_id, kpi_name, page, page_size)
+   - Use the same kpi_name mapping as implemented in state_kpi:
+     - "parked"    → lifecycle_state = 'PARKED'
+     - "cataloged" → lifecycle_state = 'CATALOGED'
+     - "shadow"    → is_shadow_it = TRUE
+     - "zombie"    → is_zombie = TRUE
+     - "conflicts" → has_data_conflicts = TRUE
+
+3) The dashboard MUST NOT:
+   - Count HITL queue rows (Q1–Q4) to compute KPIs.
+   - Use legacy lifecycle_stage or drift_status to compute KPIs.
+   - Re-implement filters client-side that differ from the backend.
+
+VERIFICATION (MANDATORY)
+
+For a test tenant:
+
+1) Call /debug/aod/kpis and log:
+   - total, parked, cataloged, shadow, zombie, data_conflicts.
+
+2) Call the existing dashboard KPI endpoint and log its values.
+
+3) Clickthrough for each KPI and log:
+   - The total number of matching assets returned by the detail endpoint (or total_count field if present).
+
+4) In your final summary, explicitly assert:
+   - Dashboard KPI values == /debug/aod/kpis values.
+   - For each KPI:
+     - detail_total_count == KPI_value (ignoring pagination).
+
+If these invariants do not hold, adjust the wiring until they do. Do NOT change queue logic or schema as part of this task.
