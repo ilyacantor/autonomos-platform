@@ -1,0 +1,41 @@
+Agent, I reject the recommendation to skip the test (Option A). We do not cut corners. 100% integration test coverage is mandatory.
+
+The technical impedance mismatch highlights an architectural flaw: using a synchronous client (`DCLMappingClient`) in an asynchronous FastAPI application is an anti-pattern. It blocks the event loop and harms production performance.
+
+**We must implement the fundamental solution: Modernize the client to be asynchronous.**
+
+**Action Plan:**
+
+1.  **Refactor `DCLMappingClient` to be Asynchronous:**
+    *   Change the client dependency from `httpx.Client` to `httpx.AsyncClient`.
+    *   Convert all methods (e.g., `get_entity_mapping`) to be `async def`.
+    *   Use `await client.get(...)` or `await client.post(...)`.
+
+2.  **Refactor the `mapping_registry` Initialization:**
+    *   The registry currently instantiates the client synchronously at import time. This must be changed.
+    *   Refactor the registry to initialize the client lazily (on first use within an async context) or during the application startup event using an async context manager (e.g., FastAPI lifespan).
+
+3.  **Update Upstream Callers:**
+    *   Identify all locations in the codebase that call `DCLMappingClient` methods.
+    *   Update these callers to `await` the newly asynchronous methods. This requires propagating `async/await` up the call stack.
+
+4.  **Update the Test Fixture:**
+    *   Now that the client is asynchronous, update the test fixture to inject an `httpx.AsyncClient` configured with `ASGITransport`. This allows the test to run in-process without a real HTTP server.
+
+    *Example Test Fixture (Conceptual):*
+    ```python
+    import httpx
+    from httpx import ASGITransport
+
+    @pytest.fixture
+    async def mapping_registry(app):
+        # Configure AsyncClient with ASGITransport
+        transport = ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as test_http_client:
+            # Inject the client (adjust based on your DI implementation)
+            registry = DCLMappingRegistry()
+            await registry.initialize_client(http_client=test_http_client)
+            yield registry
+    ```
+
+This refactoring improves the architecture, enhances performance, and achieves 100% test coverage. Execute this plan immediately.

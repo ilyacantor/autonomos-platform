@@ -1,0 +1,163 @@
+Prompt: AAM Hybrid MVP Implementation (Phases 1 & 2) - Infrastructure and Orchestration
+To: Replit Agent Project Goal: Implement the foundational infrastructure (Phase 1) and the core orchestration logic (Phase 2) for the Adaptive API Mesh (AAM).
+
+Objective: Establish the Execution Plane using Airbyte and develop the core logic within the Adaptive Intelligence/Control Planes (FastAPI microservices) to programmatically create, manage, and update a Salesforce connection via the Airbyte API. The connection state and schema must be tracked and versioned in the Connector Registry (Supabase).
+
+1. Architectural Context
+The AAM utilizes a Hybrid approach:
+
+Execution Plane (Adopted): Airbyte (OSS) handles data movement.
+
+Intelligence/Control Planes (Built): FastAPI, Supabase (Registry), Redis (Event Bus).
+
+Core Interaction: The Intelligence Plane must programmatically control Airbyte via its API, specifically managing the lifecycle and the syncCatalog (the schema definition).
+
+2. Technology Stack
+Language: Python 3.11+
+
+Framework: FastAPI
+
+Database Access: SQLAlchemy (must use async support, e.g., asyncpg)
+
+HTTP Client: httpx (for async Airbyte API communication)
+
+Configuration: pydantic-settings
+
+Key Libraries: fastapi, uvicorn, pydantic-settings, sqlalchemy, asyncpg, psycopg2-binary, redis-py, httpx.
+
+3. Target Project Structure
+aam-hybrid/
+├── services/
+│   ├── orchestrator/          # Main API and lifecycle management
+│   │   ├── main.py
+│   │   └── service.py
+│   ├── auth_broker/           # Credential management
+│   │   ├── main.py
+│   │   └── service.py
+│   ├── drift_repair_agent/    # Executes configuration updates (Healing)
+│   │   ├── main.py
+│   │   └── service.py
+│   ├── schema_observer/       # (Skeleton only)
+│   └── rag_engine/            # (Skeleton only)
+├── shared/
+│   ├── airbyte_client.py
+│   ├── database.py
+│   ├── models.py              # SQLAlchemy and Pydantic models
+│   └── config.py
+├── docker-compose.yml
+├── requirements.txt
+└── README.md
+4. Phase 1 Deliverables: Infrastructure and Skeletons
+4.1. Environment Setup and Configuration:
+
+Initialize the Python project and create requirements.txt with the dependencies listed above.
+
+Implement shared/config.py using pydantic-settings to manage environment variables (e.g., AIRBYTE_API_URL, AIRBYTE_API_KEY, SUPABASE_DB_URL, REDIS_URL, AIRBYTE_WORKSPACE_ID, AIRBYTE_DESTINATION_ID).
+
+4.2. Execution Plane and Supporting Services (Docker Compose):
+
+Create a docker-compose.yml file to deploy:
+
+Airbyte OSS (ensure the API is accessible).
+
+Redis.
+
+Optional: Add the FastAPI services to the docker-compose file for unified deployment.
+
+4.3. Connector Registry (Supabase Schema):
+
+Implement shared/database.py to establish the SQLAlchemy async engine and session management.
+
+Define models in shared/models.py. Versioning the catalog is critical.
+
+Connection Table: id (UUID), name, source_type (e.g., 'Salesforce'), airbyte_source_id (UUID), airbyte_connection_id (UUID), status (Enum: 'PENDING', 'ACTIVE', 'FAILED', 'HEALING'), created_at.
+
+SyncCatalogVersion Table: id (UUID), connection_id (FK), sync_catalog (JSONB), version_number (Int), created_at.
+
+JobHistory Table: id (UUID), connection_id (FK), airbyte_job_id, status, started_at.
+
+4.4. Airbyte API Client:
+
+Implement shared/airbyte_client.py. This class must use httpx for async HTTP requests.
+
+Include essential methods:
+
+create_source(workspace_id, connection_configuration)
+
+discover_schema(source_id)
+
+create_connection(config)
+
+update_connection(connection_id, sync_catalog)
+
+trigger_sync(connection_id)
+
+4.5. Microservice Skeletons:
+
+Create FastAPI skeletons for all services listed in the project structure. Include a basic /health endpoint for each.
+
+5. Phase 2 Deliverables: Connectivity and Orchestration
+5.1. Auth Broker Implementation:
+
+Implement the auth_broker service.
+
+MVP Implementation: Retrieve credentials securely from environment variables (simulating a Vault).
+
+Implement an internal function get_salesforce_config(credential_id) that returns the specific JSON configuration structure required by the Airbyte Salesforce connector.
+
+5.2. AAM Orchestrator - Connection Onboarding (Salesforce Focus): Implement the main control logic in the orchestrator service.
+
+POST /connections/onboard Endpoint:
+
+Input: source_type ('Salesforce'), connection_name, credential_id.
+
+Flow:
+
+Call auth_broker to get the Salesforce connection configuration.
+
+Call airbyte_client.create_source().
+
+Call airbyte_client.discover_schema() to get the initial syncCatalog.
+
+Call airbyte_client.create_connection(). (Use the configured AIRBYTE_DESTINATION_ID).
+
+Registry Update: Create a record in Connection and the initial SyncCatalogVersion (Version 1).
+
+Return the AAM Connection ID.
+
+5.3. Drift Repair Agent (DRA) - Configuration Management: Implement the logic for updating connections in the drift_repair_agent service. This simulates the "healing" mechanism.
+
+POST /repair/apply_new_catalog Endpoint:
+
+Input: AAM connection_id, new syncCatalog (JSON).
+
+Flow:
+
+Retrieve airbyte_connection_id from the Registry. Update Connection status to 'HEALING'.
+
+Call airbyte_client.update_connection() to apply the new catalog.
+
+If successful, insert a new record into SyncCatalogVersion with an incremented version number.
+
+Update the Connection status to 'ACTIVE'.
+
+5.4. Orchestrator - Sync Triggering:
+
+Implement POST /connections/{id}/sync in the Orchestrator.
+
+Retrieve the airbyte_connection_id and call airbyte_client.trigger_sync().
+
+Record the job in the JobHistory table.
+
+6. Verification and Acceptance Criteria
+The complete Python project structure as defined, using async libraries.
+
+A working docker-compose.yml for the Execution Plane.
+
+The database schema is defined and implemented using SQLAlchemy async models.
+
+The AAM Orchestrator successfully onboards a Salesforce connection in Airbyte via the API, and the state/catalog is recorded in the Registry.
+
+The DRA successfully updates the syncCatalog via the API, and the change is versioned in the Registry.
+
+Provide example cURL commands demonstrating the functionality of the onboard, sync, and apply_new_catalog endpoints.

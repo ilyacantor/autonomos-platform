@@ -1,0 +1,34 @@
+{
+  "timestamp": "2025-11-17T16:10:22.433785",
+  "phase": "Phase 0 - Baseline",
+  "metrics": {
+    "registry_init": {
+      "duration_ms": 16.19,
+      "total_connectors": 8,
+      "total_entities": 18,
+      "total_field_mappings": 191
+    },
+    "mapping_lookup": {
+      "avg_latency_us": 1.37,
+      "min_latency_us": 0.94,
+      "max_latency_us": 1.83,
+      "samples": 4
+    },
+    "mapping_application": {
+      "avg_latency_us": 43.72,
+      "samples": 2
+    },
+    "memory": {
+      "rss_mb": 17.3,
+      "cache_size_kb": 0.27
+    },
+    "estimated_costs": {
+      "avg_fields_per_connector": 23.9,
+      "manual_time_per_field_minutes": 2,
+      "time_per_connector_hours": 0.8,
+      "time_for_10_connectors_hours": 7.96,
+      "llm_cost_per_connector_usd": 0.0,
+      "llm_cost_for_10_connectors_usd": 0.0
+    }
+  }
+}

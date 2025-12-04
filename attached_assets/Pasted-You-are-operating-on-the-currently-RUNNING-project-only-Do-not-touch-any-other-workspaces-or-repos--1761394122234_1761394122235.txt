@@ -1,0 +1,60 @@
+You are operating on the currently RUNNING project only. Do not touch any other workspaces or repos.
+
+OBJECTIVE
+- Replace the left sidebar with a top navigation bar (same items & behavior), keep AutonomOS logo and profile box, remove search box, keep autonomy mode toggle. DO NOT change backend or app logic.
+- Make sure the UI we edit is the UI that is actually served to the browser.
+- Provide a deterministic proof that the served bundle contains the change.
+
+GUARDRAILS
+- If any step would delete non-reproducible assets, STOP and report.
+- Do not enable or keep any dev servers (Vite) running; only the production server may serve traffic.
+- Do not modify API endpoints or domain logic.
+- If there are multiple app roots/layouts, update the one that is MOUNTED at runtime and remove dead duplicates after confirming.
+
+ACTIONS (execute in order)
+1) DISCOVER THE SERVED ROOT
+   - Print absolute path of the directory the server uses to serve index.html and static assets.
+   - Output the exact path of the HTML template or file that becomes the shipped index.html (backend template vs raw file).
+   - Output the list of JS/CSS files referenced by the shipped index (as seen by curl’ing the running app root).
+   - Confirm only ONE server process is running; show its command, port, and CWD. If more than one, kill dev servers and keep only the production server.
+
+2) BUILD & ASSET WIRING
+   - Run the production build for the frontend source actually used by the shipped app.
+   - Ensure the build artifact directory exactly matches the directory served by the server. If there is a copy step, make it explicit and log success.
+   - Replace any stale asset references in the shipped index (hashes) with the NEW ones. Do NOT hand-edit hash names; do it via the build pipeline or a reliable manifest.
+
+3) CACHE CONTROL & SERVICE WORKER
+   - Ensure the server sets:
+     Cache-Control: no-store for index.html
+     Cache-Control: public, max-age=31536000, immutable for hashed JS/CSS assets
+   - If a Service Worker is registered, BUMP its version and add a one-time unregister sequence on next load. Provide code diff.
+   - Add a debug endpoint “/__version” returning JSON: { buildId, appRoot, staticRoot, timestamp }.
+
+4) BUILD-ID PROOF
+   - In main.tsx (or equivalent), set window.__BUILD_ID__ to ISO timestamp and log “[UI] BUILD_ID …”
+   - Render __BUILD_ID__ visibly in a small footer badge in the top nav (temporarily).
+   - Rebuild and restart the server. Verify via browser and console that the BUILD_ID matches the one returned by “/__version”.
+
+5) IMPLEMENT THE LAYOUT CHANGE
+   - Identify the ACTUAL mounted layout component. If duplicates exist (e.g., multiple AppShells), confirm which one renders by putting a temporary visible marker and checking in the browser.
+   - Replace the sidebar with a top nav, migrating existing items/actions 1:1.
+   - Keep: AutonomOS logo, autonomy mode toggle, profile box. Remove: search box.
+   - Ensure Tailwind classes used are included in the safelist so purge does not strip them.
+   - Provide a unified diff of the layout changes only.
+
+6) VALIDATION
+   - curl the app root and verify index.html references the NEW hashed assets.
+   - SHA256 compare the on-disk main bundle vs the one downloaded over HTTP; they must match.
+   - Confirm only one server process remains, serving from the expected static directory.
+
+7) REPORT
+   - Post a concise report listing:
+     * Served index source path
+     * Static root path
+     * Current hashed asset filenames
+     * BUILD_ID value
+     * Whether a service worker was present and how it was handled
+     * Confirmation that the top nav renders and the sidebar is gone
+     * Any flags/envs that would revert layout
+
+If ANY step would break existing behavior, STOP and summarize the risk before proceeding.

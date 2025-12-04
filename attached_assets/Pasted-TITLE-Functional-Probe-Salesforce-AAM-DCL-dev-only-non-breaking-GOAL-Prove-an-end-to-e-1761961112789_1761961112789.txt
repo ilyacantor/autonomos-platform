@@ -1,0 +1,50 @@
+TITLE: Functional Probe — Salesforce → AAM → DCL (dev-only, non-breaking)
+
+GOAL
+Prove an end-to-end flow from the live Salesforce connector through AAM normalization into DCL views. Add a DEV-ONLY debug endpoint to fetch the most recent canonical Opportunity for the agent test.
+
+HARD GUARDRAILS
+- Do NOT modify existing DCL transforms.
+- Do NOT touch any UI/graph CSS/layout.
+- New endpoints under /api/v1 only. Debug endpoint enabled only in development.
+
+TASKS
+1) Implement a dev-only route:
+   GET /api/v1/debug/last-canonical
+   Query params: entity=opportunity (required), limit (default 1)
+   Returns JSON array of the last N canonical events for that entity, each with:
+     {
+       "opportunity_id": "...",
+       "account_id": "...",
+       "name": "...",
+       "stage": "...",
+       "amount": <number|null>,
+       "currency": "...",
+       "close_date": "YYYY-MM-DD",
+       "owner_id": "...",
+       "probability": <number|null>,
+       "emitted_at": "ISO8601",
+       "trace_id": "...",
+       "source_system": "salesforce"
+     }
+   Implementation notes:
+   - Serve from a small debug controller that reads the canonical-event store or the last ingested row after normalization.
+   - Only enabled when NODE_ENV=development or DEV_DEBUG=true.
+
+2) Functional probe run (one-shot):
+   a) Pull the MOST RECENT Salesforce Opportunity (fields: Id, AccountId, Name, StageName, Amount, CurrencyIsoCode, CloseDate, OwnerId, Probability, LastModifiedDate).
+   b) Pass it through AAM normalization (vendor→canonical).
+   c) Publish the canonical event on aam.streams.crm.opportunity.
+   d) Wait for DCL to materialize (retry GET /api/v1/dcl/views/opportunities?opportunity_id=<Id> up to 10s exponential backoff).
+
+3) Verification inside AOS (print these EXACT lines):
+   - AOS_FUNC_CANONICAL_ID: <OpportunityId>
+   - AOS_FUNC_CANONICAL_NAME: <Name>
+   - AOS_FUNC_CANONICAL_AMOUNT: <Amount or null>
+   - AOS_FUNC_TRACE_ID: <trace_id>
+   - AOS_FUNC_VIEW_COUNT: <0|1>   // result count from /dcl/views/opportunities?opportunity_id=...
+   - AOS_FUNC_STATUS: <PASS|FAIL> // PASS if VIEW_COUNT == 1
+
+OUTPUT
+- Print the full URL for: GET /api/v1/debug/last-canonical?entity=opportunity&limit=1
+- Print the five validation lines above exactly.

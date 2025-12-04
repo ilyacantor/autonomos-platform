@@ -1,0 +1,137 @@
+This document outlines the step-by-step plan to refactor the project into a demo site, based on your instructions. It includes enhanced safety checks and technical notes to ensure a smooth transition, especially for sensitive components.
+
+Phase 1: Setup & Scaffolding (Safety First)
+
+Create New Page Files: Create the new, empty component files for the pages. For example:
+
+src/pages/OntologyPage.jsx
+
+src/pages/DiscoverPage.jsx
+
+src/pages/ConnectPage.jsx
+
+src/pages/OrchestrationPage.jsx
+
+Update Routing: In your main router file (e.g., App.jsx, main.jsx, or similar), add the new routes for these pages.
+
+Update Navigation:
+
+Locate your NavBar.jsx component (or equivalent).
+
+Update the navigation items to the new order: Control Center, Discover, Connect, Ontology, Orchestration, .
+
+Link these items to their new routes.
+
+Ensure the FAQ, Notifications Bell, Login, and Sign up buttons are in the correct final positions.
+
+Phase 2: Component Migration (Page by Page)
+
+A. New Discover Page (Good Starting Point)
+
+Recreate Static Layout: Using the provided screenshot as a firm visual reference, build the static layout for this page in DiscoverPage.jsx.
+
+Agent Note: Focus on the layout, colors, and static elements. Don't worry about functionality yet, as instructed.
+
+Add Text Content:
+
+Title: "AOS Discover"
+
+Subhead: "Autonomously fingerprints your entire tech stack. Catalogs 100s of apps, databases, and tools without manual configuration. Infers relationships instantly. Creates secure architectural views using metadata only."
+
+B. New Ontology Page (High-Risk Component)
+
+Move DCL Container (CRITICAL):
+
+Agent Note: This is the most sensitive step. The DCL graph likely has complex dependencies.
+
+1. Identify Dependencies: Before moving, go to the current Dashboard page. Find the DCL container and identify:
+
+All props being passed to it.
+
+Any local state (useState, useReducer) that it relies on for data, controls, or settings.
+
+Any React Context providers (MyContext.Provider) that it must be wrapped in.
+
+Any data-fetching logic (useEffect, data queries) that feeds it data.
+
+2. Move Logic with Component: Move the DCL container component and all its identified dependencies (state, context wrappers, data-fetching logic) from the Dashboard page to the new OntologyPage.jsx.
+
+3. Fix Imports: Update all necessary import paths in OntologyPage.jsx.
+
+Move Other Components:
+
+Move the "Narration box" component to OntologyPage.jsx.
+
+Move the "RAG Learning engine box" component to OntologyPage.jsx.
+
+Move all contents from the current Connections page (data sources, selection tool, trace data lineage) to OntologyPage.jsx.
+
+Move "Unified view" and "Data source universe" from the current Ontology tab to OntologyPage.jsx.
+
+Safety Check: Per your instructions, the "repair activity box" is not moved.
+
+C. New Connect Page (High-Complexity Merge)
+
+Agent Note: This page merges content from three different locations. You will need to carefully integrate these pieces into a coherent layout in ConnectPage.jsx.
+
+Move from Dashboard:
+
+Move the "3-floating-panes visual."
+
+Move the text from around top and bottom of the floating panes visual.
+
+Move the "real-time connection monitor."
+
+Move the text next to it ("three-layer architecture, etc").
+
+Move from AAM Monitor Page:
+
+Move all contents from the AAM Monitor page.
+
+Retain Structure: Re-create the "Overview" and "Connector Details" tabbed structure within ConnectPage.jsx.
+
+Merge: The new "Overview" tab should contain both the items from Step 1 (floating panes, monitor, etc.) and the original content from the AAM Monitor's "Overview" tab.
+
+Move from Live Flow Tab:
+
+Move all contents from the Live Flow tab into the ConnectPage.jsx. (Decide if this becomes a third tab or is integrated elsewhere).
+
+D. New Orchestration Page (Straightforward Move)
+
+Move AOA Section: Move the "Agentic Orchestration Architecture (AOA) section" (with the 5 boxes) from the old Dashboard page to OrchestrationPage.jsx.
+
+Move AOA at Scale: Move all components from the "Agentic Orchestration at Scale" section from the old Dashboard page to OrchestrationPage.jsx.
+
+Phase 3: The "Safe Archive" 
+
+Agent Note: This phase is critical for safety. Instead of deleting, we will archive.
+
+Create Archive File: Create a new, temporary file named _component_archive.jsx in your src directory.
+
+Archive, Don't Delete: As you move components from old pages (Dashboard, Connections, AAM Monitor), cut and paste the original component code into _component_archive.jsx.
+
+Comment Out: In the original files, you can now safely delete the component's code or just comment it out, leaving a note.
+
+Example in Dashboard.jsx: // <DCLContainer /> // MOVED TO OntologyPage.jsx
+
+This keeps the old pages functional (though emptier) during the transition and keeps your old code 100% safe and recoverable.
+
+Phase 4: Final Review & Cleanup (User-Driven)
+
+User Review: 
+
+Control Center (check if this was the old Dashboard or needs its own content).
+
+Discover (check static layout).
+
+Connect (check merged components and tabs).
+
+Ontology (Critically test the DCL graph and its controls).
+
+Orchestration (check component layout).
+
+Final Deletion: Only after I approve all work and confirm functionality, you can proceed to:
+
+Delete the old page files (Dashboard.jsx, Connections.jsx, AAM Monitor.jsx, etc.).
+
+Delete the _component_archive.jsx file.

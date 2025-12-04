@@ -1,0 +1,87 @@
+Replit MAX prompt (copy-paste)
+
+You can modify code. Keep edits minimal and localized.
+
+Objectives
+
+Make mapping_count filter by connection_id (not vendor).
+
+Add DB index on mapping_registry(connection_id).
+
+Add a lightweight /healthz/aam and one metric for /aam/connectors.
+
+Add a test that would have caught the overcount (two FilesSource connections in same tenant).
+
+Tasks
+
+Fix mapping_count (both sync & async paths)
+
+In app/api/v1/aam_monitoring.py, update the count query to:
+
+WHERE mapping_registry.connection_id = connections.id
+
+(Optionally also ensure tenant/namespace matches the request to avoid cross-tenant leakage.)
+
+Index
+
+Create migration or one-time DDL (whichever your project uses) to add:
+
+CREATE INDEX IF NOT EXISTS ix_mapping_registry_connection_id
+ON mapping_registry (connection_id);
+
+
+Document it in replit.md under “AAM Performance Notes”.
+
+Health & metric
+
+Add GET /healthz/aam (fast path):
+
+Runs a SELECT 1 via the same code path used by /aam/connectors (respecting the feature flag).
+
+Returns { "ok": true } on success.
+
+Add a simple timing metric around /aam/connectors:
+
+Log latency in ms and the number of connectors returned.
+
+If you have a metrics lib, emit aam_connectors_list_ms and aam_connectors_total.
+
+Tests
+
+In tests/api/test_aam_connectors.py, add:
+
+test_mapping_count_scoped_by_connection:
+
+Seed two FilesSource connections in same tenant (filesource_A, filesource_B).
+
+Ingest CSV for only filesource_A.
+
+Call /aam/connectors → assert:
+
+filesource_A.mapping_count > 0
+
+filesource_B.mapping_count == 0
+
+Add test_healthz_aam_ok → expect 200 { "ok": true }.
+
+Deliverables (paste back)
+
+Files changed list.
+
+Diff snippet showing the new connection_id filter in both code paths.
+
+DDL/migration snippet for the index.
+
+Test outputs (new tests green).
+
+One log line from a /aam/connectors call showing latency + total.
+
+Guardrails
+
+Do not refactor unrelated code.
+
+Do not remove the feature flag.
+
+Keep the async path intact (behind AAM_CONNECTORS_SYNC=false).
+
+No schema changes beyond the single index.

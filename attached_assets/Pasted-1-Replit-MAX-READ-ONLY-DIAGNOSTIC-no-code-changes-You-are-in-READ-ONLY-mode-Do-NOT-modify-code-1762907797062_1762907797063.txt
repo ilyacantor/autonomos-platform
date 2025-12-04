@@ -1,0 +1,91 @@
+1) Replit MAX – READ-ONLY DIAGNOSTIC (no code changes)
+You are in READ-ONLY mode. Do NOT modify code.
+
+Goal: Find why the Connections page shows no connectors even though curl returns data.
+
+Steps:
+
+1) Locate API base + client
+   - Search for API base env usage (common names): VITE_API_BASE_URL, REACT_APP_API_BASE, API_BASE_URL.
+   - Show the file(s) and the resolved base at runtime (print where it’s read from).
+   - Find the HTTP client (axios or fetch wrapper), usually src/api/client.ts or similar.
+   - Confirm it attaches Authorization: Bearer <token> from AUTH_TOKEN_KEY and that it is used by the connections fetch.
+
+2) Locate the connections fetch path
+   - Grep for "/aam/connectors" and the function/hook that calls it (e.g., useConnectors, getConnectors, fetchConnectors).
+   - Paste the TypeScript interface used for each connector item (id, name, type/source_type, status, mapping_count).
+   - Paste the mapping logic that converts API payload into UI props.
+   - Note any strict typing (e.g., requires source_type but API returns type).
+
+3) Verify render conditions
+   - Open the Connections page component.
+   - Show the conditional render that decides when to show the list (e.g., if (data?.connectors?.length) ...).
+   - Paste any guards that could hide the list (loading, error, undefined, 0-length).
+   - Paste any error/empty-state handlers (could be swallowing 401/403 silently).
+
+4) Token/scoping check
+   - Show where AUTH_TOKEN_KEY is read in the frontend and how it is set (localStorage).
+   - Confirm the request actually includes the header (via the client/request builder code).
+   - If there is an interceptor that drops the header on cross-origin, note it.
+
+5) Summarize findings
+   - Does the code expect source_type but API returns type?
+   - Is mapping_count expected to be a number but possibly a string?
+   - Is the base URL wrong for the current environment (e.g., pointing to /api vs /)?
+   - Is the fetch never triggered (effect dependency issue)?
+
+Deliverables:
+- File paths for API base, client, connectors hook, and Connections page.
+- The exact payload shape the UI expects vs what the API returns.
+- A one-line root cause hypothesis.
+- A minimal change list (but do NOT apply changes).
+
+2) Replit MAX – WRITE MODE FIX (apply only if the above finds a mismatch)
+You may modify code. Keep edits minimal and localized. Do not refactor unrelated code.
+
+Objectives (patch-level):
+1) Make the client robust to base URL and always send the JWT.
+2) Make the connectors mapper accept both `type` and `source_type`, and coerce mapping_count to number.
+3) Show a clear empty/error state instead of rendering nothing.
+
+Edits:
+
+A) API base + auth (src/api/client.ts or equivalent)
+- Ensure baseURL resolves in this priority:
+  - import.meta.env.VITE_API_BASE_URL
+  - window.__API_BASE_URL__ (if present)
+  - `${window.location.origin}/api/v1`
+- Ensure Authorization header is always set when token exists:
+  const TOKEN_KEY = 'AUTH_TOKEN_KEY';
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+B) Connectors fetch + mapper (e.g., src/features/connections/api.ts or hooks/useConnectors.ts)
+- When shaping each item:
+  const type = item.type ?? item.source_type ?? 'unknown';
+  const mappingCount = typeof item.mapping_count === 'number'
+    ? item.mapping_count
+    : parseInt(String(item.mapping_count || 0), 10);
+- Keep other fields as-is (id, name, status).
+- Do NOT fail if unknown fields appear.
+
+C) UI render (ConnectionsPage.tsx or equivalent)
+- Add explicit states:
+  - If loading → show skeleton.
+  - If error → show ErrorBanner with status/message.
+  - If !error && data && data.connectors && data.connectors.length === 0 → show EmptyState: “No connectors for this tenant.”
+- Add a tiny debug line in DEV only:
+  {import.meta.env.DEV && <small data-testid="debug-connectors-count">count: {data?.connectors?.length ?? 'n/a'}</small>}
+
+D) Optional: protect against silent 401
+- If response status === 401, surface a call-to-action: “Sign in to view connections” (don’t swallow error).
+
+E) Tests (if test setup exists)
+- Add/adjust a lightweight test to ensure the mapper accepts both `type` and `source_type`, and mapping_count is numeric.
+
+Deliverables to paste back:
+- Files changed list and short diff for:
+  - base URL resolution + Authorization header
+  - connectors mapper (type fallback + mapping_count coercion)
+  - Connections page empty/error states
+- One console log / screenshot showing connectors render with a non-zero count.

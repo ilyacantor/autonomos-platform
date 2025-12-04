@@ -1,0 +1,18 @@
+{
+  "source_type": "snowflake",
+  "resource_ids": ["account_xy12345.us-east-1"],
+  "scopes_mode": "safe_readonly",
+  "credential_locator": "sp:snowflake-readonly-service-account",
+  "namespace": "autonomy",
+  "risk_level": "med",
+  "evidence": {
+    "status": "Sanctioned",
+    "source": "Procurement",
+    "ts": "2025-11-08T15:20:00Z"
+  },
+  "owner": {
+    "user": "data-eng@company.com",
+    "confidence": 0.85,
+    "why": "expense"
+  }
+}

@@ -1,0 +1,235 @@
+Project: AutonomOS – Stage-Driven Discovery → Mesh → Mapping → Agent Demo
+
+I want a single-page, stage-driven demo UI that clearly shows the complexity at each stage of the pipeline, not just a background spinner.
+
+There are 4 stages, each with its own visual focus and detail panels:
+
+AOD Discovery – asset explosion & risk
+
+AAM Connections – API contracts & OAuth complexity
+
+DCL Mapping – disparate schemas → unified entities
+
+Agent Execution – query plan & result trace
+
+The key requirement:
+
+The main UI MUST visibly change at each stage.
+
+Each stage highlights a different part of the graph and shows a different details panel.
+
+Nothing should “just run in the background.”
+
+Overall layout & style
+
+Dark-mode enterprise console (Datadog / Grafana / Prisma Cloud vibe).
+
+Use Quicksand for typography.
+
+Brand colors:
+
+Primary: cyan #0bcad9 (plus cyan-400/600 for variations)
+
+Status: green #22c55e, blue #3b82f6, purple #a855f7, red #ef4444, orange #f97316
+
+Neutrals: very dark slates for background (#020617–#0f172a), #0f172a–#1e293b for cards, #334155 borders
+
+Screen split:
+
+Top: slim app bar with logo + “AutonomOS – Discovery & Mesh Demo (Demo Tenant)” + status pills.
+
+Center-left: graph panel.
+
+Center-right: stage details panel that changes with the current stage.
+
+Bottom: 4-stage stepper with “Back / Next” and a “Run full pipeline” button.
+
+Graph panel (always visible, reacts to stage)
+
+Nodes:
+
+Left: vendor nodes – Salesforce, MongoDB, Supabase, Legacy Files.
+
+Middle: AAM – Adaptive API Mesh.
+
+Right-middle: DCL – Data Connectivity Layer.
+
+Far-right: Agents.
+
+Edges:
+
+Vendor → AAM, AAM → DCL, DCL → Agents.
+
+Behavior per stage:
+
+Stage 1: vendor nodes glow; edges to AAM are grey/dashed; AAM/DCL/Agents slightly dimmed.
+
+Stage 2: vendor→AAM edges animate (pulses); AAM node glows cyan/green; other edges dim.
+
+Stage 3: AAM→DCL edge animates; DCL node glows; vendor nodes dim slightly.
+
+Stage 4: DCL→Agents edge animates; Agent node glows; rest in background.
+
+Use subtle animations (not crazy) to show flow direction per stage.
+
+Stage detail panel – must change content per stage
+
+There is a currentStage (1–4). The detail panel content should be completely different for each stage:
+
+Stage 1 – AOD Discovery (Assets + Risk)
+
+Title area: “AOD Discovery — Assets & Risk”
+
+Show complexity as:
+
+Stats: “435 assets”, “195 ready”, “180 parked”, “29 shadow / high-risk”.
+
+A small table: columns = Asset Name, Vendor, Kind (saas/service/db/host), Environment, Risk, State.
+
+Highlight multiple vendors in the table.
+
+Under the table, a short explanatory block:
+
+“Normally: spreadsheets, interviews, and guesswork to find what’s running.”
+
+“Here: AOS uses log & config telemetry and AI classifiers to discover and risk-score assets.”
+
+Only this content should be visible in Stage 1. No contracts, no field mappings, no agent trace.
+
+Stage 2 – AAM Connections (API contracts + OAuth)
+
+Title: “AAM Connections — Connectors, Contracts, OAuth”
+
+Hide the Stage 1 asset table and instead show per-vendor connector details in a table or cards:
+
+For Salesforce:
+
+Auth: “OAuth2, short-lived tokens, refresh token rotation; scopes: api, refresh_token, offline_access.”
+
+Contract: base URL, API version, key endpoints, pagination scheme, rate-limit policy.
+
+For MongoDB:
+
+TLS SRV conn string, credentials in vault, collections, read preference.
+
+For Supabase:
+
+Postgres URL, schema, RLS awareness, connection mode.
+
+For Legacy Files:
+
+Bucket/path, file pattern, schedule, CSV layout.
+
+Add a small “How AOS handled this” box at the bottom:
+
+“Connector recipes + AI over our configuration corpus choose auth flows, scopes, timeouts, and backoff policies. No manual YAML.”
+
+When Stage 2 is active, only connector details are visible in the detail panel. No asset table, no mapping table, no agent trace.
+
+Stage 3 – DCL Mapping (disparate schemas → unified)
+
+Title: “DCL Mapping — Unified customer_360 Entity”
+
+Hide connector details. Instead show:
+
+Intro line:
+
+“DCL builds a unified customer_360 entity from Salesforce, MongoDB, Supabase, and Legacy Files.”
+
+A table with columns: Canonical Field, Type, Sources (vendor.fieldPath + confidence).
+
+Entries:
+
+customer_id (string) ← Salesforce.Account.Id · 97%, MongoDB.users._id · 93%, Supabase.customers.customer_id · 96%, Legacy.legacy_customers.customer_id · 90%
+
+customer_name (string) ← Salesforce.Account.Name · 98%, Supabase.customers.full_name · 94%, Legacy.legacy_customers.name · 91%
+
+arr (number) ← Salesforce.Opportunity.Amount (aggregated) · 95%, Supabase.invoices.total_amount · 90%
+
+last_activity_at (date) ← MongoDB.events.timestamp · 95%, Salesforce.Task.LastModifiedDate · 88%
+
+churn_flag (boolean) ← Legacy.churn_flags.flag · 99%
+
+risk_score (number) ← e.g. MongoDB.events.error_rate · 86%, Supabase.invoices.overdue_balance · 89%
+
+Each source should be rendered as a small chip with vendor, field path, and confidence.
+
+At the bottom, a short explanation:
+
+“Normally: weeks of debating IDs and joins across CRM, billing, events, and legacy exports.”
+
+“Here: ontologies, naming heuristics, and data profiling propose canonical fields and joins with confidence scores.”
+
+In Stage 3, you should not see connector auth details or the Stage 1 asset table. Only the field mapping view.
+
+Stage 4 – Agent Execution (query plan + result trace)
+
+Title: “Agent Execution — Query Plan & Result Trace”
+
+Hide mapping table. Show:
+
+Top: a static user question box:
+
+“Show risky customer-facing services over $1M ARR across Salesforce, MongoDB, Supabase, and Legacy Files.”
+
+Middle: a vertical trace list (like logs):
+
+“Resolved question to customer_360 unified entity.”
+
+“Selected fields: customer_id, arr, last_activity_at, churn_flag, risk_score.”
+
+“Fetched data via AAM from Salesforce, MongoDB, Supabase, Legacy Files.”
+
+“Applied enterprise policy HIGH_ARR_HIGH_RISK_SERVICES.”
+
+Bottom: a compact result table:
+
+Columns: Service / Customer / ARR / Risk Score / Why flagged.
+
+3–5 fake rows with realistic numbers and reasons.
+
+Tiny note at bottom:
+
+“Agent executes over DCL’s unified view, not raw tables; no manual SQL or joins.”
+
+In Stage 4, the detail panel is purely trace + results. No asset list, no connector details, no mapping table.
+
+Stage navigation & animation
+
+At the bottom of the screen, have a clear 4-step stepper labeled with the stages.
+
+User can click each stage or use “Back/Next” to move currentStage.
+
+When currentStage changes:
+
+Update which node/edges in the graph animate and glow.
+
+Swap out the entire detail panel content according to the rules above.
+
+Do NOT leave previous-stage content visible.
+
+There should also be a “Run full pipeline” button that auto-steps through 1→2→3→4 with short delays; each step still triggers the stage-specific UI changes.
+
+Data & implementation constraints
+
+All data is fake but should look realistic (IDs, scopes, URLs, field names).
+
+Everything is front-end only: no network calls, no real OAuth.
+
+Use React state (or Designer’s equivalent) to manage currentStage and conditional rendering.
+
+Avoid the word “sample” anywhere in user-facing text. Use “demo tenant”, “ingested dataset”, or just “data” instead.
+
+The key success criteria:
+
+A person watching the demo can clearly see:
+
+Stage 1: “So many assets, categorized and risk-scored.”
+
+Stage 2: “API auth + contracts are gnarly, but AOS set them up.”
+
+Stage 3: “Schemas are messy, but AOS built a clean customer_360.”
+
+Stage 4: “The agent runs over the unified model with an auditable trace.”
+
+Each stage feels like a different view into the same system, not just a spinner on one static screen.

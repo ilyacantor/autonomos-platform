@@ -1,0 +1,55 @@
+AutonomOS Database Audit
+Generated: 2025-11-07 18:42:30 UTC
+======================================
+
+DATABASE INFO:
+current_database	current_user
+postgres	postgres
+
+SEARCH PATH:
+search_path
+"\$user", public, extensions
+
+TABLES IN PUBLIC SCHEMA:
+table_name
+Account
+Contact
+Event
+Lead
+Opportunity
+OpportunityHistory
+OpportunityStage
+Pricebook2
+Product2
+RecordType
+Task
+User
+accounts
+alembic_version
+api_journal
+canonical_streams
+connections
+dcl_unified_contact
+dcl_unified_contact_link
+drift_events
+hitl_repair_audit
+idempotency_keys
+job_history
+mapping_registry
+materialized_accounts
+materialized_contacts
+materialized_opportunities
+opportunities
+rate_limit_counters
+repair_knowledge_base
+schema_changes
+sync_catalog_versions
+task_logs
+tasks
+tenants
+users
+
+ALEMBIC VERSION:
+version_num
+5a9d6371e18c
+

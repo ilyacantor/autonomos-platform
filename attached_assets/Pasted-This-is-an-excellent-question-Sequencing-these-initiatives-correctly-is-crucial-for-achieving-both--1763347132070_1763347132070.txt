@@ -1,0 +1,65 @@
+This is an excellent question. Sequencing these initiatives correctly is crucial for achieving both the immediate goal of a fast, reliable sales demo and the long-term goal of enterprise scalability.
+
+The roadmap must integrate the immediate stabilization tasks with the strategic initiatives (Web Workers and the Enterprise View) following a strict methodology:
+
+**Correctness First → Then Reliability → Then Speed → Then Scale.**
+
+We cannot optimize a system that is incorrect or unstable, and we should ensure the core MVP is performant before expanding its capabilities for scale.
+
+Here is the recommended sequence of execution.
+
+---
+
+### The Integrated Roadmap
+
+#### Phase 1: Correctness and Reliability (Stabilization)
+
+This phase addresses the immediate blockers. The DCL engine must be accurate, and the validation infrastructure must be stable before any optimization begins.
+
+**1. Stabilize the Test Infrastructure (CRITICAL)**
+*   **Action:** Diagnose and fix the root cause of the Pytest crashes (exit code -1). This is likely due to improper resource cleanup (DuckDB connections, Redis locks, asyncio loops) in the test fixtures.
+*   **Checkpoint:** The entire 61-test suite runs reliably without crashing.
+
+**2. Fix Critical Graph Logic Bugs**
+*   **Action (Duplicate Edges):** Implement robust edge deduplication logic during the connection/reconnection process.
+*   **Action (Stale Provenance Caching):** Ensure the `entity_sources` cache is correctly invalidated and refreshed after graph modifications to guarantee accurate lineage data.
+*   **Checkpoint:** The graph visualization is complete, accurate, and free of duplicate elements during complex workflows.
+
+**3. Achieve 100% Test Pass Rate**
+*   **Action:** Run the full, stable test suite. Validate that all Workflow (9/9) and Concurrency (3/3) tests pass.
+*   **Action:** Update the 4 failing contract snapshots (`--snapshot-update`) to reflect the finalized, correct graph structure.
+*   **Checkpoint:** 100% Pass Rate (61/61). The DCL engine is validated as correct and reliable.
+
+#### Phase 2: Performance Optimization (Speed for the Sales Demo)
+
+With the graph validated as correct, this phase targets the unacceptable latency (processing and rendering delays) to meet the sales demo requirements.
+
+**4. Optimize Backend Processing (The "No-RAG" Fast Path)**
+*   **Action:** Implement the configuration to bypass RAG/LLM calls entirely in Production (Heuristics) mode.
+*   **Checkpoint:** Production mode processing time reduced significantly (Target: < 10s).
+
+**5. Optimize Data Transfer**
+*   **Action:** Implement `orjson` for faster JSON serialization (now safe due to DTO implementation).
+*   **Action:** Verify `GZipMiddleware` is enabled to minimize payload size.
+
+**6. Implement Web Worker for D3 Sankey (Strategic Initiative)**
+*   **Action:** Refactor the `LiveSankeyGraph` component to move the CPU-intensive D3 Sankey layout calculation off the main UI thread and into a **Web Worker**.
+*   **Why now?** This directly addresses the 30-second rendering delay and UI freezing. It is the critical step for perceived performance in the sales demo.
+*   **Checkpoint:** The Sankey visualization renders quickly (Target: < 5s) without locking the UI.
+
+#### Phase 3: Enterprise Scalability (Beyond the Demo)
+
+This final phase ensures the platform can handle real-world enterprise data volumes (100s of sources), moving beyond the limitations of the Sankey visualization.
+
+**7. Implement Adaptive Visualization Limits**
+*   **Action:** Define a hard limit for the Sankey visualization (e.g., 100 nodes) to prevent performance degradation or unreadable graphs with large datasets.
+
+**8. Develop the Enterprise View (Strategic Initiative)**
+*   **Action:** Develop the scalable, utility-focused views for managing large-scale integrations.
+    *   **Tabular Lineage Grid:** A searchable, filterable data grid for mappings and lineage.
+    *   **Hierarchical Tree View:** A collapsible view (Source -> Table -> Field) to illustrate the ontology structure.
+*   **Why now?** This provides the practical interface required for enterprise customers and should be prioritized after the core MVP demo is stable and fast.
+
+**9. Implement Automatic Fallback**
+*   **Action:** If the graph complexity exceeds the limit set in Step 7, automatically switch the UI from the Sankey view to the Enterprise View.
+*   **Checkpoint:** The platform gracefully handles enterprise-scale complexity.

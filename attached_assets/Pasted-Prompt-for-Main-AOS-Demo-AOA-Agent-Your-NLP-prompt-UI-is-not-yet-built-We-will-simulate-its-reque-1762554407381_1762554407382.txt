@@ -1,0 +1,64 @@
+Prompt for Main AOS Demo (AOA) Agent
+Your NLP prompt UI is not yet built. We will simulate its requests by calling your backend API endpoint directly from the command line.
+
+Your task is to run the 5-probe test suite. Since your /api/v1/aoa/discover endpoint is protected by JWT, you must first acquire an auth token.
+
+Your Action Plan:
+
+Get Auth Token: Run a curl command against your /api/v1/auth/login endpoint (or use a test user) to get a valid access_token.
+
+Store Token: Save this token to a shell variable (e.g., TOKEN).
+
+Run Probes: Execute the 5 curl commands below, one by one.
+
+Report Logs: After each command, paste the [DISCOVER E2E] backend logs that are generated. We must see all three logging points for each probe:
+
+[DISCOVER E2E] Sending request to AOD...
+
+[DISCOVER E2E] Received raw response from AOD...
+
+[DISCOVER E2E] Handoff to agent layer...
+
+🧪 Probe curl Commands
+(Execute these from your Replit Shell after setting the TOKEN variable)
+
+Probe 1: Simple Environment
+
+Bash
+
+curl -X POST 'http://localhost:5000/api/v1/aoa/discover' \
+-H "Authorization: Bearer $TOKEN" \
+-H "Content-Type: application/json" \
+-d '{"query": "find all prod assets"}'
+Probe 2: Compound Filter
+
+Bash
+
+curl -X POST 'http://localhost:5000/api/v1/aoa/discover' \
+-H "Authorization: Bearer $TOKEN" \
+-H "Content-Type: application/json" \
+-d '{"query": "show AWS databases"}'
+Probe 3: Security Filter
+
+Bash
+
+curl -X POST 'http://localhost:5000/api/v1/aoa/discover' \
+-H "Authorization: Bearer $TOKEN" \
+-H "Content-Type: application/json" \
+-d '{"query": "list shadow IT risks"}'
+Probe 4: Complex Filter (Stress Test)
+
+Bash
+
+curl -X POST 'http://localhost:5000/api/v1/aoa/discover' \
+-H "Authorization: Bearer $TOKEN" \
+-H "Content-Type: application/json" \
+-d '{"query": "list all unauthorized staging services on GCP"}'
+Probe 5: Negative Test (Graceful Fail)
+
+Bash
+
+curl -X POST 'http://localhost:5000/api/v1/aoa/discover' \
+-H "Authorization: Bearer $TOKEN" \
+-H "Content-Type: application/json" \
+-d '{"query": "where is the coffee machine"}'

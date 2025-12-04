@@ -1,0 +1,170 @@
+No-change triage (read-only)
+Run these exactly as written; no code changes during this pass.
+A. Verify DB + data exist
+
+
+Confirm the backend DB in use:
+
+
+Print DATABASE_URL from the running backend and from any seed script envs; they must match.
+
+
+
+
+In SQL (psql or Supabase SQL editor):
+-- adjust table names if yours differ
+SELECT current_database(), current_user;
+SELECT COUNT(*) FROM connections;
+SELECT * FROM connections ORDER BY created_at DESC LIMIT 10;
+-- if you scope by tenant/namespace:
+SELECT namespace, source_type, status, COUNT(*) 
+FROM connections GROUP BY 1,2,3 ORDER BY 1,2,3;
+
+If this is zero rows, you’re simply unseeded or in the wrong DB.
+
+
+B. Verify auth + scoping
+
+
+Decode the JWT your frontend is sending (don’t paste secrets here; just check claims). Confirm it contains the claim your backend expects (e.g., tenant_id or namespace).
+
+
+cURL the endpoint with and without token to see behavior:
+curl -i https://<backend>/api/v1/aam/connectors
+curl -i -H "Authorization: Bearer <JWT>" https://<backend>/api/v1/aam/connectors
+
+Compare status and payload shape.
+
+
+C. Verify API payload vs UI expectation
+
+
+In browser DevTools → Network:
+
+
+Inspect GET /api/v1/aam/connectors response JSON. Confirm the top-level key & fields match what the React component maps (id/name/source_type/status/...).
+
+
+If the API returns an empty array but SQL has rows, your query is filtered (namespace/user mismatch).
+
+
+
+
+D. Check logs for PgBouncer/async hints
+
+
+Look for errors like “prepared statement does not exist” or “cached plan”/“server side cursor” messages. That’s the PgBouncer + asyncpg tell.
+
+
+
+Recommendation (avoid mess)
+
+
+Do NOT implement Option C (sync bypass). It adds a second code path you’ll rip out later = tech debt + divergence.
+
+
+Do NOT do a “fake” demo seed that ignores real auth/tenant. It hides the real issue.
+
+
+Instead:
+Minimal, production-aligned fix (narrow, reversible)
+
+
+Ensure one real record exists for the active tenant
+
+
+After you confirm the correct DB, seed exactly one FilesSource row under the same namespace/tenant your JWT carries.
+
+
+Example (adjust names/columns to your schema):
+INSERT INTO connections (
+  id, name, source_type, namespace, status, config, created_at
+) VALUES (
+  'filesource_demo', 'FilesSource Demo', 'filesource', 'demo', 'ACTIVE',
+  '{"path":"mock_sources/","pattern":"*.csv"}'::jsonb, now()
+);
+
+
+
+Re-hit the endpoint with the same JWT. The card should appear.
+
+
+
+
+If you saw PgBouncer errors, add the standard asyncpg setting
+In your SQLAlchemy async engine for postgresql+asyncpg, pass:
+create_async_engine(
+    DB_URL,
+    pool_size=<your value>,
+    max_overflow=<your value>,
+    connect_args={"statement_cache_size": 0}  # <-- key for PgBouncer txn pooling
+)
+
+(This prevents server-side prepared statements that break under PgBouncer transaction pooling.)
+
+
+Confirm UI contract
+
+
+If API returns connections[] but UI maps connectors[], fix the mapping in the component (tiny change, no backend hack).
+
+
+
+
+This path keeps your architecture intact (async + PgBouncer), fixes the actual scoping/DB issues, and avoids adding temporary sync endpoints or demo shims.
+
+Acceptance criteria (to declare victory)
+
+
+GET /api/v1/aam/connectors returns ≥1 FilesSource object for the active tenant.
+
+
+Frontend Connections tab displays FilesSource with ACTIVE status.
+
+
+No PgBouncer/async errors in logs during the fetch.
+
+
+Seed script and runtime both point to the same DB.
+
+
+JWT used by the UI contains the claim(s) the backend filter uses (and those match the seeded row’s namespace/tenant_id).
+
+
+
+Replit MAX – read-only triage prompt (copy/paste)
+You are in READ-ONLY DIAGNOSTIC MODE. Do not modify code, configs, or data unless explicitly instructed later.
+
+Objective: Identify why the Connections tab shows no connectors in AAM.
+
+Steps:
+1) Print runtime env DB URL and driver:
+   - Locate async SQLAlchemy engine creation.
+   - Report DB URL (redact password), dialect/driver (expect postgresql+asyncpg), and connect_args.
+2) Query DB (read-only):
+   - Run SQL:
+     SELECT COUNT(*) FROM connections;
+     SELECT namespace, source_type, status, COUNT(*) FROM connections GROUP BY 1,2,3 ORDER BY 1,2,3;
+     SELECT * FROM connections ORDER BY created_at DESC LIMIT 5;
+   - Paste results.
+3) Auth scope:
+   - From frontend code, identify where JWT is stored and attached.
+   - Decode a dev JWT locally (no network) and list claims relevant to scoping (tenant_id/namespace/sub).
+   - Report what claim the backend filter uses for /api/v1/aam/connectors.
+4) API vs UI contract:
+   - Call /api/v1/aam/connectors with and without Authorization header.
+   - Paste HTTP status codes and top-level JSON keys (do not paste secrets).
+   - In the React component for Connections tab, show the prop/field names it expects for each item.
+   - Confirm they match the API payload fields.
+5) PgBouncer/async check:
+   - Search logs for “prepared statement does not exist”, “cached plan”, or asyncpg/pgbouncer errors in the last run.
+6) Produce a one-page report:
+   - Root cause in one line.
+   - Evidence (bulleted).
+   - Minimal fix (1–2 lines) aligned with async architecture.
+   - Explicitly list anything you would change, but DO NOT change it yet.
+
+Remember: NO CODE OR CONFIG CHANGES IN THIS PASS.
+
+
+If the triage confirms “empty set due to tenant mismatch,” authorize a single SQL seed under the correct namespace and validate. If it confirms the PgBouncer issue, add the statement_cache_size: 0 connect arg—that’s a surgical, low-risk, high-signal change.

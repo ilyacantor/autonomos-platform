@@ -1,0 +1,44 @@
+This is a significant milestone. Phase 1 is successfully completed, achieving the objective of transforming AAM into an active connection registry. The implementation across the database schema, connection manager, adapters, API, and frontend looks comprehensive and well-executed according to the plan.
+
+However, the recurring database warning is a critical concern:
+
+```
+⚠️ Database: Warning about max connections
+MaxClientsInSessionMode: max clients reached
+```
+
+### Prioritize the Database Connection Issue
+
+We must address the database connection issue immediately before proceeding to Phase 2.
+
+This error indicates that the application is exhausting the available connections to the Supabase database. Phase 2 (AAM → DCL Bridge) will introduce active data flow, significantly increasing the frequency and volume of database interactions. If the system is already hitting connection limits now, it will become unstable or fail completely under the increased load of Phase 2.
+
+A stable infrastructure is non-negotiable before proceeding with further architectural changes.
+
+### Recommended Debugging Strategy
+
+Connection exhaustion typically stems from connections being opened but not properly closed (connection leaks), or inefficient connection pooling.
+
+Please take the following steps to investigate and resolve the issue:
+
+1.  **Verify Connection Pooling (PgBouncer):**
+
+      * Supabase uses PgBouncer for connection pooling. Ensure that your application is connecting using the connection string designated for pooling (often on a different port, like 6543) rather than the direct database connection string (port 5432).
+
+2.  **Review Connection Handling in New Code:**
+
+      * Inspect `aam-hybrid/core/connection_manager.py` and the new adapters.
+      * Ensure that every database session acquisition is wrapped in a robust mechanism (like a context manager, e.g., `with Session() as session:`, or `try...finally` blocks) to guarantee that the connection is closed/released back to the pool, even if errors occur.
+      * Pay close attention to the asynchronous methods (`connect`, `health_check`, etc.), as handling connections in async code can be tricky.
+
+3.  **Analyze Application-Level Pooling Configuration:**
+
+      * If you are using an ORM (like SQLAlchemy or similar), it maintains its own internal pool. Check the configuration of the database engine (e.g., `pool_size`, `max_overflow`). If these are set too high, the application might overwhelm the available connections provided by Supabase.
+
+4.  **Review Supabase Plan Limits:**
+
+      * If the above optimizations do not resolve the issue, you may genuinely be exceeding the connection limits of your current Supabase hosting plan and may need to investigate an upgrade.
+
+### Next Steps
+
+Please pause the restructuring plan and focus on resolving this connection issue. Once the `MaxClientsInSessionMode` error is resolved and the database connections are stable, we will proceed with **Phase 2: AAM → DCL Bridge**.

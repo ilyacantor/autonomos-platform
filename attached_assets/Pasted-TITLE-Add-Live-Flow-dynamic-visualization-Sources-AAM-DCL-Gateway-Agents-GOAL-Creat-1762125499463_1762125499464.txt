@@ -1,0 +1,117 @@
+TITLE: Add “Live Flow” dynamic visualization (Sources → AAM → DCL → Gateway → Agents)
+
+GOAL
+Create a clean, animated view that shows events moving from data sources to agents in real time. No changes to existing visuals; this is an additional tab in the AAM Monitor.
+
+HARD GUARDRAILS
+- Do NOT modify existing DCL logic or graph visuals.
+- Additive only: new SSE endpoint + a new React route/tab.
+- Mobile-safe, responsive, and performant (cap on on-screen items).
+- JSON-only APIs; no HTML errors.
+
+ENV (add to .env.sample and read in dev)
+EVENT_STREAM_ENABLED=true
+EVENT_STREAM_HEARTBEAT_MS=15000
+
+=================== BACKEND (FastAPI): DEV SSE ENDPOINT ===================
+1) Create SSE endpoint at: GET /api/v1/events/stream
+   - Format: text/event-stream; retry: 3000
+   - Heartbeat event every EVENT_STREAM_HEARTBEAT_MS ms: event: heartbeat, data: {"ts": "..."}
+   - Try Redis PubSub first (if REDIS_URL exists):
+        Subscribe to patterns:
+           aam.streams.*              # canonical events
+           aam.events.schema.change   # drift
+           aos.intents.*              # intents journal
+        For each message, transform to common envelope:
+           {
+             "id": "<uuid>",
+             "ts": "<ISO8601>",
+             "tenant": "<tenant>",
+             "source_system": "<salesforce|supabase|mongodb|filesource|system>",
+             "entity": "<account|opportunity|...>",
+             "stage": "<ingested|canonicalized|materialized|viewed|intent|journaled|drift>",
+             "meta": { "trace_id":"...", "op":"upsert|...", "amount":..., "stage_name":"...", ... }
+           }
+   - Fallback if Redis is not available:
+        Poll the canonical_events table every 2s for rows with emitted_at > last_seen and emit "stage":"canonicalized".
+        Poll a journal/intents table for "stage":"intent|journaled".
+        (Keep this lightweight; stop when client disconnects.)
+
+2) Error handling:
+   - On any internal error, keep SSE open and emit:
+        event: error
+        data: {"message":"non-fatal","at":"<ISO8601>"}
+
+=================== FRONTEND (React/Vite): “Live Flow” =====================
+Files to add under frontend/src:
+
+A) Route & Tab
+- Add a new tab in the existing AAM Monitor page: “Live Flow (beta)”
+- Route path: /monitor/live (no changes to existing tabs)
+- Controls bar (top-right): Pause/Play, Speed (0.5x, 1x, 2x), Filter (source chips), Clear
+
+B) Component: components/monitor/LiveFlow.tsx
+- Default export: React component
+- Tech: Tailwind + Framer Motion; shadcn/ui for Button, Switch, Badge; lucide-react icons
+- Layout:
+   • Horizontal lanes, left→right: Sources | AAM | DCL | Gateway | Agents
+   • Each lane = rounded card; sticky labels; grid-based; overflow hidden
+   • Events appear as small rounded “pills” with subtle shadow, source-colored, moving lane-to-lane
+- Data:
+   • Connect to SSE: `${import.meta.env.VITE_AOS_BASE_URL}/api/v1/events/stream`
+   • Fallback: if SSE not reachable in 3s, simulate events using a local generator (dev only)
+- Event model (TypeScript):
+   type EventItem = {
+     id: string; ts: string; tenant: string;
+     source_system: "salesforce"|"supabase"|"mongodb"|"filesource"|"system";
+     entity: "account"|"opportunity"|string;
+     stage: "ingested"|"canonicalized"|"materialized"|"viewed"|"intent"|"journaled"|"drift";
+     meta?: Record<string, any>;
+   };
+- Stage → Lane mapping:
+   { ingested:0, canonicalized:1, materialized:2, viewed:3, intent:4, journaled:4, drift:1 }
+- Animation:
+   • Each item animates along columns with framer-motion (spring), opacity fade on exit
+   • Cap on-screen items to 120 (drop oldest gracefully)
+   • Respect Pause/Play; Speed scales transition durations
+- Mobile:
+   • Breakpoints sm/md/lg; lane heights adjust; text truncates; pills shrink to 8–10px height
+- Colors:
+   salesforce→ bg-sky-500; supabase→ bg-emerald-500; mongodb→ bg-green-600; filesource→ bg-zinc-500; drift→ bg-amber-500 ring-amber-300
+
+C) Components/ux:
+- Small legend showing color→source mapping
+- Counter badges per lane: last 60s throughput
+- “Event details” drawer (on pill click) showing meta (trace_id, op, stage_name, etc.)
+
+D) Safety:
+- If SSE drops, show a tiny non-blocking toast: “Live stream disconnected — retrying…”
+- Auto-reconnect with backoff (1s → 2s → 4s → 8s, max 8s)
+
+E) Example code skeleton (implement fully):
+- hooks/useEventStream.ts: handles SSE + backoff + fallback generator
+- components/monitor/LiveFlow.tsx: renders lanes + animated pills
+- constants/eventFlow.ts: lane map, colors, speeds
+
+=================== WIRES & TEST ===================
+1) Add route entry and a link in the AAM Monitor nav: “Live Flow (beta)”
+2) Add a dev script:
+   "scripts": {
+     "dev:flow": "echo 'Open /monitor/live – expecting moving events'"
+   }
+3) Minimal liveliness test:
+   - Open /monitor/live — see pills flowing within 5s
+   - Pause → flow stops; Play → resumes
+   - Filter “salesforce” only → only SF-colored pills remain
+   - Click one pill → drawer opens with meta including trace_id
+
+=================== GIT ===================
+- git add -A
+- git commit -m "feat(monitor): Live Flow dynamic event visualization (SSE + framer-motion)"
+- git push
+
+=================== OUTPUT (print ONLY) ===================
+- LIVE_FLOW_URL: <your-base-url>/monitor/live
+- SSE_ENDPOINT: /api/v1/events/stream
+- SSE_BACKEND: <redis|polling>
+- LIVE_FLOW_STATUS: READY

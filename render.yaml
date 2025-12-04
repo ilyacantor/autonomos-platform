@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: autonomos-platform
+    runtime: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: bash start.sh
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: REDIS_URL
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: PINECONE_API_KEY
+        sync: false
+      - key: SECRET_KEY
+        sync: false
+      - key: API_KEY
+        sync: false
+      - key: ALLOWED_WEB_ORIGIN
+        sync: false
+      - key: SLACK_WEBHOOK_URL
+        sync: false
+    healthCheckPath: /
+    autoDeploy: true

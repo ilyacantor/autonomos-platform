@@ -1,0 +1,10 @@
+contact:
+  fields:
+    contact_id: "id"
+    account_id: "organization_id"
+    name: "name"
+    email: "email"
+    phone: "phone"
+    title: "role"
+    created_at: "created_at"
+    updated_at: "updated_at"

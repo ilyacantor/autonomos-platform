@@ -1,0 +1,233 @@
+Goal:
+Completely remove the legacy DCL (Data Connectivity Layer) implementation from this repo: backend engine, APIs, frontend UI, database tables, and DCL-only dependencies. The old DCL will never be revived in this codebase.
+
+Use DCL_REMOVAL_ASSESSMENT.md in the repo as your authoritative map of what belongs to DCL v1.
+
+Absolute constraints
+
+Do NOT alter AOD, AAM, auth, or multi-tenant foundations.
+
+Do NOT change secrets or env vars.
+
+Use Alembic migrations for DB changes (no ad-hoc SQL).
+
+No half-measures: we want a foundational/fundamental fix, not feature flags.
+
+Step 1 – Backend code removal
+
+Open DCL_REMOVAL_ASSESSMENT.md and use the “Backend Directories & Files” list as the canonical source of DCL modules.
+
+Delete or remove from the codebase:
+
+app/dcl_engine/ (entire directory).
+
+dcl/ (legacy module, if present).
+
+shared/dcl_mapping_client.py.
+
+app/api/v1/dcl.py.
+
+app/api/v1/dcl_unify.py.
+
+app/api/v1/dcl_views.py.
+
+Any other DCL engine helpers referenced only by these modules.
+
+In app/main.py (and any startup/bootstrap modules):
+
+Remove all code that:
+
+Initializes DCL engines / RAG / AgentExecutor.
+
+Loads DCL graph state from Redis.
+
+Injects FlowEventPublisher into DCL.
+
+Mounts DCL routers under /dcl.
+
+After you’re done:
+
+There should be no include_router(..., prefix="/dcl") or equivalent.
+
+There should be no imports from app.dcl_engine, app.api.v1.dcl*, or shared.dcl_mapping_client.
+
+In aam_hybrid/core/dcl_output_adapter.py (and any other AAM ↔ DCL integration):
+
+If possible, delete the file and remove all imports of it.
+
+If some call sites are awkward to untangle, keep a tiny stub module where all public functions simply log “DCL removed from this repo; no-op adapter” and return immediately.
+
+Run a full-text search for:
+
+"/dcl"
+
+"dcl_"
+
+"DCL Engine"
+
+"dcl_output_adapter"
+
+and remove or refactor any remaining backend references so that no runtime code depends on DCL.
+
+Step 2 – Frontend removal & placeholder page
+
+Using DCL_REMOVAL_ASSESSMENT.md’s “Frontend Components” and “Hooks & Services” lists, delete:
+
+frontend/src/components/NewOntologyPage.tsx
+
+frontend/src/components/DCLGraphContainer.tsx
+
+frontend/src/components/LiveSankeyGraph.tsx
+
+frontend/src/components/LazyGraphShell.tsx
+
+Any DCL-specific files under frontend/src/hooks/ or frontend/src/services/ such as:
+
+useDCLState
+
+dclDefaults
+
+dclBridgeService
+
+Remove their imports and usages across the frontend.
+
+Update routing / navigation:
+
+Wherever the “Ontology” / “Unify & Ask” page is wired in (e.g. routes.tsx, AppRoutes.tsx, or similar), replace the old DCL page with a simple placeholder component, for example:
+
+// frontend/src/components/UnifyAndAskPlaceholder.tsx
+import React from "react";
+
+export function UnifyAndAskPlaceholder() {
+  return (
+    <div className="flex flex-col gap-4">
+      <h1 className="text-2xl font-semibold">Unify & Ask (Coming Soon)</h1>
+      <p className="text-sm text-muted-foreground max-w-xl">
+        The legacy in-process DCL engine has been removed from this demo shell.
+        The new DCL v2 engine runs as a separate service and will be integrated
+        here as an external module in a later iteration.
+      </p>
+    </div>
+  );
+}
+
+
+Wire this component into the nav for the “Unify & Ask” / DCL route so the UI remains coherent but does not call any /dcl APIs.
+
+Search the frontend for "/dcl" and remove all remaining references to DCL API endpoints. There should be no fetches or hooks that hit /dcl/* after this step.
+
+Step 3 – Database cleanup via Alembic
+
+Use the “Database Artifacts” section of DCL_REMOVAL_ASSESSMENT.md.
+
+Identify the DCL tables:
+
+mapping_registry
+
+canonical_streams
+
+drift_events
+
+schema_changes
+
+materialized_*
+
+dcl_unified_contact*
+
+hitl_*
+
+Create a new Alembic migration in alembic/versions/ that:
+
+In upgrade():
+
+(Optionally) checks if each table exists, and if so, drops it with op.drop_table(...).
+
+For pattern tables like materialized_* or hitl_*, either:
+
+Explicitly list known tables, or
+
+Use raw SQL to drop them by pattern if appropriate for this project.
+
+In downgrade():
+
+You can either leave it as a no-op with a clear comment, or recreate minimal table shells; choose the simpler approach consistent with existing migrations.
+
+Ensure that any SQLAlchemy model classes mapping to these tables are deleted or clearly marked as unused.
+
+Run the migrations in this environment so that the DB schema is actually cleaned.
+
+Step 4 – Dependency pruning
+
+Using the “Package Dependencies” section of DCL_REMOVAL_ASSESSMENT.md:
+
+In requirements.txt, tentatively mark the following as DCL-specific:
+
+duckdb
+
+pinecone
+
+rank-bm25
+
+Before removing, run a repo-wide search for each package’s import name, for example:
+
+import duckdb
+
+from pinecone
+
+from rank_bm25
+
+If these imports are only used in the DCL modules you’ve just removed, delete the packages from requirements.txt.
+
+For the following packages, only remove them if they are truly unused elsewhere (NLP Gateway, etc.):
+
+pandas
+
+sentence-transformers
+
+google-generativeai
+
+openai
+
+presidio-analyzer
+
+presidio-anonymizer
+
+If those imports appear only in DCL code, remove them from requirements.txt. If they appear outside DCL, leave them as-is.
+
+After editing requirements.txt, run the app’s dependency install/test flow and confirm there are no ImportErrors.
+
+Step 5 – Sanity checks
+
+Start the app.
+
+Verify logs during startup:
+
+There should be no log lines about:
+
+DCL Engine, DCL RAG Engine, DCL AgentExecutor, graph state from Redis, or DCL feature flags.
+
+The only remaining logs should be from core app + AAM + AOD.
+
+Hit the following URLs in the running app:
+
+Home / Overview
+
+Discover (AOD)
+
+Connect (AAM)
+
+Unify & Ask (should show the placeholder, with no network calls failing in the console)
+
+Any control/guide pages
+
+Confirm there are no 404 / 500 errors in the browser console and no background tasks trying to talk to /dcl.
+
+Keep the diff focused and intentional. The end state should be:
+
+No DCL engine code or routes in this repo.
+
+No DCL tables in the DB.
+
+No DCL-only packages in requirements.
+
+A simple, honest placeholder in the UI where DCL used to be, ready for an external DCL v2 integration later.

@@ -1,0 +1,44 @@
+TITLE: AOS – Platform Smoke Test (non-destructive)
+
+GOAL
+Run a quick platform smoke test and quiet the AAM Monitor in dev. Do NOT change any existing DCL logic, the core graph visual, or any GUI layout.
+
+GIT (temp test branch)
+- Create and switch to branch: test/platform-smoke-2025-10-31
+- Commit any uncommitted changes as "chore(test): pre-smoke snapshot" (ignore if clean).
+- Push with upstream.
+
+CHECK/ENSURE THESE DEV ENDPOINTS EXIST (create stubs ONLY if missing; return JSON):
+- GET /api/v1/health  → {"ok": true, "service": "AOS", "mode": "dev"}
+- GET /api/v1/dcl/views/opportunities → {"items":[],"page":1,"page_size":10,"total":0}
+- GET /api/v1/dcl/views/accounts      → {"items":[],"page":1,"page_size":10,"total":0}
+- POST /api/v1/intents/revops/execute → {"task_id":"demo-task","trace_id":"demo-trace"}
+- POST /api/v1/intents/finops/execute → {"task_id":"demo-task","trace_id":"demo-trace"}
+
+MONITOR (dev only)
+- Set MONITOR_POLLING=false by default in development.
+- Add/ensure a "Manual Refresh" button.
+- Ensure four readouts render (static zeroed values are fine in dev):
+  • Mappings: total=0, autofix=0%
+  • Drift(24h): 0
+  • Suggestions: pending=0
+  • Avg confidence: 0.0
+- Do NOT alter any other styles or layouts; zero visual regressions.
+
+SMOKE SCRIPT
+- Add a simple script (e.g., scripts/smoke_test.py or a small TS script) that:
+  1) Calls /api/v1/health → expect 200 & ok:true
+  2) Calls /api/v1/dcl/views/opportunities → expect 200 & items array (may be empty)
+  3) POST /api/v1/intents/revops/execute with {"intent":"noop","explain_only":true} → expect task_id & trace_id
+  4) POST /api/v1/intents/finops/execute with {"intent":"noop","dry_run":true} → expect task_id & trace_id
+- Print a PASS/FAIL summary with timings.
+
+GUARDRAILS (HARD)
+- Do NOT modify DCL transformations or mappings.
+- Do NOT modify the core graph visual or its CSS/layout.
+- Always return JSON (never HTML error pages).
+- If any internal error occurs, views return an empty list with 200 (dev only).
+
+OUTPUT
+- Print the public base URL for these routes, e.g., https://<aos-dev>/api/v1
+- Run the smoke script and print the PASS/FAIL summary.

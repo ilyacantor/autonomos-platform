@@ -1,0 +1,114 @@
+Apply the following delta to the persona-first NLP + Control Centers. Keep commits small and clear. If a dependency/route is missing, return safe stubs (value null, note:"stub"), never break the UI.
+
+1) Update persona mapping and classifier
+
+In the NLP service and any shared constants, set:
+
+personaDomains = { cto:[AOD,AAM,DCL,Agents], cro:[RevOps], coo:[FinOps], cfo:[] }
+
+Update /persona/classify rules:
+
+COO keywords: ["spend","budget","variance","invoice","vendor","renewal","contract","cost center","unit cost","savings plan","reserved instances","cloud bill","FinOps","compute","storage","network"]
+
+CFO keywords: ["revenue","ARR","MRR","bookings","churn","gross margin","EBITDA","P&L","cash","burn","runway","DSO","DPO","working capital","GAAP","audit","forecast accuracy"]
+
+CRO and CTO rules unchanged.
+
+Tie-break: if both COO and CFO hit → if any of ["EBITDA","cash","burn","runway","DSO","DPO","working capital","P&L"] present choose CFO; if any of ["vendor","renewal","cloud","budget","FinOps","cost center"] present choose COO.
+
+Keep the embedding fallback as before.
+
+Commit: feat(nlp): remap FinOps to COO and refine CFO/COO classifier
+
+2) Backend — persona summaries
+
+Modify GET /persona/summary:
+
+COO pulls from FinOps endpoints (if present):
+
+/finops/spend/summary, /finops/cost-centers/top, /finops/vendors/top, /finops/renewals/upcoming
+
+CFO returns stubbed KPIs (until sources exist). Provide fields, values null, and note:"stub" plus href:"#"
+
+JSON shape unchanged. Implement two new builders:
+
+# COO example (use real data if endpoints exist; else value:null)
+{
+  "persona":"coo",
+  "tiles":[
+    {"key":"cloud_spend","title":"Cloud Spend (MTD)","value":null,"delta":null,"timeframe":"MTD vs Budget","last_updated":null,"href":"/finops"},
+    {"key":"variance_mtd","title":"Variance","value":null,"delta":null,"timeframe":"MTD","last_updated":null,"href":"/finops"},
+    {"key":"vendors_over_threshold","title":"Vendors > $50k","value":null,"delta":null,"timeframe":"Rolling 30d","last_updated":null,"href":"/finops/vendors"},
+    {"key":"renewals_30d","title":"Renewals (30d)","value":null,"delta":null,"timeframe":"Next 30d","last_updated":null,"href":"/finops/renewals"},
+    {"key":"top_cost_centers","title":"Top Cost Centers","value":null,"delta":null,"timeframe":"MTD","last_updated":null,"href":"/finops/cost-centers"}
+  ],
+  "table":{
+    "title":"Top 10 Cost Centers (MTD)",
+    "columns":["Cost Center","MTD Spend","Δ vs prior period"],
+    "rows":[],
+    "href":"/finops/cost-centers"
+  }
+}
+
+# CFO example (stubbed)
+{
+  "persona":"cfo",
+  "tiles":[
+    {"key":"revenue_mtd","title":"Revenue (MTD)","value":null,"delta":null,"timeframe":"MTD/QTD/YTD","last_updated":null,"href":"#","note":"stub"},
+    {"key":"gross_margin_pct","title":"Gross Margin %","value":null,"delta":null,"timeframe":"MTD","last_updated":null,"href":"#","note":"stub"},
+    {"key":"cash_balance","title":"Cash Balance","value":null,"delta":null,"timeframe":"Today","last_updated":null,"href":"#","note":"stub"},
+    {"key":"burn_rate","title":"Burn Rate","value":null,"delta":null,"timeframe":"Rolling 30d","last_updated":null,"href":"#","note":"stub"},
+    {"key":"runway_months","title":"Runway (mo)","value":null,"delta":null,"timeframe":"Projected","last_updated":null,"href":"#","note":"stub"},
+    {"key":"dso_dpo","title":"DSO / DPO","value":null,"delta":null,"timeframe":"Rolling 90d","last_updated":null,"href":"#","note":"stub"}
+  ],
+  "table":{
+    "title":"Finance KPIs by Month",
+    "columns":["Month","Revenue","GM%","Burn","Cash End"],
+    "rows":[],
+    "href":"#",
+    "note":"stub"
+  }
+}
+
+
+Commit: feat(api): COO summary (FinOps) and CFO stub summary
+
+3) Frontend — Control Center tiles for COO/CFO
+
+Update persona → widget config:
+
+COO uses FinOps tiles/tables above.
+
+CFO uses the stub finance scoreboard above.
+
+Tooltips: if note:"stub" or value:null, show “Data source not connected yet.”
+
+Keep layout and responsiveness as before.
+
+Commit: feat(ui): COO FinOps dashboard and CFO finance scoreboard (stub)
+
+4) NLP query routing
+
+Ensure POST /nlp/query maps persona=coo to FinOps RAG tags (e.g., kb:persona:coo, kb:finops, plus kb:global fallback).
+
+Map persona=cfo to kb:persona:cfo + kb:global. (OK if currently empty; retrieval should still work with global.)
+
+Commit: feat(nlp): route COO to FinOps indices; add CFO index tag
+
+5) Quick tests
+
+Add classifier tests:
+
+“What’s our cloud spend vs budget this month?” → coo
+
+“How many vendors are up for renewal in 30 days?” → coo
+
+“What’s our EBITDA and runway?” → cfo
+
+“Show pipeline commit and win rate” → cro
+
+“Any connector drift today?” → cto
+
+Add API tests that /persona/summary?persona=coo and cfo return schema-valid JSON even if values are null.
+
+Commit: test(persona): coo/cfo routing and summary schema

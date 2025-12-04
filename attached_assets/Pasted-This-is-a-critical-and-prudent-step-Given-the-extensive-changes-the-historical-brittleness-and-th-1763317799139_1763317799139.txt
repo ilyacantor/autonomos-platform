@@ -1,0 +1,112 @@
+This is a critical and prudent step. Given the extensive changes, the historical brittleness, and the recent focus on optimization, a comprehensive re-audit is essential to validate the stability and enterprise readiness of the platform.
+
+Here is the structured prompt to guide the agent through a comprehensive review of the entire AOS, with a specific focus on the DCL component.
+
+### Prompt: Comprehensive AOS Architecture and DCL Stabilization Audit
+
+````markdown
+Agent, we have completed significant restructuring, stabilization (P1, P2, P3), and optimization of the AutonomOS (AOS) platform, particularly the DCL component. We must now perform a comprehensive audit to verify architectural stability, ensure the stabilization efforts are holding, and identify any reintroduced brittleness.
+
+**Objective:** Verify the stability, security, and enterprise readiness of the AOS architecture.
+**Methodology:** Provide concrete evidence (code snippets, configuration values, test results, command outputs) for all findings. Do not provide assertions without evidence.
+
+---
+
+### Pillar 1: DCL Stabilization Deep Dive (P1, P2, P3)
+
+Verify the core stabilization efforts implemented during the remediation process.
+
+**1.1. P1 Verification (Multi-Tenancy and State Isolation):**
+*   **Enforcement:** Confirm that tenant-scoped state is mandatory and globally enforced (e.g., `TENANT_SCOPED_STATE=True` or the flag removed entirely).
+*   **Global State Check:** Audit the DCL engine (`app/dcl_engine/`) for any remaining module-level global state variables (e.g., `GRAPH_STATE = {}`).
+*   **Scoping Audit:** Review the DCL state management implementation. Verify that all Redis keys and database queries are strictly prefixed or filtered by `tenant_id`.
+*   **Tenant ID Propagation:** Verify that the `/dcl/connect` endpoint correctly extracts the `tenant_id` from the JWT token (via `get_current_user`), not from query parameters.
+
+**1.2. P2 Verification (Concurrency Control):**
+*   **Lock Unification:** Confirm that the unified distributed lock (Redis-based) is the *only* locking mechanism used in the DCL engine. Verify that legacy locks (`STATE_LOCK`, `ASYNC_STATE_LOCK`) have been completely removed.
+*   **Lock Implementation:** Review the distributed lock code. Confirm it uses the atomic Lua script for safe acquisition/release.
+*   **Usage Audit:** Audit all DCL graph modification operations AND all DuckDB interactions (read/write). Verify that the distributed lock is correctly acquired (e.g., using `async with lock:`) before *every* operation.
+
+**1.3. P3 Verification (Contract Stability and DTOs):**
+*   **Endpoint Audit:** Review all API endpoints within the DCL engine.
+*   **DTO Usage:** Verify that strict Pydantic DTOs are used for *all* inputs and outputs.
+*   **Contract Enforcement:** Confirm that no raw ORM models or internal objects are returned by the API. Verify that ambiguous types (UUIDs, DateTimes) are explicitly defined in the DTOs.
+
+---
+
+### Pillar 2: DCL Performance and Resilience
+
+Audit the recent performance optimizations and the frontend rendering logic.
+
+**2.1. Backend Concurrency (Performance Fix Validation):**
+*   Verify that source processing in `connect_sources` is executed concurrently, not sequentially.
+*   **Evidence:** Provide the code snippet showing the use of `asyncio.gather()` for `rag_engine.run_mapping`.
+
+**2.2. RAG Engine and Blocking I/O:**
+*   Audit the RAG engine implementation. Verify that CPU-bound tasks (e.g., vector lookups, DuckDB/Pandas operations) are correctly offloaded using `run_in_threadpool` and are not blocking the event loop.
+
+**2.3. Frontend Rendering Logic (Brittleness Check):**
+*   Review the `LiveSankeyGraph` component implementation regarding the "zero-height container" fix.
+*   Verify that the component correctly waits for `ResizeObserver` to provide valid dimensions before attempting to render D3 (e.g., rendering is blocked/skeleton shown until dimensions are available).
+
+---
+
+### Pillar 3: Architectural Foundation Audit
+
+Verify the core architectural remediation remains intact across the AOS platform.
+
+**3.1. Code Structure and Packaging:**
+*   **`sys.path` Check:** Verify zero instances of `sys.path` manipulation in the core production runtime (`app/`, `scripts/`, `services/`, `aam_hybrid/`).
+    ```bash
+    grep -rn "sys.path.insert\|sys.path.append" app/ scripts/ services/ aam_hybrid/
+    ```
+*   **Circular Dependencies:** Check for any newly introduced circular imports.
+*   **Decomposition Check:** Identify any files in critical paths (DCL, AAM Monitoring) exceeding 500 lines (excluding models/schemas).
+
+**3.2. Database Integrity:**
+*   **Single Base:** Confirm that only one SQLAlchemy `Base` is used across the entire application.
+*   **Alembic Status:** Verify that the migration system is clean and tracking all models correctly (`alembic check`).
+
+**3.3. Service Coupling:**
+*   **Internal HTTP Calls:** Verify there are zero HTTP calls between internal services (e.g., AOA calling DCL via `http://localhost`).
+
+---
+
+### Pillar 4: Security and Observability
+
+Re-validate core security mechanisms and system visibility.
+
+**4.1. Authentication (AuthN):**
+*   **Enforcement:** Verify that authentication is enforced on all endpoints in production mode.
+*   **Dev Bypass:** Confirm the implementation of the development auth bypass (`AUTH_ENABLED=false`) correctly utilizes the `MockUser` pattern without breaking the application logic.
+*   **Validation:** Execute the core authentication tests (including `TestCurrentUser`) and report the results.
+
+**4.2. Observability:**
+*   **Logging:** Verify the implementation of structured logging (JSON format) and Request ID tracing middleware.
+*   **Metrics/Health:** Confirm that the Prometheus metrics endpoint (`/metrics`) and health check endpoints (`/health/ready`) are operational.
+
+---
+
+### Pillar 5: Test Harness Validation (The Safety Net)
+
+Verify the integrity and execution of the automated test suite.
+
+**5.1. DCL Test Harness Health:**
+*   **Execution:** Execute the full DCL Test Harness using the isolated test database.
+    ```bash
+    # Ensure TEST_DATABASE_URL is set
+    pytest tests/dcl/ -v --tb=short
+    ```
+*   **Results:** Report the pass/fail rates for Contract, Workflow, and Concurrency tests.
+*   **Requirement:** All tests must pass 100%. Any failure indicates a regression or instability.
+
+**5.2. Test Isolation and Configuration:**
+*   Verify that the test fixtures (`tests/conftest.py`) correctly configure the test environment (database overrides for main app AND DCL sub-app, Redis cleanup).
+*   Confirm that tests are strictly using `TEST_DATABASE_URL` and not the production database.
+
+---
+
+### Deliverable
+
+Provide a comprehensive Audit Report summarizing the findings and evidence for each pillar, and a final risk assessment regarding the platform's stability and enterprise readiness.
+````

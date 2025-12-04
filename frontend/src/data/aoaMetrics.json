@@ -1,0 +1,182 @@
+{
+  "vitals": {
+    "agentUptime": 99.2,
+    "activeAgents": {
+      "current": 12,
+      "total": 15
+    },
+    "failedSteps24h": 3,
+    "anomalyDetections24h": 7,
+    "humanOverrides": 2,
+    "triggerCountPerMin": 147,
+    "computeLoadAvg": 42
+  },
+  "aoaFunctions": [
+    {
+      "id": "discover",
+      "name": "Discover",
+      "metric": 87,
+      "target": 90,
+      "status": "optimal",
+      "unit": "%"
+    },
+    {
+      "id": "sense",
+      "name": "Sense",
+      "metric": 94,
+      "target": 85,
+      "status": "optimal",
+      "unit": "%"
+    },
+    {
+      "id": "policy",
+      "name": "Policy",
+      "metric": 76,
+      "target": 80,
+      "status": "warning",
+      "unit": "%"
+    },
+    {
+      "id": "plan",
+      "name": "Plan",
+      "metric": 91,
+      "target": 90,
+      "status": "optimal",
+      "unit": "%"
+    },
+    {
+      "id": "prioritize",
+      "name": "Prioritize",
+      "metric": 88,
+      "target": 85,
+      "status": "optimal",
+      "unit": "%"
+    },
+    {
+      "id": "execute",
+      "name": "Execute",
+      "metric": 82,
+      "target": 90,
+      "status": "warning",
+      "unit": "%"
+    },
+    {
+      "id": "budget",
+      "name": "Budget",
+      "metric": 95,
+      "target": 90,
+      "status": "optimal",
+      "unit": "%"
+    },
+    {
+      "id": "observe",
+      "name": "Observe",
+      "metric": 98,
+      "target": 95,
+      "status": "optimal",
+      "unit": "%"
+    },
+    {
+      "id": "learn",
+      "name": "Learn",
+      "metric": 72,
+      "target": 80,
+      "status": "warning",
+      "unit": "%"
+    },
+    {
+      "id": "lifecycle",
+      "name": "Lifecycle",
+      "metric": 89,
+      "target": 85,
+      "status": "optimal",
+      "unit": "%"
+    }
+  ],
+  "xaoFunctions": [
+    {
+      "id": "cross_discovery",
+      "name": "Cross-Enterprise Discovery",
+      "value": "847 endpoints",
+      "trend": "up",
+      "description": "Active API endpoints across federated systems"
+    },
+    {
+      "id": "federation_health",
+      "name": "Federation Health",
+      "value": "96.2%",
+      "trend": "stable",
+      "description": "Overall health of federated orchestration"
+    },
+    {
+      "id": "trust_score",
+      "name": "Trust Score",
+      "value": "8.7/10",
+      "trend": "up",
+      "description": "Inter-enterprise trust and reliability metric"
+    },
+    {
+      "id": "data_sovereignty",
+      "name": "Data Sovereignty",
+      "value": "100%",
+      "trend": "stable",
+      "description": "Compliance with regional data requirements"
+    },
+    {
+      "id": "cost_allocation",
+      "name": "Cost Allocation",
+      "value": "$124k/mo",
+      "trend": "down",
+      "description": "Distributed compute and resource costs"
+    },
+    {
+      "id": "sla_compliance",
+      "name": "SLA Compliance",
+      "value": "99.7%",
+      "trend": "stable",
+      "description": "Service level agreement adherence"
+    },
+    {
+      "id": "security_posture",
+      "name": "Security Posture",
+      "value": "A+",
+      "trend": "stable",
+      "description": "Federated security assessment score"
+    },
+    {
+      "id": "consensus_rate",
+      "name": "Consensus Rate",
+      "value": "94.3%",
+      "trend": "up",
+      "description": "Multi-party agreement on orchestration decisions"
+    },
+    {
+      "id": "latency_p95",
+      "name": "Cross-Enterprise Latency (P95)",
+      "value": "127ms",
+      "trend": "down",
+      "description": "95th percentile latency for federated operations"
+    },
+    {
+      "id": "shared_agents",
+      "name": "Shared Agents",
+      "value": "42 active",
+      "trend": "up",
+      "description": "Agents operating across enterprise boundaries"
+    },
+    {
+      "id": "interop_score",
+      "name": "Interoperability Score",
+      "value": "9.1/10",
+      "trend": "stable",
+      "description": "System compatibility and integration health"
+    },
+    {
+      "id": "dispute_resolution",
+      "name": "Dispute Resolution Time",
+      "value": "4.2min",
+      "trend": "down",
+      "description": "Average time to resolve orchestration conflicts"
+    }
+  ]
+}

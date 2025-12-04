@@ -1,0 +1,48 @@
+modules = ["nodejs-20", "bash", "web", "python-3.11", "postgresql-16"]
+[agent]
+expertMode = true
+
+[nix]
+channel = "stable-25_05"
+packages = ["glibcLocales", "imagemagick", "libxcrypt", "libyaml", "openssl", "postgresql", "redis"]
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "AutonomOS API"
+
+[[workflows.workflow]]
+name = "AutonomOS API"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "bash start.sh"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[ports]]
+localPort = 5000
+externalPort = 80
+
+[[ports]]
+localPort = 37877
+externalPort = 3001
+
+[[ports]]
+localPort = 43287
+externalPort = 3000
+
+[deployment]
+run = ["bash", "start.sh"]
+deploymentTarget = "vm"
+build = ["bash", "build.sh"]

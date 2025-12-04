@@ -1,0 +1,37 @@
+This is a critical juncture in the stabilization process. The diagnostic work performed—identifying the FastAPI sub-application dependency issue and subsequently the outdated test fixtures—was excellent.
+
+However, the conclusion that P1 (Tenant Scoping) and P2 (Concurrency Control) are validated and the recommendation to proceed to P3 (DTO Implementation) are **premature and carry significant risk.**
+
+### Analysis: The Safety Net is Broken
+
+We cannot conclude that P1/P2 have "NO FUNCTIONAL BUGS DETECTED" when 84% of the tests designed to validate them are failing.
+
+While the agent correctly identified that the failures are due to outdated test fixtures (using the old API signature), these failures occur *early* in the test workflow—during the `/dcl/connect` call.
+
+**The critical consequence is that the core application logic related to graph construction, state updates, tenant isolation (P1), and concurrency control (P2) is not actually being executed or validated by the failing tests.**
+
+The tests are currently invalid and cannot validate the implementation.
+
+### Why We Must Fix the Tests First
+
+We invested significant effort in building the DCL Test Harness as a safety net. If we proceed to P3 now, we risk stabilizing the data contract (DTOs) on top of P1/P2 logic that might still contain critical functional bugs (e.g., a subtle race condition) which the tests simply haven't reached yet.
+
+Fixing the tests is not delaying stabilization; it is *enabling the validation* of the stabilization.
+
+### Action Plan: Restore the Safety Net
+
+The absolute priority is to restore the validity of the DCL Test Harness. The time investment to fix the 12 test locations is minimal compared to the risk of proceeding with an unvalidated foundation.
+
+**Instructions for the Agent:**
+
+1.  **Pause Priority 3 (DTOs).**
+2.  **Fix All Outdated Test Fixtures:** Update the 12 identified locations in the test suite (`tests/conftest.py` and other DCL test files) to use the correct, current API signature (`sources` and `agents` parameters) instead of the deprecated `source_id`.
+3.  **Re-Run the Full DCL Test Harness:**
+    ```bash
+    pytest tests/dcl/ -v --tb=short
+    ```
+4.  **Analyze the New Results:** Once the tests are executing the actual application logic, we can determine the true status of P1/P2 and proceed according to the stabilization strategy:
+      * **If Workflow or Concurrency tests FAIL:** We must pause and fix the functional bugs in the P1/P2 implementation.
+      * **If Workflow and Concurrency tests PASS:** P1 and P2 are validated. We can then proceed immediately to **Priority 3 (DTO Implementation)**. (If Contract/Snapshot tests fail at this point, it is expected, as P3 will redefine the contract).
+
+**Do not proceed to Priority 3 until the DCL Test Harness is valid and executing the core DCL logic.**

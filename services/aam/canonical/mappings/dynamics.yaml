@@ -1,0 +1,10 @@
+account:
+  fields:
+    account_id: "accountid"
+    name: "accountname"
+    type: "accounttype"
+    industry: "industrycode"
+    owner_id: "ownerid"
+    status: "statecode"
+    created_at: "createdon"
+    updated_at: "modifiedon"

@@ -1,0 +1,6 @@
+account_id,name,type,industry,owner_id,status,created_at,updated_at,annual_revenue,employees
+SFDC-A-001,Acme Corporation,Enterprise,Technology,USR-101,active,2024-01-15T10:00:00Z,2024-10-20T14:30:00Z,5000000,250
+SFDC-A-002,Global Dynamics Inc,Mid-Market,Manufacturing,USR-102,active,2024-02-10T09:15:00Z,2024-10-25T11:20:00Z,2500000,150
+SFDC-A-003,TechStart Solutions,SMB,Software,USR-103,active,2024-03-05T14:00:00Z,2024-10-28T16:45:00Z,800000,45
+SFDC-A-004,Enterprise Systems Ltd,Enterprise,Finance,USR-101,prospect,2024-04-12T08:30:00Z,2024-10-29T10:00:00Z,12000000,500
+SFDC-A-005,Innovation Labs,Mid-Market,Technology,USR-104,active,2024-05-20T13:45:00Z,2024-10-30T09:30:00Z,3200000,180

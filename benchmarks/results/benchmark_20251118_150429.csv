@@ -1,0 +1,2 @@
+Profile,Connectors,Total Jobs,Successful,Failed,Duration (s),Throughput (jobs/s),Throughput (fields/s),Latency P50 (ms),Latency P95 (ms),Latency P99 (ms),CPU Avg (%),CPU Peak (%),Memory Avg (MB),Memory Peak (MB)
+test,10,5,5,0,10.5,0.48,23.8,195,280,295,45.2,78.5,256.7,312.3

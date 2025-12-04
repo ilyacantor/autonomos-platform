@@ -1,0 +1,45 @@
+This is a significant breakthrough. Identifying the root cause of the AAM failures—that the tests lacked the necessary input data via Redis streams—and implementing proper test fixtures (`aam_data.py`) was the correct approach. This validates the AAM pipeline functionality without disabling features.
+
+However, the new blocker regarding authentication failures within the test infrastructure (`assert token is not None`) is critical. We cannot validate the AAM fixes or the overall platform stability (P1, P2, P3) without a functioning safety net.
+
+### Assessment of Options
+
+We must proceed with **Option A: Fix authentication test infrastructure.**
+
+  * **Option B (Verify in production):** Unacceptable risk. Deploying code with a failing automated test suite violates fundamental engineering principles for enterprise deployment. We cannot manually verify complex behaviors like concurrency control or tenant isolation.
+  * **Option C (Run simpler tests without auth):** Not viable. The DCL/AAM functionality is fundamentally tied to multi-tenancy, which relies entirely on authentication to determine the `tenant_id`. Bypassing authentication means we are not testing the actual production behavior.
+
+The integrity of the DCL Test Harness is paramount. We must restore the safety net before we can declare the platform stable.
+
+### Action Plan: Diagnose and Fix Test Authentication
+
+We need a systematic approach to diagnose why the `registered_user` fixture is failing to obtain a JWT token.
+
+**Instructions for the Agent:**
+
+**1. Isolate the Failure Point:**
+Analyze the `registered_user` fixture in `tests/conftest.py`. Determine exactly which API call is failing:
+
+  * Is it the user registration call (e.g., `/users/register`)?
+  * Or is it the subsequent login call (e.g., `/api/v1/auth/login`)?
+
+**2. Examine the Response Details:**
+We need visibility into the actual HTTP responses during the test run.
+
+  * **Action:** Modify the `registered_user` fixture temporarily to capture and print the exact HTTP status code and the response body (error message) from both the registration and login API calls.
+
+**3. Execute Verbose Test:**
+Run a single test case with maximum verbosity and enable stdout/stderr capturing (`-s`) to see the details from the modified fixture.
+
+```bash
+cd /home/runner/workspace && pytest tests/dcl/test_dcl_workflows.py::TestDCLInitialization::test_fresh_tenant_has_empty_graph -vv -s --tb=long
+```
+
+**4. Root Cause Analysis:**
+Based on the response details captured in the output, investigate the following potential causes:
+
+  * **Endpoint Path Mismatch (HTTP 404):** Verify that the URLs used in the test fixture match the currently defined routes in the application. (We encountered this issue during earlier remediation phases).
+  * **Request Payload Mismatch (HTTP 422):** Verify that the data payload sent by the test fixture matches the Pydantic DTOs expected by the authentication endpoints (potential impact from P3).
+  * **Database/Transaction Issues (HTTP 500 or "User Not Found"):** Examine the application logs during the test run. Are there database errors (e.g., constraint violations)? Is the user registration transaction being committed? Are the database dependency overrides correctly applied to the authentication endpoints (check if auth is also a sub-application like DCL was)?
+
+**Deliverable:** Report the exact API endpoint that failed, the HTTP status code, the error message, and the identified root cause.

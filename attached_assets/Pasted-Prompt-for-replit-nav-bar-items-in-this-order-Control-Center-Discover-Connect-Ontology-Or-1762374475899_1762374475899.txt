@@ -1,0 +1,55 @@
+Prompt for replit -
+
+nav bar items in this order - Control Center, Discover, Connect, Ontology, Orchestration, FAQ,  notifications bell, Login and sign up buttons
+
+
+
+Current Dashboard page will become the new Ontology page.  
+
+
+
+The only components on the new Ontology page will be:
+
+1. Existing DCL container which has the DCL graph and its controls.  
+
+2. Narration box
+
+3. RAG Learning engine box
+
+4. Move all contents from the current Connections page (data sources, selection tool and trace data lineage here.  Delete Connections nav item and old page.  
+
+5. Move contents from Ontology tab here, both Unified view and Data source universe.  Don't move repair activity box.  
+
+
+
+*** do not delete any components you remove from the pages, keep them somewhere safe, we may reuse them****
+
+
+
+Discover page - this is for AOS Discover (AOD)
+
+1. Use attached layout - just recreate the static page, don't worry about the functionality - we will bring that from another Repl.  The title on the page will be AOS Discover, subhead:  Autonomously fingerprints your entire tech stack. Catalogs 100s of apps, databases, and tools without manual configuration.
+
+Infers relationships instantly. Creates secure architectural views using metadata only.
+
+
+
+Connect page (AAM)
+
+1. move from the old Dashboard page the 3-floating-panes visual, the header and the footer, the real-time connection monitor, and the text next to it (three-layer architecture, etc)  
+
+2.  move form the AAM Monitor page all the contents here, both Overview and Connector Details.  Retain the structure of "Overview" and COnnector details.  So the Overivew will have the items from #1 above plus items from the Overview broght over from old AAM Monitor.  
+
+3.  move the contents from the Live Flow tab here. 
+
+
+
+Orchestration page 
+
+1.  Move the Agentic Orchestration Architecture (AOA) section with the 5 boxes from old dashboard page here.   
+
+2. Move all the components from teh Agentic Orchestration at Scale from old Dashboard page here. 
+
+
+
+Clean up - delete the old pages after getting approval of the work from me.  

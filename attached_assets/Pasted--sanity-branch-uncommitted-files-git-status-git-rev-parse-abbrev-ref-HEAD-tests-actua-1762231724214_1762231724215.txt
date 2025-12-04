@@ -1,0 +1,197 @@
+# sanity: branch + uncommitted files
+git status && git rev-parse --abbrev-ref HEAD
+
+# tests actually exist (no “decided on…” nonsense)
+git ls-files tests | grep -E 'test_aam_drift|test_dcl_'
+
+# run AAM drift test and show real pass/fail
+pytest -q tests/test_aam_drift_automated.py -q
+
+# confirm the claimed datetime serialization fix is in code
+git grep -n "model_dump(mode='json')" services/aam/connectors/filesource/connector.py
+
+# confirm salesforce.yaml maps 'opportunity_amount' (or intentionally doesn’t, to test drift)
+git grep -n "opportunity_amount" services/aam/canonical/mappings/salesforce.yaml
+
+# verify “extras” actually captured unknown fields (Postgres)
+psql "$DATABASE_URL" -c "SELECT COUNT(*) FROM aam_events WHERE extras ? 'opportunity_amount';"
+# DuckDB equivalent (adjust table):
+duckdb -c "SELECT COUNT(*) FROM aam_events WHERE json_extract(extras,'$.opportunity_amount') IS NOT NULL;"
+
+# DCL trigger really exists
+git grep -n "def connect" services/dcl
+curl -s -X POST http://localhost:5000/api/v1/dcl/connect \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"tenant_id":"YOUR_UUID"}' | jq
+Pass/Fail gates
+
+AAM drift test shows real test output (“passed=…”, not prose).
+
+Code diff exists for serialization (or we add it).
+
+Unknown field shows up in extras (non-zero count).
+
+/dcl/connect exists and returns a JSON payload (not a 404/HTML).
+
+2) Minimal real DCL Unification (MVP you can demo this week)
+Scope: unify contacts from two sources (e.g., Salesforce CSV + FileSource) by exact email only. No ML, no fuzzy claims. Deterministic, testable.
+
+Schema (add if missing)
+
+sql
+Copy code
+-- Canonical contacts already exist; create a unified layer:
+CREATE TABLE IF NOT EXISTS dcl_unified_contact (
+  unified_contact_id UUID PRIMARY KEY,
+  email TEXT NOT NULL,
+  first_name TEXT,
+  last_name TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS dcl_unified_contact_link (
+  unified_contact_id UUID NOT NULL,
+  source_system TEXT NOT NULL,          -- 'salesforce', 'filesource', etc.
+  source_contact_id TEXT NOT NULL,      -- native id or file row id
+  UNIQUE (source_system, source_contact_id)
+);
+Unify job (deterministic rules)
+
+Collect candidates: SELECT * FROM canonical_contact WHERE email IS NOT NULL;
+
+Lowercase/trim emails; group by email.
+
+For each email group:
+
+If a dcl_unified_contact for that email exists → reuse its unified_contact_id.
+
+Else create a new UUID.
+
+Upsert links for each source record in the group.
+
+HTTP trigger
+
+POST /api/v1/dcl/unify/run (idempotent; runs for all tenants or ?tenant_id=).
+
+Acceptance test
+
+bash
+Copy code
+# 1) Seed: two sources each with a "sam@acme.com"
+python scripts/seed_demo_contacts.py
+
+# 2) Run unification:
+curl -s -X POST http://localhost:5000/api/v1/dcl/unify/run -H "Authorization: Bearer $TOKEN"
+
+# 3) Verify: exactly ONE unified id, TWO links
+psql "$DATABASE_URL" -c "SELECT COUNT(*) FROM dcl_unified_contact WHERE email='sam@acme.com';"
+psql "$DATABASE_URL" -c "
+  SELECT COUNT(*) FROM dcl_unified_contact_link l
+  JOIN dcl_unified_contact u USING(unified_contact_id)
+  WHERE u.email='sam@acme.com';
+"
+Definition of Done (MVP DCL)
+
+One POST /dcl/unify/run route exists and returns {status:'ok', unified_contacts: N, links: M}.
+
+Two-source demo produces 1 unified contact and 2 links for the same email.
+
+A reproducible pytest tests/test_dcl_unification_e2e.py seeds → triggers → asserts → cleans up.
+
+3) Make “drift handling” real and independently demo-able
+If AAM drift is already coded, great. If not, make it concrete and verifiable:
+
+Behavior
+
+Unknown fields are not dropped; they go to extras JSON.
+
+No ingestion failure if unknown fields appear.
+
+Mapping update converts unknown→known on next run.
+
+Acceptance test (already similar to yours; keep it brutally explicit)
+
+bash
+Copy code
+pytest -q tests/test_aam_drift_automated.py -q
+# Asserts:
+# 1) Renaming amount->opportunity_amount causes unknown field count > 0
+# 2) Records still ingested
+# 3) extras contains 'opportunity_amount'
+# 4) finally{} restores CSV on disk (no repo drift)
+4) Ship a Makefile so demos don’t lie
+makefile
+Copy code
+.PHONY: demo.aam_drift demo.dcl_unify test all
+
+test:
+\tpytest -q
+
+demo.aam_drift:
+\tpytest -q tests/test_aam_drift_automated.py -q
+
+demo.dcl_unify:
+\tpython scripts/seed_demo_contacts.py
+\tcurl -s -X POST http://localhost:5000/api/v1/dcl/unify/run -H "Authorization: Bearer $$TOKEN" | jq
+\tpsql "$$DATABASE_URL" -c "SELECT COUNT(*) AS unified FROM dcl_unified_contact WHERE email='sam@acme.com';"
+\tpsql "$$DATABASE_URL" -c "SELECT COUNT(*) AS links FROM dcl_unified_contact_link l JOIN dcl_unified_contact u USING(unified_contact_id) WHERE u.email='sam@acme.com';"
+5) CI that uploads proof artifacts
+Run make demo.aam_drift and make demo.dcl_unify.
+
+Upload artifacts/*.json and TEST_RESULTS.md.
+
+Fail the build if:
+
+No artifacts produced
+
+Any count assertions fail
+
+Routes return non-200
+
+YAML sketch kept short to avoid fluff; if you want, I’ll drop in a ready-to-paste GH Action.
+
+6) Anti-fake protocol (cultural guardrail)
+Ban “decided on…/planned…/called architect” strings in PRs and logs.
+
+PRs must include:
+
+What changed (files)
+
+How to run it (commands)
+
+Evidence (paste of real stdout)
+
+Tests must have PoW markers (e.g., print [POW] AAM_DRIFT_PASS), so demos show facts, not summaries.
+
+Add a pre-commit grep that blocks theatrical phrasing:
+
+bash
+Copy code
+git grep -nE "Decided on|Planned|Called architect" && echo "❌ blocked language" && exit 1
+7) Replit MAX prompt (copy/paste to get this built)
+Use this as your single task prompt for Replit Agent 3:
+
+Goal: Implement real, reproducible AAM drift demo and DCL contact unification MVP (exact-email). No placeholders, no summaries.
+Tasks:
+
+Add dcl_unified_contact + dcl_unified_contact_link tables; write POST /api/v1/dcl/unify/run that groups canonical contacts by lower(email) and upserts one unified row + N links.
+
+Create scripts/seed_demo_contacts.py that seeds two sources with same sam@acme.com and unique source ids.
+
+Add tests/test_dcl_unification_e2e.py that seeds → triggers → asserts 1 unified + 2 links → cleans up in finally.
+
+Ensure AAM drift test exists and passes. If serialization fix is missing, implement model_dump(mode='json') and rerun.
+
+Add Makefile targets demo.aam_drift and demo.dcl_unify.
+
+Add a pre-commit hook that blocks theatrical phrasing in commits.
+Acceptance Criteria:
+
+pytest -q tests/test_aam_drift_automated.py passes and prints [POW] AAM_DRIFT_PASS.
+
+make demo.dcl_unify prints unified=1 and links=2 from SQL.
+
+POST /api/v1/dcl/unify/run returns {status:'ok', unified_contacts: N, links: M}.
+
+All scripts restore files/tables in finally.
+Notes: Don’t add ML/heuristics. Exact email only. Keep diffs small, idempotent, and commit messages factual with commands to reproduce.

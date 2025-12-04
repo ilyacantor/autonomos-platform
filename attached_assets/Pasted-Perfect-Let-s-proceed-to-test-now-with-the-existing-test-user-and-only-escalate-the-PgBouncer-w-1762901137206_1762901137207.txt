@@ -1,0 +1,72 @@
+Perfect. Let’s **proceed to test now** with the existing test user and only escalate the PgBouncer warning if it blocks functionally.
+
+# Go/No-Go
+
+**GO for endpoint testing with the existing user JWT.** The warning looks non-blocking. We’ll backlog a focused infra ticket for PgBouncer after we confirm UX is unblocked.
+
+## Quick test (no code changes)
+
+1. Get JWT (existing `test@autonomos.ai`) via `/api/v1/auth/login`.
+2. In browser DevTools → `localStorage[AUTH_TOKEN_KEY] = "<JWT>"` (if not already set).
+3. Hard refresh the app → open **Connections** tab.
+
+### API sanity (terminal)
+
+```bash
+# Without token → should be 401
+curl -i https://<backend>/api/v1/aam/connectors
+
+# With token → should be 200 and include FilesSource
+curl -i -H "Authorization: Bearer <JWT>" https://<backend>/api/v1/aam/connectors
+```
+
+**Expect:** `200` and body shape `{ "connectors": [ { id,name,type,status,... } ], "total": N }` with one `filesource` in `ACTIVE`.
+
+---
+
+## If something fails, use this pass/fail map (tiny, surgical checks)
+
+* **401 Unauthorized**
+  – Confirm middleware exclusions are applied to `/auth/login` & `/auth/register` (you already normalized paths).
+  – Verify token actually stored under `AUTH_TOKEN_KEY` and attached as `Authorization: Bearer …`.
+
+* **200 but empty list**
+  – Namespace/tenant mismatch. Run:
+
+  ```sql
+  SELECT id,name,source_type,namespace,status FROM connections ORDER BY updated_at DESC LIMIT 5;
+  ```
+
+  – Ensure the seeded row’s `namespace` exactly matches the JWT scoping claim your query uses (e.g., `tenant_id` or `namespace`). If mismatch, update that **one** row.
+
+* **503 from /aam/connectors**
+  – A module is still using a stale engine. Grep for rogue engine creation:
+
+  ```bash
+  rg -n "create_async_engine|create_engine|AsyncSessionLocal|sessionmaker" app/ services/ aam_**
+  ```
+
+  – All paths should import `SessionLocal/engine` from your centralized `app/database.py`.
+
+* **500 with “prepared statement … already exists”**
+  – Confirm the engine actually uses `postgresql+asyncpg://` and your `connect_args={"statement_cache_size": 0}` are on that engine (print these at startup once).
+  – If still noisy but non-blocking, proceed; we’ll handle infra next.
+
+---
+
+## After the test passes
+
+Log a small infra ticket (no code):
+**“INFRA-112: PgBouncer prepared-statement warning”**
+
+* Confirm pool mode on PgBouncer (`transaction` vs `session`).
+* Prefer `session` for services that need prepared statements, or keep `transaction` and **guarantee** `statement_cache_size=0` for all asyncpg clients.
+* Verify no other service creates a separate async engine without that flag.
+
+**Acceptance**
+
+* `/api/v1/aam/connectors` → 200 with `FilesSource Demo (ACTIVE)` for the active tenant.
+* Connections tab shows FilesSource.
+* No 401s; warning may remain but is non-blocking.
+
+If you want, paste the two `curl -i` results and a screenshot of the Connections tab; I’ll confirm we can close this out and move the PgBouncer item to infra backlog.

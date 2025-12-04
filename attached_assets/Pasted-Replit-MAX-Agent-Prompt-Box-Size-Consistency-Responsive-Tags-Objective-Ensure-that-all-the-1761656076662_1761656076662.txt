@@ -1,0 +1,66 @@
+Replit MAX Agent Prompt (Box Size Consistency & Responsive Tags)
+
+🛠️ Objective:
+Ensure that all the boxes (cards) in the architecture flow visualization — specifically inside AutonomOSArchitectureFlow.tsx or related containers — are:
+
+Fixed in size (square or specific ratio, e.g., w-[220px] h-[220px]) regardless of screen zoom, screen size, or responsive scaling.
+
+Do not distort or resize on mobile, zoomed viewports, or different resolutions.
+
+Text tags inside each box must remain legible (minimum text-sm or scale dynamically with clamp() if needed) and must never bleed outside or overflow.
+
+🧱 Guardrails:
+
+Use Tailwind CSS utility classes or direct inline style={{}} if needed.
+
+Boxes must not collapse or stretch when the screen is narrow.
+
+On smaller screens (e.g., mobile), they should horizontally scroll or wrap underneath with proper spacing.
+
+Each card should have min-w, min-h, and max-w, max-h set to the same value. Use aspect-square if helpful.
+
+Set overflow-hidden + text-ellipsis + break-words to ensure internal tag layout never overflows.
+
+Allow inner tag components to wrap inside the box, not overflow it.
+
+Ensure zooming in (e.g., Ctrl+Plus) doesn't cause layout collapse or unexpected horizontal scroll unless explicitly intended.
+
+🧪 Test Cases:
+
+✅ Desktop 1080p @ 100% and 150% zoom
+
+✅ iPhone 12 / Galaxy S9 mobile simulation (DevTools)
+
+✅ Tablet (iPad landscape and portrait)
+
+✅ Small laptop screens (13-inch)
+
+📍 Target Component File:
+Likely AutonomOSArchitectureFlow.tsx, or whichever renders the “Enterprise Data → AAM → DCL → Prebuilt Agents → Outcomes” boxes.
+
+🎯 Deliverables:
+
+✅ All four input blocks and the Outcomes box should remain perfectly square and aligned, even on resize.
+
+✅ Tags within each card stay fully visible and neatly arranged inside the box.
+
+✅ Mobile should trigger a layout reflow, not box collapse.
+
+✅ No box overlap or bleeding into adjacent layout.
+
+✅ Suggested Tailwind Examples (for dev reference)
+<div className="w-[220px] h-[220px] min-w-[220px] min-h-[220px] max-w-[220px] max-h-[220px] aspect-square overflow-hidden p-2 bg-slate-800 rounded-lg flex flex-col justify-center items-center">
+  <span className="text-sm text-center break-words">Some tag content</span>
+  <span className="text-sm text-center break-words">Another Tag</span>
+</div>
+
+
+For dynamic tag lists inside each box:
+
+<div className="flex flex-wrap justify-center items-center gap-1 mt-2">
+  {tags.map((tag) => (
+    <span key={tag} className="bg-slate-700 text-white px-2 py-1 rounded text-xs max-w-[90%] text-center truncate">
+      {tag}
+    </span>
+  ))}
+</div>

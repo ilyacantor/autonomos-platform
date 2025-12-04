@@ -1,0 +1,163 @@
+Replit Agent 3 (MAX) — AAM Connections harden + restore FileSource/Mongo
+
+You are Replit Agent 3 in MAX mode. Make these changes in small, atomic commits with clear messages. Don’t ask questions; infer paths.
+
+0) Assumptions
+
+Backend: FastAPI, SQLAlchemy. Tables: connections and mapping_registry (tenant-scoped).
+
+JWT is available in requests; tenant is tenant_id in JWT claims (fallback disallowed).
+
+Frontend: React Connections tab with a “connector details” panel.
+
+1) Remove mock fallbacks for AAM endpoints (Connections)
+
+Task
+
+In /api/v1/aam/connector_details and any related AAM endpoints, delete code that returns mock data when mappings are missing.
+
+Replace with explicit empty/none responses:
+
+{
+  "connector_id":"<id>",
+  "name":"MongoDB",
+  "status":"PENDING" | "ACTIVE" | "ERROR",
+  "last_discovery_at": null,
+  "mapping_count": 0,
+  "sample_mappings": [],
+  "note":"no mappings yet"
+}
+
+
+If no tenant_id in request context/JWT → return 401 with message missing tenant_id (do NOT fabricate data).
+
+Commit
+fix(aam): remove mock fallbacks from connector_details; enforce tenant requirement
+
+2) Ensure FileSource & Mongo are visible in Connections
+
+Backend
+
+Add endpoint GET /api/v1/aam/connectors returning all connectors for the tenant, regardless of mapping presence:
+
+[{"id": "...","name":"Salesforce","type":"salesforce","status":"ACTIVE","last_discovery_at":"..."}, ...]
+
+
+Query:
+
+SELECT id, name, type, status, last_discovery_at
+FROM connections
+WHERE tenant_id = :tenant
+ORDER BY name;
+
+
+In connector_details, compute mapping_count via:
+
+SELECT COUNT(*) FROM mapping_registry
+ WHERE tenant_id = :tenant AND connector_id = :id;
+
+
+Frontend
+
+The connectors list and the details panel must be driven by GET /api/v1/aam/connectors.
+
+If a connector has zero mappings, show “No mappings yet — run discovery” (button added in step 3).
+
+Commit
+feat(aam): list connectors from DB (tenant-scoped) and show even with zero mappings
+
+3) Add discovery trigger + job status
+
+Backend
+
+POST /api/v1/aam/connectors/{id}/discover → enqueue schema discovery for that connector; returns {job_id}.
+
+GET /api/v1/aam/discovery/jobs/{job_id} → {status:"queued|running|done|error", error_message?:string}.
+
+Implementation can call existing discovery function; if not present, create a stub queue runner that executes synchronously for now and writes last_discovery_at + inserts mappings when available.
+
+Frontend
+
+In the connector details panel, add Run Discovery button (disabled if status!=="ACTIVE").
+
+After click: poll job endpoint until done|error, then refresh details.
+
+Commit
+feat(aam): discovery trigger endpoint + UI button with polling
+
+4) Tenant propagation & guards
+
+Middleware: extract tenant_id from JWT claim (e.g., claims["tenant_id"]), attach to request context.
+
+Every AAM query must filter by tenant_id.
+
+If missing → 401 (as above). Add a one-line server log: AAM: missing tenant_id.
+
+Commit
+feat(api): strict tenant propagation for all AAM routes
+
+5) Reconcile DB state (no data creation unless configured)
+
+Add a read-only debug endpoint to help us verify state without changing data:
+
+GET /api/v1/aam/debug/state → {connections:[...], mappings_by_connector:{<id>:count}} (tenant-scoped).
+
+Do not seed. If FileSource/Mongo rows are missing in connections, read connector configs from env and offer a UI CTA “Add connector” that opens the existing add-connector flow.
+
+Commit
+feat(aam): debug/state endpoint and ‘Add connector’ CTA
+
+6) Connections UI: empty + error states
+
+If mapping_count=0 → show “No mappings yet” with Run Discovery primary CTA.
+
+If status="PENDING" → show “Awaiting credentials/config”.
+
+If 401 missing tenant_id → show toast “No tenant context — sign in or select tenant” and render empty state.
+
+Commit
+feat(ui): Connections empty/error states; no mock placeholders
+
+7) Quick tests
+
+API tests for:
+
+GET /api/v1/aam/connectors returns all tenant connectors (including those with zero mappings).
+
+GET /api/v1/aam/connector_details?id=<id> returns mapping_count and never mock data.
+
+POST /api/v1/aam/connectors/{id}/discover life cycle returns a job id and completes.
+
+GET /api/v1/aam/connector_details without JWT tenant → 401.
+
+UI smoke: details panel shows FileSource & Mongo (if present in DB), or “Add connector” CTA if not.
+
+Commit
+test(aam): connectors listing, details, discovery trigger, and tenant guard
+
+8) Acceptance checklist
+
+Connections tab shows Salesforce, Supabase, Snowflake, Slack, Google Drive plus FileSource and Mongo if they exist in connections.
+
+No mock data anywhere on Connections: zero mappings → explicit empty state.
+
+“Run Discovery” triggers a job and populates data when implemented; otherwise progress/error is surfaced.
+
+Requests without a tenant_id are rejected (401), not silently mocked.
+
+Optional: one-time DB verification (safe, read-only)
+
+(Agent: run these and paste results to console logs; do not mutate.)
+
+-- connectors present for current tenant
+SELECT id,name,type,status,last_discovery_at
+FROM connections
+WHERE tenant_id = :tenant
+ORDER BY name;
+
+-- mapping counts per connector
+SELECT connector_id, COUNT(*) AS cnt
+FROM mapping_registry
+WHERE tenant_id = :tenant
+GROUP BY connector_id
+ORDER BY cnt DESC;

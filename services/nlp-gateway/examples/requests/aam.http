@@ -1,0 +1,32 @@
+### List All Connectors
+POST http://localhost:8001/v1/aam/connectors
+Content-Type: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+{
+  "tenant_id": "demo-tenant",
+  "env": "dev",
+  "status": "All"
+}
+
+### List Healthy Connectors Only
+POST http://localhost:8001/v1/aam/connectors
+Content-Type: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+{
+  "tenant_id": "demo-tenant",
+  "env": "dev",
+  "status": "Healthy"
+}
+
+### List Drifted Connectors Only
+POST http://localhost:8001/v1/aam/connectors
+Content-Type: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+{
+  "tenant_id": "demo-tenant",
+  "env": "dev",
+  "status": "Drifted"
+}

@@ -1,0 +1,35 @@
+account:
+  fields:
+    account_id: "Id"
+    name: "Name"
+    type: "Type"
+    industry: "Industry"
+    owner_id: "OwnerId"
+    status: "IsActive"
+    created_at: "CreatedDate"
+    updated_at: "LastModifiedDate"
+
+opportunity:
+  fields:
+    opportunity_id: "Id"
+    account_id: "AccountId"
+    name: "Name"
+    stage: "StageName"
+    amount: "Amount"
+    close_date: "CloseDate"
+    owner_id: "OwnerId"
+    probability: "Probability"
+    updated_at: "LastModifiedDate"
+
+contact:
+  fields:
+    contact_id: "Id"
+    account_id: "AccountId"
+    first_name: "FirstName"
+    last_name: "LastName"
+    email: "Email"
+    phone: "Phone"
+    title: "Title"
+    department: "Department"
+    created_at: "CreatedDate"
+    updated_at: "LastModifiedDate"

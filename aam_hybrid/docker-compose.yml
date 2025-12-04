@@ -1,0 +1,130 @@
+version: '3.8'
+
+services:
+  # Redis for event bus and caching
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # PostgreSQL for Connector Registry (if not using external Supabase)
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: aam_registry
+      POSTGRES_USER: aam_user
+      POSTGRES_PASSWORD: aam_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aam_user -d aam_registry"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # Auth Broker Microservice
+  auth_broker:
+    build:
+      context: .
+      dockerfile: services/auth_broker/Dockerfile
+    ports:
+      - "8002:8002"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - SUPABASE_DB_URL=postgresql://aam_user:aam_password@postgres:5432/aam_registry
+      - SALESFORCE_CLIENT_ID=${SALESFORCE_CLIENT_ID}
+      - SALESFORCE_CLIENT_SECRET=${SALESFORCE_CLIENT_SECRET}
+      - SALESFORCE_REFRESH_TOKEN=${SALESFORCE_REFRESH_TOKEN}
+    depends_on:
+      - redis
+      - postgres
+    restart: unless-stopped
+
+  # AAM Orchestrator Microservice
+  orchestrator:
+    build:
+      context: .
+      dockerfile: services/orchestrator/Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - SUPABASE_DB_URL=postgresql://aam_user:aam_password@postgres:5432/aam_registry
+      - AIRBYTE_API_URL=${AIRBYTE_API_URL:-http://host.docker.internal:8000/api/public/v1}
+      - AIRBYTE_CLIENT_ID=${AIRBYTE_CLIENT_ID}
+      - AIRBYTE_CLIENT_SECRET=${AIRBYTE_CLIENT_SECRET}
+      - AIRBYTE_WORKSPACE_ID=${AIRBYTE_WORKSPACE_ID}
+      - AIRBYTE_DESTINATION_ID=${AIRBYTE_DESTINATION_ID}
+    depends_on:
+      - redis
+      - postgres
+      - auth_broker
+    restart: unless-stopped
+
+  # Drift Repair Agent Microservice
+  drift_repair_agent:
+    build:
+      context: .
+      dockerfile: services/drift_repair_agent/Dockerfile
+    ports:
+      - "8003:8003"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - SUPABASE_DB_URL=postgresql://aam_user:aam_password@postgres:5432/aam_registry
+      - AIRBYTE_API_URL=${AIRBYTE_API_URL:-http://host.docker.internal:8000/api/public/v1}
+      - AIRBYTE_CLIENT_ID=${AIRBYTE_CLIENT_ID}
+      - AIRBYTE_CLIENT_SECRET=${AIRBYTE_CLIENT_SECRET}
+      - AIRBYTE_WORKSPACE_ID=${AIRBYTE_WORKSPACE_ID}
+      - AIRBYTE_DESTINATION_ID=${AIRBYTE_DESTINATION_ID}
+    depends_on:
+      - redis
+      - postgres
+    restart: unless-stopped
+
+  # Schema Observer Microservice (Skeleton)
+  schema_observer:
+    build:
+      context: .
+      dockerfile: services/schema_observer/Dockerfile
+    ports:
+      - "8004:8004"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - SUPABASE_DB_URL=postgresql://aam_user:aam_password@postgres:5432/aam_registry
+    depends_on:
+      - redis
+      - postgres
+    restart: unless-stopped
+
+  # RAG Engine Microservice (Skeleton)
+  rag_engine:
+    build:
+      context: .
+      dockerfile: services/rag_engine/Dockerfile
+    ports:
+      - "8005:8005"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - SUPABASE_DB_URL=postgresql://aam_user:aam_password@postgres:5432/aam_registry
+    depends_on:
+      - redis
+      - postgres
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+  postgres_data:
+
+networks:
+  default:
+    name: aam_network

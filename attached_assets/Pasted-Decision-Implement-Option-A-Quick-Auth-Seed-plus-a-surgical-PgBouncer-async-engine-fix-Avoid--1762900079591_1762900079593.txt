@@ -1,0 +1,190 @@
+Decision
+Implement “Option A+”: Quick Auth + Seed plus a surgical PgBouncer/async engine fix.
+Avoid the sync bypass (Option B) and demo-only hacks. This keeps prod parity, fixes the real issue, and gets FilesSource visible fast.
+
+Why this path
+
+
+Your 503 comes from AsyncSessionLocal = None due to a PgBouncer + asyncpg init bug. If we only seed/auth, the UI may still fail intermittently.
+
+
+A single, centralized async engine with statement_cache_size=0 (and NullPool when behind PgBouncer) is the correct, low-risk fix.
+
+
+Then seed one FilesSource row under the same tenant/namespace carried by the JWT. Done.
+
+
+
+Exact execution plan (safe + minimal)
+1) Centralize and harden the async engine (PgBouncer-safe)
+
+
+Ensure there’s one helper (e.g., db/engine.py) that creates the async engine used everywhere.
+
+
+For PgBouncer (transaction pooling), use:
+
+
+connect_args={"statement_cache_size": 0}
+
+
+poolclass=NullPool (let PgBouncer pool, not SQLAlchemy)
+
+
+pool_pre_ping=True
+
+
+
+
+Replace any duplicate engine creation (e.g., in app/main.py, aam_monitoring.py, etc.) with imports from this single helper.
+
+
+Target state (illustrative):
+# db/engine.py
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+from sqlalchemy.pool import NullPool
+import os
+
+DB_URL = os.environ["DATABASE_URL_ASYNC"]  # e.g., postgresql+asyncpg://...
+
+engine = create_async_engine(
+    DB_URL,
+    poolclass=NullPool,            # PgBouncer handles pooling
+    pool_pre_ping=True,            # guard against stale conns
+    connect_args={"statement_cache_size": 0},  # critical for PgBouncer txn mode
+)
+
+SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
+
+Then in all modules:
+# from db.engine import engine, SessionLocal
+
+
+If you also have a sync engine, keep it separate but do not route AAM endpoints to a different code path.
+
+2) Auth: create a real demo tenant + user (no hacks)
+
+
+Register/login via your existing /auth/register + /auth/login.
+
+
+Ensure the JWT includes the same scoping claim the queries filter on (e.g., tenant_id or namespace).
+
+
+Confirm the UI stores Authorization: Bearer <token> (you already do).
+
+
+3) Seed one FilesSource connection (idempotent)
+
+
+Insert only if missing, and set namespace/tenant_id to match the JWT claim.
+
+
+Point config to your CSVs in /mock_sources/ (pattern *.csv).
+
+
+Idempotent SQL (adjust names/cols as in your schema):
+-- Ensure tenant/namespace exists (skip if you already have it)
+-- INSERT INTO tenants (id, namespace, name) VALUES ('demo-tenant', 'demo', 'Demo Tenant')
+-- ON CONFLICT DO NOTHING;
+
+INSERT INTO connections (id, name, source_type, namespace, status, connector_config, created_at, updated_at)
+VALUES (
+  'filesource_demo',
+  'FilesSource Demo',
+  'filesource',
+  'demo',                                    -- must match JWT scoping
+  'ACTIVE',
+  '{"path":"mock_sources/","pattern":"*.csv"}'::jsonb,
+  NOW(), NOW()
+)
+ON CONFLICT (id) DO UPDATE
+SET updated_at = EXCLUDED.updated_at;
+
+(If the table uses a different natural key, upsert on that instead.)
+4) Smoke test
+
+
+With the new JWT in localStorage, call:
+
+
+GET /api/v1/aam/connectors → 200 and includes FilesSource Demo.
+
+
+
+
+Open the Connections tab → FilesSource card shows ACTIVE.
+
+
+Server logs: no “prepared statement exists/already exists” errors.
+
+
+
+Acceptance criteria (same as yours, plus engine unification)
+
+
+One central async engine used by /api/v1/aam/connectors and friends.
+
+
+No PgBouncer “prepared statement … exists” errors during fetch.
+
+
+GET /api/v1/aam/connectors returns connectors[] with FilesSource Demo for the active tenant.
+
+
+UI shows FilesSource as ACTIVE.
+
+
+JWT present in localStorage and used on requests.
+
+
+
+Replit MAX – write mode prompt (copy/paste)
+You can modify code now. Goal: implement Option A+ (auth + seed + PgBouncer-safe async engine), avoiding any sync bypass.
+
+Tasks:
+
+1) Centralize async engine:
+   - Create db/engine.py with a single async engine and session factory:
+       - create_async_engine(DB_URL, poolclass=NullPool, pool_pre_ping=True,
+         connect_args={"statement_cache_size": 0})
+       - async_sessionmaker(..., expire_on_commit=False)
+   - Replace all other engine/session creations (e.g., in app/main.py, aam_monitoring.py, services/*) with imports from db/engine.py.
+   - Ensure /api/v1/aam/connectors uses this SessionLocal.
+   - Confirm DATABASE_URL_ASYNC uses asyncpg (postgresql+asyncpg://...).
+   - If PgBouncer is in use, ensure the URL/port point to the PgBouncer endpoint (not the raw Postgres port).
+
+2) Auth sanity:
+   - Confirm /auth/register and /auth/login work.
+   - Register a demo user if none exists (email: demo@autonomos.local).
+   - Login and store the JWT in localStorage under AUTH_TOKEN_KEY (manual step is fine; just verify flow via DevTools).
+   - Decode JWT and verify the scoping claim (tenant_id or namespace) that the connectors query uses.
+
+3) Idempotent seed for FilesSource:
+   - Add a small seed routine or run a SQL upsert that:
+       - Inserts (or upserts) a connection with:
+         id='filesource_demo', name='FilesSource Demo', source_type='filesource',
+         namespace='<the same value used by JWT scoping, e.g., demo>',
+         status='ACTIVE',
+         connector_config={"path":"mock_sources/","pattern":"*.csv"}
+   - Ensure the record appears in SELECT * FROM connections WHERE id='filesource_demo'.
+
+4) Smoke tests (paste results in the console/logs):
+   - GET /api/v1/aam/connectors WITHOUT Authorization: expect 401.
+   - GET /api/v1/aam/connectors WITH Authorization: expect 200 and a "connectors" array with FilesSource Demo present.
+   - Verify server logs show no PgBouncer/asyncpg prepared statement errors.
+
+5) Deliverables:
+   - List of files changed.
+   - Before/after snippet of engine creation.
+   - Console outputs: SQL verification of the seeded connection, and the two GET calls (status codes + top-level keys).
+   - A brief note confirming the UI now renders the FilesSource card.
+
+Guardrails:
+- Do NOT implement a sync-only endpoint.
+- Do NOT add a second code path for connectors.
+- Keep changes minimal and localized.
+- If any step would require larger refactors, STOP and report.
+
+
+If anything in step 1 reveals multiple hidden engine creators, we’ll quickly consolidate those as well (still minimal). Otherwise, this should unblock the Connections tab cleanly without creating debt.

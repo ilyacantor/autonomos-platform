@@ -1,0 +1,57 @@
+╔══════════════════════════════════════════════════════════════════╗
+║                 FRONTEND BACKUP FOR REBUILD                      ║
+║                                                                  ║
+║  Location: frontend-backup-for-rebuild/                         ║
+║  Purpose:  Reference files for frontend rebuild                 ║
+║  Created:  October 20, 2025                                     ║
+╚══════════════════════════════════════════════════════════════════╝
+
+📂 DIRECTORY STRUCTURE:
+   frontend-backup-for-rebuild/
+   ├── README.md              ← START HERE (full documentation)
+   ├── src/                   ← All React/TS source files (35 files)
+   │   ├── components/        ← 21 React components
+   │   ├── hooks/             ← useAuth, useDCLState
+   │   ├── context/           ← AuthContext
+   │   ├── contexts/          ← AutonomyContext
+   │   ├── services/          ← aoaApi service
+   │   ├── config/            ← API configuration
+   │   ├── types/             ← TypeScript types
+   │   └── App.tsx            ← Main app entry point
+   ├── public/                ← Static assets
+   ├── package.json           ← Dependencies
+   ├── package-lock.json      ← Locked versions
+   ├── tsconfig.json          ← TypeScript config
+   ├── vite.config.ts         ← Build config
+   └── index.html             ← HTML entry point
+
+🔑 KEY FILES FOR ANOTHER AGENT:
+   1. README.md                    - Architecture overview
+   2. src/App.tsx                  - Main app with auth routing
+   3. src/context/AuthContext.tsx  - Authentication state
+   4. src/hooks/useDCLState.ts     - Dual-backend routing
+   5. src/services/aoaApi.ts       - AOA API service layer
+   6. src/config/api.ts            - Backend URLs
+
+💡 QUICK START FOR REBUILDING:
+   cd frontend-backup-for-rebuild
+   npm install
+   npm run dev
+
+📊 STATISTICS:
+   - Total source files: 35
+   - React components: 21
+   - TypeScript hooks: 2
+   - Context providers: 2
+   - Service layers: 1
+
+🔗 BACKEND ENDPOINTS (from api.ts):
+   - AOA Backend (Modern mode with auth): 
+     https://fea934a4-524f-4747-b7ae-c8f06ccd5465-00-19fd0ilimncdg.picard.replit.dev
+   
+   - Legacy DCL Backend (no auth):
+     https://58361fb5-3a0e-4a4b-bb9f-53f9e64295d0-00-2vdl3eq0bn7l7.picard.replit.dev
+
+✅ THIS IS A COMPLETE, WORKING FRONTEND
+   All authentication integration is complete and functional.
+   Both Modern (with auth) and Legacy (no auth) modes work.

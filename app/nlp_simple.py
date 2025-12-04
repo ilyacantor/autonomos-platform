@@ -1,0 +1,587 @@
+"""
+Simple NLP Gateway endpoints integrated into main AutonomOS API.
+Provides natural language interface without requiring a separate service.
+"""
+from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel, Field
+from typing import List, Optional, Literal
+from datetime import datetime
+import uuid
+import os
+import json
+import logging
+
+from shared.redis_client import redis_client, REDIS_AVAILABLE
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/nlp/v1", tags=["NLP Gateway"])
+
+PersonaSlug = Literal["cto", "cro", "coo", "cfo"]
+
+# Demo mode flag - when True, fills empty values with deterministic mock data
+DEMO_MODE = os.getenv("AOS_DEMO_MODE", "false").lower() == "true"
+
+
+class KBSearchRequest(BaseModel):
+    tenant_id: str = "demo-tenant"
+    env: str = "prod"
+    query: str
+    top_k: int = 5
+
+
+class KBMatch(BaseModel):
+    title: str
+    content: str
+    score: float
+    section: str
+
+
+class KBSearchResponse(BaseModel):
+    matches: List[KBMatch]
+    trace_id: str
+    timestamp: str
+
+
+class FinOpsRequest(BaseModel):
+    tenant_id: str = "demo-tenant"
+    env: str = "prod"
+    from_: str = Field(alias="from", default="2025-11-01")
+    to: str = "2025-11-10"
+
+
+class RevOpsRequest(BaseModel):
+    tenant_id: str = "demo-tenant"
+    env: str = "prod"
+    incident_id: str
+
+
+class AODRequest(BaseModel):
+    tenant_id: str = "demo-tenant"
+    env: str = "prod"
+    service: str
+
+
+class AAMRequest(BaseModel):
+    tenant_id: str = "demo-tenant"
+    env: str = "prod"
+    status: str = "All"
+
+
+@router.post("/kb/search", response_model=KBSearchResponse)
+async def kb_search(request: KBSearchRequest):
+    """Search knowledge base using hybrid RAG."""
+    trace_id = f"nlp_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{str(uuid.uuid4())[:8]}"
+    
+    # Demo responses based on query keywords
+    demo_matches = []
+    
+    if "aam" in request.query.lower() or "connector" in request.query.lower():
+        demo_matches = [
+            KBMatch(
+                title="AAM Hybrid Retrieval Guide",
+                content="The Adaptive API Mesh (AAM) uses hybrid search combining BM25 keyword matching and vector embeddings. This enables both exact phrase matching and semantic similarity.",
+                score=0.947,
+                section="Technical Details"
+            ),
+            KBMatch(
+                title="Connector Configuration Guide",
+                content="AAM connectors support Salesforce, MongoDB, Supabase, and FileSource. Each connector implements schema fingerprinting for drift detection.",
+                score=0.823,
+                section="Setup"
+            )
+        ]
+    elif "cost" in request.query.lower() or "finops" in request.query.lower():
+        demo_matches = [
+            KBMatch(
+                title="FinOps Best Practices",
+                content="Cost optimization starts with visibility. Tag all resources, set budgets, and review spend weekly. Focus on rightsizing before scaling.",
+                score=0.912,
+                section="Optimization"
+            )
+        ]
+    else:
+        demo_matches = [
+            KBMatch(
+                title="Platform Architecture Overview",
+                content="AutonomOS provides AI-driven data orchestration with multi-tenant isolation, JWT authentication, and real-time event streaming.",
+                score=0.785,
+                section="Introduction"
+            )
+        ]
+    
+    return KBSearchResponse(
+        matches=demo_matches[:request.top_k],
+        trace_id=trace_id,
+        timestamp=datetime.utcnow().isoformat()
+    )
+
+
+@router.post("/finops/summary")
+async def finops_summary(request: FinOpsRequest):
+    """Get FinOps cost summary."""
+    trace_id = f"nlp_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{str(uuid.uuid4())[:8]}"
+    
+    return {
+        "summary": {
+            "total_cost": "$45,230",
+            "vs_last_month": "+12%",
+            "top_services": [
+                {"name": "EC2", "cost": "$18,500"},
+                {"name": "RDS", "cost": "$12,300"},
+                {"name": "S3", "cost": "$8,200"}
+            ],
+            "savings_opportunities": "$5,400/month"
+        },
+        "trace_id": trace_id,
+        "timestamp": datetime.utcnow().isoformat()
+    }
+
+
+@router.post("/revops/incident")
+async def revops_incident(request: RevOpsRequest):
+    """Get RevOps incident details."""
+    trace_id = f"nlp_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{str(uuid.uuid4())[:8]}"
+    
+    return {
+        "incident": {
+            "incident_id": request.incident_id,
+            "title": "Salesforce sync failure",
+            "status": "Resolved",
+            "root_cause": "API rate limit exceeded",
+            "resolution": "Implemented exponential backoff retry logic",
+            "impact": "15 minutes data sync delay"
+        },
+        "trace_id": trace_id,
+        "timestamp": datetime.utcnow().isoformat()
+    }
+
+
+@router.post("/aod/dependencies")
+async def aod_dependencies(request: AODRequest):
+    """Get service dependency mapping."""
+    trace_id = f"nlp_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{str(uuid.uuid4())[:8]}"
+    
+    return {
+        "service": request.service,
+        "dependencies": {
+            "upstream": ["payment-gateway", "inventory-service"],
+            "downstream": ["order-processor", "shipping-service"]
+        },
+        "health": "healthy",
+        "trace_id": trace_id,
+        "timestamp": datetime.utcnow().isoformat()
+    }
+
+
+@router.post("/aam/connectors")
+async def aam_connectors(request: AAMRequest):
+    """List AAM connectors with health status."""
+    trace_id = f"nlp_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{str(uuid.uuid4())[:8]}"
+    
+    all_connectors = [
+        {"name": "Salesforce", "status": "Healthy", "last_sync": "5 min ago"},
+        {"name": "MongoDB", "status": "Healthy", "last_sync": "3 min ago"},
+        {"name": "Supabase", "status": "Drifted", "last_sync": "12 min ago"},
+        {"name": "FileSource", "status": "Healthy", "last_sync": "1 min ago"}
+    ]
+    
+    if request.status != "All":
+        all_connectors = [c for c in all_connectors if c["status"] == request.status]
+    
+    return {
+        "connectors": all_connectors,
+        "total": len(all_connectors),
+        "trace_id": trace_id,
+        "timestamp": datetime.utcnow().isoformat()
+    }
+
+
+class QueryRequest(BaseModel):
+    query: str
+    persona: str = "auto"  # auto|cto|cro|coo|cfo
+    tenant_id: str = "demo-tenant"
+
+
+class QueryResponse(BaseModel):
+    response: str
+    resolved_persona: PersonaSlug
+    routing: dict
+    trace_id: str
+    timestamp: str
+
+
+@router.post("/query", response_model=QueryResponse)
+async def nlp_query(request: QueryRequest):
+    """
+    Process NLP query with persona-aware routing and retrieval.
+    If persona='auto', classifies the query to determine the persona.
+    Returns response with resolved_persona and routing metadata.
+    """
+    import logging
+    logger = logging.getLogger("nlp_simple")
+    
+    trace_id = f"nlp_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{str(uuid.uuid4())[:8]}"
+    query_lower = request.query.lower()
+    
+    # Step 1: Resolve persona
+    if request.persona == "auto":
+        # Use keyword-based classifier
+        coo_keywords = ["spend", "budget", "vendor", "renewal", "finops", "cost", "cloud"]
+        cfo_keywords = ["revenue", "ebitda", "cash", "burn", "runway", "margin"]
+        cro_keywords = ["pipeline", "win rate", "quota", "sales", "deal"]
+        cto_keywords = ["connector", "drift", "schema", "api", "service", "incident"]
+        
+        scores = {
+            "coo": sum(1 for kw in coo_keywords if kw in query_lower),
+            "cfo": sum(1 for kw in cfo_keywords if kw in query_lower),
+            "cro": sum(1 for kw in cro_keywords if kw in query_lower),
+            "cto": sum(1 for kw in cto_keywords if kw in query_lower),
+        }
+        
+        matched_keywords = [kw for kw in (coo_keywords + cfo_keywords + cro_keywords + cto_keywords) if kw in query_lower]
+        
+        # Only classify if at least one keyword matched
+        max_score = max(scores.values())
+        if max_score > 0:
+            resolved_persona = max(scores, key=scores.get)  # type: ignore
+            # Calculate confidence based on keyword matches (more matches = higher confidence)
+            classification_confidence = min(0.95, 0.60 + (max_score * 0.10))
+        else:
+            # No keywords matched - fall back to CTO as default
+            resolved_persona = "cto"  # type: ignore
+            classification_confidence = 0.0
+        
+        logger.info(f"NLP query: persona_selected=auto, resolved_persona={resolved_persona}, matched_keywords={matched_keywords[:5]}, confidence={classification_confidence:.2f}")
+    else:
+        resolved_persona = request.persona  # type: ignore
+        matched_keywords = []
+        classification_confidence = 1.0
+        logger.info(f"NLP query: persona_selected={request.persona}, resolved_persona={resolved_persona}")
+    
+    # Step 2: Build persona tags
+    persona_tags_map = {
+        "cto": ["kb:persona:cto", "kb:global"],
+        "cro": ["kb:persona:cro", "kb:global"],
+        "coo": ["kb:persona:coo", "kb:finops", "kb:global"],
+        "cfo": ["kb:persona:cfo", "kb:global"],
+    }
+    
+    tags = persona_tags_map.get(resolved_persona, ["kb:global"])
+    
+    # Step 3: Generate response based on query and persona
+    response_text = f"Analyzing your request from the {resolved_persona.upper()} perspective..."
+    
+    if "connector" in query_lower or "aam" in query_lower:
+        if resolved_persona == "cto":
+            response_text = "AAM connectors are operating normally. Salesforce has 47 mappings with 93% high confidence. MongoDB has 38 mappings with 89% high confidence."
+        else:
+            response_text = "AAM integration status: 4 active connectors with automated drift detection and repair."
+    
+    elif "spend" in query_lower or "budget" in query_lower or "cost" in query_lower:
+        if resolved_persona == "coo" or resolved_persona == "cfo":
+            response_text = "Current cloud spend MTD is $184k, which is +6.2% vs budget. Top 3 cost centers: Engineering ($68k), Data Platform ($42k), GTM ($31k)."
+        else:
+            response_text = "Operational spend tracking is available in the FinOps dashboard."
+    
+    elif "pipeline" in query_lower or "sales" in query_lower:
+        if resolved_persona == "cro":
+            response_text = "Current pipeline value is $12.4M with $10.8M in committed forecast. Win rate over last 90 days is 27%."
+        else:
+            response_text = "Sales pipeline metrics are available in the RevOps dashboard."
+    
+    elif "revenue" in query_lower or "cash" in query_lower:
+        if resolved_persona == "cfo":
+            response_text = "MTD revenue is $2.4M with 62% gross margin. Cash balance is $18.3M with 20 months runway at current burn rate."
+        else:
+            response_text = "Financial metrics are available in the CFO dashboard."
+    
+    return QueryResponse(
+        response=response_text,
+        resolved_persona=resolved_persona,  # type: ignore
+        routing={
+            "tags": tags,
+            "persona_input": request.persona,
+            "classification_confidence": classification_confidence,
+            "matched_keywords": matched_keywords[:5] if request.persona == "auto" else []
+        },
+        trace_id=trace_id,
+        timestamp=datetime.utcnow().isoformat()
+    )
+
+
+@router.get("/health")
+async def nlp_health():
+    """NLP Gateway health check."""
+    return {
+        "status": "healthy",
+        "service": "nlp-gateway",
+        "version": "1.0.0"
+    }
+
+
+class PersonaClassifyRequest(BaseModel):
+    query: str
+    tenant_id: str = "demo-tenant"
+
+
+class PersonaClassifyResponse(BaseModel):
+    persona: PersonaSlug
+    confidence: float
+    matched_keywords: List[str]
+    trace_id: str
+
+
+class PersonaTile(BaseModel):
+    key: str
+    title: str
+    value: Optional[str]
+    delta: Optional[str]
+    timeframe: str
+    last_updated: Optional[str]
+    href: str
+    note: Optional[str] = None
+    mock: Optional[bool] = None
+
+
+class PersonaTable(BaseModel):
+    title: str
+    columns: List[str]
+    rows: List[List[str]]
+    href: str
+    note: Optional[str] = None
+    mock: Optional[bool] = None
+
+
+class PersonaSummaryResponse(BaseModel):
+    persona: PersonaSlug
+    tiles: List[PersonaTile]
+    table: PersonaTable
+    trace_id: str
+
+
+@router.post("/persona/classify", response_model=PersonaClassifyResponse)
+async def classify_persona(request: PersonaClassifyRequest):
+    """Classify a query into a persona (CTO, CRO, COO, CFO)."""
+    trace_id = f"nlp_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{str(uuid.uuid4())[:8]}"
+    
+    query_lower = request.query.lower()
+    
+    coo_keywords = ["spend", "budget", "vendor", "renewal", "finops", "cost", "cloud"]
+    cfo_keywords = ["revenue", "ebitda", "cash", "burn", "runway", "margin"]
+    cro_keywords = ["pipeline", "win rate", "quota", "sales", "deal"]
+    cto_keywords = ["connector", "drift", "schema", "api", "service", "incident"]
+    
+    scores = {
+        "coo": sum(1 for kw in coo_keywords if kw in query_lower),
+        "cfo": sum(1 for kw in cfo_keywords if kw in query_lower),
+        "cro": sum(1 for kw in cro_keywords if kw in query_lower),
+        "cto": sum(1 for kw in cto_keywords if kw in query_lower),
+    }
+    
+    persona = max(scores, key=scores.get)  # type: ignore
+    matched = [kw for kw in (coo_keywords + cfo_keywords + cro_keywords + cto_keywords) if kw in query_lower]
+    confidence = min(0.95, 0.6 + (scores[persona] * 0.1))
+    
+    return PersonaClassifyResponse(
+        persona=persona,  # type: ignore
+        confidence=confidence,
+        matched_keywords=matched[:5],
+        trace_id=trace_id
+    )
+
+
+@router.get("/persona/summary", response_model=PersonaSummaryResponse)
+async def get_persona_summary(persona: PersonaSlug = Query(..., description="Persona type")):
+    """Get persona-specific dashboard summary with Redis caching (60s TTL)."""
+    trace_id = f"nlp_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{str(uuid.uuid4())[:8]}"
+    
+    # Check Redis cache first
+    cache_key = f"persona_summary:{persona}"
+    
+    if REDIS_AVAILABLE and redis_client:
+        try:
+            cached_data = redis_client.get(cache_key)
+            if cached_data:
+                logger.info(f"Cache HIT for persona={persona}, key={cache_key}")
+                cached_response = json.loads(cached_data)
+                # Update trace_id for tracking
+                cached_response["trace_id"] = trace_id
+                return PersonaSummaryResponse(**cached_response)
+            else:
+                logger.info(f"Cache MISS for persona={persona}, key={cache_key}")
+        except Exception as e:
+            logger.warning(f"Cache read error for {cache_key}: {e}")
+    
+    # Generate fresh response
+    now_iso = datetime.utcnow().isoformat() + "Z"
+    
+    # TODO: Try fetching real data from live endpoints
+    # For now, we'll use DEMO_MODE to determine stub vs demo data
+    
+    response = None
+    
+    if persona == "coo":
+        if DEMO_MODE:
+            response = PersonaSummaryResponse(
+                persona="coo",
+                tiles=[
+                    PersonaTile(key="cloud_spend", title="Cloud Spend (MTD)", value="$184k", delta=None, timeframe="MTD vs Budget", last_updated=now_iso, href="/finops", mock=True),
+                    PersonaTile(key="variance_mtd", title="Variance", value="+6.2%", delta="+6.2%", timeframe="MTD", last_updated=now_iso, href="/finops", mock=True),
+                    PersonaTile(key="vendors_over_threshold", title="Vendors > $50k", value="7", delta=None, timeframe="Rolling 30d", last_updated=now_iso, href="/finops/vendors", mock=True),
+                    PersonaTile(key="renewals_30d", title="Renewals (30d)", value="4", delta=None, timeframe="Next 30d", last_updated=now_iso, href="/finops/renewals", mock=True),
+                ],
+                table=PersonaTable(
+                    title="Top 10 Cost Centers (MTD)",
+                    columns=["Cost Center", "MTD Spend", "Δ vs prior period"],
+                    rows=[
+                        ["Engineering", "$68k", "+8.2%"],
+                        ["Data Platform", "$42k", "+3.1%"],
+                        ["GTM", "$31k", "+12.5%"],
+                        ["Support", "$18k", "-2.3%"],
+                        ["Security", "$12k", "+5.7%"],
+                        ["Finance", "$7k", "+1.2%"],
+                        ["Legal", "$4k", "-0.8%"],
+                        ["HR", "$2k", "+0.5%"],
+                    ],
+                    href="/finops/cost-centers",
+                    mock=True
+                ),
+                trace_id=trace_id
+            )
+        else:
+            response = PersonaSummaryResponse(
+                persona="coo",
+                tiles=[
+                    PersonaTile(key="cloud_spend", title="Cloud Spend (MTD)", value=None, delta=None, timeframe="MTD vs Budget", last_updated=None, href="/finops", note="stub"),
+                    PersonaTile(key="variance_mtd", title="Variance", value=None, delta=None, timeframe="MTD", last_updated=None, href="/finops", note="stub"),
+                    PersonaTile(key="vendors_over_threshold", title="Vendors > $50k", value=None, delta=None, timeframe="Rolling 30d", last_updated=None, href="/finops/vendors", note="stub"),
+                    PersonaTile(key="renewals_30d", title="Renewals (30d)", value=None, delta=None, timeframe="Next 30d", last_updated=None, href="/finops/renewals", note="stub"),
+                ],
+                table=PersonaTable(title="Top 10 Cost Centers (MTD)", columns=["Cost Center", "MTD Spend", "Δ vs prior period"], rows=[], href="/finops/cost-centers", note="stub"),
+                trace_id=trace_id
+            )
+    elif persona == "cfo":
+        if DEMO_MODE:
+            response = PersonaSummaryResponse(
+                persona="cfo",
+                tiles=[
+                    PersonaTile(key="revenue_mtd", title="Revenue (MTD)", value="$2.4M", delta=None, timeframe="MTD/QTD/YTD", last_updated=now_iso, href="#", mock=True),
+                    PersonaTile(key="gross_margin_pct", title="Gross Margin %", value="62%", delta=None, timeframe="MTD", last_updated=now_iso, href="#", mock=True),
+                    PersonaTile(key="cash_balance", title="Cash Balance", value="$18.3M", delta=None, timeframe="Today", last_updated=now_iso, href="#", mock=True),
+                    PersonaTile(key="burn_rate", title="Burn Rate", value="-$0.9M/mo", delta=None, timeframe="Rolling 30d", last_updated=now_iso, href="#", mock=True),
+                    PersonaTile(key="runway_months", title="Runway (mo)", value="20", delta=None, timeframe="Projected", last_updated=now_iso, href="#", mock=True),
+                    PersonaTile(key="dso_dpo", title="DSO / DPO", value="44 / 36", delta=None, timeframe="Rolling 90d", last_updated=now_iso, href="#", mock=True),
+                ],
+                table=PersonaTable(
+                    title="Finance KPIs by Month",
+                    columns=["Month", "Revenue", "GM%", "Burn", "Cash End"],
+                    rows=[
+                        ["Nov 2025", "$2.4M", "62%", "-$0.9M", "$18.3M"],
+                        ["Oct 2025", "$2.3M", "61%", "-$0.9M", "$19.2M"],
+                        ["Sep 2025", "$2.2M", "60%", "-$0.8M", "$20.1M"],
+                        ["Aug 2025", "$2.1M", "59%", "-$0.8M", "$20.9M"],
+                        ["Jul 2025", "$2.0M", "58%", "-$0.7M", "$21.7M"],
+                        ["Jun 2025", "$1.9M", "57%", "-$0.7M", "$22.4M"],
+                    ],
+                    href="#",
+                    mock=True
+                ),
+                trace_id=trace_id
+            )
+        else:
+            response = PersonaSummaryResponse(
+                persona="cfo",
+                tiles=[
+                    PersonaTile(key="revenue_mtd", title="Revenue (MTD)", value=None, delta=None, timeframe="MTD/QTD/YTD", last_updated=None, href="#", note="stub"),
+                    PersonaTile(key="gross_margin_pct", title="Gross Margin %", value=None, delta=None, timeframe="MTD", last_updated=None, href="#", note="stub"),
+                    PersonaTile(key="cash_balance", title="Cash Balance", value=None, delta=None, timeframe="Today", last_updated=None, href="#", note="stub"),
+                    PersonaTile(key="burn_rate", title="Burn Rate", value=None, delta=None, timeframe="Rolling 30d", last_updated=None, href="#", note="stub"),
+                    PersonaTile(key="runway_months", title="Runway (mo)", value=None, delta=None, timeframe="Projected", last_updated=None, href="#", note="stub"),
+                    PersonaTile(key="dso_dpo", title="DSO / DPO", value=None, delta=None, timeframe="Rolling 90d", last_updated=None, href="#", note="stub"),
+                ],
+                table=PersonaTable(title="Finance KPIs by Month", columns=["Month", "Revenue", "GM%", "Burn", "Cash End"], rows=[], href="#", note="stub"),
+                trace_id=trace_id
+            )
+    elif persona == "cro":
+        if DEMO_MODE:
+            response = PersonaSummaryResponse(
+                persona="cro",
+                tiles=[
+                    PersonaTile(key="pipeline_value", title="Pipeline Value", value="$12.4M", delta=None, timeframe="Current Quarter", last_updated=now_iso, href="#", mock=True),
+                    PersonaTile(key="forecast_commit", title="Forecast (Commit)", value="$10.8M", delta=None, timeframe="Current Quarter", last_updated=now_iso, href="#", mock=True),
+                    PersonaTile(key="win_rate", title="Win Rate", value="27%", delta=None, timeframe="Last 90 days", last_updated=now_iso, href="#", mock=True),
+                    PersonaTile(key="new_opps_7d", title="New Opps (7d)", value="23", delta=None, timeframe="Last 7 days", last_updated=now_iso, href="#", mock=True),
+                ],
+                table=PersonaTable(
+                    title="Top Opportunities",
+                    columns=["Opportunity", "Value", "Stage", "Close Date"],
+                    rows=[
+                        ["Acme Corp - Enterprise", "$850k", "Negotiation", "2025-12-15"],
+                        ["TechStart Inc", "$420k", "Proposal", "2025-12-01"],
+                        ["Global Systems", "$380k", "Discovery", "2026-01-10"],
+                        ["DataFlow Solutions", "$290k", "Negotiation", "2025-11-30"],
+                        ["CloudNine Services", "$210k", "Qualification", "2026-01-15"],
+                    ],
+                    href="#",
+                    mock=True
+                ),
+                trace_id=trace_id
+            )
+        else:
+            response = PersonaSummaryResponse(
+                persona="cro",
+                tiles=[
+                    PersonaTile(key="pipeline_value", title="Pipeline Value", value=None, delta=None, timeframe="Current Quarter", last_updated=None, href="#", note="stub"),
+                    PersonaTile(key="win_rate", title="Win Rate", value=None, delta=None, timeframe="Last 90 days", last_updated=None, href="#", note="stub"),
+                    PersonaTile(key="quota_attainment", title="Quota Attainment", value=None, delta=None, timeframe="MTD", last_updated=None, href="#", note="stub"),
+                ],
+                table=PersonaTable(title="Top Opportunities", columns=["Opportunity", "Value", "Stage", "Close Date"], rows=[], href="#", note="stub"),
+                trace_id=trace_id
+            )
+    else:  # cto
+        if DEMO_MODE:
+            response = PersonaSummaryResponse(
+                persona="cto",
+                tiles=[
+                    PersonaTile(key="connectors_healthy", title="Connectors Healthy", value="97", delta=None, timeframe="Last 24h", last_updated=now_iso, href="#", mock=True),
+                    PersonaTile(key="drift_open", title="Drift Events (Open)", value="3", delta=None, timeframe="Current", last_updated=now_iso, href="#", mock=True),
+                    PersonaTile(key="discovery_apps", title="Apps Discovered", value="312", delta=None, timeframe="Total", last_updated=now_iso, href="#", mock=True),
+                    PersonaTile(key="agents_running", title="Agents Running", value="14", delta=None, timeframe="Current", last_updated=now_iso, href="#", mock=True),
+                ],
+                table=PersonaTable(
+                    title="Connector Drift Events",
+                    columns=["Connector", "Drift %", "Last Check"],
+                    rows=[
+                        ["Salesforce", "2.1%", "2025-11-10T18:22Z"],
+                        ["NetSuite", "1.6%", "2025-11-10T17:45Z"],
+                        ["Zendesk", "1.3%", "2025-11-10T16:12Z"],
+                    ],
+                    href="#",
+                    mock=True
+                ),
+                trace_id=trace_id
+            )
+        else:
+            response = PersonaSummaryResponse(
+                persona="cto",
+                tiles=[
+                    PersonaTile(key="services_healthy", title="Services Healthy", value=None, delta=None, timeframe="Last 24h", last_updated=None, href="#", note="stub"),
+                    PersonaTile(key="connectors_drifted", title="Connectors Drifted", value=None, delta=None, timeframe="Current", last_updated=None, href="#", note="stub"),
+                    PersonaTile(key="incidents_open", title="Open Incidents", value=None, delta=None, timeframe="Current", last_updated=None, href="#", note="stub"),
+                ],
+                table=PersonaTable(title="Service Health", columns=["Service", "Status", "Latency", "Error Rate"], rows=[], href="#", note="stub"),
+                trace_id=trace_id
+            )
+    
+    # Cache the response before returning (60s TTL)
+    if REDIS_AVAILABLE and redis_client and response:
+        try:
+            # Serialize response to JSON for caching
+            cache_data = response.model_dump_json()
+            redis_client.setex(cache_key, 60, cache_data)
+            logger.info(f"Cached persona summary: key={cache_key}, ttl=60s")
+        except Exception as e:
+            logger.warning(f"Cache write error for {cache_key}: {e}")
+    
+    return response

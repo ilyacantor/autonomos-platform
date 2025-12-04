@@ -1,0 +1,326 @@
+Here’s a single, comprehensive Replit prompt you can paste into the **autonomos-platform** agent to evolve the `/demo-discovery` page into an “enterprise-grade complexity, AOS abstracts it” demo.
+
+````text
+You’re working in the autonomos-platform project.
+
+Context:
+- You already created a “Discovery Demo” route/page at `/demo-discovery`.
+- It shows 4 vendors (Salesforce, MongoDB, Supabase, Legacy Files), lets me select assets, and animates a 4-stage pipeline (AOD Discovery → AAM Connections → DCL Mapping → Agent Execution).
+- All of this is fake/demo data. That’s fine and should remain so.
+
+Goal:
+Turn this into an **enterprise-grade demo** that:
+1) Shows real-world complexity at each stage (AOD, AAM, DCL, Agent).
+2) Makes it clear that AOS auto-selects and configures everything, while still letting the user **unselect** assets.
+3) Clearly explains how AI, RAG, and heuristics are used (in copy, not in real logic).
+4) Adds a DCL field-mapping view that feels like real schema/ontology work.
+5) Removes the word “sample” from all demo UI.
+
+Do NOT:
+- Touch any production AAM/DCL/AOD code paths or non-demo routes.
+- Add real network calls. Keep all data local/static for now.
+- Change the main app navigation beyond the existing “Discovery Demo” entry.
+
+Make all changes **only in the demo code** (the `/demo-discovery` page, its demo helpers, and any demo-only backend façade you previously added).
+
+----------------------------------------------------------------------
+PART 1 – Selection semantics: AOS auto-selects, user can unselect
+----------------------------------------------------------------------
+
+Keep the vendor asset modals and the checkboxes, but change the behavior and copy:
+
+1. Auto-select “ready” assets:
+   - For each asset row in a vendor modal:
+     - If its state is `READY_FOR_CONNECT`, the checkbox should be **checked by default** when the modal opens.
+     - Assets in other states (`PARKED`, `UNKNOWN`, etc.) should start **unchecked**. It’s OK to disable their checkbox if that’s simpler.
+   - Preserve the selection state in React state so selections persist when modals open/close.
+
+2. Update the explanatory text:
+
+   - In the vendor asset modal, above the table, add a short line:
+
+     > “AutonomOS has automatically selected all ready assets for this demo. You can deselect any that you don’t want to include.”
+
+   - In the “Connect Selected Assets” / pipeline section on the main page, update the copy to:
+
+     - Main text:
+
+       > “AutonomOS has automatically selected **X assets across Y vendors** for this demo pipeline. You may deselect assets in the vendor views before running the pipeline.”
+
+       where X = number of selected assets; Y = number of distinct vendors among selected assets.
+
+   - Keep the button label **“Connect Selected Assets”** and the selection count behavior, but make it clear that the default is “everything ready is already selected by us”.
+
+3. Guardrail when nothing is selected:
+   - If the user deselects everything, then clicks “Connect Selected Assets”, do NOT run the pipeline.
+   - Instead, show a non-blocking inline message near the button:
+
+     > “Select at least one ready asset to include in the demo pipeline.”
+
+----------------------------------------------------------------------
+PART 2 – Pipeline cards: show enterprise-grade complexity + how AOS handles it
+----------------------------------------------------------------------
+
+You already have 4 stages. For each stage card, keep the title but update the body copy to show:
+
+- What the stage does.
+- Why this is normally hard in enterprises.
+- How AOS handled it (using patterns + AI / RAG / heuristics).
+- Where relevant, use dynamic values based on the current selection (asset count, vendor list).
+
+Assume you can pass into the pipeline component:
+- `selectedAssetCount` (number)
+- `selectedVendors` (array of vendor names, e.g. ['Salesforce', 'MongoDB'])
+
+Use these exact strings (or as close as layout allows). When you interpolate values, use template literals in code.
+
+1) Stage 1 – AOD Discovery
+
+Title: keep existing “1. AOD Discovery”.
+
+Body text (static):
+
+- Line 1:
+
+  > “Assets discovered and triaged automatically at the SaaS / service / database / host level.”
+
+- Line 2 (why it’s hard):
+
+  > “Normally: spreadsheets, interviews, and chasing teams just to figure out what’s actually running in each tenant.”
+
+- Line 3 (how AOS handled it):
+
+  > “AOS uses log and config telemetry plus AI classifiers to tag vendor, environment, and risk, and to surface shadow IT.”
+
+(If space is tight, you can combine lines 2–3 into a single paragraph with the same content.)
+
+2) Stage 2 – AAM Connections
+
+Title: keep existing “2. AAM Connections”.
+
+Body text (partly dynamic):
+
+- Line 1:
+
+  > “Configures and validates connectors for the selected assets.”
+
+- Line 2 (why it’s hard):
+
+  > “Normally: per-connector OAuth apps, scope tuning, token rotation, API versions, rate limits, and per-tenant quirks.”
+
+- Line 3 (how AOS handled it – interpolate vendors and counts):
+
+  > “AOS applies connector recipes and AI over our configuration corpus to choose auth flows, scopes, and backoff policies for {{selectedVendors}} and {{selectedAssetCount}} selected assets.”
+
+Where `{{selectedVendors}}` should render as a comma-separated vendor list, like “Salesforce, MongoDB, Supabase”.
+
+Also add a small “View connector details” link or button inside this card, which opens a small panel or modal (see Part 3).
+
+3) Stage 3 – DCL Mapping
+
+Title: keep existing “3. DCL Mapping”.
+
+Body text:
+
+- Line 1:
+
+  > “Builds unified entities and field mappings (e.g. `customer_360`) on top of connected systems.”
+
+- Line 2 (why it’s hard):
+
+  > “Normally: weeks of debating column names, IDs, and joins across CRM, billing, events, and legacy exports.”
+
+- Line 3 (how AOS handled it – referencing mappings you’ll define in Part 4):
+
+  > “AOS analyzes schemas and ingested data across systems to propose canonical fields and joins, with confidence scores, then surfaces them for review.”
+
+Also add a small button inside this card labeled **“View field mappings”** that opens the DCL mapping modal described in Part 4.
+
+4) Stage 4 – Agent Execution
+
+Title: keep existing “4. Agent Execution”.
+
+Body text:
+
+- Line 1:
+
+  > “Agents query the unified view instead of raw tables.”
+
+- Line 2 (why it’s hard):
+
+  > “Normally: hand-written SQL, multiple BI tools, and manual joins across CRM, usage, and billing data.”
+
+- Line 3 (how AOS handled it):
+
+  > “AOS agents run over DCL’s unified entities, apply risk and business policies, and return explainable results—no manual SQL or join logic.”
+
+If you have an Agent Output panel already, update its text to match this story: show a user question like:
+
+> “Show risky customer-facing services over $1M ARR across Salesforce, MongoDB, Supabase, and Legacy Files.”
+
+and an “Agent” answer that references the unified view and risk signals. That panel can remain static/fake for now.
+
+----------------------------------------------------------------------
+PART 3 – AAM “View connector details” panel (fake, enterprise-style)
+----------------------------------------------------------------------
+
+Inside the AAM card, add a link or button: **“View connector details”**.
+
+When clicked, open a modal or side panel that shows one section per vendor. Use static, hard-coded text; no backend calls.
+
+For each vendor (Salesforce, MongoDB, Supabase, Legacy Files), render something like:
+
+- Header: “Salesforce Connector (demo tenant)”
+- Sub-lines:
+
+  - Auth:
+    > “OAuth2 with short-lived access tokens; refresh token rotation enabled.”
+    > “Scopes selected from connector recipes: `api`, `refresh_token`, `offline_access`.”
+
+  - Contract:
+    > “API version v59.0; endpoints: `/sobjects/Account`, `/sobjects/Opportunity`, `/query`.”
+    > “Pagination: `nextRecordsUrl`; rate-limit policy: exponential backoff with jitter.”
+
+- Small “How AOS configured this” note:
+
+  > “Configuration inferred from connector recipes plus AI over our historical configuration corpus. No manual YAML or one-off scripts.”
+
+For MongoDB:
+
+- Auth:
+  > “TLS-enforced connection string with SRV; credentials stored in vault.”
+- Contract:
+  > “Collections: `users`, `events`. Read preference: `secondaryPreferred`.”
+- Note:
+  > “Topology and timeouts chosen from best-practice heuristics.”
+
+For Supabase and Legacy Files, make similarly realistic notes (buckets, schemas, etc.), but keep it obviously synthetic and safe.
+
+----------------------------------------------------------------------
+PART 4 – DCL field-mapping modal (canonical entity + sources)
+----------------------------------------------------------------------
+
+Create a small demo data module for DCL mappings and a modal to display it.
+
+1) Data model and file:
+
+- Add a file like `src/demo/demoDclMappings.ts` (or to whatever demo folder you’re using).
+- Define these types in TypeScript:
+
+  ```ts
+  export type Vendor = 'salesforce' | 'mongodb' | 'supabase' | 'legacy';
+
+  export interface SourceField {
+    vendor: Vendor;
+    fieldPath: string;   // e.g. "Account.Id", "users._id", "customers.customer_id"
+    confidence: number;  // 0–1
+  }
+
+  export interface FieldMappingRow {
+    canonicalField: string;    // e.g. "customer_id"
+    type: 'string' | 'number' | 'date' | 'boolean';
+    sources: SourceField[];
+  }
+````
+
+* Export an array of `FieldMappingRow` called `demoCustomer360Mappings` with at least these canonical fields (you can add more):
+
+  * `customer_id` (string)
+
+    * Salesforce · `Account.Id` · 0.97
+    * MongoDB · `users._id` · 0.93
+    * Supabase · `customers.customer_id` · 0.96
+    * Legacy · `legacy_customers.customer_id` · 0.90
+
+  * `customer_name` (string)
+
+    * Salesforce · `Account.Name` · 0.98
+    * Supabase · `customers.full_name` · 0.94
+    * Legacy · `legacy_customers.name` · 0.91
+
+  * `arr` (number)
+
+    * Salesforce · `Opportunity.Amount` (aggregated) · 0.95
+    * Supabase · `invoices.total_amount` · 0.90
+
+  * `last_activity_at` (date)
+
+    * MongoDB · `events.timestamp` · 0.95
+    * Salesforce · `Task.LastModifiedDate` · 0.88
+
+  * `churn_flag` (boolean)
+
+    * Legacy · `churn_flags.flag` · 0.99
+
+  * `risk_score` (number)
+
+    * At least two contributing fields from different vendors, e.g.:
+
+      * MongoDB · `events.error_rate` · 0.86
+      * Supabase · `invoices.overdue_balance` · 0.89
+
+All of this is static demo data—no backend calls.
+
+2. UI:
+
+* When the user clicks **“View field mappings”** inside the DCL Mapping card:
+
+  * Open a modal (reuse your existing modal component pattern).
+
+  * Title:
+
+    > “DCL field mappings – `customer_360` (demo tenant)”
+
+  * Short description at the top:
+
+    > “DCL analyzes schemas and ingested data across Salesforce, MongoDB, Supabase, and Legacy Files to propose a unified customer entity.”
+
+  * Below that, render a table or list with columns:
+
+    * Canonical Field
+    * Type
+    * Sources
+
+  * For each `FieldMappingRow`, render one row:
+
+    * Canonical Field: the `canonicalField` string.
+    * Type: the `type`.
+    * Sources: map over `sources` and render each `SourceField` as a chip or label with:
+
+      * Vendor name (capitalized)
+      * Field path
+      * Confidence as a percentage
+
+      e.g. `Salesforce · Account.Id · 97%`
+
+  * At the bottom of the modal, add a small “How AOS generated this” block:
+
+    > “AOS uses ontologies, naming heuristics, and data profiling to propose canonical fields and joins. Confidence scores indicate how strong each mapping is; lower-confidence candidates can be routed to governance workflows for review (not shown in this demo).”
+
+---
+
+## PART 5 – Remove the word “sample” from all demo UI
+
+Search ONLY the demo UI code (Discovery Demo page, its modals, demo data, and any demo-only backend response schemas) for the word “sample” in user-facing strings.
+
+* Replace:
+
+  * “sample data” → “demo tenant dataset” or “ingested dataset”, whichever matches context.
+  * “sample mapping” → “field mapping”.
+  * “sample query” → “demo query” or just “query”.
+  * Any other “sample …” phrases → rewrite the sentence to describe normal enterprise behavior, without the word “sample”.
+
+* Do NOT change:
+
+  * Comments, internal logs, test names, or non-demo routes.
+
+At the end, please:
+
+* List all files you changed.
+* Show the final TypeScript definition of `FieldMappingRow` and a sample object from `demoCustomer360Mappings`.
+* Confirm that no user-visible string in the Discovery Demo contains the word “sample” anymore.
+
+```
+
+::contentReference[oaicite:0]{index=0}
+```

@@ -1,0 +1,325 @@
+{
+  "timestamp": "2025-11-18T15:25:16.557906",
+  "tenants_found": 14,
+  "tenant_ids": [
+    "tenant-concur-0-343d0742-7911-4c21-9b49-1110487770c5",
+    "tenant-concur-1-44df4d1b-b060-4d3b-a4ed-0e912cf76f3c",
+    "tenant-concur-2-1e7cdf7b-4b84-4572-a899-352f11fa544d",
+    "tenant-concur-3-b15bdd31-a6e6-40ce-b120-c8eb9d6b7447",
+    "tenant-concur-4-8ffcef3c-7c93-4b1f-a530-1f41563bbdc2",
+    "tenant-concur-5-bf44a7e5-808e-4d09-95a3-035fd84f445f",
+    "tenant-concur-6-09edf0f1-fa8c-4f83-a8a6-1fb5023bf1fe",
+    "tenant-concur-7-418cbdbc-e612-48f4-b29c-55fd8eda3ec5",
+    "tenant-concur-8-dd0e7229-36ca-4bf7-b030-aea98cbc2b1c",
+    "tenant-concur-9-fd00a609-6cea-48fc-b7b0-e23c1ee5bac1",
+    "tenant-isolated-a-dace846b-ec19-4b6d-ba01-1d7c10393d7c",
+    "tenant-isolated-b-b3ab7e7a-7dad-4560-a3ef-bce94201d15f",
+    "tenant-quota-c68328d7-59e9-46dc-a40b-aae2a5ac1e00",
+    "tenant-redis-fail-94a9e3b4-3f01-4e51-bc66-2fab89f4ab6e"
+  ],
+  "all_isolated": true,
+  "validations": {
+    "semaphore_isolation": {
+      "tenant-concur-0-343d0742-7911-4c21-9b49-1110487770c5": {
+        "active_count": 0,
+        "semaphore_key": "job:semaphore:tenant:tenant-concur-0-343d0742-7911-4c21-9b49-1110487770c5",
+        "isolated": true
+      },
+      "tenant-concur-1-44df4d1b-b060-4d3b-a4ed-0e912cf76f3c": {
+        "active_count": 0,
+        "semaphore_key": "job:semaphore:tenant:tenant-concur-1-44df4d1b-b060-4d3b-a4ed-0e912cf76f3c",
+        "isolated": true
+      },
+      "tenant-concur-2-1e7cdf7b-4b84-4572-a899-352f11fa544d": {
+        "active_count": 0,
+        "semaphore_key": "job:semaphore:tenant:tenant-concur-2-1e7cdf7b-4b84-4572-a899-352f11fa544d",
+        "isolated": true
+      },
+      "tenant-concur-3-b15bdd31-a6e6-40ce-b120-c8eb9d6b7447": {
+        "active_count": 0,
+        "semaphore_key": "job:semaphore:tenant:tenant-concur-3-b15bdd31-a6e6-40ce-b120-c8eb9d6b7447",
+        "isolated": true
+      },
+      "tenant-concur-4-8ffcef3c-7c93-4b1f-a530-1f41563bbdc2": {
+        "active_count": 0,
+        "semaphore_key": "job:semaphore:tenant:tenant-concur-4-8ffcef3c-7c93-4b1f-a530-1f41563bbdc2",
+        "isolated": true
+      },
+      "tenant-concur-5-bf44a7e5-808e-4d09-95a3-035fd84f445f": {
+        "active_count": 0,
+        "semaphore_key": "job:semaphore:tenant:tenant-concur-5-bf44a7e5-808e-4d09-95a3-035fd84f445f",
+        "isolated": true
+      },
+      "tenant-concur-6-09edf0f1-fa8c-4f83-a8a6-1fb5023bf1fe": {
+        "active_count": 0,
+        "semaphore_key": "job:semaphore:tenant:tenant-concur-6-09edf0f1-fa8c-4f83-a8a6-1fb5023bf1fe",
+        "isolated": true
+      },
+      "tenant-concur-7-418cbdbc-e612-48f4-b29c-55fd8eda3ec5": {
+        "active_count": 0,
+        "semaphore_key": "job:semaphore:tenant:tenant-concur-7-418cbdbc-e612-48f4-b29c-55fd8eda3ec5",
+        "isolated": true
+      },
+      "tenant-concur-8-dd0e7229-36ca-4bf7-b030-aea98cbc2b1c": {
+        "active_count": 0,
+        "semaphore_key": "job:semaphore:tenant:tenant-concur-8-dd0e7229-36ca-4bf7-b030-aea98cbc2b1c",
+        "isolated": true
+      },
+      "tenant-concur-9-fd00a609-6cea-48fc-b7b0-e23c1ee5bac1": {
+        "active_count": 0,
+        "semaphore_key": "job:semaphore:tenant:tenant-concur-9-fd00a609-6cea-48fc-b7b0-e23c1ee5bac1",
+        "isolated": true
+      },
+      "tenant-isolated-a-dace846b-ec19-4b6d-ba01-1d7c10393d7c": {
+        "active_count": 4,
+        "semaphore_key": "job:semaphore:tenant:tenant-isolated-a-dace846b-ec19-4b6d-ba01-1d7c10393d7c",
+        "isolated": true
+      },
+      "tenant-isolated-b-b3ab7e7a-7dad-4560-a3ef-bce94201d15f": {
+        "active_count": 5,
+        "semaphore_key": "job:semaphore:tenant:tenant-isolated-b-b3ab7e7a-7dad-4560-a3ef-bce94201d15f",
+        "isolated": true
+      },
+      "tenant-quota-c68328d7-59e9-46dc-a40b-aae2a5ac1e00": {
+        "active_count": 0,
+        "semaphore_key": "job:semaphore:tenant:tenant-quota-c68328d7-59e9-46dc-a40b-aae2a5ac1e00",
+        "isolated": true
+      },
+      "tenant-redis-fail-94a9e3b4-3f01-4e51-bc66-2fab89f4ab6e": {
+        "active_count": 0,
+        "semaphore_key": "job:semaphore:tenant:tenant-redis-fail-94a9e3b4-3f01-4e51-bc66-2fab89f4ab6e",
+        "isolated": true
+      }
+    },
+    "job_state_isolation": {
+      "tenant-concur-0-343d0742-7911-4c21-9b49-1110487770c5": {
+        "job_count": 0,
+        "job_ids": [],
+        "cross_tenant_leakage": [],
+        "isolated": true
+      },
+      "tenant-concur-1-44df4d1b-b060-4d3b-a4ed-0e912cf76f3c": {
+        "job_count": 0,
+        "job_ids": [],
+        "cross_tenant_leakage": [],
+        "isolated": true
+      },
+      "tenant-concur-2-1e7cdf7b-4b84-4572-a899-352f11fa544d": {
+        "job_count": 0,
+        "job_ids": [],
+        "cross_tenant_leakage": [],
+        "isolated": true
+      },
+      "tenant-concur-3-b15bdd31-a6e6-40ce-b120-c8eb9d6b7447": {
+        "job_count": 0,
+        "job_ids": [],
+        "cross_tenant_leakage": [],
+        "isolated": true
+      },
+      "tenant-concur-4-8ffcef3c-7c93-4b1f-a530-1f41563bbdc2": {
+        "job_count": 0,
+        "job_ids": [],
+        "cross_tenant_leakage": [],
+        "isolated": true
+      },
+      "tenant-concur-5-bf44a7e5-808e-4d09-95a3-035fd84f445f": {
+        "job_count": 0,
+        "job_ids": [],
+        "cross_tenant_leakage": [],
+        "isolated": true
+      },
+      "tenant-concur-6-09edf0f1-fa8c-4f83-a8a6-1fb5023bf1fe": {
+        "job_count": 0,
+        "job_ids": [],
+        "cross_tenant_leakage": [],
+        "isolated": true
+      },
+      "tenant-concur-7-418cbdbc-e612-48f4-b29c-55fd8eda3ec5": {
+        "job_count": 0,
+        "job_ids": [],
+        "cross_tenant_leakage": [],
+        "isolated": true
+      },
+      "tenant-concur-8-dd0e7229-36ca-4bf7-b030-aea98cbc2b1c": {
+        "job_count": 0,
+        "job_ids": [],
+        "cross_tenant_leakage": [],
+        "isolated": true
+      },
+      "tenant-concur-9-fd00a609-6cea-48fc-b7b0-e23c1ee5bac1": {
+        "job_count": 0,
+        "job_ids": [],
+        "cross_tenant_leakage": [],
+        "isolated": true
+      },
+      "tenant-isolated-a-dace846b-ec19-4b6d-ba01-1d7c10393d7c": {
+        "job_count": 0,
+        "job_ids": [],
+        "cross_tenant_leakage": [],
+        "isolated": true
+      },
+      "tenant-isolated-b-b3ab7e7a-7dad-4560-a3ef-bce94201d15f": {
+        "job_count": 0,
+        "job_ids": [],
+        "cross_tenant_leakage": [],
+        "isolated": true
+      },
+      "tenant-quota-c68328d7-59e9-46dc-a40b-aae2a5ac1e00": {
+        "job_count": 0,
+        "job_ids": [],
+        "cross_tenant_leakage": [],
+        "isolated": true
+      },
+      "tenant-redis-fail-94a9e3b4-3f01-4e51-bc66-2fab89f4ab6e": {
+        "job_count": 0,
+        "job_ids": [],
+        "cross_tenant_leakage": [],
+        "isolated": true
+      }
+    },
+    "redis_key_namespacing": {
+      "tenant-concur-0-343d0742-7911-4c21-9b49-1110487770c5": {
+        "total_keys": 0,
+        "key_types": {},
+        "properly_namespaced": true
+      },
+      "tenant-concur-1-44df4d1b-b060-4d3b-a4ed-0e912cf76f3c": {
+        "total_keys": 0,
+        "key_types": {},
+        "properly_namespaced": true
+      },
+      "tenant-concur-2-1e7cdf7b-4b84-4572-a899-352f11fa544d": {
+        "total_keys": 0,
+        "key_types": {},
+        "properly_namespaced": true
+      },
+      "tenant-concur-3-b15bdd31-a6e6-40ce-b120-c8eb9d6b7447": {
+        "total_keys": 0,
+        "key_types": {},
+        "properly_namespaced": true
+      },
+      "tenant-concur-4-8ffcef3c-7c93-4b1f-a530-1f41563bbdc2": {
+        "total_keys": 0,
+        "key_types": {},
+        "properly_namespaced": true
+      },
+      "tenant-concur-5-bf44a7e5-808e-4d09-95a3-035fd84f445f": {
+        "total_keys": 0,
+        "key_types": {},
+        "properly_namespaced": true
+      },
+      "tenant-concur-6-09edf0f1-fa8c-4f83-a8a6-1fb5023bf1fe": {
+        "total_keys": 0,
+        "key_types": {},
+        "properly_namespaced": true
+      },
+      "tenant-concur-7-418cbdbc-e612-48f4-b29c-55fd8eda3ec5": {
+        "total_keys": 0,
+        "key_types": {},
+        "properly_namespaced": true
+      },
+      "tenant-concur-8-dd0e7229-36ca-4bf7-b030-aea98cbc2b1c": {
+        "total_keys": 0,
+        "key_types": {},
+        "properly_namespaced": true
+      },
+      "tenant-concur-9-fd00a609-6cea-48fc-b7b0-e23c1ee5bac1": {
+        "total_keys": 0,
+        "key_types": {},
+        "properly_namespaced": true
+      },
+      "tenant-isolated-a-dace846b-ec19-4b6d-ba01-1d7c10393d7c": {
+        "total_keys": 0,
+        "key_types": {},
+        "properly_namespaced": true
+      },
+      "tenant-isolated-b-b3ab7e7a-7dad-4560-a3ef-bce94201d15f": {
+        "total_keys": 0,
+        "key_types": {},
+        "properly_namespaced": true
+      },
+      "tenant-quota-c68328d7-59e9-46dc-a40b-aae2a5ac1e00": {
+        "total_keys": 0,
+        "key_types": {},
+        "properly_namespaced": true
+      },
+      "tenant-redis-fail-94a9e3b4-3f01-4e51-bc66-2fab89f4ab6e": {
+        "total_keys": 0,
+        "key_types": {},
+        "properly_namespaced": true
+      }
+    },
+    "progress_tracking": {
+      "tenant-concur-0-343d0742-7911-4c21-9b49-1110487770c5": {
+        "jobs_with_progress": 0,
+        "progress_data": [],
+        "tracking_isolated": true
+      },
+      "tenant-concur-1-44df4d1b-b060-4d3b-a4ed-0e912cf76f3c": {
+        "jobs_with_progress": 0,
+        "progress_data": [],
+        "tracking_isolated": true
+      },
+      "tenant-concur-2-1e7cdf7b-4b84-4572-a899-352f11fa544d": {
+        "jobs_with_progress": 0,
+        "progress_data": [],
+        "tracking_isolated": true
+      },
+      "tenant-concur-3-b15bdd31-a6e6-40ce-b120-c8eb9d6b7447": {
+        "jobs_with_progress": 0,
+        "progress_data": [],
+        "tracking_isolated": true
+      },
+      "tenant-concur-4-8ffcef3c-7c93-4b1f-a530-1f41563bbdc2": {
+        "jobs_with_progress": 0,
+        "progress_data": [],
+        "tracking_isolated": true
+      },
+      "tenant-concur-5-bf44a7e5-808e-4d09-95a3-035fd84f445f": {
+        "jobs_with_progress": 0,
+        "progress_data": [],
+        "tracking_isolated": true
+      },
+      "tenant-concur-6-09edf0f1-fa8c-4f83-a8a6-1fb5023bf1fe": {
+        "jobs_with_progress": 0,
+        "progress_data": [],
+        "tracking_isolated": true
+      },
+      "tenant-concur-7-418cbdbc-e612-48f4-b29c-55fd8eda3ec5": {
+        "jobs_with_progress": 0,
+        "progress_data": [],
+        "tracking_isolated": true
+      },
+      "tenant-concur-8-dd0e7229-36ca-4bf7-b030-aea98cbc2b1c": {
+        "jobs_with_progress": 0,
+        "progress_data": [],
+        "tracking_isolated": true
+      },
+      "tenant-concur-9-fd00a609-6cea-48fc-b7b0-e23c1ee5bac1": {
+        "jobs_with_progress": 0,
+        "progress_data": [],
+        "tracking_isolated": true
+      },
+      "tenant-isolated-a-dace846b-ec19-4b6d-ba01-1d7c10393d7c": {
+        "jobs_with_progress": 0,
+        "progress_data": [],
+        "tracking_isolated": true
+      },
+      "tenant-isolated-b-b3ab7e7a-7dad-4560-a3ef-bce94201d15f": {
+        "jobs_with_progress": 0,
+        "progress_data": [],
+        "tracking_isolated": true
+      },
+      "tenant-quota-c68328d7-59e9-46dc-a40b-aae2a5ac1e00": {
+        "jobs_with_progress": 0,
+        "progress_data": [],
+        "tracking_isolated": true
+      },
+      "tenant-redis-fail-94a9e3b4-3f01-4e51-bc66-2fab89f4ab6e": {
+        "jobs_with_progress": 0,
+        "progress_data": [],
+        "tracking_isolated": true
+      }
+    }
+  }
+}

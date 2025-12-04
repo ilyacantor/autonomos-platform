@@ -1,0 +1,6 @@
+service_category,resource_id,region,cost,usage,usage_type,monthly_cost
+EC2,i-0a1b2c3d4e5f6g7h8,us-east-1,245.80,730,BoxUsage:t3.large,245.80
+EC2,i-9h8g7f6e5d4c3b2a1,us-west-2,492.00,730,BoxUsage:m5.xlarge,492.00
+RDS,db-prod-001,us-east-1,580.50,730,InstanceUsage:db.r5.large,580.50
+RDS,db-staging-001,eu-west-1,185.20,730,InstanceUsage:db.t3.medium,185.20
+S3,s3-data-lake,us-east-1,95.75,2500,TimedStorage-ByteHrs,95.75

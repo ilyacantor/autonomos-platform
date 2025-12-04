@@ -1,0 +1,37 @@
+account:
+  fields:
+    account_id: "hs_object_id"
+    name: "company_name"
+    type: "company_type"
+    industry: "hs_industry"
+    owner_id: "owner_email"
+    status: "lifecycle_stage"
+    created_at: "createdate"
+    updated_at: "hs_lastmodifieddate"
+
+opportunity:
+  fields:
+    opportunity_id: "hs_object_id"
+    account_id: "hs_associated_company_id"
+    name: "dealname"
+    stage: "dealstage"
+    amount: "amount"
+    currency: "deal_currency_code"
+    close_date: "closedate"
+    owner_id: "hubspot_owner_id"
+    probability: "hs_probability"
+    created_at: "createdate"
+    updated_at: "hs_lastmodifieddate"
+
+contact:
+  fields:
+    contact_id: "hs_object_id"
+    account_id: "hs_associated_company_id"
+    first_name: "firstname"
+    last_name: "lastname"
+    email: "email"
+    phone: "phone"
+    title: "jobtitle"
+    department: "department"
+    created_at: "createdate"
+    updated_at: "lastmodifieddate"
