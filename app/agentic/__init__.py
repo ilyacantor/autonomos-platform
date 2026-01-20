@@ -7,7 +7,9 @@ Modules:
 - checkpointer: Durable checkpoint storage with blob offload
 - workflow: LangGraph workflow builder and executor
 - mcp_client: MCP protocol client for tool execution
-- mcp_servers: AOS-specific MCP servers (DCL, AAM)
+- mcp_servers: AOS-specific MCP servers (DCL, AAM, AOD)
+- gateway: AI Gateway with multi-provider support
+- deep_data: Semantic field explainer and lineage tracer
 - streaming: WebSocket event streaming
 - eval: Test-Driven Agent Development (TDAD) framework
 """
@@ -48,6 +50,8 @@ from app.agentic.mcp_servers import (
     DCL_TOOLS,
     AAMMCPServer,
     AAM_TOOLS,
+    AODMCPServer,
+    AOD_TOOLS,
 )
 
 # Streaming
@@ -70,6 +74,29 @@ from app.agentic.eval import (
     EvalConfig,
     GOLDEN_DATASET,
     load_golden_dataset,
+)
+
+# Gateway
+from app.agentic.gateway import (
+    AIGateway,
+    LLMResponse,
+    ReasoningRouter,
+    RoutingPlan,
+    SemanticCache,
+    CostTracker,
+    get_ai_gateway,
+    get_reasoning_router,
+    get_cost_tracker,
+)
+
+# Deep Data Tools
+from app.agentic.deep_data import (
+    SemanticFieldExplainer,
+    FieldExplanation,
+    CrossSystemLineageTracer,
+    LineageGraph,
+    LineageNode,
+    LineageEdge,
 )
 
 __all__ = [
@@ -99,6 +126,8 @@ __all__ = [
     'DCL_TOOLS',
     'AAMMCPServer',
     'AAM_TOOLS',
+    'AODMCPServer',
+    'AOD_TOOLS',
     # Streaming
     'StreamManager',
     'StreamEvent',
@@ -115,4 +144,21 @@ __all__ = [
     'EvalConfig',
     'GOLDEN_DATASET',
     'load_golden_dataset',
+    # Gateway
+    'AIGateway',
+    'LLMResponse',
+    'ReasoningRouter',
+    'RoutingPlan',
+    'SemanticCache',
+    'CostTracker',
+    'get_ai_gateway',
+    'get_reasoning_router',
+    'get_cost_tracker',
+    # Deep Data Tools
+    'SemanticFieldExplainer',
+    'FieldExplanation',
+    'CrossSystemLineageTracer',
+    'LineageGraph',
+    'LineageNode',
+    'LineageEdge',
 ]
