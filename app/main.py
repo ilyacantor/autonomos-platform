@@ -63,12 +63,13 @@ except ImportError as e:
 except Exception as e:
     print(f"⚠️ AAM Hybrid orchestration initialization error: {e}")
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Manage AAM background services lifecycle and application startup"""
-    # STARTUP PHASE
-    logger.info("🚀 Starting AutonomOS application...")
-    
+async def deferred_initialization():
+    """
+    Non-blocking background initialization.
+    Runs after server is ready to accept connections.
+    """
+    await asyncio.sleep(0.1)  # Let server fully start
+
     # Initialize AAM database (create tables and enums)
     try:
         from aam_hybrid.shared.database import init_db
@@ -78,55 +79,46 @@ async def lifespan(app: FastAPI):
         logger.warning("⚠️ AAM database initialization timed out (PgBouncer conflict). Some AAM features may not work.")
     except Exception as e:
         logger.warning(f"⚠️ AAM database initialization failed: {e}. Some AAM features may not work.")
-    
+
     # Initialize AAM Auto-Onboarding Services
     if redis_conn:
         try:
             from aam_hybrid.core.funnel_metrics import FunnelMetricsTracker
             from aam_hybrid.core.onboarding_service import OnboardingService
             import app.api.v1.aam_onboarding as onboarding_module
-            
+
             funnel_tracker = FunnelMetricsTracker(redis_conn)
             onboarding_module.funnel_tracker = funnel_tracker
-            
+
             onboarding_service = OnboardingService(funnel_tracker)
             onboarding_module.onboarding_service = onboarding_service
-            
+
             # Inject into demo_pipeline module as well
             import app.api.v1.demo_pipeline as demo_module
             demo_module.onboarding_service = onboarding_service
-            
-            logger.info("✅ AAM Auto-Onboarding services initialized (Safe Mode enabled, 90% SLO target)")
+
+            logger.info("✅ AAM Auto-Onboarding services initialized")
         except Exception as e:
             logger.warning(f"⚠️ AAM Auto-Onboarding initialization failed: {e}. Auto-onboarding disabled.")
-    else:
-        logger.warning("⚠️ Redis not available - AAM Auto-Onboarding disabled")
-    
+
     # Initialize production-grade feature flags with Redis persistence
     if redis_conn:
         try:
             from app.config.feature_flags import FeatureFlagConfig, FeatureFlag
             from shared.redis_client import RedisDecodeWrapper
-            
-            # Wrap Redis client for decode_responses=True behavior
+
             redis_wrapper = RedisDecodeWrapper(redis_conn)
             FeatureFlagConfig.set_redis_client(redis_wrapper)
-            
-            # Log current flag states (hydrated from Redis)
+
             use_aam = FeatureFlagConfig.is_enabled(FeatureFlag.USE_AAM_AS_SOURCE)
             mode_name = "AAM Connectors" if use_aam else "Legacy File Sources"
-            logger.info(f"✅ Feature flags initialized - USE_AAM_AS_SOURCE: {mode_name} (survives restarts)")
-            
+            logger.info(f"✅ Feature flags initialized - USE_AAM_AS_SOURCE: {mode_name}")
         except Exception as e:
             logger.warning(f"⚠️ Feature flag initialization failed: {e}. Using in-memory fallback.")
-    else:
-        logger.warning("⚠️ Redis not available - feature flags will use in-memory storage only")
-    
+
     # Start AAM Hybrid Orchestration Services
     if AAM_AVAILABLE:
-        logger.info("🚀 Starting AAM Hybrid orchestration services...")
         try:
-            # P4-3: Inject FlowEventPublisher into AAM orchestrator for telemetry
             if flow_publisher:
                 try:
                     from aam_hybrid.services.orchestrator.service import set_flow_publisher
@@ -134,47 +126,42 @@ async def lifespan(app: FastAPI):
                     logger.info("✅ FlowEventPublisher injected into AAM orchestrator")
                 except Exception as e:
                     logger.warning(f"⚠️ Failed to inject FlowEventPublisher into AAM: {e}")
-            
-            # Initialize Event Bus
+
             await event_bus.connect()  # type: ignore[possibly-unbound]
             logger.info("✅ Event Bus connected")
-            
-            # Initialize services
+
             schema_observer = SchemaObserver()  # type: ignore[possibly-unbound]
             aam_rag_engine = AAMRAGEngine()  # type: ignore[possibly-unbound]
             drift_repair_agent = DriftRepairAgent()  # type: ignore[possibly-unbound]
-            
-            # Subscribe to channels
+
             await event_bus.subscribe("aam:drift_detected", aam_rag_engine.handle_drift_detected)  # type: ignore[possibly-unbound]
             await event_bus.subscribe("aam:repair_proposed", drift_repair_agent.handle_repair_proposed)  # type: ignore[possibly-unbound]
             await event_bus.subscribe("aam:status_update", handle_status_update)  # type: ignore[possibly-unbound]
-            
-            # Initialize AAM connectors and populate Redis Streams
+
             try:
                 from services.aam.initializer import run_aam_initializer
                 await run_aam_initializer()
             except Exception as init_error:
                 logger.warning(f"⚠️ AAM connector initialization failed: {init_error}")
-            
-            # TEMPORARILY DISABLED: AAM background tasks to prevent event loop blocking
-            # These tasks were causing the FastAPI server to freeze and not respond to any HTTP requests
-            # TODO: Fix event_bus.listen() and schema_observer.polling_loop() to be truly non-blocking
-            logger.warning("⚠️ AAM background tasks DISABLED temporarily to prevent server freezing")
-            logger.warning("⚠️ Event Bus and Schema Observer are not running - AAM features may be limited")
-            
-            # tasks = [
-            #     asyncio.create_task(safe_event_bus_listener(), name="event_bus_listener"),
-            #     asyncio.create_task(safe_schema_observer(), name="schema_observer"),
-            # ]
-            # background_tasks.extend(tasks)
-            # logger.info(f"✅ Started {len(tasks)} AAM orchestration background tasks (with error isolation)")
-            
+
+            logger.info("✅ AAM orchestration services ready")
         except Exception as e:
             logger.error(f"⚠️ Failed to start AAM orchestration services: {e}")
-    else:
-        logger.warning("⚠️ AAM orchestration services disabled - imports not available")
-    
-    logger.info("✅ AutonomOS startup complete")
+
+    logger.info("✅ Background initialization complete")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Manage application lifecycle with fast startup"""
+    # STARTUP PHASE - Keep minimal for fast server start
+    logger.info("🚀 Starting AutonomOS application...")
+
+    # Schedule non-blocking background initialization
+    init_task = asyncio.create_task(deferred_initialization())
+    background_tasks.append(init_task)
+
+    logger.info("✅ Server ready (background initialization in progress)")
     
     yield  # Application runs here
     

@@ -1,26 +1,38 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { AutonomyProvider, useAutonomy } from './contexts/AutonomyContext';
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './hooks/useAuth';
 import AppLayout from './components/AppLayout';
-import PlatformGuidePage from './components/PlatformGuidePage';
-import AOSOverviewPage from './components/AOSOverviewPage';
-import ControlCenterPage from './components/ControlCenterPage';
-import DiscoverPage from './components/DiscoverPage';
-import ConnectPage from './components/ConnectPage';
-import UnifyAskPage from './components/UnifyAskPage';
-import DemoPage from './components/DemoPage';
-import FAQPage from './components/FAQPage';
 import AuthModal from './components/AuthModal';
+
+// Lazy load all page components for faster initial load
+const AOSOverviewPage = lazy(() => import('./components/AOSOverviewPage'));
+const ControlCenterPage = lazy(() => import('./components/ControlCenterPage'));
+const DiscoverPage = lazy(() => import('./components/DiscoverPage'));
+const ConnectPage = lazy(() => import('./components/ConnectPage'));
+const UnifyAskPage = lazy(() => import('./components/UnifyAskPage'));
+const DemoPage = lazy(() => import('./components/DemoPage'));
+
+// Loading spinner for lazy-loaded pages
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center min-h-[400px]">
+      <div className="flex flex-col items-center gap-4">
+        <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        <span className="text-gray-400 text-sm">Loading...</span>
+      </div>
+    </div>
+  );
+}
 
 function AppContent() {
   // Initialize page from URL path
   const getInitialPage = () => {
     const path = window.location.pathname.slice(1); // Remove leading slash
-    const validPages = ['architecture', 'aos-overview', 'control-center', 'discover', 'connect', 'unify-ask', 'demo', 'faq'];
-    return validPages.includes(path) ? path : 'architecture';
+    const validPages = ['aos-overview', 'control-center', 'discover', 'connect', 'unify-ask', 'demo'];
+    return validPages.includes(path) ? path : 'control-center';
   };
-  
+
   const [currentPage, setCurrentPage] = useState(getInitialPage());
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
@@ -48,7 +60,7 @@ function AppContent() {
   useEffect(() => {
     const handlePopState = () => {
       const path = window.location.pathname.slice(1);
-      const validPages = ['architecture', 'aos-overview', 'control-center', 'discover', 'connect', 'unify-ask', 'demo', 'faq'];
+      const validPages = ['aos-overview', 'control-center', 'discover', 'connect', 'unify-ask', 'demo'];
       if (validPages.includes(path)) {
         setCurrentPage(path);
       }
@@ -71,8 +83,6 @@ function AppContent() {
 
   const renderPage = () => {
     switch (currentPage) {
-      case 'architecture':
-        return <PlatformGuidePage />;
       case 'aos-overview':
         return <AOSOverviewPage />;
       case 'control-center':
@@ -85,23 +95,23 @@ function AppContent() {
         return <UnifyAskPage />;
       case 'demo':
         return <DemoPage />;
-      case 'faq':
-        return <FAQPage />;
       default:
-        return <PlatformGuidePage />;
+        return <ControlCenterPage />;
     }
   };
 
   return (
     <>
       <AppLayout currentPage={currentPage} onNavigate={setCurrentPage} onAuthOpen={handleAuthOpen}>
-        {renderPage()}
+        <Suspense fallback={<PageLoader />}>
+          {renderPage()}
+        </Suspense>
       </AppLayout>
-      
+
       {/* Auth modal only shows when user clicks Login or Sign Up */}
       {authModalOpen && (
-        <AuthModal 
-          isOpen={authModalOpen} 
+        <AuthModal
+          isOpen={authModalOpen}
           onClose={handleAuthClose}
           initialMode={authMode}
         />

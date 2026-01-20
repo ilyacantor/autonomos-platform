@@ -1,4 +1,4 @@
-import { LayoutDashboard, GitBranch, Cable, Network, X, Activity, Search, HelpCircle, Sparkles, Play, Database } from 'lucide-react';
+import { LayoutDashboard, Cable, X, Search, Sparkles, Play, Database } from 'lucide-react';
 import autonomosLogo from '../assets/autonomos-logo.png';
 
 interface LeftNavProps {
@@ -19,14 +19,12 @@ interface NavItem {
 
 export default function LeftNav({ isCollapsed, currentPage, onNavigate, isMobileMenuOpen, onCloseMobile }: LeftNavProps) {
   const navItems: NavItem[] = [
-    { id: 'architecture', label: 'Platform Guide', icon: <GitBranch className="w-5 h-5" /> },
+    { id: 'control-center', label: 'Control Center', icon: <LayoutDashboard className="w-5 h-5" />, highlight: true, tooltip: 'NLP interface to all services' },
     { id: 'aos-overview', label: 'Overview', icon: <Sparkles className="w-5 h-5" />, tooltip: 'Interactive platform overview' },
-    { id: 'discover', label: 'Step 1: Discover', icon: <Search className="w-5 h-5" />, tooltip: 'AOD - Asset discovery' },
-    { id: 'connect', label: 'Step 2: Connect', icon: <Cable className="w-5 h-5" />, highlight: true, tooltip: 'AAM - Self-healing connectivity' },
-    { id: 'unify-ask', label: 'Step 3: Unify & Ask', icon: <Database className="w-5 h-5" />, tooltip: 'DCL - Data unification' },
-    { id: 'demo', label: 'Run Demo', icon: <Play className="w-5 h-5" />, highlight: true, tooltip: 'Full pipeline demo' },
-    { id: 'control-center', label: 'Control Center', icon: <LayoutDashboard className="w-5 h-5" /> },
-    { id: 'faq', label: 'Help', icon: <HelpCircle className="w-5 h-5" /> },
+    { id: 'discover', label: 'Discover', icon: <Search className="w-5 h-5" />, tooltip: 'AOD - Asset discovery' },
+    { id: 'connect', label: 'Connect', icon: <Cable className="w-5 h-5" />, tooltip: 'AAM - Self-healing connectivity' },
+    { id: 'unify-ask', label: 'Unify & Ask', icon: <Database className="w-5 h-5" />, tooltip: 'DCL - Data unification' },
+    { id: 'demo', label: 'Run Demo', icon: <Play className="w-5 h-5" />, tooltip: 'Full pipeline demo' },
   ];
 
   return (
