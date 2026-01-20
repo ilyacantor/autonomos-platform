@@ -34,7 +34,7 @@ from app.security import (
     get_current_user,
     ACCESS_TOKEN_EXPIRE_MINUTES
 )
-from app.api.v1 import auth, aoa, aam_monitoring, aam_mesh, aam_connections, platform_stubs, filesource, debug, mesh_test, events, aod_mock, aam_onboarding, admin_feature_flags, demo_pipeline, demo_orchestrator, agents
+from app.api.v1 import auth, aoa, aam_monitoring, aam_mesh, aam_connections, platform_stubs, filesource, debug, mesh_test, events, aod_mock, aam_onboarding, admin_feature_flags, demo_pipeline, demo_orchestrator, agents, scheduler
 from app import nlp_simple
 from app.middleware.rate_limit import limiter, rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -327,6 +327,9 @@ app.include_router(aod_mock.router, prefix="", tags=["AOD Mock (Testing)"])
 
 # Agentic Orchestration API (Phase 1)
 app.include_router(agents.router, prefix="/api/v1/agents", tags=["Agent Orchestration"])
+
+# Phase 6: Scheduler Service and Trust Middleware
+app.include_router(scheduler.router, prefix="/api/v1", tags=["Scheduler Service"])
 
 # P4-6: Flow Monitor API
 try:
@@ -683,6 +686,21 @@ if os.path.exists(STATIC_DIR) and os.path.isdir(STATIC_DIR):
     @app.get("/architecture")
     def serve_architecture_page(request: Request):
         """Serve Architecture frontend page"""
+        index_path = os.path.join(STATIC_DIR, "index.html")
+        if os.path.exists(index_path):
+            return FileResponse(
+                index_path,
+                headers={
+                    "Cache-Control": "no-cache, no-store, must-revalidate",
+                    "Pragma": "no-cache",
+                    "Expires": "0"
+                }
+            )
+        raise HTTPException(status_code=404, detail="Frontend not found")
+
+    @app.get("/agent-center")
+    def serve_agent_center(request: Request):
+        """Serve Agent Control Center frontend page"""
         index_path = os.path.join(STATIC_DIR, "index.html")
         if os.path.exists(index_path):
             return FileResponse(

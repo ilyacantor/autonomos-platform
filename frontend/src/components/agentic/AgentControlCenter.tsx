@@ -16,13 +16,15 @@ import {
   Shield,
   Settings,
   LayoutGrid,
+  Calendar,
 } from 'lucide-react';
 import AgentChat from './AgentChat';
 import AgentRunHistory from './AgentRunHistory';
 import AgentApprovalQueue from './AgentApprovalQueue';
 import AgentWorkbench from './AgentWorkbench';
+import SchedulerManager from './SchedulerManager';
 
-type TabId = 'chat' | 'history' | 'approvals' | 'workbench';
+type TabId = 'chat' | 'history' | 'approvals' | 'scheduler' | 'workbench';
 
 interface Tab {
   id: TabId;
@@ -39,6 +41,7 @@ export default function AgentControlCenter() {
     { id: 'chat', label: 'Chat', icon: MessageSquare },
     { id: 'history', label: 'Run History', icon: Clock },
     { id: 'approvals', label: 'Approvals', icon: Shield, badge: pendingApprovals },
+    { id: 'scheduler', label: 'Scheduler', icon: Calendar },
     { id: 'workbench', label: 'Workbench', icon: Settings },
   ];
 
@@ -218,6 +221,8 @@ export default function AgentControlCenter() {
             }}
           />
         )}
+
+        {activeTab === 'scheduler' && <SchedulerManager />}
 
         {activeTab === 'workbench' && <AgentWorkbench />}
       </div>
