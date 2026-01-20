@@ -34,7 +34,7 @@ from app.security import (
     get_current_user,
     ACCESS_TOKEN_EXPIRE_MINUTES
 )
-from app.api.v1 import auth, aoa, aam_monitoring, aam_mesh, aam_connections, platform_stubs, filesource, debug, mesh_test, events, aod_mock, aam_onboarding, admin_feature_flags, demo_pipeline, demo_orchestrator, agents, scheduler
+from app.api.v1 import auth, aoa, aam_monitoring, aam_mesh, aam_connections, platform_stubs, filesource, debug, mesh_test, events, aod_mock, aam_onboarding, admin_feature_flags, demo_pipeline, demo_orchestrator, agents, scheduler, memory, bundles, stress_test
 from app import nlp_simple
 from app.middleware.rate_limit import limiter, rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -328,8 +328,11 @@ app.include_router(aod_mock.router, prefix="", tags=["AOD Mock (Testing)"])
 # Agentic Orchestration API (Phase 1)
 app.include_router(agents.router, prefix="/api/v1/agents", tags=["Agent Orchestration"])
 
-# Phase 6: Scheduler Service and Trust Middleware
+# Phase 6: Scheduler Service, Trust Middleware, Memory Governance, Tool Bundles
 app.include_router(scheduler.router, prefix="/api/v1", tags=["Scheduler Service"])
+app.include_router(memory.router, prefix="/api/v1", tags=["Memory Governance"])
+app.include_router(bundles.router, prefix="/api/v1", tags=["Tool Bundles"])
+app.include_router(stress_test.router, prefix="/api/v1", tags=["Stress Testing"])
 
 # P4-6: Flow Monitor API
 try:
