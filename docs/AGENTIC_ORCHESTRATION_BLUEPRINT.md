@@ -1,10 +1,10 @@
 # Agentic Orchestration Platform
 ## Senior Technical Blueprint v2.0
 
-**Version**: 2.0 (Revised)
+**Version**: 2.1 (Approved)
 **Date**: 2026-01-20
-**Status**: PROPOSAL
-**Revision Note**: Incorporates Architecture Review Board feedback
+**Status**: ✅ APPROVED FOR DEVELOPMENT
+**Revision Note**: Incorporates Architecture Review Board feedback + Approval Conditions
 
 ---
 
@@ -687,18 +687,19 @@ class SecureMCPExecutor:
 
 ## 6. Revised Implementation Roadmap
 
-### Phase 1: Foundation (2 weeks)
-**Goal**: Database + basic agent CRUD
+### Phase 1: Foundation + Evals (2 weeks)
+**Goal**: Database + basic agent CRUD + evaluation baseline
 
 | Task | Effort | Notes |
 |------|--------|-------|
 | Agent/AgentRun/Approval models | 2d | Keep simple |
 | Database migrations | 1d | Alembic |
 | Agent CRUD API | 2d | Standard REST |
-| LangGraph checkpointer setup | 2d | PostgresSaver |
+| LangGraph checkpointer setup | 2d | PostgresSaver with blob offload |
+| **Eval framework + Golden Dataset** | 2d | **TDAD: 50 baseline questions** |
 | Basic tests | 1d | pytest |
 
-**Deliverable**: Agents can be created and stored; LangGraph checkpointing works
+**Deliverable**: Agents can be created and stored; LangGraph checkpointing works; Eval baseline established
 
 ### Phase 2: LangGraph + MCP Integration (2 weeks)
 **Goal**: Agents can execute with real tools
@@ -881,4 +882,236 @@ frontend/src/
 
 ---
 
-**This blueprint supersedes AGENTIC_PLATFORM_PLAN.md (v1.0)**
+## 12. ARB Approval Conditions (MANDATORY)
+
+The Architecture Review Board approved this blueprint with **4 critical conditions** that must be implemented.
+
+### 12.1 Condition 1: Token Refresh on Approval Resume
+
+**The Trap**: Agent runs for 2 minutes, hits `human_approval` node. Human approves 3 days later. The OBO token (5-min lifetime) is dead. Agent crashes with `401 Unauthorized`.
+
+**Required Implementation**:
+
+```python
+# In approval workflow handler
+async def handle_approval_response(approval_id: str, approved_by: str):
+    approval = await get_approval(approval_id)
+    run = await get_agent_run(approval.run_id)
+
+    # CRITICAL: Mint fresh OBO token for the resuming agent
+    fresh_token = await obo_manager.mint_token_for_user(
+        user_id=approved_by,  # Use approver's identity
+        target_services=run.agent.mcp_servers,
+        expires_in=300  # Fresh 5-minute token
+    )
+
+    # Inject fresh token into LangGraph state before resuming
+    await update_run_state(run.id, {"obo_token": fresh_token})
+
+    # Now safe to resume
+    await resume_agent_run(run.id)
+```
+
+### 12.2 Condition 2: Metadata RAG (No Raw Schema Dumps)
+
+**The Trap**: `get_schema` dumps 200-column table definition into prompt → 15k tokens → context explosion.
+
+**Required Implementation**:
+
+```python
+# In aos-dcl MCP server
+@server.call_tool()
+async def call_tool(name: str, arguments: dict):
+    if name == "get_schema":
+        entity = arguments["entity"]
+        search_hint = arguments.get("search_hint")  # Optional relevance filter
+
+        if search_hint:
+            # Metadata RAG: Return only relevant columns
+            schema = await dcl_service.get_schema(entity)
+            relevant_fields = await vector_search_fields(
+                schema.fields,
+                query=search_hint,
+                top_k=20  # Max 20 most relevant fields
+            )
+            return format_schema(entity, relevant_fields)
+        else:
+            # Return summary, not full dump
+            schema = await dcl_service.get_schema(entity)
+            return format_schema_summary(entity, schema, max_fields=30)
+```
+
+**Tool Schema Update**:
+```python
+Tool(
+    name="get_schema",
+    description="Get schema for an entity. Use search_hint to filter to relevant fields.",
+    inputSchema={
+        "type": "object",
+        "properties": {
+            "entity": {"type": "string"},
+            "search_hint": {
+                "type": "string",
+                "description": "Optional: filter to fields relevant to this topic (e.g., 'revenue')"
+            }
+        },
+        "required": ["entity"]
+    }
+)
+```
+
+### 12.3 Condition 3: Checkpoint Blob Offload
+
+**The Trap**: LangGraph saves entire state per step. 10MB tool output → 10MB per checkpoint → table bloat.
+
+**Required Implementation**:
+
+```python
+from langgraph.checkpoint.postgres import PostgresSaver
+import boto3  # or MinIO client
+
+class BlobOffloadCheckpointer(PostgresSaver):
+    """
+    Custom checkpointer that offloads large artifacts to blob storage.
+    """
+    BLOB_THRESHOLD = 100_000  # 100KB
+
+    def __init__(self, conn_string: str, blob_client):
+        super().__init__.from_conn_string(conn_string)
+        self.blob = blob_client
+
+    async def put(self, config: dict, checkpoint: dict, metadata: dict):
+        # Scan for large values and offload
+        cleaned_checkpoint = await self._offload_blobs(checkpoint, config["thread_id"])
+        return await super().put(config, cleaned_checkpoint, metadata)
+
+    async def _offload_blobs(self, data: dict, thread_id: str) -> dict:
+        """Recursively find and offload large values."""
+        result = {}
+        for key, value in data.items():
+            if isinstance(value, (str, bytes)) and len(value) > self.BLOB_THRESHOLD:
+                # Offload to blob storage
+                blob_key = f"checkpoints/{thread_id}/{key}_{uuid4()}"
+                await self.blob.put_object(blob_key, value)
+                result[key] = {"__blob_ref__": blob_key}
+            elif isinstance(value, dict):
+                result[key] = await self._offload_blobs(value, thread_id)
+            else:
+                result[key] = value
+        return result
+
+    async def get(self, config: dict):
+        checkpoint = await super().get(config)
+        return await self._hydrate_blobs(checkpoint)
+
+    async def _hydrate_blobs(self, data: dict) -> dict:
+        """Recursively hydrate blob references."""
+        # ... inverse of _offload_blobs
+```
+
+### 12.4 Condition 4: Self-Hosted Sandbox Alternative
+
+**The Trap**: E2B is SaaS. Sovereign customers cannot egress data to 3rd-party.
+
+**Required Implementation**:
+
+```python
+from abc import ABC, abstractmethod
+
+class SandboxBackend(ABC):
+    """Abstract sandbox interface supporting multiple backends."""
+
+    @abstractmethod
+    async def execute(self, code: str, timeout: int = 30) -> ExecutionResult:
+        pass
+
+class E2BSandbox(SandboxBackend):
+    """Cloud-hosted E2B sandbox (default)."""
+    async def execute(self, code: str, timeout: int = 30) -> ExecutionResult:
+        async with Sandbox() as sandbox:
+            return await sandbox.run_python(code, timeout=timeout)
+
+class FirecrackerSandbox(SandboxBackend):
+    """Self-hosted Firecracker microVM sandbox."""
+    def __init__(self, firecracker_endpoint: str):
+        self.endpoint = firecracker_endpoint
+
+    async def execute(self, code: str, timeout: int = 30) -> ExecutionResult:
+        # Launch microVM, execute code, tear down
+        async with aiohttp.ClientSession() as session:
+            resp = await session.post(
+                f"{self.endpoint}/execute",
+                json={"code": code, "timeout": timeout}
+            )
+            return ExecutionResult(**await resp.json())
+
+# Configuration-driven selection
+def get_sandbox_backend() -> SandboxBackend:
+    backend = os.getenv("SANDBOX_BACKEND", "e2b")
+    if backend == "firecracker":
+        return FirecrackerSandbox(os.getenv("FIRECRACKER_ENDPOINT"))
+    return E2BSandbox()
+```
+
+---
+
+## 13. Test-Driven Agent Development (TDAD)
+
+### 13.1 Golden Dataset Requirements
+
+Before Phase 3 (Reasoning Router), establish a baseline of **50 Golden Questions**:
+
+```yaml
+# evals/golden_questions.yaml
+questions:
+  - id: "revenue_q1"
+    query: "What was our total revenue in Q3 2025?"
+    expected_tools: ["query_dcl"]
+    expected_entity: "opportunities"
+    success_criteria: "Returns numeric value, cites source"
+
+  - id: "churn_analysis"
+    query: "Show me customers at risk of churning"
+    expected_tools: ["query_dcl", "get_schema"]
+    expected_entity: "accounts"
+    success_criteria: "Returns list with churn indicators"
+
+  - id: "compound_task"
+    query: "Check if Salesforce sync is healthy, and if not, show me the drift report"
+    expected_tools: ["get_connection_health", "get_drift_report"]
+    success_criteria: "Conditionally calls drift report only if unhealthy"
+
+  # ... 47 more questions covering:
+  # - Simple queries (20)
+  # - Multi-step tasks (15)
+  # - Approval-required actions (10)
+  # - Error handling (5)
+```
+
+### 13.2 Eval Runner
+
+```python
+# evals/runner.py
+async def run_eval_suite(agent_id: str, golden_path: str = "evals/golden_questions.yaml"):
+    """Run golden questions against agent and report results."""
+    golden = yaml.safe_load(open(golden_path))
+    results = []
+
+    for question in golden["questions"]:
+        run = await execute_agent(agent_id, question["query"])
+        result = evaluate_run(run, question)
+        results.append(result)
+
+    return EvalReport(
+        total=len(results),
+        passed=sum(1 for r in results if r.passed),
+        failed=[r for r in results if not r.passed],
+        timestamp=datetime.utcnow()
+    )
+```
+
+---
+
+**APPROVED BY**: Architecture Review Board
+**DATE**: 2026-01-20
+**NEXT STEP**: Begin Phase 1 Implementation
