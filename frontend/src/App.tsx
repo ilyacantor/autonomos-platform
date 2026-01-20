@@ -12,6 +12,7 @@ const DiscoverPage = lazy(() => import('./components/DiscoverPage'));
 const ConnectPage = lazy(() => import('./components/ConnectPage'));
 const UnifyAskPage = lazy(() => import('./components/UnifyAskPage'));
 const DemoPage = lazy(() => import('./components/DemoPage'));
+const AgentControlCenter = lazy(() => import('./components/agentic/AgentControlCenter'));
 
 // Loading spinner for lazy-loaded pages
 function PageLoader() {
@@ -29,7 +30,7 @@ function AppContent() {
   // Initialize page from URL path
   const getInitialPage = () => {
     const path = window.location.pathname.slice(1); // Remove leading slash
-    const validPages = ['aos-overview', 'control-center', 'discover', 'connect', 'unify-ask', 'demo'];
+    const validPages = ['aos-overview', 'control-center', 'discover', 'connect', 'unify-ask', 'demo', 'agent-center'];
     return validPages.includes(path) ? path : 'control-center';
   };
 
@@ -60,7 +61,7 @@ function AppContent() {
   useEffect(() => {
     const handlePopState = () => {
       const path = window.location.pathname.slice(1);
-      const validPages = ['aos-overview', 'control-center', 'discover', 'connect', 'unify-ask', 'demo'];
+      const validPages = ['aos-overview', 'control-center', 'discover', 'connect', 'unify-ask', 'demo', 'agent-center'];
       if (validPages.includes(path)) {
         setCurrentPage(path);
       }
@@ -95,6 +96,8 @@ function AppContent() {
         return <UnifyAskPage />;
       case 'demo':
         return <DemoPage />;
+      case 'agent-center':
+        return <AgentControlCenter />;
       default:
         return <ControlCenterPage />;
     }
