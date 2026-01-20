@@ -1,59 +1,60 @@
 # Agentic Orchestration Platform
-## Senior Technical Blueprint
+## Senior Technical Blueprint v2.0
 
-**Version**: 1.0
+**Version**: 2.0 (Revised)
 **Date**: 2026-01-20
 **Status**: PROPOSAL
-**Author**: Architecture Review
+**Revision Note**: Incorporates Architecture Review Board feedback
 
 ---
 
 ## 1. Executive Summary
 
-### 1.1 Vision
-Transform the existing AutonomOS platform into an **Agentic Orchestration Platform** that provides:
-- Natural language interface for controlling all AOS applications
-- Centralized control center for agent lifecycle management
-- Real-time observability into agent operations
-- Human-in-the-loop approval workflows
+### 1.1 What Changed from v1.0
 
-### 1.2 Strategic Context
-The platform already has:
-- Production-grade multi-tenant infrastructure
-- Event-driven architecture (AAM event bus)
-- Real-time telemetry (WebSocket, Redis Streams)
-- Authentication and authorization
+| Component | v1.0 (Rejected) | v2.0 (Revised) | Rationale |
+|-----------|-----------------|----------------|-----------|
+| **Agent Runtime** | Custom Python loop | **LangGraph** | Durable execution, checkpointing, time-travel debugging |
+| **Tool Schema** | Proprietary `class Tool` | **Model Context Protocol (MCP)** | Ecosystem compatibility, 1000s of existing connectors |
+| **NLP Gateway** | Intent Classifier → Router | **Reasoning Router (LLM)** | Handles compound tasks, no brittle keyword matching |
+| **State Persistence** | Redis Streams | **PostgreSQL via LangGraph Checkpointer** | Crash recovery, durable execution guarantees |
+| **Sandboxing** | Subprocess | **Firecracker MicroVMs / E2B** | Proper isolation |
+| **Auth Model** | System-wide tokens | **On-Behalf-Of (OBO) flows** | User-scoped permissions |
 
-What's missing:
-- Agent abstraction layer
-- LLM-powered NLP gateway
-- Workflow orchestration engine
-- Agent execution runtime
+### 1.2 Strategic Positioning
 
-### 1.3 Build vs. Buy Decision
+**The Moat is NOT the Runtime. The Moat is the Data.**
 
-| Component | Recommendation | Rationale |
-|-----------|---------------|-----------|
-| Agent Runtime | **Build** | Core differentiator, needs tight integration |
-| LLM Integration | **Buy** (OpenAI/Anthropic SDK) | Commodity, fast iteration |
-| Workflow Engine | **Build** (lightweight) | Existing event bus provides foundation |
-| Observability | **Extend** existing telemetry | Already have Redis Streams + WebSocket |
-| Vector Store | **Buy** (pgvector already installed) | Commodity |
+AOS's differentiation:
+- **Deep Data Access**: Navigate complex enterprise data topology (DCL/AAM/AOD)
+- **Semantic Understanding**: Know what "revenue" means across 5 different systems
+- **Governance**: HITL controls for sensitive cross-system operations
+
+What we **buy/integrate** (commodity):
+- Agent execution (LangGraph)
+- Tool protocol (MCP)
+- LLM routing (AI Gateway)
+
+What we **build** (differentiator):
+- Introspective data tools that expose DCL/AAM/AOD to agents
+- Semantic schema discovery
+- Cross-system lineage tracking
+- Enterprise governance controls
 
 ---
 
-## 2. System Architecture
+## 2. Revised Architecture
 
-### 2.1 High-Level Architecture
+### 2.1 High-Level Architecture (v2.0)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                              PRESENTATION LAYER                              │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────────────┐  │
-│  │   Control       │  │   Agent         │  │   Embedded Apps             │  │
-│  │   Center        │  │   Workbench     │  │   (AOD/AAM/DCL iframes)     │  │
-│  │   (NLP Chat)    │  │   (CRUD/Monitor)│  │                             │  │
+│  │   Control       │  │   Agent         │  │   Time Travel               │  │
+│  │   Center        │  │   Workbench     │  │   Debugger                  │  │
+│  │   (Chat + Ops)  │  │   (Config/Test) │  │   (Replay/Rewind)           │  │
 │  └────────┬────────┘  └────────┬────────┘  └──────────────┬──────────────┘  │
 └───────────┼────────────────────┼─────────────────────────┼──────────────────┘
             │                    │                         │
@@ -61,647 +62,823 @@ What's missing:
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                              API GATEWAY LAYER                               │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────────┐   │
-│  │  Auth    │ │  Rate    │ │ Tracing  │ │  Audit   │ │  Multi-Tenant    │   │
-│  │  (JWT)   │ │  Limit   │ │  (UUID)  │ │  Log     │ │  Isolation       │   │
-│  └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────────────┘   │
+│  Auth (JWT+OBO) │ Rate Limit │ Tracing │ Audit │ Multi-Tenant              │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│  /api/v1/nlp/*     /api/v1/agents/*     /api/v1/workflows/*                 │
-│  /api/v1/aam/*     /api/v1/dcl/*        /api/v1/aod/*                       │
+│  /api/v1/chat/*     /api/v1/agents/*     /api/v1/runs/*                     │
 └─────────────────────────────────────────────────────────────────────────────┘
-            │                    │                         │
-            ▼                    ▼                         ▼
+            │
+            ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           ORCHESTRATION LAYER                                │
+│                         REASONING LAYER (NEW)                                │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                        NLP GATEWAY                                   │    │
+│  │                     AI GATEWAY (Portkey/Helicone)                    │    │
 │  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌────────────┐  │    │
-│  │  │   Intent    │  │   Entity    │  │   Context   │  │   Tool     │  │    │
-│  │  │   Classifier│  │   Extractor │  │   Manager   │  │   Router   │  │    │
+│  │  │   Router    │  │   Cache     │  │   Fallback  │  │   Metrics  │  │    │
+│  │  │   (Haiku)   │  │   (Semantic)│  │   (Multi-LLM)│  │   (Cost)   │  │    │
 │  │  └─────────────┘  └─────────────┘  └─────────────┘  └────────────┘  │    │
 │  └─────────────────────────────────────────────────────────────────────┘    │
 │                                    │                                         │
 │                                    ▼                                         │
 │  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                      AGENT ORCHESTRATOR                              │    │
+│  │                     LANGGRAPH EXECUTION KERNEL                       │    │
 │  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌────────────┐  │    │
-│  │  │   Agent     │  │   Workflow  │  │   HITL      │  │   Event    │  │    │
-│  │  │   Registry  │  │   Engine    │  │   Queue     │  │   Bus      │  │    │
+│  │  │   State     │  │   Graph     │  │   Check-    │  │   Human    │  │    │
+│  │  │   Machine   │  │   Compiler  │  │   pointer   │  │   Interrupt│  │    │
 │  │  └─────────────┘  └─────────────┘  └─────────────┘  └────────────┘  │    │
 │  └─────────────────────────────────────────────────────────────────────┘    │
 │                                    │                                         │
 │                                    ▼                                         │
 │  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                      AGENT EXECUTION RUNTIME                         │    │
+│  │                     MCP CLIENT (Tool Execution)                      │    │
 │  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌────────────┐  │    │
-│  │  │   LLM       │  │   Tool      │  │   Memory    │  │   Sandbox  │  │    │
-│  │  │   Client    │  │   Executor  │  │   Store     │  │   Runner   │  │    │
+│  │  │   Protocol  │  │   Server    │  │   Sandbox   │  │   Auth     │  │    │
+│  │  │   Handler   │  │   Registry  │  │   (E2B)     │  │   (OBO)    │  │    │
 │  │  └─────────────┘  └─────────────┘  └─────────────┘  └────────────┘  │    │
 │  └─────────────────────────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────────────────────────┘
-            │                    │                         │
-            ▼                    ▼                         ▼
+            │
+            ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    AOS DATA SERVICES (MCP SERVERS) ← THE MOAT                │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────────────┐  │
+│  │   DCL Server    │  │   AAM Server    │  │   AOD Server                │  │
+│  │   ───────────   │  │   ──────────    │  │   ──────────                │  │
+│  │   • query_data  │  │   • list_conns  │  │   • discover_assets         │  │
+│  │   • get_schema  │  │   • sync_now    │  │   • get_lineage             │  │
+│  │   • explain_field│  │  • check_health│  │   • search_metadata         │  │
+│  │   • trace_lineage│  │  • get_drift   │  │   • classify_sensitivity    │  │
+│  └─────────────────┘  └─────────────────┘  └─────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────────┘
+            │
+            ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                              DATA LAYER                                      │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────────────┐  │
-│  │   PostgreSQL    │  │   Redis         │  │   External Services         │  │
-│  │   ─────────     │  │   ─────         │  │   ────────────────          │  │
-│  │   • Agents      │  │   • Sessions    │  │   • OpenAI / Anthropic      │  │
-│  │   • Runs        │  │   • Cache       │  │   • AOD Service             │  │
-│  │   • Steps       │  │   • Pub/Sub     │  │   • AAM Connectors          │  │
-│  │   • Workflows   │  │   • Streams     │  │   • DCL Endpoints           │  │
-│  │   • Approvals   │  │   • Locks       │  │   • Vector DB (pgvector)    │  │
+│  │   PostgreSQL    │  │   Redis         │  │   External                  │  │
+│  │   ─────────     │  │   ─────         │  │   ────────                  │  │
+│  │   • LangGraph   │  │   • Session     │  │   • Anthropic / OpenAI      │  │
+│  │     Checkpoints │  │     Cache       │  │   • Enterprise Data Sources │  │
+│  │   • Agent Config│  │   • Pub/Sub     │  │   • MCP Tool Servers        │  │
+│  │   • Audit Trail │  │   • Locks       │  │                             │  │
 │  └─────────────────┘  └─────────────────┘  └─────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 2.2 Component Responsibilities
+### 2.2 Key Architectural Changes
 
-| Component | Responsibility | State | Dependencies |
-|-----------|---------------|-------|--------------|
-| **NLP Gateway** | Parse NL → structured intent | Stateless | LLM Client, Context Manager |
-| **Agent Registry** | CRUD agents, versioning | PostgreSQL | None |
-| **Workflow Engine** | Execute multi-step flows | Redis + PG | Agent Registry, Event Bus |
-| **HITL Queue** | Human approval workflows | PostgreSQL | WebSocket (notifications) |
-| **Agent Runtime** | Execute single agent run | Redis (session) | LLM Client, Tool Executor |
-| **Tool Executor** | Run tools safely | Stateless | Sandboxed subprocess |
-| **Event Bus** | Async messaging | Redis Streams | None |
-
----
-
-## 3. Data Model
-
-### 3.1 Core Entities
-
-```
-┌─────────────────┐       ┌─────────────────┐       ┌─────────────────┐
-│     Tenant      │       │      User       │       │     Agent       │
-├─────────────────┤       ├─────────────────┤       ├─────────────────┤
-│ id (PK)         │──┐    │ id (PK)         │       │ id (PK)         │
-│ name            │  │    │ tenant_id (FK)  │──┐    │ tenant_id (FK)  │──┐
-│ created_at      │  │    │ email           │  │    │ name            │  │
-└─────────────────┘  │    │ role            │  │    │ description     │  │
-                     │    └─────────────────┘  │    │ agent_type      │  │
-                     │                         │    │ config (JSON)   │  │
-                     │                         │    │ status          │  │
-                     └─────────────────────────┴────│ version         │  │
-                                                    │ created_by (FK) │──┘
-                                                    └────────┬────────┘
-                                                             │
-                     ┌───────────────────────────────────────┘
-                     │
-                     ▼
-┌─────────────────┐       ┌─────────────────┐       ┌─────────────────┐
-│   AgentRun      │       │   AgentStep     │       │   AgentTool     │
-├─────────────────┤       ├─────────────────┤       ├─────────────────┤
-│ id (PK)         │──┐    │ id (PK)         │       │ id (PK)         │
-│ agent_id (FK)   │  │    │ run_id (FK)     │───────│ agent_id (FK)   │
-│ tenant_id (FK)  │  │    │ sequence        │       │ name            │
-│ status          │  │    │ step_type       │       │ description     │
-│ input (JSON)    │  │    │ input (JSON)    │       │ schema (JSON)   │
-│ output (JSON)   │  │    │ output (JSON)   │       │ handler         │
-│ error           │  │    │ tokens_used     │       │ requires_approval│
-│ started_at      │  │    │ latency_ms      │       └─────────────────┘
-│ completed_at    │  │    │ created_at      │
-│ tokens_total    │  └────└─────────────────┘
-│ cost_usd        │
-│ triggered_by    │       ┌─────────────────┐
-└─────────────────┘       │  Approval       │
-                          ├─────────────────┤
-                          │ id (PK)         │
-                          │ run_id (FK)     │
-                          │ step_id (FK)    │
-                          │ status          │
-                          │ requested_at    │
-                          │ responded_at    │
-                          │ responded_by    │
-                          │ notes           │
-                          └─────────────────┘
-```
-
-### 3.2 Agent Configuration Schema
-
-```json
-{
-  "agent_config": {
-    "model": "claude-sonnet-4-20250514",
-    "temperature": 0.7,
-    "max_tokens": 4096,
-    "system_prompt": "You are a data operations assistant...",
-    "tools": ["query_dcl", "invoke_aam", "search_aod"],
-    "guardrails": {
-      "max_steps": 20,
-      "max_cost_usd": 1.00,
-      "require_approval_for": ["write_operations", "external_calls"],
-      "forbidden_actions": ["delete_data", "modify_schema"]
-    },
-    "memory": {
-      "type": "conversation",
-      "max_messages": 50,
-      "summarize_after": 20
-    }
-  }
-}
-```
-
-### 3.3 Step Types
-
-| Type | Description | Example |
-|------|-------------|---------|
-| `think` | LLM reasoning | "I need to query sales data first..." |
-| `tool_call` | Tool invocation request | `{ tool: "query_dcl", params: {...} }` |
-| `tool_result` | Tool execution result | `{ success: true, data: [...] }` |
-| `approval_request` | HITL approval needed | `{ action: "write", awaiting: true }` |
-| `approval_response` | Human decision | `{ approved: true, by: "user@..." }` |
-| `output` | Final response | "Here are the sales figures..." |
-| `error` | Execution error | `{ error: "Rate limit exceeded" }` |
-
----
-
-## 4. API Design
-
-### 4.1 NLP Gateway API
-
-```yaml
-POST /api/v1/nlp/chat
-  Description: Process natural language query
-  Auth: JWT required
-  Request:
-    content: string          # User message
-    session_id?: string      # Continue existing session
-    persona?: string         # CTO | CRO | COO | CFO
-    stream?: boolean         # SSE streaming response
-  Response:
-    session_id: string
-    message: string          # Assistant response
-    actions_taken: Action[]  # Tools invoked
-    suggestions: string[]    # Follow-up suggestions
-
-POST /api/v1/nlp/chat/stream
-  Description: Streaming chat (SSE)
-  Response: text/event-stream
-    event: token | tool_start | tool_end | done
-    data: { content: string, ... }
-```
-
-### 4.2 Agent Management API
-
-```yaml
-# Agent CRUD
-GET    /api/v1/agents                    # List agents
-POST   /api/v1/agents                    # Create agent
-GET    /api/v1/agents/{id}               # Get agent
-PATCH  /api/v1/agents/{id}               # Update agent
-DELETE /api/v1/agents/{id}               # Delete agent
-
-# Agent Execution
-POST   /api/v1/agents/{id}/run           # Start new run
-GET    /api/v1/agents/{id}/runs          # List runs
-GET    /api/v1/agents/{id}/runs/{run_id} # Get run details
-GET    /api/v1/agents/{id}/runs/{run_id}/steps  # Get steps
-POST   /api/v1/agents/{id}/runs/{run_id}/cancel # Cancel run
-
-# Real-time
-WS     /api/v1/agents/ws/{run_id}        # Stream run events
-```
-
-### 4.3 Approval Workflow API
-
-```yaml
-GET    /api/v1/approvals                 # List pending approvals
-GET    /api/v1/approvals/{id}            # Get approval details
-POST   /api/v1/approvals/{id}/approve    # Approve action
-POST   /api/v1/approvals/{id}/reject     # Reject action
-POST   /api/v1/approvals/{id}/delegate   # Delegate to another user
-```
-
----
-
-## 5. Tool Framework
-
-### 5.1 Built-in Tools
-
-| Tool | Description | Requires Approval |
-|------|-------------|-------------------|
-| `query_dcl` | Query unified data layer | No |
-| `search_aod` | Search discovered assets | No |
-| `invoke_aam` | Trigger AAM connector | Configurable |
-| `search_kb` | Search knowledge base | No |
-| `run_agent` | Invoke another agent | Yes |
-| `send_notification` | Send Slack/email | Yes |
-| `write_data` | Write to data store | Yes |
-
-### 5.2 Tool Definition Schema
+#### From Custom Runtime → LangGraph
 
 ```python
-class Tool(BaseModel):
-    name: str
-    description: str
-    parameters: dict  # JSON Schema
-    requires_approval: bool = False
-    timeout_seconds: int = 30
+# OLD (v1.0) - Fragile custom loop
+class AgentExecutor:
+    async def run(self, input: str):
+        while not done:
+            response = await self.llm.complete(messages)
+            if response.tool_calls:
+                results = await self.execute_tools(response.tool_calls)
+            # BUG: What if we crash here? State is lost.
 
-    async def execute(self, params: dict, context: ExecutionContext) -> ToolResult:
-        raise NotImplementedError
+# NEW (v2.0) - LangGraph with durable checkpointing
+from langgraph.graph import StateGraph
+from langgraph.checkpoint.postgres import PostgresSaver
 
+checkpointer = PostgresSaver.from_conn_string(DATABASE_URL)
+
+workflow = StateGraph(AgentState)
+workflow.add_node("reason", reasoning_node)
+workflow.add_node("tools", tool_node)
+workflow.add_node("human_review", human_interrupt_node)
+workflow.add_conditional_edges("reason", route_decision)
+
+app = workflow.compile(checkpointer=checkpointer, interrupt_before=["human_review"])
+
+# Crash-safe: State persisted after every node
+# Resume: app.stream(None, config={"thread_id": run_id})
+```
+
+#### From Proprietary Tools → MCP
+
+```python
+# OLD (v1.0) - Proprietary, isolated
 class QueryDCLTool(Tool):
     name = "query_dcl"
-    description = "Query the Data Connection Layer for unified business data"
-    parameters = {
-        "type": "object",
-        "properties": {
-            "query": {"type": "string", "description": "Natural language query"},
-            "entity": {"type": "string", "enum": ["accounts", "opportunities", "contacts"]},
-            "limit": {"type": "integer", "default": 100}
-        },
-        "required": ["query"]
-    }
+    parameters = { ... }  # Custom schema
 
-    async def execute(self, params: dict, context: ExecutionContext) -> ToolResult:
-        # Implementation
-        pass
+# NEW (v2.0) - MCP Server exposing DCL
+from mcp.server import Server
+from mcp.types import Tool, TextContent
+
+server = Server("aos-dcl")
+
+@server.list_tools()
+async def list_tools():
+    return [
+        Tool(
+            name="query_dcl",
+            description="Query unified data from the Data Connection Layer",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string"},
+                    "entity": {"type": "string", "enum": ["accounts", "opportunities", "contacts"]}
+                }
+            }
+        )
+    ]
+
+@server.call_tool()
+async def call_tool(name: str, arguments: dict):
+    if name == "query_dcl":
+        result = await dcl_service.query(arguments["query"], arguments.get("entity"))
+        return [TextContent(type="text", text=json.dumps(result))]
 ```
 
-### 5.3 Custom Tool Registration
+#### From Intent Classifier → Reasoning Router
 
 ```python
-# Users can register custom tools via API
-POST /api/v1/agents/{id}/tools
-{
-    "name": "custom_crm_lookup",
-    "description": "Look up customer in CRM",
-    "parameters": { ... },
-    "handler": {
-        "type": "http",
-        "method": "POST",
-        "url": "https://crm.example.com/api/lookup",
-        "headers": { "Authorization": "Bearer ${secrets.CRM_TOKEN}" }
-    },
-    "requires_approval": false
-}
+# OLD (v1.0) - Brittle keyword matching
+def classify_intent(query: str) -> Intent:
+    if "show me" in query.lower():
+        return Intent.QUERY_DATA
+    elif "run" in query.lower():
+        return Intent.EXECUTE_AGENT
+    # Fails on: "Check the logs and if there's an error, file a Jira ticket"
+
+# NEW (v2.0) - LLM-based reasoning router
+async def route_request(query: str, available_tools: List[Tool]) -> RoutingDecision:
+    """Use fast LLM to determine routing based on tool definitions."""
+    response = await llm.complete(
+        model="claude-haiku-3-5-20241022",
+        messages=[{
+            "role": "user",
+            "content": f"""Given this user request and available tools, determine the execution plan.
+
+User request: {query}
+
+Available tools:
+{format_tools(available_tools)}
+
+Return a JSON execution plan with ordered steps."""
+        }]
+    )
+    return parse_routing_decision(response)
 ```
 
 ---
 
-## 6. NLP Architecture
+## 3. Revised Data Model
 
-### 6.1 Intent Classification
-
-```
-User Input
-    │
-    ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    INTENT CLASSIFIER                         │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
-│  │ Query Data  │  │ Run Agent   │  │ System Command      │  │
-│  │ ───────────│  │ ─────────── │  │ ──────────────────  │  │
-│  │ "Show me"   │  │ "Run the"   │  │ "List agents"       │  │
-│  │ "What is"   │  │ "Execute"   │  │ "Create agent"      │  │
-│  │ "How many"  │  │ "Start"     │  │ "Show status"       │  │
-│  └─────────────┘  └─────────────┘  └─────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
-    │
-    ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    ENTITY EXTRACTOR                          │
-│  • Agent names     • Data entities    • Time ranges          │
-│  • Filters         • Sort orders      • Limits               │
-└─────────────────────────────────────────────────────────────┘
-    │
-    ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    TOOL ROUTER                               │
-│  Intent + Entities → Select Tool(s) → Execute → Format      │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### 6.2 Conversation Memory
+### 3.1 LangGraph-Compatible State
 
 ```python
-class ConversationMemory:
-    """
-    Redis-backed conversation memory with summarization.
-    """
-    def __init__(self, session_id: str, redis: Redis):
-        self.session_id = session_id
-        self.redis = redis
-        self.max_messages = 50
-        self.summarize_threshold = 20
+from typing import TypedDict, Annotated, Sequence
+from langgraph.graph.message import add_messages
 
-    async def add_message(self, role: str, content: str):
-        """Add message to conversation history"""
+class AgentState(TypedDict):
+    """State that flows through the LangGraph execution."""
+    # Core conversation
+    messages: Annotated[Sequence[BaseMessage], add_messages]
 
-    async def get_context(self) -> List[Message]:
-        """Get relevant context for next LLM call"""
+    # Agent metadata
+    agent_id: str
+    tenant_id: str
+    run_id: str
 
-    async def summarize_if_needed(self):
-        """Summarize old messages to stay within context window"""
+    # Execution context
+    current_step: int
+    max_steps: int
+    cost_usd: float
+    max_cost_usd: float
+
+    # Tool results (for introspection)
+    tool_results: list[dict]
+
+    # Human-in-the-loop
+    pending_approval: Optional[ApprovalRequest]
+    approval_response: Optional[ApprovalResponse]
+
+    # Final output
+    final_answer: Optional[str]
+    error: Optional[str]
+```
+
+### 3.2 Persistence Models (PostgreSQL)
+
+```python
+# These complement LangGraph's checkpoint storage
+
+class Agent(Base):
+    """Agent configuration (what to run)"""
+    __tablename__ = "agents"
+
+    id = Column(UUID, primary_key=True)
+    tenant_id = Column(UUID, ForeignKey("tenants.id"), nullable=False)
+    name = Column(String(255), nullable=False)
+    description = Column(Text)
+
+    # LangGraph workflow definition
+    graph_definition = Column(JSON)  # Serialized StateGraph
+
+    # MCP servers this agent can access
+    mcp_servers = Column(ARRAY(String))  # ["aos-dcl", "aos-aam", "slack"]
+
+    # Guardrails
+    max_steps = Column(Integer, default=20)
+    max_cost_usd = Column(Numeric(10, 4), default=1.00)
+    require_approval_for = Column(ARRAY(String))  # ["write_operations"]
+
+    # Versioning
+    version = Column(Integer, default=1)
+    created_at = Column(DateTime, server_default=func.now())
+    created_by = Column(UUID, ForeignKey("users.id"))
+
+
+class AgentRun(Base):
+    """Execution record (links to LangGraph checkpoints)"""
+    __tablename__ = "agent_runs"
+
+    id = Column(UUID, primary_key=True)  # Same as LangGraph thread_id
+    agent_id = Column(UUID, ForeignKey("agents.id"), nullable=False)
+    tenant_id = Column(UUID, nullable=False)
+
+    # Status tracking
+    status = Column(String(20))  # pending, running, paused, completed, failed
+
+    # Trigger context
+    triggered_by = Column(UUID, ForeignKey("users.id"))
+    trigger_type = Column(String(20))  # chat, api, schedule, webhook
+
+    # Cost tracking
+    tokens_input = Column(Integer, default=0)
+    tokens_output = Column(Integer, default=0)
+    cost_usd = Column(Numeric(10, 4), default=0)
+
+    # Timing
+    started_at = Column(DateTime)
+    completed_at = Column(DateTime)
+
+    # Note: Actual execution state is in LangGraph checkpoints table
+
+
+class Approval(Base):
+    """Human-in-the-loop approval records"""
+    __tablename__ = "approvals"
+
+    id = Column(UUID, primary_key=True)
+    run_id = Column(UUID, ForeignKey("agent_runs.id"), nullable=False)
+    tenant_id = Column(UUID, nullable=False)
+
+    # What needs approval
+    action_type = Column(String(50))  # write_data, external_call, etc.
+    action_details = Column(JSON)
+
+    # State
+    status = Column(String(20))  # pending, approved, rejected, timeout
+    requested_at = Column(DateTime, server_default=func.now())
+    responded_at = Column(DateTime)
+    responded_by = Column(UUID, ForeignKey("users.id"))
+
+    # For timeout handling
+    expires_at = Column(DateTime)
+    auto_action = Column(String(20))  # reject, approve, escalate
 ```
 
 ---
 
-## 7. Security Model
+## 4. MCP Server Specifications (The Moat)
 
-### 7.1 Authentication & Authorization
+### 4.1 AOS-DCL Server
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    SECURITY LAYERS                           │
-├─────────────────────────────────────────────────────────────┤
-│  Layer 1: JWT Authentication                                 │
-│  ─────────────────────────────                              │
-│  • Token validation on every request                         │
-│  • Tenant ID embedded in token                               │
-│  • 30-minute expiry with refresh                             │
-├─────────────────────────────────────────────────────────────┤
-│  Layer 2: Multi-Tenant Isolation                             │
-│  ───────────────────────────────                            │
-│  • All queries filtered by tenant_id                         │
-│  • Agent configs isolated per tenant                         │
-│  • Redis keys namespaced by tenant                           │
-├─────────────────────────────────────────────────────────────┤
-│  Layer 3: Role-Based Access Control                          │
-│  ──────────────────────────────────                         │
-│  • admin: Full access                                        │
-│  • operator: Run agents, view results                        │
-│  • viewer: Read-only access                                  │
-├─────────────────────────────────────────────────────────────┤
-│  Layer 4: Agent Guardrails                                   │
-│  ─────────────────────────                                  │
-│  • Per-agent tool restrictions                               │
-│  • Cost limits per run                                       │
-│  • Approval requirements for sensitive operations            │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### 7.2 Secrets Management
+The Data Connection Layer exposed as an MCP server.
 
 ```python
-# Secrets stored encrypted, referenced by name
-class SecretStore:
+# app/mcp_servers/dcl_server.py
+
+from mcp.server import Server
+from mcp.types import Tool, Resource, TextContent
+
+server = Server("aos-dcl")
+
+@server.list_tools()
+async def list_tools():
+    return [
+        Tool(
+            name="query_data",
+            description="Query unified business data. Supports natural language queries.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Natural language query (e.g., 'top 10 accounts by revenue')"
+                    },
+                    "entity": {
+                        "type": "string",
+                        "enum": ["accounts", "opportunities", "contacts", "auto"],
+                        "description": "Target entity or 'auto' to infer"
+                    }
+                },
+                "required": ["query"]
+            }
+        ),
+        Tool(
+            name="get_schema",
+            description="Get the schema for an entity including field descriptions and lineage",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "entity": {"type": "string"}
+                },
+                "required": ["entity"]
+            }
+        ),
+        Tool(
+            name="explain_field",
+            description="Explain what a field means, its source, and how it's calculated",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "entity": {"type": "string"},
+                    "field": {"type": "string"}
+                },
+                "required": ["entity", "field"]
+            }
+        ),
+        Tool(
+            name="trace_lineage",
+            description="Trace data lineage from source systems through transformations",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "entity": {"type": "string"},
+                    "field": {"type": "string"}
+                },
+                "required": ["entity"]
+            }
+        )
+    ]
+
+@server.list_resources()
+async def list_resources():
+    """Expose DCL entities as browsable resources"""
+    return [
+        Resource(uri="dcl://entities", name="Available Entities", description="List of queryable entities"),
+        Resource(uri="dcl://accounts/schema", name="Accounts Schema", description="Account entity schema"),
+        Resource(uri="dcl://opportunities/schema", name="Opportunities Schema", description="Opportunity entity schema"),
+    ]
+```
+
+### 4.2 AOS-AAM Server
+
+The Adaptive API Mesh exposed as an MCP server.
+
+```python
+# app/mcp_servers/aam_server.py
+
+server = Server("aos-aam")
+
+@server.list_tools()
+async def list_tools():
+    return [
+        Tool(
+            name="list_connections",
+            description="List all data source connections and their health status",
+            inputSchema={"type": "object", "properties": {}}
+        ),
+        Tool(
+            name="get_connection_health",
+            description="Get detailed health metrics for a specific connection",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "connection_id": {"type": "string"}
+                },
+                "required": ["connection_id"]
+            }
+        ),
+        Tool(
+            name="trigger_sync",
+            description="Trigger an immediate sync for a connection (requires approval)",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "connection_id": {"type": "string"},
+                    "full_sync": {"type": "boolean", "default": False}
+                },
+                "required": ["connection_id"]
+            },
+            # Custom extension for AOS
+            _aos_requires_approval=True
+        ),
+        Tool(
+            name="get_drift_report",
+            description="Get schema drift detection report for a connection",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "connection_id": {"type": "string"}
+                },
+                "required": ["connection_id"]
+            }
+        ),
+        Tool(
+            name="propose_drift_repair",
+            description="Generate a repair proposal for detected schema drift",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "drift_id": {"type": "string"}
+                },
+                "required": ["drift_id"]
+            }
+        )
+    ]
+```
+
+### 4.3 AOS-AOD Server
+
+The Asset & Observability Discovery exposed as an MCP server.
+
+```python
+# app/mcp_servers/aod_server.py
+
+server = Server("aos-aod")
+
+@server.list_tools()
+async def list_tools():
+    return [
+        Tool(
+            name="discover_assets",
+            description="Discover data assets matching criteria",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Search query"},
+                    "asset_type": {"type": "string", "enum": ["table", "view", "api", "file", "all"]},
+                    "source_system": {"type": "string"}
+                }
+            }
+        ),
+        Tool(
+            name="get_asset_lineage",
+            description="Get upstream and downstream lineage for an asset",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "asset_id": {"type": "string"},
+                    "depth": {"type": "integer", "default": 3}
+                },
+                "required": ["asset_id"]
+            }
+        ),
+        Tool(
+            name="classify_sensitivity",
+            description="Get data sensitivity classification for an asset",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "asset_id": {"type": "string"}
+                },
+                "required": ["asset_id"]
+            }
+        ),
+        Tool(
+            name="search_metadata",
+            description="Search across all asset metadata",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string"},
+                    "filters": {"type": "object"}
+                },
+                "required": ["query"]
+            }
+        )
+    ]
+```
+
+---
+
+## 5. Security Model (Revised)
+
+### 5.1 On-Behalf-Of (OBO) Authentication
+
+```python
+class OBOTokenManager:
     """
-    Tenant-scoped secret storage for API keys, tokens, etc.
+    Manages On-Behalf-Of tokens for agent tool calls.
+    Agents act with the permissions of the triggering user.
     """
-    async def set(self, tenant_id: str, name: str, value: str):
-        encrypted = self.encrypt(value)
-        await self.db.execute(
-            "INSERT INTO secrets (tenant_id, name, value) VALUES ($1, $2, $3)",
-            tenant_id, name, encrypted
+
+    async def get_tool_token(
+        self,
+        user_token: str,
+        target_service: str,
+        scopes: List[str]
+    ) -> str:
+        """
+        Exchange user token for service-specific OBO token.
+
+        Flow:
+        1. User authenticates to AOS (JWT)
+        2. User triggers agent
+        3. Agent needs to call DCL
+        4. OBO manager exchanges user JWT for DCL-scoped token
+        5. DCL validates token and applies user's permissions
+        """
+        # Validate original token
+        user_claims = await self.validate_token(user_token)
+
+        # Check user has permission to delegate to this service
+        if target_service not in user_claims.get("delegatable_services", []):
+            raise PermissionError(f"User cannot delegate to {target_service}")
+
+        # Generate OBO token with reduced scope
+        obo_token = await self.mint_obo_token(
+            subject=user_claims["sub"],
+            tenant_id=user_claims["tenant_id"],
+            target_service=target_service,
+            scopes=scopes,
+            expires_in=300  # 5 minute lifetime
         )
 
-    async def get(self, tenant_id: str, name: str) -> str:
-        row = await self.db.fetchone(
-            "SELECT value FROM secrets WHERE tenant_id = $1 AND name = $2",
-            tenant_id, name
-        )
-        return self.decrypt(row['value'])
+        return obo_token
+```
 
-# Usage in tool handlers
-url = f"https://api.example.com?key=${secrets.API_KEY}"
-# Resolved at runtime: secrets.API_KEY → actual value
+### 5.2 Sandboxed Tool Execution
+
+```python
+from e2b import Sandbox
+
+class SecureMCPExecutor:
+    """
+    Execute MCP tool calls in isolated sandboxes.
+    """
+
+    async def execute_tool(
+        self,
+        server: str,
+        tool: str,
+        arguments: dict,
+        context: ExecutionContext
+    ) -> ToolResult:
+        # Determine isolation level
+        isolation = self.get_isolation_level(server, tool)
+
+        if isolation == "sandbox":
+            # Run in E2B sandbox
+            async with Sandbox() as sandbox:
+                result = await sandbox.run_python(
+                    self.generate_tool_code(server, tool, arguments)
+                )
+                return ToolResult(output=result.stdout, error=result.stderr)
+
+        elif isolation == "container":
+            # Run in isolated container
+            return await self.run_in_container(server, tool, arguments)
+
+        else:
+            # Trusted internal service (DCL, AAM, AOD)
+            return await self.run_direct(server, tool, arguments, context)
+
+    def get_isolation_level(self, server: str, tool: str) -> str:
+        # Internal AOS services are trusted
+        if server in ["aos-dcl", "aos-aam", "aos-aod"]:
+            return "direct"
+
+        # External MCP servers need sandboxing
+        return "sandbox"
+```
+
+### 5.3 Security Layers (Revised)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Layer 1: Authentication (JWT)                               │
+│  • User authenticates, receives JWT                          │
+│  • JWT contains: user_id, tenant_id, roles, delegatable_svcs│
+├─────────────────────────────────────────────────────────────┤
+│  Layer 2: On-Behalf-Of Delegation                            │
+│  • Agent acts with USER's permissions, not system perms      │
+│  • OBO tokens are short-lived (5 min), service-scoped        │
+│  • User must explicitly grant delegation rights              │
+├─────────────────────────────────────────────────────────────┤
+│  Layer 3: Multi-Tenant Isolation                             │
+│  • All data queries filtered by tenant_id                    │
+│  • LangGraph checkpoints partitioned by tenant               │
+│  • MCP servers validate tenant on every call                 │
+├─────────────────────────────────────────────────────────────┤
+│  Layer 4: Tool-Level Guardrails                              │
+│  • Per-agent tool allowlists                                 │
+│  • Approval requirements for sensitive tools                 │
+│  • Cost limits enforced in LangGraph state                   │
+├─────────────────────────────────────────────────────────────┤
+│  Layer 5: Execution Isolation                                │
+│  • External tools run in E2B sandboxes                       │
+│  • Network policies restrict egress                          │
+│  • Secrets injected at runtime, never in code                │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 8. Observability
-
-### 8.1 Telemetry Pipeline
-
-```
-Agent Execution
-      │
-      ▼
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│  Step Events    │────▶│  Redis Streams  │────▶│  WebSocket      │
-│  (structured)   │     │  (buffer)       │     │  (real-time UI) │
-└─────────────────┘     └─────────────────┘     └─────────────────┘
-      │                         │
-      │                         ▼
-      │                 ┌─────────────────┐
-      │                 │  PostgreSQL     │
-      │                 │  (persistence)  │
-      │                 └─────────────────┘
-      │
-      ▼
-┌─────────────────┐
-│  Metrics        │
-│  (Prometheus)   │
-│  • tokens_used  │
-│  • latency_ms   │
-│  • error_rate   │
-└─────────────────┘
-```
-
-### 8.2 Key Metrics
-
-| Metric | Type | Description |
-|--------|------|-------------|
-| `agent_runs_total` | Counter | Total runs by agent, status |
-| `agent_run_duration_seconds` | Histogram | Run duration distribution |
-| `agent_tokens_used` | Counter | LLM tokens consumed |
-| `agent_cost_usd` | Counter | Estimated cost |
-| `agent_errors_total` | Counter | Errors by type |
-| `approval_queue_depth` | Gauge | Pending approvals |
-| `approval_latency_seconds` | Histogram | Time to human decision |
-
----
-
-## 9. Implementation Phases
+## 6. Revised Implementation Roadmap
 
 ### Phase 1: Foundation (2 weeks)
-**Goal**: Stable base for agent development
+**Goal**: Database + basic agent CRUD
 
-| Task | Priority | Effort | Dependencies |
-|------|----------|--------|--------------|
-| Fix AAM background task blocking | P0 | 2d | None |
-| Re-enable audit middleware | P1 | 1d | Background fix |
-| Add React Router | P1 | 2d | None |
-| Create Agent/AgentRun/AgentStep models | P0 | 2d | None |
-| Database migrations | P0 | 1d | Models |
-| Basic CRUD API for agents | P0 | 2d | Models |
+| Task | Effort | Notes |
+|------|--------|-------|
+| Agent/AgentRun/Approval models | 2d | Keep simple |
+| Database migrations | 1d | Alembic |
+| Agent CRUD API | 2d | Standard REST |
+| LangGraph checkpointer setup | 2d | PostgresSaver |
+| Basic tests | 1d | pytest |
 
-**Deliverable**: Agents can be created, stored, listed via API
+**Deliverable**: Agents can be created and stored; LangGraph checkpointing works
 
-### Phase 2: Execution Runtime (3 weeks)
-**Goal**: Agents can execute with tools
+### Phase 2: LangGraph + MCP Integration (2 weeks)
+**Goal**: Agents can execute with real tools
 
-| Task | Priority | Effort | Dependencies |
-|------|----------|--------|--------------|
-| LLM client abstraction | P0 | 2d | None |
-| Tool framework base classes | P0 | 3d | None |
-| Built-in tools (query_dcl, search_aod) | P0 | 3d | Tool framework |
-| Agent executor (run loop) | P0 | 4d | LLM + Tools |
-| Step persistence | P0 | 2d | Executor |
-| WebSocket streaming | P1 | 2d | Executor |
-| Cost tracking | P1 | 1d | Executor |
+| Task | Effort | Notes |
+|------|--------|-------|
+| LangGraph workflow builder | 3d | Compile agent config → StateGraph |
+| MCP client integration | 2d | Connect to MCP servers |
+| AOS-DCL MCP server | 2d | Expose existing DCL |
+| AOS-AAM MCP server | 2d | Expose existing AAM |
+| Run API + WebSocket streaming | 1d | Real-time updates |
 
-**Deliverable**: Agents can be invoked via API and execute multi-step workflows
+**Deliverable**: Agent can query DCL via MCP, state survives crashes
 
-### Phase 3: NLP Gateway (2 weeks)
-**Goal**: Natural language interface
+### Phase 3: AI Gateway + Reasoning Router (1 week)
+**Goal**: Smart request routing
 
-| Task | Priority | Effort | Dependencies |
-|------|----------|--------|--------------|
-| Intent classifier | P0 | 2d | LLM client |
-| Entity extractor | P0 | 2d | LLM client |
-| Conversation memory (Redis) | P0 | 2d | None |
-| Tool router | P0 | 2d | Intent + Tools |
-| Streaming response API | P1 | 2d | None |
-| Persona-based prompts | P2 | 1d | None |
+| Task | Effort | Notes |
+|------|--------|-------|
+| AI Gateway setup (Portkey) | 1d | Routing, caching, fallbacks |
+| Reasoning router implementation | 2d | Haiku-based dynamic routing |
+| Semantic cache layer | 1d | Avoid redundant LLM calls |
+| Cost tracking integration | 1d | Per-run cost in AgentRun |
 
-**Deliverable**: Users can chat naturally and invoke agents/tools
+**Deliverable**: Requests routed intelligently, costs tracked
 
-### Phase 4: HITL & Approvals (2 weeks)
-**Goal**: Human oversight for sensitive operations
+### Phase 4: Deep Data Tools (3 weeks) ← THE MOAT
+**Goal**: Introspective tools that understand the data
 
-| Task | Priority | Effort | Dependencies |
-|------|----------|--------|--------------|
-| Approval model + API | P0 | 2d | Agent models |
-| Approval queue UI | P0 | 3d | API |
-| WebSocket notifications | P1 | 2d | Approval API |
-| Timeout handling | P1 | 1d | Approval flow |
-| Delegation support | P2 | 1d | Approval API |
+| Task | Effort | Notes |
+|------|--------|-------|
+| Schema introspection tool | 3d | Agent can discover what data exists |
+| Semantic field explainer | 3d | "What does 'ARR' mean in this context?" |
+| Cross-system lineage tracer | 4d | Track data from source to report |
+| Natural language query translator | 3d | NL → SQL/API with context |
+| AOS-AOD MCP server | 2d | Asset discovery integration |
 
-**Deliverable**: Sensitive operations pause for human approval
+**Deliverable**: Agent can navigate complex data topology intelligently
 
-### Phase 5: Control Center UI (2 weeks)
-**Goal**: Comprehensive management interface
+### Phase 5: Control Plane + Observability (3 weeks)
+**Goal**: Production-ready management UI
 
-| Task | Priority | Effort | Dependencies |
-|------|----------|--------|--------------|
-| Agent list/detail pages | P0 | 3d | Agent API |
-| Run history + replay | P0 | 2d | Run API |
-| Live run viewer | P0 | 3d | WebSocket |
-| Chat interface upgrade | P1 | 2d | NLP API |
-| Approval queue panel | P1 | 2d | Approval API |
+| Task | Effort | Notes |
+|------|--------|-------|
+| Time-travel debugger UI | 4d | Rewind/replay agent runs |
+| HITL approval queue UI | 3d | Approve/reject with context |
+| Agent configuration UI | 3d | Visual workflow builder |
+| Eval framework | 3d | Automated regression tests |
+| Metrics dashboard | 2d | Cost, latency, success rates |
 
-**Deliverable**: Full UI for agent management and monitoring
+**Deliverable**: Full operational control over agents
 
 ---
 
-## 10. Risk Assessment
+## 7. Dependencies & Integration Points
 
-| Risk | Likelihood | Impact | Mitigation |
-|------|------------|--------|------------|
-| LLM rate limits | High | Medium | Circuit breaker, fallback models, caching |
-| Runaway agent costs | Medium | High | Hard cost limits, step caps, alerts |
-| Tool execution errors | High | Medium | Sandboxing, retries, graceful degradation |
-| Context window overflow | Medium | Medium | Summarization, pruning, chunking |
-| Approval queue bottleneck | Low | High | Auto-escalation, timeout defaults, SLAs |
-| Multi-tenant data leak | Low | Critical | Query-level isolation, audit logging |
+### 7.1 New Dependencies
 
----
+```toml
+# pyproject.toml additions
 
-## 11. Technology Decisions
-
-### 11.1 LLM Provider Strategy
-
-```
-Primary: Claude (Anthropic)
-├── claude-sonnet-4-20250514 (default)
-├── claude-opus-4-20250514 (complex reasoning)
-└── claude-haiku-3-5-20241022 (high volume, low cost)
-
-Fallback: OpenAI
-├── gpt-4o (complex)
-└── gpt-4o-mini (simple)
-
-Selection Logic:
-1. Use tenant-configured default
-2. Escalate to stronger model on retry
-3. Fall back to alternate provider on rate limit
+[project.dependencies]
+langgraph = ">=0.2.0"
+langgraph-checkpoint-postgres = ">=0.2.0"
+mcp = ">=1.0.0"  # Model Context Protocol SDK
+portkey-ai = ">=1.0.0"  # AI Gateway (optional)
+e2b = ">=0.17.0"  # Sandbox execution
 ```
 
-### 11.2 Why Not LangChain/LlamaIndex?
+### 7.2 External Services
 
-| Factor | LangChain | Our Approach |
-|--------|-----------|--------------|
-| Abstraction level | High (magic) | Low (explicit) |
-| Debugging | Difficult | Transparent |
-| Lock-in | Framework-specific | Provider-agnostic |
-| Performance | Overhead | Minimal |
-| Customization | Fight the framework | Full control |
+| Service | Purpose | Required? |
+|---------|---------|-----------|
+| **Anthropic API** | Primary LLM | Yes |
+| **OpenAI API** | Fallback LLM | Recommended |
+| **Portkey.ai** | AI Gateway (routing, caching) | Optional |
+| **E2B** | Sandbox execution | For external tools |
 
-**Decision**: Build lightweight abstractions. The core loop is simple enough that framework overhead isn't justified.
+### 7.3 Existing AOS Services (Become MCP Servers)
+
+| Service | Current State | MCP Exposure |
+|---------|---------------|--------------|
+| DCL | REST API | aos-dcl server |
+| AAM | REST API + WebSocket | aos-aam server |
+| AOD | External iframe | aos-aod server (if local) |
 
 ---
 
-## 12. Success Criteria
+## 8. Risk Mitigation
 
-### Phase 1 Complete When:
-- [ ] Agents can be CRUD'd via API
-- [ ] Database schema deployed
-- [ ] No blocking issues in server startup
+| Risk | Mitigation |
+|------|------------|
+| **LangGraph learning curve** | Start with simple linear graphs, add complexity later |
+| **MCP ecosystem immaturity** | Build AOS servers first, external later |
+| **LLM costs** | Aggressive caching, Haiku for routing, hard limits |
+| **Checkpoint storage growth** | TTL on old checkpoints, archive to cold storage |
+| **OBO token complexity** | Start with simplified model, enhance later |
+
+---
+
+## 9. Success Metrics
 
 ### Phase 2 Complete When:
-- [ ] Agent can be invoked and completes multi-step task
-- [ ] Steps are persisted and queryable
-- [ ] Real-time streaming works
-
-### Phase 3 Complete When:
-- [ ] User can chat naturally
-- [ ] System correctly routes to tools/agents
-- [ ] Conversation context maintained
+- [ ] Agent executes multi-step DCL query via MCP
+- [ ] Crash during execution → resume works
+- [ ] WebSocket streams steps in real-time
 
 ### Phase 4 Complete When:
-- [ ] Sensitive operations pause for approval
-- [ ] Approvers notified in real-time
-- [ ] Timeouts handled gracefully
+- [ ] Agent can answer "What data do we have about customers?"
+- [ ] Agent can explain field lineage
+- [ ] Agent correctly handles ambiguous queries by asking clarifying questions
 
 ### Phase 5 Complete When:
-- [ ] All functionality accessible via UI
-- [ ] No API-only operations for normal use
-- [ ] Performance acceptable (< 2s page loads)
+- [ ] Admin can rewind failed agent to specific step
+- [ ] Approval queue has < 5 min average response time
+- [ ] Eval suite catches regressions before deploy
 
 ---
 
-## 13. Appendix: File Structure
+## 10. Appendix: Revised File Structure
 
 ```
 app/
 ├── api/v1/
-│   ├── agents.py           # NEW: Agent CRUD + execution
-│   ├── approvals.py        # NEW: Approval workflow
-│   └── nlp_gateway.py      # REPLACE: nlp_simple.py
+│   ├── agents.py              # Agent CRUD
+│   ├── runs.py                # Run management
+│   ├── approvals.py           # HITL approvals
+│   └── chat.py                # Chat endpoint (replaces nlp_simple)
 ├── models/
-│   ├── agent.py            # NEW: Agent, AgentRun, AgentStep
-│   └── approval.py         # NEW: Approval model
-├── services/
-│   ├── agent_executor.py   # NEW: Run loop
-│   ├── llm_client.py       # NEW: LLM abstraction
-│   ├── tool_registry.py    # NEW: Tool management
-│   └── memory_store.py     # NEW: Conversation memory
-├── tools/
-│   ├── base.py             # NEW: Tool base class
-│   ├── query_dcl.py        # NEW: DCL tool
-│   ├── search_aod.py       # NEW: AOD tool
-│   └── invoke_aam.py       # NEW: AAM tool
-└── orchestration/
-    ├── workflow_engine.py  # NEW: Multi-agent workflows
-    └── hitl_queue.py       # NEW: Approval queue
+│   ├── agent.py               # Agent, AgentRun
+│   └── approval.py            # Approval
+├── langgraph/
+│   ├── graphs/
+│   │   ├── base_agent.py      # Default agent graph
+│   │   └── approval_graph.py  # Graph with HITL nodes
+│   ├── nodes/
+│   │   ├── reasoning.py       # LLM reasoning node
+│   │   ├── tools.py           # MCP tool execution node
+│   │   └── human.py           # Human interrupt node
+│   ├── state.py               # AgentState definition
+│   └── checkpointer.py        # PostgresSaver setup
+├── mcp_servers/
+│   ├── dcl_server.py          # aos-dcl MCP server
+│   ├── aam_server.py          # aos-aam MCP server
+│   └── aod_server.py          # aos-aod MCP server
+├── mcp_client/
+│   ├── client.py              # MCP client wrapper
+│   ├── registry.py            # Server discovery
+│   └── sandbox.py             # E2B integration
+├── security/
+│   ├── obo.py                 # On-Behalf-Of token manager
+│   └── guardrails.py          # Cost/step limits
+└── gateway/
+    ├── router.py              # Reasoning router
+    └── cache.py               # Semantic cache
 
 frontend/src/
 ├── components/
-│   ├── AgentList.tsx       # NEW
-│   ├── AgentDetail.tsx     # NEW
-│   ├── RunViewer.tsx       # NEW
-│   ├── ApprovalQueue.tsx   # NEW
-│   └── ChatInterface.tsx   # ENHANCE: NLPGateway.tsx
+│   ├── AgentWorkbench/        # Agent config UI
+│   ├── RunViewer/             # Real-time run viewer
+│   ├── TimeTravelDebugger/    # Rewind/replay UI
+│   └── ApprovalQueue/         # HITL queue
 └── pages/
-    └── AgentsPage.tsx      # NEW
+    ├── AgentsPage.tsx
+    └── ControlCenterPage.tsx  # Enhanced
 ```
 
 ---
 
-## 14. Next Steps
+## 11. Decision Log
 
-1. **Review this document** with stakeholders
-2. **Approve Phase 1 scope** and begin implementation
-3. **Set up LLM API keys** (Anthropic/OpenAI)
-4. **Create database migrations** for new models
+| Decision | Rationale | Alternatives Considered |
+|----------|-----------|------------------------|
+| **LangGraph over custom** | Durable execution, checkpointing, community | Temporal (heavier), custom (fragile) |
+| **MCP over proprietary** | Ecosystem compatibility, future-proof | Custom schema (isolated) |
+| **PostgresSaver over Redis** | Durability, crash recovery | RedisSaver (volatile) |
+| **E2B over subprocess** | Security isolation | Docker (overhead), subprocess (unsafe) |
+| **OBO over system tokens** | Least privilege, audit trail | Shared secrets (security risk) |
+| **Portkey over direct calls** | Routing, caching, observability | Direct (less control) |
 
-**Estimated total timeline**: 11 weeks for full implementation
-**Recommended MVP (Phases 1-3)**: 7 weeks
+---
+
+**This blueprint supersedes AGENTIC_PLATFORM_PLAN.md (v1.0)**
