@@ -4,6 +4,7 @@ AutonomOS Schemas
 Consolidated schemas for:
 - Core platform (Tenant, User, Task, Token, Auth)
 - AAM Auto-Onboarding (ConnectionIntent, FunnelMetrics)
+- Agentic Orchestration (Agent, AgentRun, Approval, Streaming)
 """
 
 from datetime import datetime
@@ -19,6 +20,44 @@ from app.schemas.connection_intent import (
     FunnelMetrics,
     OnboardBatchRequest,
     OnboardBatchResult
+)
+
+from app.schemas.agent import (
+    # Enums
+    AgentType,
+    AgentStatus,
+    RunStatus,
+    TriggerType,
+    ApprovalStatus,
+    ApprovalAutoAction,
+    StreamEventType,
+    # MCP Config
+    MCPServerConfig,
+    # Agent CRUD
+    AgentBase,
+    AgentCreate,
+    AgentUpdate,
+    AgentResponse,
+    AgentListResponse,
+    # Agent Runs
+    AgentRunCreate,
+    AgentRunResponse,
+    AgentRunListResponse,
+    # Approvals
+    AgentApprovalResponse,
+    ApprovalAction,
+    PendingApprovalsResponse,
+    # Streaming
+    StreamEvent,
+    ToolCallEvent,
+    ToolResultEvent,
+    ApprovalRequiredEvent,
+    RunCompletedEvent,
+    RunFailedEvent,
+    # Evals
+    EvalTestCase,
+    EvalResult,
+    EvalRunResponse,
 )
 
 
@@ -100,6 +139,7 @@ class ProdModeRequest(BaseModel):
 
 
 __all__ = [
+    # Core Platform
     'TenantBase',
     'TenantCreate',
     'Tenant',
@@ -115,11 +155,47 @@ __all__ = [
     'TaskCreate',
     'Task',
     'ProdModeRequest',
+    # AAM Auto-Onboarding
     'ConnectionIntent',
     'ConnectionEvidence',
     'ConnectionOwner',
     'OnboardingResult',
     'FunnelMetrics',
     'OnboardBatchRequest',
-    'OnboardBatchResult'
+    'OnboardBatchResult',
+    # Agentic Orchestration - Enums
+    'AgentType',
+    'AgentStatus',
+    'RunStatus',
+    'TriggerType',
+    'ApprovalStatus',
+    'ApprovalAutoAction',
+    'StreamEventType',
+    # Agentic Orchestration - MCP
+    'MCPServerConfig',
+    # Agentic Orchestration - Agent CRUD
+    'AgentBase',
+    'AgentCreate',
+    'AgentUpdate',
+    'AgentResponse',
+    'AgentListResponse',
+    # Agentic Orchestration - Runs
+    'AgentRunCreate',
+    'AgentRunResponse',
+    'AgentRunListResponse',
+    # Agentic Orchestration - Approvals
+    'AgentApprovalResponse',
+    'ApprovalAction',
+    'PendingApprovalsResponse',
+    # Agentic Orchestration - Streaming
+    'StreamEvent',
+    'ToolCallEvent',
+    'ToolResultEvent',
+    'ApprovalRequiredEvent',
+    'RunCompletedEvent',
+    'RunFailedEvent',
+    # Agentic Orchestration - Evals
+    'EvalTestCase',
+    'EvalResult',
+    'EvalRunResponse',
 ]

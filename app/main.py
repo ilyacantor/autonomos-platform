@@ -34,7 +34,7 @@ from app.security import (
     get_current_user,
     ACCESS_TOKEN_EXPIRE_MINUTES
 )
-from app.api.v1 import auth, aoa, aam_monitoring, aam_mesh, aam_connections, platform_stubs, filesource, debug, mesh_test, events, aod_mock, aam_onboarding, admin_feature_flags, demo_pipeline, demo_orchestrator
+from app.api.v1 import auth, aoa, aam_monitoring, aam_mesh, aam_connections, platform_stubs, filesource, debug, mesh_test, events, aod_mock, aam_onboarding, admin_feature_flags, demo_pipeline, demo_orchestrator, agents
 from app import nlp_simple
 from app.middleware.rate_limit import limiter, rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -324,6 +324,9 @@ app.include_router(debug.router, prefix="/api/v1", tags=["Debug (Dev-Only)"])
 app.include_router(events.router, prefix="/api/v1/events", tags=["Event Stream"])
 app.include_router(platform_stubs.router, prefix="/api/v1", tags=["Platform Stubs"])
 app.include_router(aod_mock.router, prefix="", tags=["AOD Mock (Testing)"])
+
+# Agentic Orchestration API (Phase 1)
+app.include_router(agents.router, prefix="/api/v1/agents", tags=["Agent Orchestration"])
 
 # P4-6: Flow Monitor API
 try:
