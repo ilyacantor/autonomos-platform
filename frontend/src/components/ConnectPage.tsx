@@ -1,29 +1,60 @@
 import { useState, useEffect } from 'react';
-import { 
+import {
   GitBranch,
   Shield,
-  AlertTriangle
+  AlertTriangle,
+  Loader2
 } from 'lucide-react';
 import DemoIframeContainer from './DemoIframeContainer';
 
 const AAM_IFRAME_URL = 'https://autonomos-mesh-ilyacantor.replit.app/';
 
+interface MeshMetrics {
+  activeConnections: number;
+  healingEvents: number;
+  driftAlerts: number;
+  loading: boolean;
+  error: string | null;
+}
+
 export default function ConnectPage() {
-  const [meshMetrics, setMeshMetrics] = useState({
-    activeConnections: 287,
-    healingEvents: 12,
-    driftAlerts: 3
+  const [meshMetrics, setMeshMetrics] = useState<MeshMetrics>({
+    activeConnections: 0,
+    healingEvents: 0,
+    driftAlerts: 0,
+    loading: true,
+    error: null
   });
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setMeshMetrics(prev => ({
-        activeConnections: prev.activeConnections + Math.floor(Math.random() * 3) - 1,
-        healingEvents: Math.max(0, prev.healingEvents + Math.floor(Math.random() * 3) - 1),
-        driftAlerts: Math.max(0, prev.driftAlerts + Math.floor(Math.random() * 2) - 0.5)
-      }));
-    }, 3000);
-    
+    const fetchMetrics = async () => {
+      try {
+        const response = await fetch('/api/v1/aam/metrics');
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status}`);
+        }
+        const data = await response.json();
+
+        setMeshMetrics({
+          activeConnections: data.active_connections ?? data.total_connections ?? 0,
+          healingEvents: data.successful_repairs_24h ?? 0,
+          driftAlerts: data.active_drift_detections_24h ?? 0,
+          loading: false,
+          error: null
+        });
+      } catch (err) {
+        setMeshMetrics(prev => ({
+          ...prev,
+          loading: false,
+          error: err instanceof Error ? err.message : 'Failed to fetch metrics'
+        }));
+      }
+    };
+
+    fetchMetrics();
+
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchMetrics, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -39,18 +70,32 @@ export default function ConnectPage() {
               Connect Your Systems
             </h1>
             <div className="hidden md:flex items-center gap-4 text-xs">
-              <div className="flex items-center gap-1.5 text-green-400">
-                <GitBranch className="w-3.5 h-3.5" />
-                <span>{meshMetrics.activeConnections} connections</span>
-              </div>
-              <div className="flex items-center gap-1.5 text-blue-400">
-                <Shield className="w-3.5 h-3.5" />
-                <span>{meshMetrics.healingEvents} healing</span>
-              </div>
-              <div className="flex items-center gap-1.5 text-orange-400">
-                <AlertTriangle className="w-3.5 h-3.5" />
-                <span>{meshMetrics.driftAlerts} drift</span>
-              </div>
+              {meshMetrics.loading ? (
+                <div className="flex items-center gap-1.5 text-gray-400">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Loading...</span>
+                </div>
+              ) : meshMetrics.error ? (
+                <div className="flex items-center gap-1.5 text-red-400">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  <span>API unavailable</span>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center gap-1.5 text-green-400">
+                    <GitBranch className="w-3.5 h-3.5" />
+                    <span>{meshMetrics.activeConnections} active</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-blue-400">
+                    <Shield className="w-3.5 h-3.5" />
+                    <span>{meshMetrics.healingEvents} repairs/24h</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-orange-400">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    <span>{meshMetrics.driftAlerts} drift/24h</span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
           <a
