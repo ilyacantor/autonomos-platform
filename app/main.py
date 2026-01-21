@@ -34,7 +34,7 @@ from app.security import (
     get_current_user,
     ACCESS_TOKEN_EXPIRE_MINUTES
 )
-from app.api.v1 import auth, aoa, aam_monitoring, aam_mesh, aam_connections, platform_stubs, filesource, debug, mesh_test, events, aod_mock, aam_onboarding, admin_feature_flags, demo_pipeline, demo_orchestrator, agents, scheduler, memory, bundles, stress_test
+from app.api.v1 import auth, aoa, aam_monitoring, aam_mesh, aam_connections, platform_stubs, filesource, debug, mesh_test, events, aod_mock, aam_onboarding, admin_feature_flags, demo_pipeline, demo_orchestrator, agents, scheduler, memory, bundles, stress_test, certification, a2a, scaling
 from app import nlp_simple
 from app.middleware.rate_limit import limiter, rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -333,6 +333,11 @@ app.include_router(scheduler.router, prefix="/api/v1", tags=["Scheduler Service"
 app.include_router(memory.router, prefix="/api/v1", tags=["Memory Governance"])
 app.include_router(bundles.router, prefix="/api/v1", tags=["Tool Bundles"])
 app.include_router(stress_test.router, prefix="/api/v1", tags=["Stress Testing"])
+
+# Enterprise Agent Requirements: Certification, A2A Protocol, Horizontal Scaling
+app.include_router(certification.router, prefix="/api/v1", tags=["Agent Certification"])
+app.include_router(a2a.router, prefix="/api/v1", tags=["A2A Protocol"])
+app.include_router(scaling.router, prefix="/api/v1", tags=["Horizontal Scaling"])
 
 # P4-6: Flow Monitor API
 try:
