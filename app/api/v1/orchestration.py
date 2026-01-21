@@ -614,3 +614,103 @@ async def update_autonomy_mode(
         mode=update.mode,
         updated_at=datetime.utcnow()
     )
+
+
+# ============================================================================
+# Seed Demo Agents
+# ============================================================================
+
+class SeedResponse(BaseModel):
+    """Response from seed operation."""
+    created: List[str]
+    existing: List[str]
+    message: str
+
+
+@router.post("/seed-demo-agents", response_model=SeedResponse)
+async def seed_demo_agents(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Seed demo agents for the orchestration dashboard.
+
+    Creates FinOps Agent and RevOps Agent if they don't exist.
+    These are the primary domain agents for the AutonomOS platform.
+    """
+    tenant_id = current_user.tenant_id
+
+    demo_agents = [
+        {
+            "name": "FinOps Agent",
+            "description": "Financial operations automation agent for cost optimization, budget tracking, and financial analytics across cloud infrastructure.",
+            "agent_type": "specialist",
+            "system_prompt": "You are a FinOps specialist agent. Help users optimize cloud costs, track budgets, and provide financial insights.",
+            "model": "claude-sonnet-4-20250514",
+        },
+        {
+            "name": "RevOps Agent",
+            "description": "Revenue operations agent for sales pipeline management, forecasting, and revenue analytics.",
+            "agent_type": "specialist",
+            "system_prompt": "You are a RevOps specialist agent. Help users manage sales pipelines, forecast revenue, and optimize go-to-market operations.",
+            "model": "claude-sonnet-4-20250514",
+        },
+        {
+            "name": "Sales Forecasting",
+            "description": "Predictive analytics agent for sales forecasting and demand planning.",
+            "agent_type": "specialist",
+            "system_prompt": "You are a sales forecasting agent. Analyze historical data and market trends to provide accurate sales predictions.",
+            "model": "claude-sonnet-4-20250514",
+        },
+        {
+            "name": "Churn Predictor",
+            "description": "Customer churn prediction agent using ML models to identify at-risk customers.",
+            "agent_type": "specialist",
+            "system_prompt": "You are a churn prediction agent. Analyze customer behavior to identify churn risk and suggest retention strategies.",
+            "model": "claude-sonnet-4-20250514",
+        },
+        {
+            "name": "Lead Scoring",
+            "description": "Lead qualification and scoring agent for sales prioritization.",
+            "agent_type": "specialist",
+            "system_prompt": "You are a lead scoring agent. Evaluate and prioritize leads based on conversion likelihood and value potential.",
+            "model": "claude-sonnet-4-20250514",
+        },
+    ]
+
+    created = []
+    existing = []
+
+    for agent_data in demo_agents:
+        # Check if agent already exists
+        existing_agent = db.query(Agent).filter(
+            Agent.tenant_id == tenant_id,
+            Agent.name == agent_data["name"]
+        ).first()
+
+        if existing_agent:
+            existing.append(agent_data["name"])
+        else:
+            # Create new agent
+            new_agent = Agent(
+                tenant_id=tenant_id,
+                name=agent_data["name"],
+                description=agent_data["description"],
+                agent_type=agent_data["agent_type"],
+                system_prompt=agent_data["system_prompt"],
+                model=agent_data["model"],
+                status="active",
+                max_steps=20,
+                max_cost_usd=1.0,
+            )
+            db.add(new_agent)
+            created.append(agent_data["name"])
+
+    if created:
+        db.commit()
+
+    return SeedResponse(
+        created=created,
+        existing=existing,
+        message=f"Created {len(created)} agents, {len(existing)} already existed."
+    )

@@ -76,3 +76,26 @@ export async function updateAutonomyMode(
   }
   return response.json();
 }
+
+/**
+ * Seed demo agents response.
+ */
+export interface SeedResponse {
+  created: string[];
+  existing: string[];
+  message: string;
+}
+
+/**
+ * Seed demo agents for the dashboard.
+ */
+export async function seedDemoAgents(): Promise<SeedResponse> {
+  const response = await fetch(`${API_BASE}/seed-demo-agents`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to seed agents: ${response.statusText}`);
+  }
+  return response.json();
+}

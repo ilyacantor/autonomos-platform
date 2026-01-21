@@ -6,9 +6,9 @@
  */
 
 import { useEffect, useState, useCallback } from 'react';
-import { RefreshCw, AlertTriangle, ExternalLink, TrendingUp, Clock, DollarSign, Zap } from 'lucide-react';
+import { RefreshCw, AlertTriangle, ExternalLink, TrendingUp, Clock, DollarSign, Zap, Plus } from 'lucide-react';
 import type { AgentPerformance, AgentPerformanceResponse, AgentStatus } from './types';
-import { fetchAgentPerformance } from './api';
+import { fetchAgentPerformance, seedDemoAgents } from './api';
 
 // Polling interval in milliseconds
 const POLL_INTERVAL = 15000;
@@ -36,6 +36,7 @@ export default function AgentPerformanceMonitor() {
   const [data, setData] = useState<AgentPerformanceResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [seeding, setSeeding] = useState(false);
 
   const loadPerformance = useCallback(async () => {
     try {
@@ -48,6 +49,18 @@ export default function AgentPerformanceMonitor() {
       setLoading(false);
     }
   }, []);
+
+  const handleSeedAgents = async () => {
+    setSeeding(true);
+    try {
+      await seedDemoAgents();
+      await loadPerformance();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSeeding(false);
+    }
+  };
 
   useEffect(() => {
     loadPerformance();
@@ -150,8 +163,25 @@ export default function AgentPerformanceMonitor() {
         <div className="flex-1 flex items-center justify-center text-gray-500">
           <div className="text-center">
             <Zap className="w-12 h-12 mx-auto mb-3 text-gray-600" />
-            <p>No agents configured</p>
-            <p className="text-sm mt-1">Create agents to see performance metrics</p>
+            <p className="text-white font-medium">No agents configured</p>
+            <p className="text-sm mt-1 mb-4">Create demo agents to see the dashboard in action</p>
+            <button
+              onClick={handleSeedAgents}
+              disabled={seeding}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 disabled:from-gray-600 disabled:to-gray-600 text-white rounded-xl font-medium shadow-lg shadow-cyan-500/20 disabled:shadow-none transition-all"
+            >
+              {seeding ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  Creating Agents...
+                </>
+              ) : (
+                <>
+                  <Plus className="w-4 h-4" />
+                  Seed Demo Agents
+                </>
+              )}
+            </button>
           </div>
         </div>
       ) : (
