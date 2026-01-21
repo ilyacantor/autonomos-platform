@@ -47,4 +47,4 @@ export DEV_DEBUG=true
 export FEATURE_USE_FILESOURCE=true
 export REQUIRED_SOURCES=salesforce,supabase,mongodb,filesource
 export DCL_AUTH_ENABLED=false  # Disable auth for development (uses MockUser pattern)
-exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-5000} --proxy-headers --log-level info
+exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-5000} --proxy-headers --log-level info --reload --reload-dir app
