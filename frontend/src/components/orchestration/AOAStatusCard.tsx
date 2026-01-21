@@ -47,8 +47,9 @@ export default function AOAStatusCard() {
 
   useEffect(() => {
     loadVitals();
-    const interval = setInterval(loadVitals, POLL_INTERVAL);
-    return () => clearInterval(interval);
+    // Polling disabled for now - uncomment to enable
+    // const interval = setInterval(loadVitals, POLL_INTERVAL);
+    // return () => clearInterval(interval);
   }, [loadVitals]);
 
   const getStateColor = (state: AOAState) => {

@@ -32,8 +32,9 @@ export default function AOAFunctionsPanel() {
 
   useEffect(() => {
     loadFunctions();
-    const interval = setInterval(loadFunctions, POLL_INTERVAL);
-    return () => clearInterval(interval);
+    // Polling disabled for now - uncomment to enable
+    // const interval = setInterval(loadFunctions, POLL_INTERVAL);
+    // return () => clearInterval(interval);
   }, [loadFunctions]);
 
   const getStatusColor = (status: FunctionStatus) => {
