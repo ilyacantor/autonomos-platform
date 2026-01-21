@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { LayoutDashboard, Cable, Network, Bell, Menu, X, LogIn, UserPlus, HelpCircle, Search, BookOpen, Sparkles, Play, Database, Calendar } from 'lucide-react';
+import { LayoutDashboard, Cable, Network, Bell, Menu, X, LogIn, UserPlus, HelpCircle, Search, BookOpen, Sparkles, Play, Database, Activity } from 'lucide-react';
 import type { PersonaType } from '../types';
 import autonomosLogo from '../assets/autonomos-logo.png';
 
@@ -27,7 +27,7 @@ export default function TopBar({ onAuthOpen, currentPage, onNavigate }: TopBarPr
     { id: 'connect', label: 'Connect', icon: <Cable className="w-5 h-5" />, tooltip: 'Step 2: Self-healing connectivity' },
     { id: 'unify-ask', label: 'Unify & Ask', icon: <Database className="w-5 h-5" />, tooltip: 'Step 3: Data unification' },
     { id: 'demo', label: 'Demo', icon: <Play className="w-5 h-5" />, tooltip: 'Run full pipeline demo' },
-    { id: 'agent-center', label: 'Scheduler', icon: <Calendar className="w-5 h-5" />, tooltip: 'Schedule automated agent runs' },
+    { id: 'orchestration', label: 'Orchestration', icon: <Activity className="w-5 h-5" />, tooltip: 'Agentic orchestration dashboard' },
     { id: 'control-center', label: 'Control', icon: <LayoutDashboard className="w-5 h-5" /> },
     { id: 'faq', label: 'Help', icon: <HelpCircle className="w-5 h-5" /> },
   ];

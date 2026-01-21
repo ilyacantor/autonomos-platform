@@ -2,14 +2,12 @@
  * Agentic Components
  *
  * UI components for the Agentic Orchestration Platform:
- * - AgentControlCenter: Main page combining all components
  * - AgentChat: Real-time chat with agent execution
  * - AgentRunHistory: History of agent runs
  * - AgentApprovalQueue: HITL approval interface
  * - AgentWorkbench: Agent creation and testing
  */
 
-export { default as AgentControlCenter } from './AgentControlCenter';
 export { default as AgentChat } from './AgentChat';
 export { default as AgentRunHistory } from './AgentRunHistory';
 export { default as AgentApprovalQueue } from './AgentApprovalQueue';
