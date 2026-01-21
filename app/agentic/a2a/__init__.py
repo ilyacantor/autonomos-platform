@@ -24,6 +24,7 @@ from .delegation import (
     DelegationRequest,
     DelegationResponse,
     DelegationStatus,
+    DelegationType,
     DelegationManager,
     get_delegation_manager,
 )
@@ -49,6 +50,7 @@ __all__ = [
     "DelegationRequest",
     "DelegationResponse",
     "DelegationStatus",
+    "DelegationType",
     "DelegationManager",
     "get_delegation_manager",
     # Protocol

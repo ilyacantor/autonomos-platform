@@ -117,7 +117,7 @@ class WorkflowRequest(BaseModel):
     workflow_id: str
     type: str  # linear, dag, parallel, saga
     tasks: List[WorkflowTask]
-    __expected__: Optional[WorkflowExpected] = Field(None, alias="__expected__")
+    expected: Optional[WorkflowExpected] = Field(None, alias="__expected__")
     metadata: Optional[Dict[str, Any]] = None
 
 
@@ -126,7 +126,7 @@ class StressScenarioRequest(BaseModel):
     agents: AgentFleetRequest
     workflows: List[WorkflowRequest]
     agent_assignments: Dict[str, Dict[str, str]] = {}
-    __expected__: Optional[Dict[str, Any]] = Field(None, alias="__expected__")
+    expected: Optional[Dict[str, Any]] = Field(None, alias="__expected__")
     summary: Optional[Dict[str, Any]] = None
     metadata: Optional[Dict[str, Any]] = None
 
