@@ -13,6 +13,25 @@ import { fetchAgentPerformance } from './api';
 // Polling interval in milliseconds
 const POLL_INTERVAL = 15000;
 
+// External URLs for specific agents
+const AGENT_URLS: Record<string, string> = {
+  'finops': 'https://autonomos.technology/',
+  'revops': 'https://autonomos.cloud/',
+};
+
+/**
+ * Get external URL for an agent if available.
+ */
+function getAgentUrl(agentName: string): string | null {
+  const nameLower = agentName.toLowerCase();
+  for (const [key, url] of Object.entries(AGENT_URLS)) {
+    if (nameLower.includes(key)) {
+      return url;
+    }
+  }
+  return null;
+}
+
 export default function AgentPerformanceMonitor() {
   const [data, setData] = useState<AgentPerformanceResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -164,14 +183,22 @@ export default function AgentPerformanceMonitor() {
               </tr>
             </thead>
             <tbody>
-              {data.agents.map((agent) => (
+              {data.agents.map((agent) => {
+                const agentUrl = getAgentUrl(agent.name);
+                return (
                 <tr
                   key={agent.id}
-                  className="border-b border-gray-800 hover:bg-gray-800/50 transition-colors"
+                  className={`border-b border-gray-800 hover:bg-gray-800/50 transition-colors ${agentUrl ? 'cursor-pointer' : ''}`}
+                  onClick={agentUrl ? () => window.open(agentUrl, '_blank') : undefined}
                 >
                   <td className="py-3">
                     <div className="flex items-center gap-2">
-                      <div className="text-sm font-medium text-white">{agent.name}</div>
+                      <div className={`text-sm font-medium ${agentUrl ? 'text-cyan-400 hover:text-cyan-300' : 'text-white'}`}>
+                        {agent.name}
+                      </div>
+                      {agentUrl && (
+                        <ExternalLink className="w-3.5 h-3.5 text-cyan-400" />
+                      )}
                       <span className="text-xs text-gray-500 bg-gray-800 px-2 py-0.5 rounded">
                         {agent.agent_type}
                       </span>
@@ -216,7 +243,8 @@ export default function AgentPerformanceMonitor() {
                     </span>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
