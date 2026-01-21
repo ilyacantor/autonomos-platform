@@ -64,9 +64,8 @@ export default function AgentPerformanceMonitor() {
 
   useEffect(() => {
     loadPerformance();
-    // Polling disabled for now - uncomment to enable
-    // const interval = setInterval(loadPerformance, POLL_INTERVAL);
-    // return () => clearInterval(interval);
+    const interval = setInterval(loadPerformance, POLL_INTERVAL);
+    return () => clearInterval(interval);
   }, [loadPerformance]);
 
   const getStatusColor = (status: AgentStatus) => {
