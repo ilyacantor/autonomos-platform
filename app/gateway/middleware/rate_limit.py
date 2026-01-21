@@ -64,8 +64,19 @@ async def rate_limit_middleware(request: Request, call_next: Callable):
         "/dcl/state",  # DCL state endpoint (read-only)
         "/dcl/ws",  # DCL WebSocket with mount prefix
     ]
-    if request.url.path in exempt_paths or request.url.path.startswith("/static/"):
+
+    # Exempt orchestration dashboard endpoints (polled frequently)
+    exempt_prefixes = [
+        "/api/v1/orchestration/",
+        "/static/",
+    ]
+
+    if request.url.path in exempt_paths:
         return await call_next(request)
+
+    for prefix in exempt_prefixes:
+        if request.url.path.startswith(prefix):
+            return await call_next(request)
     
     # Determine user identifier
     tenant_id = getattr(request.state, "tenant_id", None)
