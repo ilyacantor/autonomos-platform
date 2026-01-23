@@ -10,14 +10,41 @@ import logging
 import hashlib
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Any, Optional, Iterator
+from typing import Any, Optional, Iterator, TYPE_CHECKING
 from uuid import UUID
 import sys
 
-from sqlalchemy.orm import Session
-from sqlalchemy import and_
+# Lazy imports for sqlalchemy - only required when checkpointer is actually used
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+    from sqlalchemy import and_
+    from app.models import AgentCheckpoint
 
-from app.models import AgentCheckpoint
+
+def _require_sqlalchemy():
+    """Check if sqlalchemy is available, raise helpful error if not."""
+    try:
+        import sqlalchemy
+        return sqlalchemy
+    except ImportError:
+        raise ImportError(
+            "sqlalchemy is required for AOSCheckpointer. "
+            "Install with: pip install sqlalchemy"
+        )
+
+
+def _get_session_class():
+    """Get SQLAlchemy Session class with lazy import."""
+    _require_sqlalchemy()
+    from sqlalchemy.orm import Session
+    return Session
+
+
+def _get_checkpoint_model():
+    """Get AgentCheckpoint model with lazy import."""
+    _require_sqlalchemy()
+    from app.models import AgentCheckpoint
+    return AgentCheckpoint
 
 logger = logging.getLogger(__name__)
 
@@ -215,6 +242,8 @@ class AOSCheckpointer:
         Returns:
             Updated config with checkpoint info
         """
+        AgentCheckpoint = _get_checkpoint_model()
+
         thread_id = config["configurable"]["thread_id"]
         thread_ts = config["configurable"].get("thread_ts", datetime.utcnow().isoformat())
         parent_ts = config["configurable"].get("parent_ts")
@@ -290,6 +319,8 @@ class AOSCheckpointer:
         Returns:
             The checkpoint data or None if not found
         """
+        AgentCheckpoint = _get_checkpoint_model()
+
         thread_id = config["configurable"]["thread_id"]
         thread_ts = config["configurable"].get("thread_ts")
 
@@ -329,6 +360,8 @@ class AOSCheckpointer:
         Returns:
             Tuple of (config, checkpoint) or None
         """
+        AgentCheckpoint = _get_checkpoint_model()
+
         checkpoint = self.get(config)
         if checkpoint is None:
             return None
@@ -374,6 +407,8 @@ class AOSCheckpointer:
         Yields:
             Tuples of (config, checkpoint)
         """
+        AgentCheckpoint = _get_checkpoint_model()
+
         thread_id = config["configurable"]["thread_id"]
 
         db = self.db_session_factory()
@@ -413,7 +448,7 @@ class AOSCheckpointer:
         finally:
             db.close()
 
-    def _get_tenant_id(self, db: Session, run_id: UUID) -> UUID:
+    def _get_tenant_id(self, db: "Session", run_id: UUID) -> UUID:
         """Get tenant_id from the agent run."""
         from app.models import AgentRun
         run = db.query(AgentRun).filter(AgentRun.id == run_id).first()
@@ -436,6 +471,8 @@ class AOSCheckpointer:
         Returns:
             Number of checkpoints deleted
         """
+        AgentCheckpoint = _get_checkpoint_model()
+
         db = self.db_session_factory()
         try:
             # Get all checkpoints for this run
