@@ -1,9 +1,9 @@
 """
-Agentic Orchestration Platform
+Agentic Orchestration Platform (AOA)
 
 LangGraph-based agent execution with MCP tool integration.
 
-Modules:
+Core Modules:
 - checkpointer: Durable checkpoint storage with blob offload
 - workflow: LangGraph workflow builder and executor
 - mcp_client: MCP protocol client for tool execution
@@ -12,6 +12,14 @@ Modules:
 - deep_data: Semantic field explainer and lineage tracer
 - streaming: WebSocket event streaming
 - eval: Test-Driven Agent Development (TDAD) framework
+
+AOA Modules (RACI Components):
+- registry: Agent discovery, inventory, and metadata management
+- lifecycle: Agent health monitoring, versioning, and onboarding
+- approval: Human-in-the-loop workflows and override tracking
+- coordination: Multi-agent orchestration and conflict resolution
+- observability: Traces, metrics, and vitals aggregation
+- governance: Policy enforcement, autonomy bounds, and budget control
 """
 
 # Checkpointer
@@ -99,6 +107,118 @@ from app.agentic.deep_data import (
     LineageEdge,
 )
 
+# Agent Registry
+from app.agentic.registry import (
+    AgentRecord,
+    AgentMetadata,
+    AgentOwnership,
+    TrustTier,
+    AgentDomain,
+    AgentStatus,
+    AgentInventory,
+    InventoryFilter,
+    InventoryStats,
+    get_agent_inventory,
+    OwnershipManager,
+    OwnershipTransfer,
+    get_ownership_manager,
+)
+
+# Agent Lifecycle
+from app.agentic.lifecycle import (
+    HealthCheck,
+    HealthStatus,
+    AgentVersion,
+    VersionStatus,
+    AgentConfig,
+    ConfigValidation,
+    HealthMonitor,
+    HealthCheckResult,
+    get_health_monitor,
+    VersionManager,
+    VersionTransition,
+    get_version_manager,
+    OnboardingWorkflow,
+    OnboardingStep,
+    OnboardingStatus,
+    get_onboarding_workflow,
+)
+
+# Approval Workflows
+from app.agentic.approval import (
+    ApprovalRequest,
+    ApprovalDecision,
+    ApprovalStatus,
+    ApprovalPriority,
+    ApprovalType,
+    EscalationLevel,
+    Override,
+    ApprovalWorkflow,
+    ApprovalRoute,
+    get_approval_workflow,
+    OverrideManager,
+    OverridePolicy,
+    get_override_manager,
+)
+
+# Coordination
+from app.agentic.coordination import (
+    CoordinationTask,
+    TaskResult,
+    ConflictType,
+    ResolutionStrategy,
+    WorkflowPattern,
+    Arbitrator,
+    Conflict,
+    Resolution,
+    get_arbitrator,
+    MultiAgentOrchestrator,
+    OrchestrationPlan,
+    AgentAssignment,
+    get_orchestrator,
+)
+
+# Observability
+from app.agentic.observability import (
+    Trace,
+    Span,
+    SpanKind,
+    Metric,
+    MetricType,
+    Vital,
+    VitalStatus,
+    Tracer,
+    TraceContext,
+    get_tracer,
+    MetricsCollector,
+    MetricsSummary,
+    get_metrics_collector,
+    VitalsMonitor,
+    VitalsSnapshot,
+    get_vitals_monitor,
+)
+
+# Governance
+from app.agentic.governance import (
+    Policy,
+    PolicyRule,
+    PolicyDecision,
+    PolicyScope,
+    RuleAction,
+    AutonomyLevel,
+    EscalationTrigger,
+    PolicyEngine,
+    PolicyEvaluator,
+    get_policy_engine,
+    AutonomyManager,
+    AutonomyBounds,
+    get_autonomy_manager,
+    BudgetEnforcer,
+    Budget,
+    BudgetAlert,
+    get_budget_enforcer,
+)
+
 __all__ = [
     # Checkpointer
     'AOSCheckpointer',
@@ -161,4 +281,98 @@ __all__ = [
     'LineageGraph',
     'LineageNode',
     'LineageEdge',
+    # Agent Registry
+    'AgentRecord',
+    'AgentMetadata',
+    'AgentOwnership',
+    'TrustTier',
+    'AgentDomain',
+    'AgentStatus',
+    'AgentInventory',
+    'InventoryFilter',
+    'InventoryStats',
+    'get_agent_inventory',
+    'OwnershipManager',
+    'OwnershipTransfer',
+    'get_ownership_manager',
+    # Agent Lifecycle
+    'HealthCheck',
+    'HealthStatus',
+    'AgentVersion',
+    'VersionStatus',
+    'AgentConfig',
+    'ConfigValidation',
+    'HealthMonitor',
+    'HealthCheckResult',
+    'get_health_monitor',
+    'VersionManager',
+    'VersionTransition',
+    'get_version_manager',
+    'OnboardingWorkflow',
+    'OnboardingStep',
+    'OnboardingStatus',
+    'get_onboarding_workflow',
+    # Approval Workflows
+    'ApprovalRequest',
+    'ApprovalDecision',
+    'ApprovalStatus',
+    'ApprovalPriority',
+    'ApprovalType',
+    'EscalationLevel',
+    'Override',
+    'ApprovalWorkflow',
+    'ApprovalRoute',
+    'get_approval_workflow',
+    'OverrideManager',
+    'OverridePolicy',
+    'get_override_manager',
+    # Coordination
+    'CoordinationTask',
+    'TaskResult',
+    'ConflictType',
+    'ResolutionStrategy',
+    'WorkflowPattern',
+    'Arbitrator',
+    'Conflict',
+    'Resolution',
+    'get_arbitrator',
+    'MultiAgentOrchestrator',
+    'OrchestrationPlan',
+    'AgentAssignment',
+    'get_orchestrator',
+    # Observability
+    'Trace',
+    'Span',
+    'SpanKind',
+    'Metric',
+    'MetricType',
+    'Vital',
+    'VitalStatus',
+    'Tracer',
+    'TraceContext',
+    'get_tracer',
+    'MetricsCollector',
+    'MetricsSummary',
+    'get_metrics_collector',
+    'VitalsMonitor',
+    'VitalsSnapshot',
+    'get_vitals_monitor',
+    # Governance
+    'Policy',
+    'PolicyRule',
+    'PolicyDecision',
+    'PolicyScope',
+    'RuleAction',
+    'AutonomyLevel',
+    'EscalationTrigger',
+    'PolicyEngine',
+    'PolicyEvaluator',
+    'get_policy_engine',
+    'AutonomyManager',
+    'AutonomyBounds',
+    'get_autonomy_manager',
+    'BudgetEnforcer',
+    'Budget',
+    'BudgetAlert',
+    'get_budget_enforcer',
 ]
