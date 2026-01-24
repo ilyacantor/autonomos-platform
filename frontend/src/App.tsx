@@ -13,7 +13,6 @@ const ConnectPage = lazy(() => import('./components/ConnectPage'));
 const UnifyAskPage = lazy(() => import('./components/UnifyAskPage'));
 const DemoPage = lazy(() => import('./components/DemoPage'));
 const OrchestrationDashboard = lazy(() => import('./components/orchestration/OrchestrationDashboard'));
-const FarmStressTestMonitor = lazy(() => import('./components/farm/FarmStressTestMonitor'));
 
 // Loading spinner for lazy-loaded pages
 function PageLoader() {
@@ -31,7 +30,7 @@ function AppContent() {
   // Initialize page from URL path
   const getInitialPage = () => {
     const path = window.location.pathname.slice(1); // Remove leading slash
-    const validPages = ['aos-overview', 'control-center', 'discover', 'connect', 'unify-ask', 'demo', 'orchestration', 'farm-stress-test'];
+    const validPages = ['aos-overview', 'control-center', 'discover', 'connect', 'unify-ask', 'demo', 'orchestration'];
     return validPages.includes(path) ? path : 'control-center';
   };
 
@@ -62,7 +61,7 @@ function AppContent() {
   useEffect(() => {
     const handlePopState = () => {
       const path = window.location.pathname.slice(1);
-      const validPages = ['aos-overview', 'control-center', 'discover', 'connect', 'unify-ask', 'demo', 'orchestration', 'farm-stress-test'];
+      const validPages = ['aos-overview', 'control-center', 'discover', 'connect', 'unify-ask', 'demo', 'orchestration'];
       if (validPages.includes(path)) {
         setCurrentPage(path);
       }
@@ -99,8 +98,6 @@ function AppContent() {
         return <DemoPage />;
       case 'orchestration':
         return <OrchestrationDashboard />;
-      case 'farm-stress-test':
-        return <FarmStressTestMonitor />;
       default:
         return <ControlCenterPage />;
     }
