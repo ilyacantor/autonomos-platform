@@ -6,16 +6,28 @@ API endpoints for consuming AOS Farm test data:
 - Workflow submission
 - Stress scenario execution
 - Streaming workflow consumption
+
+Integrates with AOA modules:
+- AgentInventory for fleet registration
+- Tracer/MetricsCollector for observability
+- BudgetEnforcer for cost tracking
+- StreamManager for UI events
 """
 
 import asyncio
 import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, HTTPException, Header, BackgroundTasks
 from pydantic import BaseModel, Field
+
+from app.agentic.simulation import (
+    SimulationExecutor,
+    ExecutionConfig,
+    get_simulation_executor,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -175,8 +187,12 @@ class ScenarioResult(BaseModel):
     chaos_events_recovered: int
     throughput_wf_per_sec: float
     completion_rate: float
+    chaos_recovery_rate: float = 0.0
     workflow_results: List[WorkflowResult] = []
     validation: Dict[str, Any] = {}
+    verdict: str = "PENDING"  # PASS, DEGRADED, FAIL, PENDING
+    analysis: Dict[str, Any] = {}
+    total_cost_usd: float = 0.0
 
 
 class FleetIngestionResponse(BaseModel):
@@ -414,9 +430,17 @@ async def submit_scenario(
     Submit a complete stress scenario for execution.
 
     This includes both the agent fleet and multiple workflows.
+    Uses the SimulationExecutor for full AOA integration.
     """
     tenant_id = tenant_id or "stress-test-tenant"
     scenario_id = str(uuid4())
+
+    # Parse tenant UUID
+    tenant_uuid = None
+    try:
+        tenant_uuid = UUID(tenant_id)
+    except (ValueError, TypeError):
+        tenant_uuid = uuid4()
 
     # Store fleet
     _active_fleets[tenant_id] = scenario.agents
@@ -428,20 +452,80 @@ async def submit_scenario(
         "status": "running",
         "started_at": datetime.utcnow().isoformat(),
         "workflow_results": [],
+        "execution_result": None,
     }
 
-    # Queue scenario execution
+    # Queue scenario execution using SimulationExecutor
     async def run_scenario():
-        workflow_results = []
+        executor = get_simulation_executor()
 
-        for workflow in scenario.workflows:
-            assignments = scenario.agent_assignments.get(workflow.workflow_id, {})
-            result = await execute_workflow(workflow, scenario.agents, assignments)
-            workflow_results.append(result)
+        # Convert scenario to dict format for executor
+        scenario_dict = {
+            "scenario_id": scenario_id,
+            "agents": {
+                "agents": [a.dict() for a in scenario.agents.agents],
+                "total_agents": scenario.agents.total_agents,
+                "distribution": scenario.agents.distribution.dict(),
+            },
+            "workflows": [
+                {
+                    "workflow_id": w.workflow_id,
+                    "type": w.type,
+                    "tasks": [t.dict() for t in w.tasks],
+                    "__expected__": w.expected.dict() if w.expected else {},
+                }
+                for w in scenario.workflows
+            ],
+            "agent_assignments": scenario.agent_assignments,
+            "__expected__": scenario.expected or {},
+        }
+
+        # Execute through SimulationExecutor
+        result = await executor.execute_scenario(scenario_dict, tenant_uuid)
+
+        # Convert results back to API format
+        workflow_results = [
+            WorkflowResult(
+                workflow_id=wr.workflow_id,
+                status=wr.status,
+                started_at=wr.started_at.isoformat(),
+                completed_at=wr.completed_at.isoformat() if wr.completed_at else None,
+                total_duration_ms=wr.total_duration_ms,
+                tasks_completed=wr.tasks_completed,
+                tasks_failed=wr.tasks_failed,
+                tasks_retried=wr.tasks_retried,
+                chaos_events_handled=wr.chaos_events_handled,
+                task_results=[
+                    TaskResult(
+                        task_id=tr.task_id,
+                        status=tr.status,
+                        started_at=tr.started_at.isoformat(),
+                        completed_at=tr.completed_at.isoformat() if tr.completed_at else None,
+                        duration_ms=tr.duration_ms,
+                        assigned_agent_id=tr.assigned_agent_id,
+                        chaos_occurred=tr.chaos_occurred,
+                        chaos_type=tr.chaos_type,
+                        error_message=tr.error_message,
+                        retry_count=tr.retry_count,
+                    )
+                    for tr in wr.task_results
+                ],
+            )
+            for wr in result.workflow_results
+        ]
 
         _active_scenarios[scenario_id]["workflow_results"] = workflow_results
-        _active_scenarios[scenario_id]["status"] = "completed"
-        _active_scenarios[scenario_id]["completed_at"] = datetime.utcnow().isoformat()
+        _active_scenarios[scenario_id]["status"] = result.status
+        _active_scenarios[scenario_id]["completed_at"] = result.completed_at.isoformat() if result.completed_at else datetime.utcnow().isoformat()
+        _active_scenarios[scenario_id]["execution_result"] = {
+            "verdict": result.verdict,
+            "analysis": result.analysis,
+            "validation": result.validation,
+            "completion_rate": result.completion_rate,
+            "chaos_recovery_rate": result.chaos_recovery_rate,
+            "throughput_wf_per_sec": result.throughput_wf_per_sec,
+            "total_cost_usd": result.total_cost_usd,
+        }
 
     background_tasks.add_task(run_scenario)
 
@@ -451,7 +535,7 @@ async def submit_scenario(
         status="queued",
         scenario_id=scenario_id,
         workflows_queued=len(scenario.workflows),
-        message=f"Scenario queued with {len(scenario.workflows)} workflows",
+        message=f"Scenario queued with {len(scenario.workflows)} workflows (using SimulationExecutor)",
     )
 
 
@@ -459,12 +543,13 @@ async def submit_scenario(
 async def get_scenario_result(
     scenario_id: str,
 ):
-    """Get the result of a stress scenario."""
+    """Get the result of a stress scenario with FARM-compatible validation."""
     if scenario_id not in _active_scenarios:
         raise HTTPException(status_code=404, detail="Scenario not found")
 
     scenario_data = _active_scenarios[scenario_id]
     workflow_results = scenario_data.get("workflow_results", [])
+    execution_result = scenario_data.get("execution_result", {})
 
     # Calculate metrics
     started_at = datetime.fromisoformat(scenario_data["started_at"])
@@ -482,20 +567,51 @@ async def get_scenario_result(
     tasks_completed = sum(r.tasks_completed for r in workflow_results)
     tasks_failed = sum(r.tasks_failed for r in workflow_results)
     chaos_total = sum(r.chaos_events_handled for r in workflow_results)
+    chaos_recovered = sum(
+        getattr(r, 'chaos_events_recovered', r.chaos_events_handled)
+        for r in workflow_results
+    )
 
     throughput = len(workflow_results) / (duration_ms / 1000) if duration_ms > 0 else 0
-    completion_rate = workflows_completed / len(workflow_results) if workflow_results else 0
+    completion_rate = execution_result.get("completion_rate",
+        workflows_completed / len(workflow_results) if workflow_results else 0
+    )
+    chaos_recovery_rate = execution_result.get("chaos_recovery_rate",
+        chaos_recovered / chaos_total if chaos_total > 0 else 1.0
+    )
 
-    # Validate against expected
-    scenario = scenario_data.get("scenario")
-    validation = {}
-    if scenario and hasattr(scenario, "__expected__") and scenario.__expected__:
-        expected = scenario.__expected__
-        validation = {
-            "total_tasks_match": total_tasks == expected.get("total_tasks", total_tasks),
-            "completion_rate_ok": completion_rate >= expected.get("expected_completion_rate", 0),
-            "chaos_events_match": chaos_total <= expected.get("total_chaos_events", chaos_total) + 5,
-        }
+    # Get validation and verdict from execution result
+    validation = execution_result.get("validation", {})
+    verdict = execution_result.get("verdict", "PENDING")
+    analysis = execution_result.get("analysis", {})
+    total_cost_usd = execution_result.get("total_cost_usd", 0.0)
+
+    # If no execution result yet, calculate basic validation
+    if not validation:
+        scenario = scenario_data.get("scenario")
+        if scenario and hasattr(scenario, "expected") and scenario.expected:
+            expected = scenario.expected
+            validation = {
+                "completion_rate": {
+                    "expected": expected.get("expected_completion_rate", 0.8),
+                    "actual": completion_rate,
+                    "passed": completion_rate >= expected.get("expected_completion_rate", 0.8),
+                },
+                "chaos_recovery": {
+                    "expected": 0.8,
+                    "actual": chaos_recovery_rate,
+                    "passed": chaos_recovery_rate >= 0.8,
+                },
+            }
+
+        # Calculate verdict if not from executor
+        if verdict == "PENDING" and scenario_data["status"] == "completed":
+            if completion_rate >= 0.95 and chaos_recovery_rate >= 0.8:
+                verdict = "PASS"
+            elif completion_rate >= 0.8 and chaos_recovery_rate >= 0.5:
+                verdict = "DEGRADED"
+            else:
+                verdict = "FAIL"
 
     return ScenarioResult(
         scenario_id=scenario_id,
@@ -509,11 +625,15 @@ async def get_scenario_result(
         tasks_completed=tasks_completed,
         tasks_failed=tasks_failed,
         chaos_events_total=chaos_total,
-        chaos_events_recovered=chaos_total,  # All chaos handled
+        chaos_events_recovered=chaos_recovered,
         throughput_wf_per_sec=throughput,
         completion_rate=completion_rate,
+        chaos_recovery_rate=chaos_recovery_rate,
         workflow_results=workflow_results,
         validation=validation,
+        verdict=verdict,
+        analysis=analysis,
+        total_cost_usd=total_cost_usd,
     )
 
 
