@@ -36,7 +36,7 @@ export const liveStatusRegistry: Record<string, LiveStatusConfig> = {
   },
   'aod-dashboard': {
     status: 'live',
-    tooltip: 'Live external AOD Dashboard (aos-discover.replit.app)'
+    tooltip: 'Live external AOD Dashboard (discover.autonomos.software)'
   },
   'finops-agent': {
     status: 'live',
