@@ -26,8 +26,8 @@ def test_agent(agent_name, entity="opportunities"):
             )
             if read_response.status_code == 200:
                 read_status = "OK"
-        except:
-            pass
+        except Exception:
+            pass  # Network or timeout error - read_status remains FAIL
         
         # Test intent execution
         try:
@@ -40,11 +40,11 @@ def test_agent(agent_name, entity="opportunities"):
                 intent_status = "OK"
                 response_data = intent_response.json()
                 trace_id = response_data.get("trace_id", "")
-        except:
-            pass
-    
-    except:
-        pass
+        except Exception:
+            pass  # Network or timeout error - intent_status remains FAIL
+
+    except Exception:
+        pass  # Outer exception handler - statuses remain FAIL
     
     print(f"DOD_AGENT:{agent_name}:READ: {read_status}")
     print(f"DOD_AGENT:{agent_name}:INTENT: {intent_status} TRACE={trace_id}")

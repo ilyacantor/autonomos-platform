@@ -442,7 +442,7 @@ if os.path.exists(STATIC_DIR) and os.path.isdir(STATIC_DIR):
         try:
             git_sha = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'],
                                              stderr=subprocess.DEVNULL).decode().strip()
-        except:
+        except Exception:
             git_sha = 'unknown'
 
         return {

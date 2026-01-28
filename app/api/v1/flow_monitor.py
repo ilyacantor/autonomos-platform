@@ -239,13 +239,13 @@ async def flow_monitor_websocket(
                 "type": "error",
                 "message": str(e)
             })
-        except:
-            pass
+        except Exception:
+            pass  # WebSocket may already be closed
     finally:
         try:
             await websocket.close()
-        except:
-            pass
+        except Exception:
+            pass  # WebSocket may already be closed
 
 
 @router.post("/flow-monitor/demo")

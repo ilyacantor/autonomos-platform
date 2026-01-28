@@ -64,8 +64,8 @@ def main():
                     if view_data.get("success"):
                         count = view_data.get("meta", {}).get("count", 0)
                         view_rows += count
-            except:
-                pass
+            except Exception:
+                pass  # Network or timeout error - continue with next entity
         
         print(f"DOD_SOURCE:{source_name}:VIEW_ROWS: {view_rows}")
         

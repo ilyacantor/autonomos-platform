@@ -22,8 +22,8 @@ def get_auth_token(api_url: str = "http://localhost:5000") -> str:
         response = requests.post(f"{api_url}/api/v1/auth/register", json=register_data)
         if response.status_code == 200:
             print("✅ Test user registered successfully")
-    except:
-        pass  # User may already exist
+    except Exception:
+        pass  # User may already exist, or network error - continue to login
     
     # Login to get token
     login_data = {
