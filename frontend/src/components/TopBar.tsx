@@ -21,7 +21,7 @@ export default function TopBar({ onAuthOpen, currentPage, onNavigate }: TopBarPr
   const [hasNotifications] = useState(true);
 
   const navItems: NavItem[] = [
-    { id: 'architecture', label: 'Guide', icon: <BookOpen className="w-5 h-5" />, tooltip: 'Platform documentation' },
+    { id: 'guide', label: 'Guide', icon: <BookOpen className="w-5 h-5" />, tooltip: 'Platform documentation' },
     { id: 'aos-overview', label: 'Overview', icon: <Sparkles className="w-5 h-5" />, tooltip: 'Interactive platform overview' },
     { id: 'discover', label: 'Discover', icon: <Search className="w-5 h-5" />, tooltip: 'Step 1: Asset discovery' },
     { id: 'connect', label: 'Connect', icon: <Cable className="w-5 h-5" />, tooltip: 'Step 2: Self-healing connectivity' },
@@ -38,7 +38,7 @@ export default function TopBar({ onAuthOpen, currentPage, onNavigate }: TopBarPr
         {/* Logo */}
         <div className="flex-shrink-0 -ml-[10px]">
           <button
-            onClick={() => onNavigate('architecture')}
+            onClick={() => onNavigate('guide')}
             className="hover:opacity-80 transition-opacity cursor-pointer"
           >
             <img 
