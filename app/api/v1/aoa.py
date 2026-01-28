@@ -20,6 +20,72 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+
+@router.get("/dashboard")
+async def get_aoa_dashboard():
+    """
+    Get AOA dashboard metrics for the orchestration UI.
+    Returns current system vitals, agent status, and key metrics.
+    """
+    from datetime import datetime, timedelta
+    import random
+
+    # Return dashboard metrics (in production, these would come from actual monitoring)
+    return {
+        "vitals": {
+            "agentUptime": 99.2,
+            "activeAgents": {
+                "current": 12,
+                "max": 20
+            },
+            "failedSteps24h": 3,
+            "anomalyDetections24h": 7,
+            "humanOverrides": 2,
+            "triggerCountPerMin": 145,
+            "computeLoadAvg": 42
+        },
+        "agents": [
+            {"id": "finops_pilot", "name": "FinOps Pilot", "status": "running", "tasks_completed": 156},
+            {"id": "revops_pilot", "name": "RevOps Pilot", "status": "running", "tasks_completed": 89},
+            {"id": "dataops_agent", "name": "DataOps Agent", "status": "idle", "tasks_completed": 234},
+            {"id": "secops_agent", "name": "SecOps Agent", "status": "running", "tasks_completed": 67}
+        ],
+        "recentActivity": [
+            {"timestamp": datetime.utcnow().isoformat(), "message": "FinOps Pilot completed cost analysis", "type": "success"},
+            {"timestamp": (datetime.utcnow() - timedelta(minutes=5)).isoformat(), "message": "RevOps Pilot synced pipeline data", "type": "success"},
+            {"timestamp": (datetime.utcnow() - timedelta(minutes=12)).isoformat(), "message": "Anomaly detected in data stream", "type": "warning"}
+        ],
+        "timestamp": datetime.utcnow().isoformat()
+    }
+
+
+@router.get("/events")
+async def get_aoa_events(limit: int = 50):
+    """
+    Get recent AOA orchestration events.
+    Returns event stream data for the dashboard.
+    """
+    from datetime import datetime, timedelta
+
+    # Generate mock events (in production, these would come from event store)
+    events = [
+        {
+            "id": f"evt-{i}",
+            "type": ["agent_task_complete", "drift_detected", "approval_required", "sync_success"][i % 4],
+            "source": ["FinOps Pilot", "RevOps Pilot", "DataOps Agent", "SecOps Agent"][i % 4],
+            "message": f"Event {i}: Task completed successfully",
+            "timestamp": (datetime.utcnow() - timedelta(minutes=i * 2)).isoformat(),
+            "severity": ["info", "warning", "info", "info"][i % 4]
+        }
+        for i in range(min(limit, 20))
+    ]
+
+    return {
+        "events": events,
+        "total": len(events),
+        "timestamp": datetime.utcnow().isoformat()
+    }
+
 # Initialize Redis connection (optional)
 redis_conn = None
 task_queue = None
