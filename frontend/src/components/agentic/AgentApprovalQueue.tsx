@@ -6,9 +6,13 @@
  * - Action details review
  * - Approve/Reject with notes
  * - Expiration countdown
+ *
+ * Uses the following reusable hooks:
+ * - usePolledData: For automatic data fetching with polling
+ * - useStatusColors: For consistent risk level color mapping
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   AlertTriangle,
   CheckCircle,
@@ -22,6 +26,8 @@ import {
   ExternalLink,
   MessageSquare,
 } from 'lucide-react';
+import { usePolledData } from '../../hooks/usePolledData';
+import { useStatusColors } from '../../hooks/useStatusColors';
 
 interface ApprovalRequest {
   approval_id: string;
@@ -44,43 +50,40 @@ interface AgentApprovalQueueProps {
   onApprovalComplete?: () => void;
 }
 
+// Fetch function for approvals
+const fetchApprovalsFromApi = async (): Promise<ApprovalRequest[]> => {
+  const token = localStorage.getItem('token');
+  const response = await fetch('/api/v1/agents/approvals?status=pending', {
+    headers: {
+      Authorization: token ? `Bearer ${token}` : '',
+    },
+  });
+
+  if (response.ok) {
+    const data = await response.json();
+    return data.approvals || [];
+  }
+  throw new Error('Failed to fetch approvals');
+};
+
 export default function AgentApprovalQueue({ onApprovalComplete }: AgentApprovalQueueProps) {
-  const [approvals, setApprovals] = useState<ApprovalRequest[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Use the reusable hook for data fetching with polling (30 second interval)
+  const { data: fetchedApprovals, loading, refresh } = usePolledData<ApprovalRequest[]>(
+    fetchApprovalsFromApi,
+    30000
+  );
+
+  // Use the reusable hook for consistent status colors
+  const { getSeverityColors } = useStatusColors();
+
+  // Local state for approvals (can be modified when approving/rejecting)
+  const [localApprovals, setLocalApprovals] = useState<ApprovalRequest[] | null>(null);
   const [selectedApproval, setSelectedApproval] = useState<ApprovalRequest | null>(null);
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  // Fetch pending approvals
-  useEffect(() => {
-    fetchApprovals();
-    // Poll for new approvals every 30 seconds
-    const interval = setInterval(fetchApprovals, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const fetchApprovals = async () => {
-    setLoading(true);
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('/api/v1/agents/approvals?status=pending', {
-        headers: {
-          Authorization: token ? `Bearer ${token}` : '',
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setApprovals(data.approvals || []);
-      }
-    } catch (error) {
-      console.error('Failed to fetch approvals:', error);
-      // Use mock data for demo
-      setApprovals(getMockApprovals());
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Use fetched approvals, fall back to mock data on error, allow local overrides
+  const approvals = localApprovals ?? fetchedApprovals ?? getMockApprovals();
 
   // Mock data for demonstration
   const getMockApprovals = (): ApprovalRequest[] => [
@@ -169,9 +172,9 @@ export default function AgentApprovalQueue({ onApprovalComplete }: AgentApproval
         body: JSON.stringify({ approved, notes }),
       });
 
-      // Remove from list
-      setApprovals((prev) =>
-        prev.filter((a) => a.approval_id !== selectedApproval.approval_id)
+      // Remove from local list (optimistic update)
+      setLocalApprovals(
+        approvals.filter((a) => a.approval_id !== selectedApproval.approval_id)
       );
       setSelectedApproval(null);
       setNotes('');
@@ -184,18 +187,32 @@ export default function AgentApprovalQueue({ onApprovalComplete }: AgentApproval
     }
   };
 
-  // Get risk level display
+  // Get risk level display using the centralized color utility
+  // Maps risk levels to severity types for consistent styling
   const getRiskDisplay = (level: string) => {
-    switch (level) {
-      case 'critical':
-        return { color: 'text-red-400', bg: 'bg-red-500/20', border: 'border-red-500/50' };
-      case 'high':
-        return { color: 'text-orange-400', bg: 'bg-orange-500/20', border: 'border-orange-500/50' };
-      case 'medium':
-        return { color: 'text-yellow-400', bg: 'bg-yellow-500/20', border: 'border-yellow-500/50' };
-      default:
-        return { color: 'text-green-400', bg: 'bg-green-500/20', border: 'border-green-500/50' };
-    }
+    // Map risk levels to severity types
+    const severityMap: Record<string, string> = {
+      critical: 'error',
+      high: 'warning',
+      medium: 'warning',
+      low: 'success',
+    };
+    const severity = severityMap[level] || 'info';
+    const colors = getSeverityColors(severity);
+
+    // Add border color for risk display
+    const borderMap: Record<string, string> = {
+      critical: 'border-red-500/50',
+      high: 'border-orange-500/50',
+      medium: 'border-yellow-500/50',
+      low: 'border-green-500/50',
+    };
+
+    return {
+      color: colors.text,
+      bg: colors.badge.split(' ')[0], // Get just the bg class
+      border: borderMap[level] || 'border-gray-500/50',
+    };
   };
 
   // Calculate time remaining
@@ -241,7 +258,7 @@ export default function AgentApprovalQueue({ onApprovalComplete }: AgentApproval
             </div>
           )}
           <button
-            onClick={fetchApprovals}
+            onClick={refresh}
             className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
             title="Refresh"
           >

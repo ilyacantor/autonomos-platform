@@ -8,6 +8,12 @@
  * - Workflow execution progress
  * - Chaos injection/recovery tracking
  * - FARM expectations validation
+ *
+ * Uses the following reusable hooks:
+ * - useStatusColors: For consistent status color mapping
+ *
+ * Note: This component uses custom polling logic with dynamic intervals
+ * based on activity level, so it doesn't use usePolledData directly.
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -35,6 +41,7 @@ import FleetStatusPanel from './FleetStatusPanel';
 import WorkflowExecutionGrid from './WorkflowExecutionGrid';
 import ChaosMonitorPanel from './ChaosMonitorPanel';
 import FarmExpectationsPanel from './FarmExpectationsPanel';
+import { useStatusColors } from '../../hooks/useStatusColors';
 
 // Types
 interface DashboardData {
@@ -128,6 +135,9 @@ export default function FarmStressTestMonitor() {
   const [pollInterval, setPollInterval] = useState(POLL_INTERVAL_IDLE);
 
   const eventSourceRef = useRef<EventSource | null>(null);
+
+  // Use the reusable hook for consistent status colors
+  const { getHealthStatusColor } = useStatusColors();
 
   // Fetch dashboard data
   const fetchDashboard = useCallback(async () => {
@@ -237,7 +247,7 @@ export default function FarmStressTestMonitor() {
     );
   }
 
-  // Calculate verdict color
+  // Calculate verdict color (specific to stress test verdicts)
   const getVerdictColor = (verdict: string) => {
     switch (verdict) {
       case 'PASS':
@@ -251,18 +261,8 @@ export default function FarmStressTestMonitor() {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'healthy':
-        return 'text-green-500';
-      case 'warning':
-        return 'text-yellow-500';
-      case 'critical':
-        return 'text-red-500';
-      default:
-        return 'text-gray-500';
-    }
-  };
+  // Note: getHealthStatusColor from useStatusColors is used instead of a local getStatusColor
+  // This provides consistent status color mapping across the application
 
   return (
     <div className="space-y-6 p-6">

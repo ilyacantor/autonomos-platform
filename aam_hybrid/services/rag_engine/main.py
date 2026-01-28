@@ -13,8 +13,9 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="AAM RAG Engine",
-    description="Contextual RAG for API mapping recommendations (Skeleton Service)",
-    version="1.0.0"
+    description="DEPRECATED: This service is a no-op stub. Use DCL Intelligence API directly.",
+    version="1.0.0",
+    deprecated=True
 )
 
 app.add_middleware(
@@ -37,8 +38,8 @@ async def root():
     """Root endpoint"""
     return {
         "service": "rag_engine",
-        "status": "skeleton",
-        "message": "RAG Engine service - Implementation coming in future phases"
+        "status": "deprecated",
+        "message": "DEPRECATED: This service is a no-op stub. All methods return empty values. Use DCL Intelligence API directly."
     }
 
 

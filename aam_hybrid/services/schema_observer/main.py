@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="AAM Schema Observer",
-    description="Schema drift detection and monitoring (Skeleton Service)",
+    description="Schema drift detection and monitoring for Airbyte connections",
     version="1.0.0"
 )
 

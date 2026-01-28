@@ -5,9 +5,14 @@ DEPRECATED: This service no longer performs local LLM/RAG operations.
 All intelligence is delegated to DCL Intelligence API (100% RACI compliance).
 
 This service now acts as a thin proxy that delegates to DCL.
+
+WARNING: This module is deprecated and scheduled for removal.
+All methods are no-op stubs that log warnings and return empty values.
+Use DCL Intelligence API directly instead.
 """
 import json
 import logging
+import warnings
 from typing import List, Optional
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,12 +26,22 @@ logger = logging.getLogger(__name__)
 class RAGEngine:
     """
     PHASE 2 RACI COMPLIANT: Proxy to DCL Intelligence API
-    
+
     This service no longer performs local LLM/RAG operations.
     All intelligence is delegated to DCL Intelligence Layer.
+
+    .. deprecated::
+        This class is deprecated and all methods are no-op stubs.
+        Use DCL Intelligence API directly instead.
     """
-    
+
     def __init__(self):
+        warnings.warn(
+            "RAGEngine is deprecated and scheduled for removal. "
+            "All methods are no-op stubs. Use DCL Intelligence API directly.",
+            DeprecationWarning,
+            stacklevel=2
+        )
         # PHASE 2: No local LLM client - delegate to DCL Intelligence API
         logger.info("RAGEngine initialized (PHASE 2 - RACI COMPLIANT): Delegates to DCL Intelligence API")
     
@@ -81,12 +96,21 @@ class RAGEngine:
     async def retrieve_similar_repairs(self, error_signature: str, top_k: int = 5) -> List[dict]:
         """
         PHASE 2 RACI COMPLIANT: Delegated to DCL Intelligence API
-        
+
         AAM no longer performs local RAG operations.
         This method returns empty results - DCL handles similarity search.
+
+        .. deprecated::
+            This method is a no-op stub. Use DCL Intelligence API's RAGLookupService.
         """
+        warnings.warn(
+            "retrieve_similar_repairs is deprecated and returns empty results. "
+            "Use DCL Intelligence API's RAGLookupService directly.",
+            DeprecationWarning,
+            stacklevel=2
+        )
         logger.info(
-            "⚠️ PHASE 2: retrieve_similar_repairs called but AAM no longer performs RAG. "
+            "DEPRECATED: retrieve_similar_repairs called but AAM no longer performs RAG. "
             "DCL Intelligence API handles all similarity search via RAGLookupService."
         )
         return []
@@ -99,12 +123,21 @@ class RAGEngine:
     ) -> tuple[Optional[dict], float]:
         """
         PHASE 2 RACI COMPLIANT: Delegated to DCL Intelligence API
-        
+
         AAM no longer performs local LLM operations.
         This method returns None - DCL handles proposal generation.
+
+        .. deprecated::
+            This method is a no-op stub. Use DCL Intelligence API's LLMProposalService.
         """
+        warnings.warn(
+            "generate_repair_proposal is deprecated and returns (None, 0.0). "
+            "Use DCL Intelligence API's LLMProposalService directly.",
+            DeprecationWarning,
+            stacklevel=2
+        )
         logger.info(
-            "⚠️ PHASE 2: generate_repair_proposal called but AAM no longer performs LLM operations. "
+            "DEPRECATED: generate_repair_proposal called but AAM no longer performs LLM operations. "
             "DCL Intelligence API handles all proposal generation via LLMProposalService."
         )
         return None, 0.0
@@ -118,12 +151,21 @@ class RAGEngine:
     ):
         """
         PHASE 2 RACI COMPLIANT: Delegated to DCL Intelligence API
-        
+
         AAM no longer stores repair knowledge locally.
         DCL handles all knowledge base operations.
+
+        .. deprecated::
+            This method is a no-op stub. DCL Intelligence API handles knowledge base storage.
         """
+        warnings.warn(
+            "store_successful_repair is deprecated and does nothing. "
+            "DCL Intelligence API handles all knowledge base storage.",
+            DeprecationWarning,
+            stacklevel=2
+        )
         logger.info(
-            "⚠️ PHASE 2: store_successful_repair called but AAM no longer maintains RAG knowledge base. "
+            "DEPRECATED: store_successful_repair called but AAM no longer maintains RAG knowledge base. "
             "DCL Intelligence API handles all knowledge base storage."
         )
         return

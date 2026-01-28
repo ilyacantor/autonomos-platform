@@ -3,12 +3,18 @@
  *
  * Displays real-time performance metrics for each agent from the API.
  * Shows: execution rates, success rates, duration, cost, and status.
+ *
+ * Uses the following reusable hooks:
+ * - usePolledData: For automatic data fetching with polling
+ * - useStatusColors: For consistent status color mapping
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useState } from 'react';
 import { RefreshCw, AlertTriangle, ExternalLink, TrendingUp, Clock, DollarSign, Zap, Plus } from 'lucide-react';
 import type { AgentPerformance, AgentPerformanceResponse, AgentStatus } from './types';
 import { fetchAgentPerformance, seedDemoAgents } from './api';
+import { usePolledData } from '../../hooks/usePolledData';
+import { useStatusColors } from '../../hooks/useStatusColors';
 
 // Polling interval in milliseconds
 const POLL_INTERVAL = 15000;
@@ -33,53 +39,26 @@ function getAgentUrl(agentName: string): string | null {
 }
 
 export default function AgentPerformanceMonitor() {
-  const [data, setData] = useState<AgentPerformanceResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [seeding, setSeeding] = useState(false);
+  // Use the reusable hooks for data fetching and status colors
+  const { data, loading, error, refresh } = usePolledData<AgentPerformanceResponse>(
+    () => fetchAgentPerformance(20),
+    POLL_INTERVAL
+  );
+  const { getAgentStatusColor } = useStatusColors();
 
-  const loadPerformance = useCallback(async () => {
-    try {
-      const response = await fetchAgentPerformance(20);
-      setData(response);
-      setError(null);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const [seeding, setSeeding] = useState(false);
+  const [seedError, setSeedError] = useState<string | null>(null);
 
   const handleSeedAgents = async () => {
     setSeeding(true);
+    setSeedError(null);
     try {
       await seedDemoAgents();
-      await loadPerformance();
+      refresh(); // Trigger a refresh after seeding
     } catch (err: any) {
-      setError(err.message);
+      setSeedError(err.message);
     } finally {
       setSeeding(false);
-    }
-  };
-
-  useEffect(() => {
-    loadPerformance();
-    const interval = setInterval(loadPerformance, POLL_INTERVAL);
-    return () => clearInterval(interval);
-  }, [loadPerformance]);
-
-  const getStatusColor = (status: AgentStatus) => {
-    switch (status) {
-      case 'running':
-        return 'bg-green-500';
-      case 'warning':
-        return 'bg-yellow-500';
-      case 'error':
-        return 'bg-red-500';
-      case 'idle':
-        return 'bg-gray-500';
-      default:
-        return 'bg-gray-500';
     }
   };
 
@@ -126,15 +105,17 @@ export default function AgentPerformanceMonitor() {
     );
   }
 
-  if (error && !data) {
+  // Display error for data fetching or seeding
+  const displayError = error || seedError;
+  if (displayError && !data) {
     return (
       <div className="bg-gray-900 rounded-xl border border-red-500/30 p-6 h-full">
         <div className="flex items-center gap-3 text-red-400">
           <AlertTriangle className="w-6 h-6" />
-          <span>Failed to load performance: {error}</span>
+          <span>Failed to load performance: {displayError}</span>
         </div>
         <button
-          onClick={loadPerformance}
+          onClick={refresh}
           className="mt-4 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-gray-200 text-sm"
         >
           Retry
@@ -242,7 +223,7 @@ export default function AgentPerformanceMonitor() {
                   <td className="py-3">
                     <div className="flex justify-center">
                       <div
-                        className={`w-2.5 h-2.5 rounded-full ${getStatusColor(agent.status)} ${
+                        className={`w-2.5 h-2.5 rounded-full ${getAgentStatusColor(agent.status)} ${
                           agent.status === 'running' ? 'animate-pulse' : ''
                         }`}
                         title={agent.status}
