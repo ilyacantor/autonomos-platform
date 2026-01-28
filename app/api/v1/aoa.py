@@ -26,36 +26,62 @@ async def get_aoa_dashboard():
     """
     Get AOA dashboard metrics for the orchestration UI.
     Returns current system vitals, agent status, and key metrics.
+    Schema matches DashboardData interface expected by OrchestrationDashboard.tsx
     """
-    from datetime import datetime, timedelta
-    import random
+    from datetime import datetime
 
-    # Return dashboard metrics (in production, these would come from actual monitoring)
+    # Return dashboard metrics matching frontend DashboardData interface
     return {
-        "vitals": {
-            "agentUptime": 99.2,
-            "activeAgents": {
-                "current": 12,
-                "max": 20
-            },
-            "failedSteps24h": 3,
-            "anomalyDetections24h": 7,
-            "humanOverrides": 2,
-            "triggerCountPerMin": 145,
-            "computeLoadAvg": 42
+        "timestamp": datetime.utcnow().isoformat(),
+        "tenant_id": "default",
+        "agents": {
+            "total_registered": 12,
+            "active": 10,
+            "inactive": 2,
+            "by_status": {"running": 8, "idle": 2, "stopped": 2},
+            "by_type": {"finops": 3, "revops": 3, "dataops": 4, "secops": 2},
+            "by_trust_tier": {"high": 5, "medium": 5, "low": 2}
         },
-        "agents": [
-            {"id": "finops_pilot", "name": "FinOps Pilot", "status": "running", "tasks_completed": 156},
-            {"id": "revops_pilot", "name": "RevOps Pilot", "status": "running", "tasks_completed": 89},
-            {"id": "dataops_agent", "name": "DataOps Agent", "status": "idle", "tasks_completed": 234},
-            {"id": "secops_agent", "name": "SecOps Agent", "status": "running", "tasks_completed": 67}
-        ],
-        "recentActivity": [
-            {"timestamp": datetime.utcnow().isoformat(), "message": "FinOps Pilot completed cost analysis", "type": "success"},
-            {"timestamp": (datetime.utcnow() - timedelta(minutes=5)).isoformat(), "message": "RevOps Pilot synced pipeline data", "type": "success"},
-            {"timestamp": (datetime.utcnow() - timedelta(minutes=12)).isoformat(), "message": "Anomaly detected in data stream", "type": "warning"}
-        ],
-        "timestamp": datetime.utcnow().isoformat()
+        "workflows": {
+            "active_workflows": 7,
+            "completed_24h": 156,
+            "failed_24h": 3,
+            "completion_rate": 0.98,
+            "avg_duration_ms": 2340,
+            "throughput_per_min": 12.5
+        },
+        "chaos": {
+            "events_triggered": 24,
+            "events_recovered": 22,
+            "events_failed": 2,
+            "recovery_rate": 0.92,
+            "by_type": {"network": 8, "latency": 10, "failure": 6}
+        },
+        "costs": {
+            "today_usd": 12.50,
+            "week_usd": 78.25,
+            "month_usd": 312.00,
+            "tokens_today": 125000,
+            "budget_remaining_usd": 687.00,
+            "budget_utilization": 0.31
+        },
+        "governance": {
+            "policies_active": 8,
+            "policy_violations_24h": 2,
+            "pending_approvals": 3,
+            "approvals_auto_approved": 45,
+            "approvals_escalated": 5
+        },
+        "vitals": {
+            "cpu_usage": 42.5,
+            "memory_usage": 68.2,
+            "workflows_active": 7,
+            "throughput_tps": 145,
+            "chaos_recovery_rate": 0.92,
+            "status": "healthy"
+        },
+        "simulation_active": False,
+        "simulation_scenario_id": None
     }
 
 
