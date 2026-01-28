@@ -14,8 +14,6 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import CanonicalStream
-# from services.aam.canonical.mapping_registry import mapping_registry
-# from services.aam.canonical.schemas import CanonicalEvent, CanonicalMeta, CanonicalSource, CanonicalOpportunity
 
 DEMO_TENANT_UUID = "9ac5c8c6-1a02-48ff-84a0-122b67f9c3bd"
 
