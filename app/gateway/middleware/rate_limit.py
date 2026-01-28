@@ -68,6 +68,7 @@ async def rate_limit_middleware(request: Request, call_next: Callable):
     # Exempt orchestration dashboard endpoints (polled frequently)
     exempt_prefixes = [
         "/api/v1/orchestration/",
+        "/api/v1/aoa/",  # AOA dashboard & events (same functionality as orchestration)
         "/static/",
     ]
 
