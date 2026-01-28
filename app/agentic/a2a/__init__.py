@@ -5,7 +5,7 @@ Enterprise agent collaboration system based on Google's A2A specification:
 - Agent Card for discoverability
 - Discovery service for finding agents
 - Delegation protocol for task handoff
-- Context sharing between agents
+- Context sharing between agents with shift-left PII detection
 """
 
 from .agent_card import (
@@ -21,6 +21,7 @@ from .discovery import (
     get_agent_discovery,
 )
 from .delegation import (
+    DelegationContext,
     DelegationRequest,
     DelegationResponse,
     DelegationStatus,
@@ -33,6 +34,15 @@ from .protocol import (
     A2AMessageType,
     A2AProtocol,
     get_a2a_protocol,
+)
+from .context_sharing import (
+    ContextSharingProtocol,
+    SafeContext,
+    PIIScanResult,
+    PIIPolicy,
+    PIIBlockedException,
+    RiskLevel,
+    get_context_sharing_protocol,
 )
 
 __all__ = [
@@ -47,6 +57,7 @@ __all__ = [
     "DiscoveryFilter",
     "get_agent_discovery",
     # Delegation
+    "DelegationContext",
     "DelegationRequest",
     "DelegationResponse",
     "DelegationStatus",
@@ -58,4 +69,12 @@ __all__ = [
     "A2AMessageType",
     "A2AProtocol",
     "get_a2a_protocol",
+    # Context Sharing (Shift-Left PII Detection)
+    "ContextSharingProtocol",
+    "SafeContext",
+    "PIIScanResult",
+    "PIIPolicy",
+    "PIIBlockedException",
+    "RiskLevel",
+    "get_context_sharing_protocol",
 ]

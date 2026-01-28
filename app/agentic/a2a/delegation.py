@@ -6,6 +6,11 @@ Enables agents to delegate tasks to other agents:
 - Delegation tracking and status
 - Result aggregation
 - Failure handling
+- Shift-Left PII detection at context ingress
+
+The shift-left pattern is implemented by scanning DelegationContext
+objects for PII before they are shared with delegatee agents. This
+ensures sensitive data is caught early in the delegation chain.
 """
 
 import asyncio
@@ -13,11 +18,14 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
 from uuid import UUID, uuid4
 
 from .agent_card import AgentCard
 from .discovery import AgentDiscovery, get_agent_discovery
+
+if TYPE_CHECKING:
+    from .context_sharing import PIIScanResult
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +54,7 @@ class DelegationType(str, Enum):
 class DelegationContext:
     """Context passed to the delegatee."""
     # Original request
-    original_input: str
+    original_input: str = ""
     original_context: Dict[str, Any] = field(default_factory=dict)
 
     # Delegation-specific
@@ -80,7 +88,12 @@ class DelegationContext:
 
 @dataclass
 class DelegationRequest:
-    """A request to delegate work to another agent."""
+    """
+    A request to delegate work to another agent.
+    
+    Includes shift-left PII detection via pii_policy and pii_scan_result fields.
+    The PII scan is performed at ingress, before context is shared with the delegatee.
+    """
     id: str = field(default_factory=lambda: str(uuid4()))
 
     # Parties
@@ -114,12 +127,16 @@ class DelegationRequest:
     # Metadata
     metadata: Dict[str, Any] = field(default_factory=dict)
 
+    # PII Detection (Shift-Left Pattern)
+    pii_policy: str = "WARN"  # BLOCK, REDACT, WARN, ALLOW
+    pii_scan_result: Optional[Any] = None  # PIIScanResult stored here after scan
+
     def is_expired(self) -> bool:
         """Check if the delegation request has expired."""
         return datetime.utcnow() > self.timeout_at
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        result_dict = {
             "id": self.id,
             "delegator_id": self.delegator_id,
             "delegatee_id": self.delegatee_id,
@@ -137,7 +154,14 @@ class DelegationRequest:
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
             "result": self.result,
             "error": self.error,
+            "pii_policy": self.pii_policy,
+            "pii_scan_result": (
+                self.pii_scan_result.to_dict()
+                if self.pii_scan_result and hasattr(self.pii_scan_result, 'to_dict')
+                else self.pii_scan_result
+            ),
         }
+        return result_dict
 
 
 @dataclass
@@ -222,9 +246,13 @@ class DelegationManager:
         delegation_type: DelegationType = DelegationType.FULL,
         priority: int = 5,
         timeout_seconds: int = 300,
+        pii_policy: str = "WARN",
     ) -> DelegationRequest:
         """
-        Create a delegation request.
+        Create a delegation request with shift-left PII detection.
+
+        Implements the shift-left security pattern by scanning context for PII
+        at ingress, before the context is shared with the delegatee agent.
 
         Args:
             delegator_id: Agent delegating the task
@@ -235,10 +263,22 @@ class DelegationManager:
             delegation_type: Type of delegation
             priority: Priority level (1-10)
             timeout_seconds: Timeout for the delegation
+            pii_policy: PII handling policy - BLOCK, REDACT, WARN (default), ALLOW
 
         Returns:
             Created DelegationRequest
+
+        Raises:
+            PIIBlockedException: If PII detected and policy is BLOCK
+            ValueError: If delegator not found or no delegatee available
         """
+        from .context_sharing import (
+            ContextSharingProtocol,
+            PIIPolicy,
+            PIIBlockedException,
+            get_context_sharing_protocol,
+        )
+
         # Get delegator card
         delegator = self.discovery.get(delegator_id)
         if not delegator:
@@ -276,6 +316,60 @@ class DelegationManager:
         # Add to delegation chain
         context.delegation_chain.append(delegator_id)
 
+        # Shift-Left PII Detection: Scan context at ingress
+        pii_scan_result = None
+        try:
+            policy_enum = PIIPolicy(pii_policy.upper())
+        except ValueError:
+            logger.warning(f"Invalid PII policy '{pii_policy}', defaulting to WARN")
+            policy_enum = PIIPolicy.WARN
+
+        try:
+            protocol = get_context_sharing_protocol(
+                policy=policy_enum,
+                tenant_id=delegator.tenant_id,
+            )
+            
+            # Process context through PII detection at ingress
+            safe_context = await protocol.process_ingress(
+                context=context,
+                policy=policy_enum,
+            )
+            
+            pii_scan_result = safe_context.scan_result
+            
+            # If REDACT policy was applied, update context with redacted values
+            if safe_context.scan_result and safe_context.scan_result.redaction_applied:
+                context = DelegationContext(
+                    original_input=safe_context.original_input,
+                    original_context=safe_context.original_context,
+                    delegation_reason=safe_context.delegation_reason,
+                    delegated_capability=safe_context.delegated_capability,
+                    max_steps=safe_context.max_steps,
+                    max_cost_usd=safe_context.max_cost_usd,
+                    timeout_seconds=safe_context.timeout_seconds,
+                    delegation_chain=safe_context.delegation_chain,
+                    shared_state=safe_context.shared_state,
+                )
+                logger.info(
+                    f"PII redacted from delegation context: "
+                    f"fields={safe_context.scan_result.redacted_fields}"
+                )
+
+        except PIIBlockedException as e:
+            # BLOCK policy: re-raise to caller
+            logger.warning(
+                f"Delegation blocked due to PII detection: "
+                f"scan_id={e.scan_result.scan_id}, "
+                f"match_count={e.scan_result.match_count}, "
+                f"risk_level={e.scan_result.risk_level.value}"
+            )
+            raise
+
+        except Exception as e:
+            # Scan failures should not block delegation (fail-open for availability)
+            logger.error(f"PII scan failed, proceeding with delegation: {e}")
+
         # Create request
         request = DelegationRequest(
             delegator_id=delegator_id,
@@ -286,6 +380,8 @@ class DelegationManager:
             delegation_type=delegation_type,
             priority=priority,
             timeout_at=datetime.utcnow() + timedelta(seconds=timeout_seconds),
+            pii_policy=pii_policy.upper(),
+            pii_scan_result=pii_scan_result,
         )
 
         # Store request

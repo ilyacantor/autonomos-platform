@@ -6,6 +6,7 @@ Inter-agent communication protocol:
 - Request/response handling
 - Context sharing
 - Error handling
+- Fabric Plane routing for action execution
 """
 
 import asyncio
@@ -20,6 +21,17 @@ from uuid import UUID, uuid4
 from .agent_card import AgentCard
 from .discovery import AgentDiscovery, get_agent_discovery
 from .delegation import DelegationManager, DelegationRequest, DelegationResponse, get_delegation_manager
+
+from ..fabric import (
+    ActionRouter,
+    ActionPayload,
+    RoutedAction,
+    FabricContext,
+    get_action_router,
+    FabricPreset,
+    ActionType,
+    TargetSystem,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +82,7 @@ class A2AMessage:
     A2A Protocol Message.
 
     The standard message format for agent-to-agent communication.
+    Includes fabric context for routing actions through the correct Fabric Plane.
     """
     id: str = field(default_factory=lambda: str(uuid4()))
     type: A2AMessageType = A2AMessageType.EXECUTE
@@ -92,6 +105,44 @@ class A2AMessage:
     # Metadata
     protocol_version: str = "1.1"
     metadata: Dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def primary_plane_id(self) -> Optional[str]:
+        """
+        Extract Primary_Plane_ID from metadata.
+        
+        CRITICAL: Agents MUST include Primary_Plane_ID to know where to route actions.
+        This tracks which Fabric Plane the message is routed through.
+        """
+        fabric_context = self.metadata.get("fabric_context", {})
+        return fabric_context.get("primary_plane_id")
+
+    @property
+    def fabric_preset(self) -> Optional[str]:
+        """
+        Extract fabric preset from metadata.
+        
+        Returns the Enterprise Preset Pattern (e.g., 'ipaas', 'api_gateway').
+        """
+        fabric_context = self.metadata.get("fabric_context", {})
+        return fabric_context.get("fabric_preset")
+
+    def with_fabric_context(self, context: FabricContext) -> "A2AMessage":
+        """
+        Enrich message with fabric routing metadata.
+        
+        CRITICAL CONSTRAINT: All actions MUST include fabric context
+        so agents know where commands are routed. Agents are FORBIDDEN
+        from making direct P2P connections unless in SCRAPPY mode.
+        
+        Args:
+            context: FabricContext with plane routing information
+            
+        Returns:
+            Self with updated metadata containing fabric_context
+        """
+        self.metadata["fabric_context"] = context.to_dict()
+        return self
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -137,7 +188,7 @@ class A2AMessage:
         payload: Dict[str, Any],
     ) -> "A2AMessage":
         """Create a reply message."""
-        return A2AMessage(
+        reply = A2AMessage(
             type=message_type,
             from_agent=self.to_agent,
             to_agent=self.from_agent,
@@ -145,6 +196,9 @@ class A2AMessage:
             in_reply_to=self.id,
             payload=payload,
         )
+        if "fabric_context" in self.metadata:
+            reply.metadata["fabric_context"] = self.metadata["fabric_context"]
+        return reply
 
     def create_error_reply(self, error: str, code: str = "ERROR") -> "A2AMessage":
         """Create an error reply message."""
@@ -162,16 +216,26 @@ class A2AProtocol:
     - Message routing
     - Request/response correlation
     - Protocol enforcement
+    - Fabric Plane routing for action execution
+    
+    CRITICAL FABRIC PLANE MESH CONSTRAINT:
+    - Agents MUST NOT make direct P2P connections unless in PRESET_6_SCRAPPY mode
+    - All actions MUST include Primary_Plane_ID in context
+    - The ActionRouter enforces this based on the tenant's configured preset
     """
 
     def __init__(
         self,
         discovery: Optional[AgentDiscovery] = None,
         delegation: Optional[DelegationManager] = None,
+        tenant_id: str = "default",
     ):
         """Initialize the protocol handler."""
         self.discovery = discovery or get_agent_discovery()
         self.delegation = delegation or get_delegation_manager()
+        self.tenant_id = tenant_id
+
+        self._action_router = get_action_router(tenant_id)
 
         # Message handlers by type
         self._handlers: Dict[A2AMessageType, List[Callable]] = {
@@ -194,6 +258,15 @@ class A2AProtocol:
         self.on_message(A2AMessageType.CAPABILITY_QUERY, self._handle_capability_query)
         self.on_message(A2AMessageType.DELEGATE, self._handle_delegate)
         self.on_message(A2AMessageType.STATUS_QUERY, self._handle_status_query)
+        self.on_message(A2AMessageType.EXECUTE, self._handle_execute)
+
+    def get_fabric_context(self) -> FabricContext:
+        """
+        Get the current fabric context for agent awareness.
+        
+        Agents MUST include Primary_Plane_ID to know where to route actions.
+        """
+        return self._action_router.get_fabric_context()
 
     def on_message(
         self,
@@ -464,6 +537,116 @@ class A2AProtocol:
             },
         )
 
+    async def _handle_execute(self, message: A2AMessage) -> A2AMessage:
+        """
+        Handle EXECUTE message by routing through the Fabric Plane Mesh.
+        
+        CRITICAL CONSTRAINT: All executions MUST route through the ActionRouter
+        which enforces Fabric Plane routing. Agents are FORBIDDEN from making
+        direct P2P connections unless in PRESET_6_SCRAPPY mode.
+        
+        RACI COMPLIANCE: This method validates/enriches fabric_context to ensure
+        all actions include Primary_Plane_ID. Missing context is auto-enriched
+        and logged for audit/telemetry purposes.
+        
+        Execution flow:
+        1. Validate/enrich fabric_context (auto-enrich if missing with telemetry)
+        2. Extract action details from EXECUTE message payload
+        3. Create an ActionPayload from the message
+        4. Route the action through ActionRouter
+        5. Return the execution result via EXECUTE_RESPONSE
+        
+        Args:
+            message: A2AMessage of type EXECUTE with action payload
+            
+        Returns:
+            A2AMessage with EXECUTE_RESPONSE containing the routed action result
+        """
+        payload = message.payload
+        fabric_context = self._action_router.get_fabric_context()
+        
+        # RACI COMPLIANCE: Validate/enrich fabric_context
+        # All actions MUST include Primary_Plane_ID - auto-enrich if missing
+        message_fabric_context = message.metadata.get("fabric_context", {})
+        message_plane_id = message_fabric_context.get("primary_plane_id")
+        
+        if not message_plane_id:
+            # Auto-enrich missing fabric_context and log for RACI audit
+            logger.warning(
+                f"RACI_AUDIT: EXECUTE message {message.id} from {message.from_agent} "
+                f"missing fabric_context.primary_plane_id - auto-enriching with "
+                f"plane_id={fabric_context.primary_plane_id}"
+            )
+            message.with_fabric_context(fabric_context)
+        else:
+            # Validate provided plane_id matches expected context
+            if message_plane_id != fabric_context.primary_plane_id:
+                logger.warning(
+                    f"RACI_AUDIT: EXECUTE message {message.id} has mismatched plane_id: "
+                    f"message={message_plane_id} vs expected={fabric_context.primary_plane_id} - "
+                    f"using message plane_id for routing"
+                )
+        
+        target_system_str = payload.get("target_system", "custom")
+        try:
+            target_system = TargetSystem(target_system_str)
+        except ValueError:
+            return message.create_error_reply(
+                f"Invalid target_system: {target_system_str}",
+                "INVALID_TARGET_SYSTEM",
+            )
+        
+        action_type_str = payload.get("action_type", "execute")
+        try:
+            action_type = ActionType(action_type_str)
+        except ValueError:
+            return message.create_error_reply(
+                f"Invalid action_type: {action_type_str}",
+                "INVALID_ACTION_TYPE",
+            )
+        
+        action_payload = ActionPayload(
+            target_system=target_system,
+            action_type=action_type,
+            entity_id=payload.get("entity_id"),
+            entity_type=payload.get("entity_type", "unknown"),
+            data=payload.get("data", {}),
+            metadata=payload.get("action_metadata", {}),
+        )
+        
+        routed_action: RoutedAction = await self._action_router.route(
+            payload=action_payload,
+            agent_id=message.from_agent,
+            correlation_id=message.correlation_id,
+        )
+        
+        response_payload = {
+            "action_id": routed_action.id,
+            "status": routed_action.status.value,
+            "fabric_preset": routed_action.fabric_preset.value if routed_action.fabric_preset else None,
+            "primary_plane_id": routed_action.primary_plane_id,
+            "execution_path": routed_action.execution_path,
+            "result": routed_action.result,
+            "error": routed_action.error,
+            "completed_at": routed_action.completed_at.isoformat() if routed_action.completed_at else None,
+            "fabric_context_enriched": not bool(message_plane_id),  # Flag if we auto-enriched
+        }
+        
+        response = message.create_reply(
+            A2AMessageType.EXECUTE_RESPONSE,
+            response_payload,
+        )
+        response.with_fabric_context(fabric_context)
+        
+        logger.info(
+            f"EXECUTE handled: action_id={routed_action.id} "
+            f"status={routed_action.status.value} "
+            f"via {routed_action.execution_path} "
+            f"(plane_id={routed_action.primary_plane_id}, enriched={not bool(message_plane_id)})"
+        )
+        
+        return response
+
     # Convenience methods for common operations
 
     async def ping(self, from_agent: str, to_agent: str) -> bool:
@@ -565,14 +748,86 @@ class A2AProtocol:
             return response.payload
         return {}
 
+    async def execute_action(
+        self,
+        from_agent: str,
+        to_agent: str,
+        target_system: str,
+        action_type: str,
+        entity_id: Optional[str] = None,
+        entity_type: str = "unknown",
+        data: Optional[Dict[str, Any]] = None,
+        action_metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Execute an action through the Fabric Plane Mesh via A2A protocol.
+        
+        This is the primary method for agents to execute actions on target systems.
+        All actions are routed through the ActionRouter which enforces Fabric Plane
+        routing based on the tenant's configured Enterprise Preset.
+        
+        CRITICAL CONSTRAINT: Direct P2P connections to SaaS apps are FORBIDDEN
+        unless in PRESET_6_SCRAPPY mode. All actions MUST include Primary_Plane_ID.
+        
+        Args:
+            from_agent: ID of the requesting agent
+            to_agent: ID of the executing agent
+            target_system: Target system (e.g., 'crm', 'erp', 'finance')
+            action_type: Type of action (e.g., 'create', 'update', 'read')
+            entity_id: Optional entity ID for the action
+            entity_type: Type of entity (e.g., 'customer', 'order')
+            data: Action data/payload
+            action_metadata: Additional metadata for the action
+            
+        Returns:
+            Dict containing the execution result with:
+            - action_id: Unique ID of the routed action
+            - status: Status of the execution (completed, failed, etc.)
+            - fabric_preset: The Enterprise Preset used for routing
+            - primary_plane_id: The Fabric Plane ID used for routing
+            - execution_path: The execution path (e.g., 'api_gateway', 'ipaas_recipe')
+            - result: The action result data
+            - error: Error message if failed
+        """
+        fabric_context = self._action_router.get_fabric_context()
+        
+        message = A2AMessage(
+            type=A2AMessageType.EXECUTE,
+            from_agent=from_agent,
+            to_agent=to_agent,
+            payload={
+                "target_system": target_system,
+                "action_type": action_type,
+                "entity_id": entity_id,
+                "entity_type": entity_type,
+                "data": data or {},
+                "action_metadata": action_metadata or {},
+            },
+        )
+        message.with_fabric_context(fabric_context)
+
+        response = await self.send(message)
+        if response and response.type == A2AMessageType.EXECUTE_RESPONSE:
+            return response.payload
+        elif response and response.type == A2AMessageType.ERROR:
+            return {
+                "status": "failed",
+                "error": response.payload.get("error", "Unknown error"),
+                "code": response.payload.get("code", "ERROR"),
+            }
+        return {
+            "status": "failed",
+            "error": "No response received",
+        }
+
 
 # Global protocol instance
 _protocol: Optional[A2AProtocol] = None
 
 
-def get_a2a_protocol() -> A2AProtocol:
+def get_a2a_protocol(tenant_id: str = "default") -> A2AProtocol:
     """Get the global A2A protocol instance."""
     global _protocol
     if _protocol is None:
-        _protocol = A2AProtocol()
+        _protocol = A2AProtocol(tenant_id=tenant_id)
     return _protocol
