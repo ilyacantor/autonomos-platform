@@ -23,6 +23,7 @@ export default function TopBar({ onAuthOpen, currentPage, onNavigate }: TopBarPr
   const navItems: NavItem[] = [
     { id: 'guide', label: 'Guide', icon: <BookOpen className="w-5 h-5" />, tooltip: 'Platform documentation' },
     { id: 'aos-overview', label: 'Overview', icon: <Sparkles className="w-5 h-5" />, tooltip: 'Interactive platform overview' },
+    { id: 'nlq', label: 'NLQ', icon: <Search className="w-5 h-5" />, tooltip: 'Natural Language Query' },
     { id: 'discover', label: 'AOD', icon: <Search className="w-5 h-5" />, tooltip: 'Asset & Observability Discovery' },
     { id: 'connect', label: 'AAM', icon: <Cable className="w-5 h-5" />, tooltip: 'Adaptive API Mesh' },
     { id: 'unify-ask', label: 'DCL', icon: <Database className="w-5 h-5" />, tooltip: 'Data Connectivity Layer' },

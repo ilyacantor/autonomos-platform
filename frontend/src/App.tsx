@@ -11,6 +11,7 @@ const ControlCenterPage = lazy(() => import('./components/ControlCenterPage'));
 const DiscoverPage = lazy(() => import('./components/DiscoverPage'));
 const ConnectPage = lazy(() => import('./components/ConnectPage'));
 const UnifyAskPage = lazy(() => import('./components/UnifyAskPage'));
+const NLQPage = lazy(() => import('./components/NLQPage'));
 const DemoPage = lazy(() => import('./components/DemoPage'));
 const OrchestrationDashboard = lazy(() => import('./components/orchestration/OrchestrationDashboard'));
 const GuidePage = lazy(() => import('./components/GuidePage'));
@@ -32,7 +33,7 @@ function AppContent() {
   // Initialize page from URL path
   const getInitialPage = () => {
     const path = window.location.pathname.slice(1); // Remove leading slash
-    const validPages = ['guide', 'aos-overview', 'control-center', 'discover', 'connect', 'unify-ask', 'demo', 'orchestration', 'faq'];
+    const validPages = ['guide', 'aos-overview', 'nlq', 'control-center', 'discover', 'connect', 'unify-ask', 'demo', 'orchestration', 'faq'];
     return validPages.includes(path) ? path : 'control-center';
   };
 
@@ -63,7 +64,7 @@ function AppContent() {
   useEffect(() => {
     const handlePopState = () => {
       const path = window.location.pathname.slice(1);
-      const validPages = ['guide', 'aos-overview', 'control-center', 'discover', 'connect', 'unify-ask', 'demo', 'orchestration', 'faq'];
+      const validPages = ['guide', 'aos-overview', 'nlq', 'control-center', 'discover', 'connect', 'unify-ask', 'demo', 'orchestration', 'faq'];
       if (validPages.includes(path)) {
         setCurrentPage(path);
       }
@@ -90,6 +91,8 @@ function AppContent() {
         return <GuidePage />;
       case 'aos-overview':
         return <AOSOverviewPage />;
+      case 'nlq':
+        return <NLQPage />;
       case 'control-center':
         return <ControlCenterPage />;
       case 'discover':
