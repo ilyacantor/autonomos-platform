@@ -14,6 +14,9 @@ import sqlalchemy as sa
 import re
 
 revision = '1afcfed1bbf5'
+down_revision = 'f9ac1da2f4b9'
+branch_labels = None
+depends_on = None
 
 # Pattern to validate SQL identifiers (alphanumeric and underscores only)
 VALID_IDENTIFIER_PATTERN = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
@@ -24,9 +27,6 @@ def _validate_identifier(name: str) -> str:
     if not VALID_IDENTIFIER_PATTERN.match(name):
         raise ValueError(f"Invalid SQL identifier: {name}")
     return name
-down_revision = 'f9ac1da2f4b9'
-branch_labels = None
-depends_on = None
 
 
 def upgrade():

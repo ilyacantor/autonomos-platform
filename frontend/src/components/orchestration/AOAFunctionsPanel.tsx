@@ -5,62 +5,22 @@
  * Each function represents a core orchestration capability.
  */
 
-import { useEffect, useState, useCallback } from 'react';
 import { HelpCircle, RefreshCw, AlertTriangle } from 'lucide-react';
-import type { AOAFunction, AOAFunctionsResponse, FunctionStatus } from './types';
+import type { AOAFunctionsResponse } from './types';
 import { fetchFunctions } from './api';
+import { usePolledData } from '../../hooks/usePolledData';
+import { getStatusColor, getProgressColor } from '../../utils/statusColors';
 
 // Polling interval in milliseconds
 const POLL_INTERVAL = 15000;
 
 export default function AOAFunctionsPanel() {
-  const [data, setData] = useState<AOAFunctionsResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const loadFunctions = useCallback(async () => {
-    try {
-      const response = await fetchFunctions();
-      setData(response);
-      setError(null);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadFunctions();
-    const interval = setInterval(loadFunctions, POLL_INTERVAL);
-    return () => clearInterval(interval);
-  }, [loadFunctions]);
-
-  const getStatusColor = (status: FunctionStatus) => {
-    switch (status) {
-      case 'optimal':
-        return 'bg-green-500/20 text-green-400';
-      case 'warning':
-        return 'bg-yellow-500/20 text-yellow-400';
-      case 'critical':
-        return 'bg-red-500/20 text-red-400';
-      default:
-        return 'bg-gray-500/20 text-gray-400';
-    }
-  };
-
-  const getProgressColor = (status: FunctionStatus) => {
-    switch (status) {
-      case 'optimal':
-        return 'bg-green-500';
-      case 'warning':
-        return 'bg-yellow-500';
-      case 'critical':
-        return 'bg-red-500';
-      default:
-        return 'bg-gray-500';
-    }
-  };
+  const {
+    data,
+    loading,
+    error,
+    refresh: loadFunctions,
+  } = usePolledData<AOAFunctionsResponse>(fetchFunctions, POLL_INTERVAL);
 
   if (loading && !data) {
     return (
