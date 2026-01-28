@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import DemoIframeContainer from './DemoIframeContainer';
 
-const AAM_IFRAME_URL = 'https://autonomos-mesh-ilyacantor.replit.app/';
+const AAM_IFRAME_URL = 'https://aam.autonomos.software/ui/topology';
 
 interface MeshMetrics {
   activeConnections: number;
