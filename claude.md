@@ -4,6 +4,93 @@
 
 AutonomOS is a **full-stack AI orchestration platform** for autonomous data integration, mapping, and multi-agent coordination. It provides enterprise-grade agent lifecycle management, workflow orchestration, and real-time monitoring.
 
+## Functional Architecture
+
+### What This Platform Actually Does
+
+This platform serves as a **presentation and orchestration layer** with three main functional areas:
+
+#### 1. Presentation Layer (Iframe Host)
+The frontend is primarily a **shell for embedding AOS microservice modules** via iframes:
+- **Discover Page** - Embeds AOS Discover (AOD) service for data discovery
+- **Connect Page** - Embeds connector configuration UIs
+- **NLQ Page** - Embeds natural language query interface
+- **Demo Page** - Embeds demo/sandbox environments
+
+The platform provides unified navigation, authentication context, and styling wrapper around these embedded modules.
+
+#### 2. AOA - Autonomous Orchestration Agent (Core Functionality)
+AOA is the **only truly functional backend component** in this platform:
+
+| Feature | Description |
+|---------|-------------|
+| **Agent Orchestration** | Coordinates multiple AI agents (FinOps, RevOps, DataOps, SecOps pilots) |
+| **Workflow Execution** | Manages multi-step agent workflows with checkpointing |
+| **Approval Workflows** | Human-in-the-loop (HITL) approval queues for agent actions |
+| **Chaos/Resilience Testing** | FARM stress testing framework for agent reliability |
+| **Cost Tracking** | Token usage and budget monitoring per agent/tenant |
+| **Event Streaming** | Real-time event feed for agent activities |
+
+Key AOA endpoints:
+- `POST /api/v1/aoa/run` - Execute agent orchestration
+- `POST /api/v1/aoa/discover` - NLP-driven discovery via AOD service
+- `GET /api/v1/aoa/dashboard` - Orchestration metrics
+- `GET /api/v1/aoa/events` - Event stream
+
+#### 3. Security & Multi-Tenant Infrastructure
+Robust enterprise features that support the platform:
+
+**Multi-Tenancy:**
+- All data isolated by `tenant_id` (UUID)
+- Tenant-scoped database queries enforced at model level
+- Per-tenant rate limiting and quotas
+- Tenant context propagated via `X-Tenant-ID` header
+
+**Authentication & Authorization:**
+- JWT-based authentication with 8-hour token expiry
+- Argon2 password hashing
+- Role-based access (tenant admin, user)
+- API key support for service-to-service calls
+
+**Rate Limiting:**
+- Redis-backed token bucket algorithm
+- Tiered limits: READ (300/min), WRITE (100/min)
+- Per-user and per-IP tracking
+- Burst allowance for traffic spikes
+
+**Audit & Compliance:**
+- API journal logging all requests
+- Idempotency key support for safe retries
+- PII detection/anonymization via Presidio
+- Memory governance (retention, forget requests, consent)
+
+### What This Platform Does NOT Do
+
+- **Data storage/processing** - Delegated to external AOS services (AOD, AAM, DCL)
+- **ML model inference** - Calls external AI APIs (OpenAI, Google)
+- **Connector execution** - AAM Hybrid handles actual data sync
+- **Schema mapping** - Mapping Intelligence service handles this
+
+### Service Dependencies
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                   AutonomOS Platform                     │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐     │
+│  │  Frontend   │  │    AOA      │  │  Security   │     │
+│  │  (iframe    │  │  (orchest-  │  │  (auth,     │     │
+│  │   shell)    │  │   ration)   │  │   tenant)   │     │
+│  └──────┬──────┘  └──────┬──────┘  └─────────────┘     │
+└─────────┼────────────────┼──────────────────────────────┘
+          │                │
+          ▼                ▼
+┌─────────────────┐  ┌─────────────────┐  ┌──────────────┐
+│  AOS Discover   │  │   AAM Hybrid    │  │  External AI │
+│  (AOD service)  │  │  (connectors)   │  │  (OpenAI,    │
+│                 │  │                 │  │   Google)    │
+└─────────────────┘  └─────────────────┘  └──────────────┘
+```
+
 ## Tech Stack
 
 ### Backend (Python)
