@@ -29,7 +29,6 @@ export default function TopBar({ onAuthOpen, currentPage, onNavigate }: TopBarPr
     { id: 'unify-ask', label: 'DCL', icon: <Database className="w-5 h-5" />, tooltip: 'Data Connectivity Layer' },
     { id: 'demo', label: 'Demo', icon: <Play className="w-5 h-5" />, tooltip: 'Run full pipeline demo' },
     { id: 'orchestration', label: 'Orchestration', icon: <Activity className="w-5 h-5" />, tooltip: 'Agentic orchestration with stress testing' },
-    { id: 'control-center', label: 'Control', icon: <LayoutDashboard className="w-5 h-5" /> },
     { id: 'faq', label: 'Help', icon: <HelpCircle className="w-5 h-5" /> },
   ];
 

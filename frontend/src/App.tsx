@@ -7,7 +7,6 @@ import AuthModal from './components/AuthModal';
 
 // Lazy load all page components for faster initial load
 const AOSOverviewPage = lazy(() => import('./components/AOSOverviewPage'));
-const ControlCenterPage = lazy(() => import('./components/ControlCenterPage'));
 const DiscoverPage = lazy(() => import('./components/DiscoverPage'));
 const ConnectPage = lazy(() => import('./components/ConnectPage'));
 const UnifyAskPage = lazy(() => import('./components/UnifyAskPage'));
@@ -33,8 +32,8 @@ function AppContent() {
   // Initialize page from URL path
   const getInitialPage = () => {
     const path = window.location.pathname.slice(1); // Remove leading slash
-    const validPages = ['guide', 'aos-overview', 'nlq', 'control-center', 'discover', 'connect', 'unify-ask', 'demo', 'orchestration', 'faq'];
-    return validPages.includes(path) ? path : 'control-center';
+    const validPages = ['guide', 'aos-overview', 'nlq', 'discover', 'connect', 'unify-ask', 'demo', 'orchestration', 'faq'];
+    return validPages.includes(path) ? path : 'aos-overview';
   };
 
   const [currentPage, setCurrentPage] = useState(getInitialPage());
@@ -64,7 +63,7 @@ function AppContent() {
   useEffect(() => {
     const handlePopState = () => {
       const path = window.location.pathname.slice(1);
-      const validPages = ['guide', 'aos-overview', 'nlq', 'control-center', 'discover', 'connect', 'unify-ask', 'demo', 'orchestration', 'faq'];
+      const validPages = ['guide', 'aos-overview', 'nlq', 'discover', 'connect', 'unify-ask', 'demo', 'orchestration', 'faq'];
       if (validPages.includes(path)) {
         setCurrentPage(path);
       }
@@ -93,8 +92,6 @@ function AppContent() {
         return <AOSOverviewPage />;
       case 'nlq':
         return <NLQPage />;
-      case 'control-center':
-        return <ControlCenterPage />;
       case 'discover':
         return <DiscoverPage />;
       case 'connect':
@@ -108,7 +105,7 @@ function AppContent() {
       case 'faq':
         return <FAQPage />;
       default:
-        return <ControlCenterPage />;
+        return <AOSOverviewPage />;
     }
   };
 

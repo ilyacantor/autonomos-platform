@@ -19,7 +19,6 @@ interface NavItem {
 
 export default function LeftNav({ isCollapsed, currentPage, onNavigate, isMobileMenuOpen, onCloseMobile }: LeftNavProps) {
   const navItems: NavItem[] = [
-    { id: 'control-center', label: 'Control Center', icon: <LayoutDashboard className="w-5 h-5" />, highlight: true, tooltip: 'NLP interface to all services' },
     { id: 'aos-overview', label: 'Overview', icon: <Sparkles className="w-5 h-5" />, tooltip: 'Interactive platform overview' },
     { id: 'nlq', label: 'NLQ', icon: <Search className="w-5 h-5" />, tooltip: 'Natural Language Query' },
     { id: 'discover', label: 'AOD', icon: <Search className="w-5 h-5" />, tooltip: 'Asset & Observability Discovery' },
