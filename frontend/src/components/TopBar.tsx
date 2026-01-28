@@ -21,7 +21,6 @@ export default function TopBar({ onAuthOpen, currentPage, onNavigate }: TopBarPr
   const [hasNotifications] = useState(true);
 
   const navItems: NavItem[] = [
-    { id: 'guide', label: 'Guide', icon: <BookOpen className="w-5 h-5" />, tooltip: 'Platform documentation' },
     { id: 'aos-overview', label: 'Overview', icon: <Sparkles className="w-5 h-5" />, tooltip: 'Interactive platform overview' },
     { id: 'nlq', label: 'NLQ', icon: <Search className="w-5 h-5" />, tooltip: 'Natural Language Query' },
     { id: 'discover', label: 'AOD', icon: <Search className="w-5 h-5" />, tooltip: 'Asset & Observability Discovery' },
