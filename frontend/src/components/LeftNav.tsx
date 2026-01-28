@@ -24,6 +24,7 @@ export default function LeftNav({ isCollapsed, currentPage, onNavigate, isMobile
     { id: 'discover', label: 'AOD', icon: <Search className="w-5 h-5" />, tooltip: 'Asset & Observability Discovery' },
     { id: 'connect', label: 'AAM', icon: <Cable className="w-5 h-5" />, tooltip: 'Adaptive API Mesh' },
     { id: 'unify-ask', label: 'DCL', icon: <Database className="w-5 h-5" />, tooltip: 'Data Connectivity Layer' },
+    { id: 'orchestration', label: 'AOA', icon: <Play className="w-5 h-5" />, tooltip: 'Agentic Orchestration Architecture' },
     { id: 'demo', label: 'Run Demo', icon: <Play className="w-5 h-5" />, tooltip: 'Full pipeline demo' },
   ];
 
