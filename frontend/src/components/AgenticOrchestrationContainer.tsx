@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
-import AOAStatusCard from './AOAStatusCard';
-import AOAFunctionsPanel from './AOAFunctionsPanel';
-import AgentPerformanceMonitor from './AgentPerformanceMonitor';
+import AOAFunctionsPanel from './orchestration/AOAFunctionsPanel';
+import AgentPerformanceMonitor from './orchestration/AgentPerformanceMonitor';
 import type { AgentPerformance, xAOMetric } from '../types';
 import aoaMetricsData from '../data/aoaMetrics.json';
 
