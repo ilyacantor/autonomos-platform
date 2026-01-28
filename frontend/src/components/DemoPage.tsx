@@ -39,9 +39,9 @@ const STEP_COLORS = {
 
 const NAV_LINKS = [
   { page: 'aos-overview', label: 'Overview', icon: Eye },
-  { page: 'discover', label: 'Discover', icon: Eye },
-  { page: 'connect', label: 'Connect', icon: Network },
-  { page: 'unify-ask', label: 'Unify & Ask', icon: Database },
+  { page: 'discover', label: 'AOD', icon: Eye },
+  { page: 'connect', label: 'AAM', icon: Network },
+  { page: 'unify-ask', label: 'DCL', icon: Database },
 ];
 
 export default function DemoPage() {

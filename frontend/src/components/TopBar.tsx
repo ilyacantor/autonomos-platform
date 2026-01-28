@@ -23,9 +23,9 @@ export default function TopBar({ onAuthOpen, currentPage, onNavigate }: TopBarPr
   const navItems: NavItem[] = [
     { id: 'guide', label: 'Guide', icon: <BookOpen className="w-5 h-5" />, tooltip: 'Platform documentation' },
     { id: 'aos-overview', label: 'Overview', icon: <Sparkles className="w-5 h-5" />, tooltip: 'Interactive platform overview' },
-    { id: 'discover', label: 'Discover', icon: <Search className="w-5 h-5" />, tooltip: 'Step 1: Asset discovery' },
-    { id: 'connect', label: 'Connect', icon: <Cable className="w-5 h-5" />, tooltip: 'Step 2: Self-healing connectivity' },
-    { id: 'unify-ask', label: 'Unify & Ask', icon: <Database className="w-5 h-5" />, tooltip: 'Step 3: Data unification' },
+    { id: 'discover', label: 'AOD', icon: <Search className="w-5 h-5" />, tooltip: 'Asset & Observability Discovery' },
+    { id: 'connect', label: 'AAM', icon: <Cable className="w-5 h-5" />, tooltip: 'Adaptive API Mesh' },
+    { id: 'unify-ask', label: 'DCL', icon: <Database className="w-5 h-5" />, tooltip: 'Data Connectivity Layer' },
     { id: 'demo', label: 'Demo', icon: <Play className="w-5 h-5" />, tooltip: 'Run full pipeline demo' },
     { id: 'orchestration', label: 'Orchestration', icon: <Activity className="w-5 h-5" />, tooltip: 'Agentic orchestration with stress testing' },
     { id: 'control-center', label: 'Control', icon: <LayoutDashboard className="w-5 h-5" /> },
