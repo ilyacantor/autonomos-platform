@@ -35,6 +35,7 @@ from app.security import (
     ACCESS_TOKEN_EXPIRE_MINUTES
 )
 from app.api.v1 import auth, aoa, aam_monitoring, aam_mesh, aam_connections, platform_stubs, filesource, debug, mesh_test, events, aod_mock, aam_onboarding, admin_feature_flags, demo_pipeline, demo_orchestrator, agents, scheduler, memory, bundles, stress_test, certification, a2a, scaling, orchestration
+from app.api.v1 import aam_connectors, aam_drift, aam_schema
 from app import nlp_simple
 from app.middleware.rate_limit import limiter, rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -312,6 +313,9 @@ app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(nlp_simple.router, tags=["NLP Gateway"])
 app.include_router(aoa.router, prefix="/api/v1/aoa", tags=["AOA Orchestration"])
 app.include_router(aam_monitoring.router, prefix="/api/v1/aam", tags=["AAM Monitoring"])
+app.include_router(aam_connectors.router, prefix="/api/v1/aam", tags=["AAM Connectors"])
+app.include_router(aam_drift.router, prefix="/api/v1/aam", tags=["AAM Drift Detection"])
+app.include_router(aam_schema.router, prefix="/api/v1/aam", tags=["AAM Schema Observation"])
 app.include_router(aam_connections.router, prefix="/api/v1/aam", tags=["AAM Connections"])
 app.include_router(aam_onboarding.router, prefix="/api/v1/aam", tags=["AAM Auto-Onboarding"])
 app.include_router(admin_feature_flags.router, prefix="/api/v1/admin", tags=["Admin - Feature Flags"])

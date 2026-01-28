@@ -25,7 +25,6 @@ project_root = aam_root.parent
 
 sys.path.insert(0, str(project_root))
 
-from .dcl_output_adapter import publish_to_dcl_stream
 from .canonical_processor import CanonicalProcessor
 from app.contracts.canonical_event import (
     EntityEvent,
@@ -272,28 +271,8 @@ async def ingest_connector_data(
                 results['errors'].append(error_msg)
                 results['success'] = False
         
-        try:
-            publish_result = publish_to_dcl_stream(
-                tenant_id=tenant_id,
-                connector_type=connector_name,
-                canonical_events=all_events,
-                redis_client=redis_client,
-                connector_config_id=connector_id
-            )
-            
-            results['publish_result'] = publish_result
-            results['total_events'] = len(all_events)
-            
-            logger.info(
-                f"Published {len(all_events)} events to Redis Stream: "
-                f"{publish_result.get('stream_key')}"
-            )
-            
-        except Exception as e:
-            error_msg = f"Error publishing to Redis Stream: {e}"
-            logger.error(error_msg)
-            results['errors'].append(error_msg)
-            results['success'] = False
+        results['total_events'] = len(all_events)
+        logger.info(f"Processed {len(all_events)} canonical events for {connector_name}")
     
     return results
 

@@ -16,6 +16,8 @@ from sqlalchemy import and_
 from app import models, schemas
 from app.database import get_db
 from app.security import get_current_user
+from app.api.utils import get_or_404
+from app.api.pagination import PaginationParams, paginate_query
 
 router = APIRouter()
 
@@ -60,8 +62,7 @@ def create_agent(
 
 @router.get("/", response_model=schemas.AgentListResponse)
 def list_agents(
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    pagination: PaginationParams = Depends(),
     status: Optional[schemas.AgentStatus] = None,
     agent_type: Optional[schemas.AgentType] = None,
     db: Session = Depends(get_db),
@@ -77,18 +78,13 @@ def list_agents(
     if agent_type:
         query = query.filter(models.Agent.agent_type == agent_type.value)
 
-    total = query.count()
-    agents = query.order_by(models.Agent.created_at.desc()).offset(
-        (page - 1) * page_size
-    ).limit(page_size).all()
-
-    return schemas.AgentListResponse(
-        items=agents,
-        total=total,
-        page=page,
-        page_size=page_size,
-        has_more=(page * page_size) < total
+    result = paginate_query(
+        query,
+        pagination,
+        order_by=models.Agent.created_at.desc()
     )
+
+    return result.build_response(schemas.AgentListResponse)
 
 
 @router.get("/{agent_id}", response_model=schemas.AgentResponse)
@@ -98,19 +94,16 @@ def get_agent(
     current_user: models.User = Depends(get_current_user)
 ):
     """Get a specific agent by ID."""
-    agent = db.query(models.Agent).filter(
-        and_(
-            models.Agent.id == agent_id,
-            models.Agent.tenant_id == current_user.tenant_id
-        )
-    ).first()
-
-    if not agent:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Agent {agent_id} not found"
-        )
-
+    agent = get_or_404(
+        db.query(models.Agent).filter(
+            and_(
+                models.Agent.id == agent_id,
+                models.Agent.tenant_id == current_user.tenant_id
+            )
+        ).first(),
+        "Agent",
+        agent_id
+    )
     return agent
 
 
@@ -122,18 +115,16 @@ def update_agent(
     current_user: models.User = Depends(get_current_user)
 ):
     """Update an existing agent configuration."""
-    agent = db.query(models.Agent).filter(
-        and_(
-            models.Agent.id == agent_id,
-            models.Agent.tenant_id == current_user.tenant_id
-        )
-    ).first()
-
-    if not agent:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Agent {agent_id} not found"
-        )
+    agent = get_or_404(
+        db.query(models.Agent).filter(
+            and_(
+                models.Agent.id == agent_id,
+                models.Agent.tenant_id == current_user.tenant_id
+            )
+        ).first(),
+        "Agent",
+        agent_id
+    )
 
     # Update only provided fields
     update_data = agent_data.model_dump(exclude_unset=True)
@@ -166,18 +157,16 @@ def delete_agent(
     current_user: models.User = Depends(get_current_user)
 ):
     """Delete an agent (soft delete by setting status to archived)."""
-    agent = db.query(models.Agent).filter(
-        and_(
-            models.Agent.id == agent_id,
-            models.Agent.tenant_id == current_user.tenant_id
-        )
-    ).first()
-
-    if not agent:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Agent {agent_id} not found"
-        )
+    agent = get_or_404(
+        db.query(models.Agent).filter(
+            and_(
+                models.Agent.id == agent_id,
+                models.Agent.tenant_id == current_user.tenant_id
+            )
+        ).first(),
+        "Agent",
+        agent_id
+    )
 
     # Soft delete
     agent.status = 'archived'
@@ -204,19 +193,18 @@ def create_run(
     The actual execution happens asynchronously via LangGraph.
     """
     # Verify agent exists and is active
-    agent = db.query(models.Agent).filter(
-        and_(
-            models.Agent.id == agent_id,
-            models.Agent.tenant_id == current_user.tenant_id,
-            models.Agent.status == 'active'
-        )
-    ).first()
-
-    if not agent:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Agent {agent_id} not found or not active"
-        )
+    agent = get_or_404(
+        db.query(models.Agent).filter(
+            and_(
+                models.Agent.id == agent_id,
+                models.Agent.tenant_id == current_user.tenant_id,
+                models.Agent.status == 'active'
+            )
+        ).first(),
+        "Agent",
+        agent_id,
+        detail=f"Agent {agent_id} not found or not active"
+    )
 
     # Create run record
     run = models.AgentRun(
@@ -245,26 +233,23 @@ def create_run(
 @router.get("/{agent_id}/runs", response_model=schemas.AgentRunListResponse)
 def list_runs(
     agent_id: UUID,
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    pagination: PaginationParams = Depends(),
     status: Optional[schemas.RunStatus] = None,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
     """List runs for a specific agent."""
     # Verify agent belongs to tenant
-    agent = db.query(models.Agent).filter(
-        and_(
-            models.Agent.id == agent_id,
-            models.Agent.tenant_id == current_user.tenant_id
-        )
-    ).first()
-
-    if not agent:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Agent {agent_id} not found"
-        )
+    get_or_404(
+        db.query(models.Agent).filter(
+            and_(
+                models.Agent.id == agent_id,
+                models.Agent.tenant_id == current_user.tenant_id
+            )
+        ).first(),
+        "Agent",
+        agent_id
+    )
 
     query = db.query(models.AgentRun).filter(
         models.AgentRun.agent_id == agent_id
@@ -273,18 +258,13 @@ def list_runs(
     if status:
         query = query.filter(models.AgentRun.status == status.value)
 
-    total = query.count()
-    runs = query.order_by(models.AgentRun.created_at.desc()).offset(
-        (page - 1) * page_size
-    ).limit(page_size).all()
-
-    return schemas.AgentRunListResponse(
-        items=runs,
-        total=total,
-        page=page,
-        page_size=page_size,
-        has_more=(page * page_size) < total
+    result = paginate_query(
+        query,
+        pagination,
+        order_by=models.AgentRun.created_at.desc()
     )
+
+    return result.build_response(schemas.AgentRunListResponse)
 
 
 @router.get("/{agent_id}/runs/{run_id}", response_model=schemas.AgentRunResponse)
@@ -295,20 +275,17 @@ def get_run(
     current_user: models.User = Depends(get_current_user)
 ):
     """Get details of a specific run."""
-    run = db.query(models.AgentRun).filter(
-        and_(
-            models.AgentRun.id == run_id,
-            models.AgentRun.agent_id == agent_id,
-            models.AgentRun.tenant_id == current_user.tenant_id
-        )
-    ).first()
-
-    if not run:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Run {run_id} not found"
-        )
-
+    run = get_or_404(
+        db.query(models.AgentRun).filter(
+            and_(
+                models.AgentRun.id == run_id,
+                models.AgentRun.agent_id == agent_id,
+                models.AgentRun.tenant_id == current_user.tenant_id
+            )
+        ).first(),
+        "Run",
+        run_id
+    )
     return run
 
 
@@ -320,19 +297,17 @@ def cancel_run(
     current_user: models.User = Depends(get_current_user)
 ):
     """Cancel a running or pending agent run."""
-    run = db.query(models.AgentRun).filter(
-        and_(
-            models.AgentRun.id == run_id,
-            models.AgentRun.agent_id == agent_id,
-            models.AgentRun.tenant_id == current_user.tenant_id
-        )
-    ).first()
-
-    if not run:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Run {run_id} not found"
-        )
+    run = get_or_404(
+        db.query(models.AgentRun).filter(
+            and_(
+                models.AgentRun.id == run_id,
+                models.AgentRun.agent_id == agent_id,
+                models.AgentRun.tenant_id == current_user.tenant_id
+            )
+        ).first(),
+        "Run",
+        run_id
+    )
 
     if run.status not in ('pending', 'running', 'awaiting_approval'):
         raise HTTPException(
@@ -389,19 +364,17 @@ def list_run_approvals(
 ):
     """List all approvals for a specific run."""
     # Verify run belongs to tenant
-    run = db.query(models.AgentRun).filter(
-        and_(
-            models.AgentRun.id == run_id,
-            models.AgentRun.agent_id == agent_id,
-            models.AgentRun.tenant_id == current_user.tenant_id
-        )
-    ).first()
-
-    if not run:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Run {run_id} not found"
-        )
+    get_or_404(
+        db.query(models.AgentRun).filter(
+            and_(
+                models.AgentRun.id == run_id,
+                models.AgentRun.agent_id == agent_id,
+                models.AgentRun.tenant_id == current_user.tenant_id
+            )
+        ).first(),
+        "Run",
+        run_id
+    )
 
     approvals = db.query(models.AgentApproval).filter(
         models.AgentApproval.run_id == run_id
@@ -424,19 +397,17 @@ def respond_to_approval(
 
     Implements ARB Condition 1: Token refresh happens on approval resume.
     """
-    approval = db.query(models.AgentApproval).filter(
-        and_(
-            models.AgentApproval.id == approval_id,
-            models.AgentApproval.run_id == run_id,
-            models.AgentApproval.tenant_id == current_user.tenant_id
-        )
-    ).first()
-
-    if not approval:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Approval {approval_id} not found"
-        )
+    approval = get_or_404(
+        db.query(models.AgentApproval).filter(
+            and_(
+                models.AgentApproval.id == approval_id,
+                models.AgentApproval.run_id == run_id,
+                models.AgentApproval.tenant_id == current_user.tenant_id
+            )
+        ).first(),
+        "Approval",
+        approval_id
+    )
 
     if approval.status != 'pending':
         raise HTTPException(

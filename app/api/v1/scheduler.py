@@ -15,6 +15,8 @@ from uuid import UUID, uuid4
 from fastapi import APIRouter, Depends, HTTPException, Query, Header, Request
 from pydantic import BaseModel, Field
 
+from app.api.pagination import PaginationParams, PaginatedResponse
+
 from app.agentic.scheduler.models import (
     ScheduledJob,
     JobTrigger,
@@ -50,11 +52,12 @@ class CronValidateResponse(BaseModel):
 
 
 class JobListResponse(BaseModel):
-    """Response for listing jobs."""
-    jobs: List[ScheduledJobResponse]
+    """Response for listing jobs with pagination."""
+    items: List[ScheduledJobResponse]
     total: int
-    limit: int
-    offset: int
+    page: int
+    page_size: int
+    has_more: bool
 
 
 class ExecutionListResponse(BaseModel):
@@ -181,8 +184,7 @@ async def create_job(
 @router.get("/jobs", response_model=JobListResponse)
 async def list_jobs(
     status: Optional[JobStatus] = None,
-    limit: int = Query(default=50, le=100),
-    offset: int = Query(default=0, ge=0),
+    pagination: PaginationParams = Depends(),
     tenant_id: UUID = Depends(get_tenant_id),
 ):
     """
@@ -192,20 +194,24 @@ async def list_jobs(
     """
     executor = get_scheduler_executor()
 
-    jobs = await executor.list_jobs(
+    # Fetch all matching jobs to get total count
+    all_jobs = await executor.list_jobs(
         tenant_id=str(tenant_id),
         status=status,
-        limit=limit + offset,
+        limit=None,  # Get all for counting
     )
 
-    # Apply offset
-    jobs = jobs[offset:offset + limit]
+    total = len(all_jobs)
+
+    # Apply pagination
+    paginated_jobs = all_jobs[pagination.offset:pagination.offset + pagination.limit]
 
     return JobListResponse(
-        jobs=[ScheduledJobResponse(**j.to_dict()) for j in jobs],
-        total=len(jobs),
-        limit=limit,
-        offset=offset,
+        items=[ScheduledJobResponse(**j.to_dict()) for j in paginated_jobs],
+        total=total,
+        page=pagination.page,
+        page_size=pagination.page_size,
+        has_more=(pagination.page * pagination.page_size) < total,
     )
 
 

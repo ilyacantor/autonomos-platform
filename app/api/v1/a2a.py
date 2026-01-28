@@ -20,6 +20,7 @@ from sqlalchemy import and_
 from app import models
 from app.database import get_db
 from app.security import get_current_user
+from app.api.utils import get_or_404, handle_api_errors
 from app.agentic.a2a import (
     AgentCard,
     AgentCapability,
@@ -149,15 +150,13 @@ async def get_agent_card(
     This is the standard A2A discovery endpoint.
     """
     # Get agent from database
-    agent = db.query(models.Agent).filter(
-        models.Agent.id == agent_id
-    ).first()
-
-    if not agent:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Agent {agent_id} not found"
-        )
+    agent = get_or_404(
+        db.query(models.Agent).filter(
+            models.Agent.id == agent_id
+        ).first(),
+        "Agent",
+        agent_id
+    )
 
     # Check if agent is registered for discovery
     discovery = get_agent_discovery()
@@ -210,18 +209,16 @@ async def register_agent_for_discovery(
     This makes the agent discoverable by other agents.
     """
     # Verify agent belongs to tenant
-    agent = db.query(models.Agent).filter(
-        and_(
-            models.Agent.id == agent_id,
-            models.Agent.tenant_id == current_user.tenant_id,
-        )
-    ).first()
-
-    if not agent:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Agent {agent_id} not found"
-        )
+    agent = get_or_404(
+        db.query(models.Agent).filter(
+            and_(
+                models.Agent.id == agent_id,
+                models.Agent.tenant_id == current_user.tenant_id,
+            )
+        ).first(),
+        "Agent",
+        agent_id
+    )
 
     # Get certification info
     cert_registry = get_certification_registry()
@@ -254,18 +251,16 @@ async def unregister_agent_from_discovery(
 ):
     """Unregister an agent from A2A discovery."""
     # Verify agent belongs to tenant
-    agent = db.query(models.Agent).filter(
-        and_(
-            models.Agent.id == agent_id,
-            models.Agent.tenant_id == current_user.tenant_id,
-        )
-    ).first()
-
-    if not agent:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Agent {agent_id} not found"
-        )
+    get_or_404(
+        db.query(models.Agent).filter(
+            and_(
+                models.Agent.id == agent_id,
+                models.Agent.tenant_id == current_user.tenant_id,
+            )
+        ).first(),
+        "Agent",
+        agent_id
+    )
 
     discovery = get_agent_discovery()
     discovery.unregister(str(agent_id))
@@ -423,18 +418,16 @@ async def create_delegation(
     The delegator agent must belong to the current user's tenant.
     """
     # Verify delegator agent belongs to tenant
-    agent = db.query(models.Agent).filter(
-        and_(
-            models.Agent.id == agent_id,
-            models.Agent.tenant_id == current_user.tenant_id,
-        )
-    ).first()
-
-    if not agent:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Agent {agent_id} not found"
-        )
+    get_or_404(
+        db.query(models.Agent).filter(
+            and_(
+                models.Agent.id == agent_id,
+                models.Agent.tenant_id == current_user.tenant_id,
+            )
+        ).first(),
+        "Agent",
+        agent_id
+    )
 
     # Create delegation
     delegation = get_delegation_manager()
@@ -492,13 +485,11 @@ async def get_delegation(
 ):
     """Get a delegation by ID."""
     delegation = get_delegation_manager()
-    request = delegation.get_delegation(delegation_id)
-
-    if not request:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Delegation {delegation_id} not found",
-        )
+    request = get_or_404(
+        delegation.get_delegation(delegation_id),
+        "Delegation",
+        delegation_id
+    )
 
     return DelegationResponse(
         id=request.id,
