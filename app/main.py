@@ -378,19 +378,9 @@ if os.path.exists(STATIC_DIR) and os.path.isdir(STATIC_DIR):
     @app.get("/")
     def serve_frontend(request: Request):
         """Serve the frontend index.html"""
-        print("[DEBUG-1] Entered serve_frontend handler")
         index_path = os.path.join(STATIC_DIR, "index.html")
-        print(f"[DEBUG-2] index_path={index_path}")
-        abs_index = os.path.abspath(index_path)
-        abs_static = os.path.abspath(STATIC_DIR)
-        host = request.headers.get("host", "unknown")
-        print(f"[INDEX] host={host} index={abs_index} static={abs_static}")
-        print(f"[DEBUG-3] About to check if path exists")
-        exists = os.path.exists(index_path)
-        print(f"[DEBUG-4] Path exists: {exists}")
-        if exists:
-            print("[DEBUG-5] Creating FileResponse")
-            response = FileResponse(
+        if os.path.exists(index_path):
+            return FileResponse(
                 index_path,
                 headers={
                     "Cache-Control": "no-cache, no-store, must-revalidate",
@@ -398,9 +388,6 @@ if os.path.exists(STATIC_DIR) and os.path.isdir(STATIC_DIR):
                     "Expires": "0"
                 }
             )
-            print("[DEBUG-6] FileResponse created, returning")
-            return response
-        print("[DEBUG-7] Returning fallback JSON")
         return {"message": "AutonomOS - Frontend not deployed yet. API available at /api/v1/*"}
 
     @app.get("/favicon.png")
