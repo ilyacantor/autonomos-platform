@@ -11,8 +11,19 @@ Create Date: 2025-12-03
 """
 from alembic import op
 import sqlalchemy as sa
+import re
 
 revision = '1afcfed1bbf5'
+
+# Pattern to validate SQL identifiers (alphanumeric and underscores only)
+VALID_IDENTIFIER_PATTERN = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
+
+
+def _validate_identifier(name: str) -> str:
+    """Validate that a name is a safe SQL identifier to prevent SQL injection."""
+    if not VALID_IDENTIFIER_PATTERN.match(name):
+        raise ValueError(f"Invalid SQL identifier: {name}")
+    return name
 down_revision = 'f9ac1da2f4b9'
 branch_labels = None
 depends_on = None
@@ -49,22 +60,26 @@ def upgrade():
     ]
     
     for view_name in dcl_views:
+        # Validate identifier to prevent SQL injection
+        safe_view_name = _validate_identifier(view_name)
         result = conn.execute(sa.text(
             "SELECT EXISTS (SELECT FROM information_schema.views WHERE table_schema = 'public' AND table_name = :name)"
         ), {'name': view_name})
         exists = result.scalar()
         if exists:
-            op.execute(f'DROP VIEW IF EXISTS {view_name} CASCADE')
-            print(f'Dropped view: {view_name}')
+            op.execute(sa.text(f'DROP VIEW IF EXISTS {safe_view_name} CASCADE'))
+            print(f'Dropped view: {safe_view_name}')
     
     for table_name in dcl_tables:
+        # Validate identifier to prevent SQL injection
+        safe_table_name = _validate_identifier(table_name)
         result = conn.execute(sa.text(
             "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = :name)"
         ), {'name': table_name})
         exists = result.scalar()
         if exists:
-            op.execute(f'DROP TABLE IF EXISTS {table_name} CASCADE')
-            print(f'Dropped table: {table_name}')
+            op.execute(sa.text(f'DROP TABLE IF EXISTS {safe_table_name} CASCADE'))
+            print(f'Dropped table: {safe_table_name}')
 
 
 def downgrade():

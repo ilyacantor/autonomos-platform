@@ -9,6 +9,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import text
 
 
 # revision identifiers, used by Alembic.
@@ -33,7 +34,10 @@ def upgrade() -> None:
     )
     
     # 2. Backfill existing connections with demo tenant UUID
-    op.execute(f"UPDATE connections SET tenant_id = '{demo_tenant_uuid}' WHERE tenant_id IS NULL")
+    op.execute(
+        text("UPDATE connections SET tenant_id = :tenant_id WHERE tenant_id IS NULL")
+        .bindparams(tenant_id=demo_tenant_uuid)
+    )
     
     # 3. Add index for performance
     op.create_index('ix_connections_tenant_id', 'connections', ['tenant_id'])
