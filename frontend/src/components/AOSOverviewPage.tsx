@@ -1,14 +1,23 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import {
-  Info,
   Search,
-  Play,
+  Mail,
+  X,
+  Send,
 } from "lucide-react";
 import { Button } from "./ui/button";
 
 export default function AOSOverviewPage() {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [showContactForm, setShowContactForm] = useState(false);
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    company: "",
+    message: "",
+  });
+  const [formStatus, setFormStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -21,9 +30,6 @@ export default function AOSOverviewPage() {
           'paradigm': 'section-paradigm',
           'introducing': 'section-introducing',
           'pipeline': 'section-pipeline',
-          'gateway': 'section-gateway',
-          'aod-details': 'section-aod-details',
-          'farm-info': 'section-farm-info',
           'cta': 'section-cta'
         };
         
@@ -47,6 +53,28 @@ export default function AOSOverviewPage() {
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
   }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormStatus("sending");
+    
+    try {
+      const mailtoLink = `mailto:ilya.cantor@autonomos.tech?subject=Demo Request from ${encodeURIComponent(formData.name)} at ${encodeURIComponent(formData.company)}&body=${encodeURIComponent(
+        `Name: ${formData.name}\nEmail: ${formData.email}\nCompany: ${formData.company}\n\nMessage:\n${formData.message}`
+      )}`;
+      
+      window.location.href = mailtoLink;
+      setFormStatus("sent");
+      
+      setTimeout(() => {
+        setShowContactForm(false);
+        setFormStatus("idle");
+        setFormData({ name: "", email: "", company: "", message: "" });
+      }, 2000);
+    } catch {
+      setFormStatus("error");
+    }
+  };
 
   return (
     <div
@@ -334,128 +362,7 @@ export default function AOSOverviewPage() {
         </div>
       </section>
 
-      {/* --- SECTION 5: AOD INTRODUCTION ("The Gateway") --- */}
-      <section id="section-gateway" className="w-full max-w-5xl mx-auto px-6 py-24 md:py-32 border-t border-slate-800 min-h-[500px] md:min-h-[550px] flex items-center">
-        <div className="flex flex-col gap-8 text-center md:text-left w-full">
-          <h2 className="text-[30px] md:text-[40px] font-bold text-white leading-tight">
-            AOD is the gateway to autonom<span className="text-cyan-400">OS</span>.
-          </h2>
-
-          <div className="mt-4">
-            <div className="space-y-6 text-lg text-slate-400 leading-relaxed font-medium">
-              <p>
-                <strong className="text-white block mb-2 text-xl">
-                  Before AI systems can integrate, automate, or act, they must
-                  know what actually exists.
-                </strong>
-                AOD is responsible for discovering assets, resolving ambiguity
-                across data sources, scoring evidence, and producing a trusted
-                catalog.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* --- SECTION 6: AOD REACTFLOW VISUAL (What AOD Does) --- */}
-      <section id="section-aod-details" className="relative w-full h-[85vh] border-y border-slate-800 bg-slate-950 flex flex-col md:flex-row overflow-hidden group">
-        {/* Main Flow Area */}
-        <div className="flex-1 relative h-full bg-slate-900/20">
-          <iframe
-            src="https://overview.autonomos.software/aod/embed"
-            className="w-full h-full border-none opacity-80 group-hover:opacity-100 transition-opacity duration-500"
-            title="AOD Graphical Overview"
-            loading="lazy"
-          />
-        </div>
-
-        {/* Fixed Side Panel */}
-        <div className="w-full md:w-96 h-auto md:h-full bg-slate-900/80 backdrop-blur-xl border-t md:border-t-0 md:border-l border-slate-800 p-8 flex flex-col shrink-0 z-20 shadow-[-10px_0_30px_rgba(0,0,0,0.2)] overflow-y-auto">
-          <div className="mb-8">
-            <h2 className="text-xl font-bold text-white flex items-center gap-2 mb-2">
-              <Search className="w-5 h-5 text-green-400" />
-              What AOD Does
-            </h2>
-            <div className="h-0.5 w-16 bg-green-500 rounded-full" />
-          </div>
-
-          <div className="space-y-6 text-sm text-slate-400 leading-relaxed">
-            <ul className="space-y-6">
-              <li className="flex gap-3 items-start">
-                <div className="mt-2 w-1.5 h-1.5 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(11,202,217,0.6)] shrink-0" />
-                <span>
-                  Ingests signals from identity, finance, cloud, endpoints, DNS,
-                  and CMDBs
-                </span>
-              </li>
-              <li className="flex gap-3 items-start">
-                <div className="mt-2 w-1.5 h-1.5 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(11,202,217,0.6)] shrink-0" />
-                <span>Correlates signals into assets</span>
-              </li>
-              <li className="flex gap-3 items-start">
-                <div className="mt-2 w-1.5 h-1.5 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(11,202,217,0.6)] shrink-0" />
-                <span>Scores evidence and resolves conflicts</span>
-              </li>
-              <li className="flex gap-3 items-start">
-                <div className="mt-2 w-1.5 h-1.5 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(11,202,217,0.6)] shrink-0" />
-                <span>
-                  Classifies outcomes (Security Risks, Governance Gaps, Shadow Assets, Zombie Assets)
-                </span>
-              </li>
-              <li className="flex gap-3 items-start">
-                <div className="mt-2 w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)] shrink-0" />
-                <span className="font-bold text-white">
-                  Produces a catalog used by the rest of AOS
-                </span>
-              </li>
-            </ul>
-
-            <div className="mt-8 p-4 bg-cyan-950/30 border border-cyan-900/50 rounded-lg text-cyan-200 text-sm font-medium text-center">
-              While discovery is its primary function, AOD also delivers
-              immediate operational value by surfacing security risks,
-              unmanaged systems, costly inactive assets, and governance issues.
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* --- SECTION 7: WHY FARM EXISTS --- */}
-      <section id="section-farm-info" className="w-full max-w-3xl mx-auto px-6 py-24 md:py-32 text-center">
-        <div className="mb-6 flex justify-center">
-          <div className="p-4 bg-blue-900/20 rounded-full border border-blue-500/20">
-            <Info className="w-8 h-8 text-blue-500" />
-          </div>
-        </div>
-
-        <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">
-          Why You'll See "Farm"
-        </h2>
-
-        <div className="space-y-6 text-lg text-slate-400">
-          <p className="font-semibold text-white text-xl">
-            Complex enterprise systems are easy to demo and hard to trust.
-          </p>
-          <p className="leading-relaxed">
-            AOS Farm is our stress-test engine. It validates the platform against a theoretical space of ~300,000 state combinations by generating realistic enterprise chaos:
-          </p>
-          <div className="space-y-4 text-left max-w-xl mx-auto">
-            <div className="flex gap-3 items-start">
-              <div className="mt-2 w-1.5 h-1.5 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(11,202,217,0.6)] shrink-0" />
-              <span><strong className="text-white">17,000 Asset Permutations:</strong> From standard servers to "zombie" instances.</span>
-            </div>
-            <div className="flex gap-3 items-start">
-              <div className="mt-2 w-1.5 h-1.5 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(11,202,217,0.6)] shrink-0" />
-              <span><strong className="text-white">37 Edge Case Categories:</strong> Specifically targeting governance forks and data quality failures.</span>
-            </div>
-            <div className="flex gap-3 items-start">
-              <div className="mt-2 w-1.5 h-1.5 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(11,202,217,0.6)] shrink-0" />
-              <span><strong className="text-white">800,000 Rule Evaluations:</strong> Proving stability at scale.</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* --- SECTION 8: CALL TO ACTION --- */}
+      {/* --- SECTION 5: CALL TO ACTION --- */}
       <section id="section-cta" className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 py-20 px-6 relative overflow-hidden">
         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20" />
 
@@ -465,7 +372,7 @@ export default function AOSOverviewPage() {
               Ready to see it in action?
             </h2>
             <p className="text-cyan-100 font-medium">
-              Validate your environment or explore the platform.
+              Schedule a personalized demo with our team.
             </p>
           </div>
 
@@ -473,24 +380,10 @@ export default function AOSOverviewPage() {
             <Button
               size="lg"
               className="bg-white text-blue-600 hover:bg-slate-100 border-none font-bold text-base px-8 h-14 rounded-full shadow-lg hover:translate-y-[-2px] transition-transform"
-              onClick={() => {
-                window.dispatchEvent(new CustomEvent('navigate', { detail: { page: 'demo' } }));
-              }}
+              onClick={() => setShowContactForm(true)}
             >
-              <Play className="w-4 h-4 mr-2 fill-current" />
-              Run Simulation
-            </Button>
-
-            <Button
-              size="lg"
-              variant="outline"
-              className="bg-blue-600/50 border-white/30 text-white hover:bg-blue-600 hover:text-white hover:border-white font-medium text-base px-8 h-14 rounded-full backdrop-blur-sm"
-              onClick={() => {
-                window.dispatchEvent(new CustomEvent('navigate', { detail: { page: 'discover' } }));
-              }}
-            >
-              <Search className="w-4 h-4 mr-2" />
-              Explore Freely
+              <Mail className="w-4 h-4 mr-2" />
+              Contact for Demo
             </Button>
           </div>
         </div>
@@ -500,6 +393,105 @@ export default function AOSOverviewPage() {
       <footer className="w-full py-8 text-center text-xs text-slate-600 border-t border-slate-900 bg-slate-950">
         © 2025 autonom<span className="text-cyan-400">OS</span>. All rights reserved.
       </footer>
+
+      {/* Contact Form Modal */}
+      {showContactForm && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md p-6 relative"
+          >
+            <button
+              onClick={() => setShowContactForm(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="mb-6">
+              <h3 className="text-2xl font-bold text-white mb-2">Request a Demo</h3>
+              <p className="text-slate-400 text-sm">
+                Fill out the form below and we'll get back to you shortly.
+              </p>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1">
+                  Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                  placeholder="Your name"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1">
+                  Email *
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                  placeholder="your@email.com"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1">
+                  Company *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formData.company}
+                  onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                  placeholder="Your company"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1">
+                  Message
+                </label>
+                <textarea
+                  value={formData.message}
+                  onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                  rows={3}
+                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent resize-none"
+                  placeholder="Tell us about your needs..."
+                />
+              </div>
+
+              <Button
+                type="submit"
+                disabled={formStatus === "sending" || formStatus === "sent"}
+                className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white font-bold py-3 rounded-lg transition-all"
+              >
+                {formStatus === "idle" && (
+                  <>
+                    <Send className="w-4 h-4 mr-2" />
+                    Send Request
+                  </>
+                )}
+                {formStatus === "sending" && "Sending..."}
+                {formStatus === "sent" && "Sent! Opening email client..."}
+                {formStatus === "error" && "Error - Try again"}
+              </Button>
+            </form>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }
