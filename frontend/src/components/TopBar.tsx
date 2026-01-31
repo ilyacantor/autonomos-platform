@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Cable, Bell, Menu, X, LogIn, UserPlus, HelpCircle, Search, Sparkles, Database, Activity } from 'lucide-react';
+import { Cable, Menu, X, LogIn, UserPlus, HelpCircle, Search, Sparkles, Database, Activity } from 'lucide-react';
 import type { PersonaType } from '../types';
 import autonomosLogo from '../assets/autonomos-logo.png';
 
@@ -18,7 +18,6 @@ interface NavItem {
 
 export default function TopBar({ onAuthOpen, currentPage, onNavigate }: TopBarProps) {
   const [showMobileMenu, setShowMobileMenu] = useState(false);
-  const [hasNotifications] = useState(true);
 
   const navItems: NavItem[] = [
     { id: 'aos-overview', label: 'Overview', icon: <Sparkles className="w-5 h-5" />, tooltip: 'Interactive platform overview' },
@@ -75,16 +74,6 @@ export default function TopBar({ onAuthOpen, currentPage, onNavigate }: TopBarPr
 
         {/* Right Side: Notifications, Profile */}
         <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-          {/* Notifications */}
-          <div className="relative">
-            <button className="p-2 hover:bg-gray-800 rounded-lg transition-colors relative touch-target mobile-tap-highlight">
-              <Bell className="w-5 h-5 text-gray-400" />
-              {hasNotifications && (
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
-              )}
-            </button>
-          </div>
-
           {/* Auth Buttons - Login & Sign Up */}
           <div className="hidden sm:flex items-center gap-2">
             <button
