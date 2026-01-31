@@ -211,9 +211,9 @@ export default function OrchestrationDashboard() {
             <Activity className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-white">Agentic Orchestration</h1>
+            <h1 className="text-2xl font-bold text-white">Agentic Orchestration Architecture</h1>
             <p className="text-gray-400 text-sm">
-              Real-time monitoring and control of autonomous agent operations
+              Orchestrate AI workflows with clear accountability — RACI compliance, governance, and real-time monitoring.
             </p>
           </div>
         </div>
