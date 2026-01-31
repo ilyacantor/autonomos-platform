@@ -1,1 +1,0 @@
-import{j as e}from"./ui-vendor-Gmj4wSne.js";function n({src:l,title:r,allow:a="fullscreen",minHeight:s="400px"}){return e.jsx("div",{className:"relative w-full h-full",style:{minHeight:s},children:e.jsx("iframe",{src:l,className:"absolute inset-0 w-full h-full",title:r,allow:a,style:{border:"none",backgroundColor:"#1a1a1a"}})})}export{n as D};

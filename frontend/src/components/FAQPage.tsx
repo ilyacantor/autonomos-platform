@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { HelpCircle, ChevronDown, ChevronUp, Search, BookOpen, Layers, Cable, Database, Activity } from 'lucide-react';
+import { HelpCircle, ChevronDown, ChevronUp, Search, BookOpen, Layers, Cable, Database, Activity, MessageSquare, Mail } from 'lucide-react';
 
 interface FAQItem {
   question: string;
@@ -14,54 +14,79 @@ export default function FAQPage() {
 
   const faqItems: FAQItem[] = [
     {
-      category: 'General',
+      category: 'Platform',
       question: 'What is AutonomOS?',
-      answer: 'AutonomOS is an AI-native operating system for the enterprise data/agent stack. It sits between chaotic source systems and domain agents, providing discovery, connectivity, and orchestration capabilities.'
+      answer: 'AutonomOS (AOS) is an AI-native operating system for the intelligent enterprise. It solves the fundamental problem of data chaos — where business-critical information is scattered across disconnected systems, making it impossible for AI agents (or humans) to get accurate, timely answers. AOS overlays your existing IT, abstracts complexity, and delivers unified intelligence without requiring you to replace your current systems.'
     },
     {
-      category: 'General',
-      question: 'What are the main components of AutonomOS?',
-      answer: 'AutonomOS consists of four main layers: AOD (Discovery - The Senses), AAM (Mesh - The Fabric), DCL (Connectivity - The Brain), and AOA (Orchestration - The Hands). Additionally, FARM provides verification and testing capabilities.'
+      category: 'Platform',
+      question: 'What problem does AutonomOS solve?',
+      answer: 'Enterprises struggle with: Shadow IT (unknown applications across the org), Data Silos (customer data in Salesforce, billing in Stripe, usage in DataDog — never unified), Schema Drift (APIs constantly changing, breaking integrations), and No Single Source of Truth (Finance, Sales, and Ops all have different definitions of "customer"). AOS creates a unified foundation where AI agents can finally get reliable, consistent answers.'
     },
     {
-      category: 'Architecture',
-      question: 'What is the Fabric Plane Mesh?',
-      answer: 'The Fabric Plane Mesh is the core architecture pattern where AAM connects to Fabric Planes (iPaaS, API Gateway, Event Bus, Data Warehouse) rather than directly to individual SaaS applications. This enables enterprise-grade patterns with self-healing connections.'
+      category: 'Platform',
+      question: 'How does the data flow through AutonomOS?',
+      answer: 'Data flows through a three-stage pipeline: 1) DISCOVER (AOD) finds and catalogs everything in your environment, 2) CONNECT (AAM) establishes self-healing connections to your data sources through Fabric Planes, and 3) UNIFY (DCL) transforms fragmented data into a canonical business ontology. This creates a foundation for NLQ queries and AI agent actions orchestrated by AOA.'
     },
     {
-      category: 'Architecture',
-      question: 'What are Enterprise Presets?',
-      answer: 'Enterprise Presets define how your organization connects to data sources. Preset 6 (Scrappy) allows direct P2P connections, Preset 8 uses iPaaS, Preset 9 uses Event Bus (Kafka), and Preset 11 uses Data Warehouse as the source of truth.'
+      category: 'NLQ',
+      question: 'What is NLQ (Natural Language Query)?',
+      answer: 'NLQ lets you ask questions in plain English across all your unified enterprise data. Instead of writing SQL or navigating complex dashboards, you can ask "What are our top accounts by revenue?" or "Show me at-risk customers." NLQ understands business context and provides persona-aware responses — a CFO sees financial impact while a CRO sees pipeline risk.'
     },
     {
       category: 'Discovery',
-      question: 'How does AOD discover assets?',
-      answer: 'AOD (Asset & Observability Discovery) scans your infrastructure to identify Fabric Planes, data sources, and assets. It classifies assets, detects shadow IT, and exports connection candidates to AAM for the mesh layer.'
+      question: 'What does AOD (Asset & Observability Discovery) do?',
+      answer: 'AOD automatically discovers, catalogs, and scores everything running in your environment. It ingests signals from identity providers (Okta, Azure AD), expense systems, cloud inventories, CMDBs, and network logs. AOD identifies shadow IT, zombie assets (licensed but unused software), compliance gaps, and assets without proper ownership. It produces a trusted catalog that forms the foundation for all downstream intelligence.'
+    },
+    {
+      category: 'Discovery',
+      question: 'What is Shadow IT and how does AOD detect it?',
+      answer: 'Shadow IT refers to applications employees use without IT approval or oversight. AOD detects it by correlating signals from multiple sources — if an app appears in expense reports or browser telemetry but is missing from your official CMDB or SSO, it is flagged as potential Shadow IT. These assets are surfaced for security review and governance decisions.'
     },
     {
       category: 'Connectivity',
-      question: 'What is Zero-Trust Pointer Buffering?',
-      answer: 'Zero-Trust Pointer Buffering is a security pattern in DCL where only pointers to data are buffered, not the actual payloads. Payloads are fetched just-in-time when needed, ensuring customer data is never serialized to disk.'
+      question: 'What is AAM (Adaptive API Mesh)?',
+      answer: 'AAM is a self-healing integration layer that observes, documents, and maintains enterprise data pipes. It connects to Fabric Planes (iPaaS, API Gateway, Event Bus, Data Warehouse) rather than directly to individual SaaS apps. AAM monitors API health, detects schema changes (drift), and autonomously adapts to keep connections healthy without manual intervention.'
     },
     {
       category: 'Connectivity',
-      question: 'How does self-healing work?',
-      answer: 'AAM implements self-healing through continuous health checks of Fabric Plane connections. When drift or connectivity issues are detected, the mesh automatically attempts to reconnect and restore the data flow.'
+      question: 'What is Schema Drift and how does AAM handle it?',
+      answer: 'Schema drift occurs when a vendor changes their API schema, breaking existing integrations. AAM detects drift automatically through schema fingerprinting, uses AI to propose mapping repairs, applies fixes with human-in-the-loop approval for critical changes, and maintains audit trails. This self-healing capability means your integrations stay healthy even as upstream systems change.'
+    },
+    {
+      category: 'Connectivity',
+      question: 'What are Fabric Planes?',
+      answer: 'Fabric Planes are aggregated enterprise integration layers that AOS connects through instead of making direct point-to-point connections. There are four types: iPaaS Plane (Workato, MuleSoft, Tray.io), API Gateway Plane (Kong, Apigee), Event Bus Plane (Kafka, EventBridge), and Data Warehouse Plane (Snowflake, BigQuery). This ensures governance, auditability, and scalability.'
+    },
+    {
+      category: 'Data',
+      question: 'What does DCL (Data Connectivity Layer) do?',
+      answer: 'DCL is the semantic mapping layer that transforms raw data into a unified business ontology. It takes cryptic field names like "KUNNR" or "acct_id" and maps them to business concepts like "Account" or "Revenue". DCL performs entity resolution (recognizing "Acme Corp" and "ACME Corporation" as the same company) and produces canonical streams that agents and dashboards consume.'
+    },
+    {
+      category: 'Data',
+      question: 'What is the Canonical Data Model?',
+      answer: 'Instead of every system having its own definition of "Customer," AutonomOS maintains a single ontology with unified entities: Account (company/organization), Opportunity (sales deals), Revenue (billing/payment data), Cost (spending), Usage (product utilization), and Health (composite customer scoring). All source data is mapped to these canonical concepts.'
     },
     {
       category: 'Orchestration',
-      question: 'What is Fabric Action Routing?',
-      answer: 'Fabric Action Routing is how AOA routes "write" intents to the appropriate Fabric Plane based on the active Enterprise Preset. Actions are never sent directly to apps (except in Scrappy mode) but through the configured fabric.'
+      question: 'What is AOA (Agentic Orchestration Architecture)?',
+      answer: 'AOA orchestrates complex, multi-step AI workflows across your business. It provides fabric-aware scheduling that routes tasks through proper enterprise integration planes, RACI compliance ensuring every action has clear accountability (Responsible, Accountable, Consulted, Informed), stress testing for validating workflows before production, and real-time monitoring of agent execution.'
     },
     {
       category: 'Orchestration',
-      question: 'How do I configure agents?',
-      answer: 'Navigate to the Orchestration page to configure AI agents. You can set up agent workflows, define approval requirements, configure trust levels, and monitor agent execution in real-time.'
+      question: 'What is RACI compliance in AOA?',
+      answer: 'RACI is a governance framework ensuring every automated action has clear accountability: Responsible (who does the work), Accountable (who approves), Consulted (who provides input), and Informed (who needs to know). AOA enforces RACI on all agent actions with audit logging, ensuring traceability and governance for enterprise AI operations.'
     },
     {
-      category: 'Verification',
-      question: 'What is FARM?',
-      answer: 'FARM is the verification layer that acts as the "Test Oracle." It validates ground truth, runs end-to-end injection tests, and measures accuracy. FARM is strictly for QA, not operations.'
+      category: 'Personas',
+      question: 'How does AutonomOS adapt to different business roles?',
+      answer: 'AutonomOS tailors information for executive personas: CFO sees Revenue, Cost, Margin, Cash, and Risk ("What is our actual MRR?"). CRO sees Accounts, Pipeline, Opportunities, and Churn ("Which deals are at risk?"). COO sees Usage, Health, SLAs, and Incidents ("Are we meeting SLAs?"). CTO sees Assets, Cloud Resources, Tech Debt, and Security ("What shadow IT exists?").'
+    },
+    {
+      category: 'Security',
+      question: 'How does AutonomOS handle sensitive data?',
+      answer: 'AutonomOS implements multiple security controls: PII detection at ingress with configurable policies (Block, Redact, Warn, Allow), JWT-based authentication with Argon2 password hashing, multi-tenant isolation via UUID-based tenant scoping, TLS encryption for all connections, and audit trails for all data access and agent actions.'
     }
   ];
 
@@ -86,9 +111,11 @@ export default function FAQPage() {
 
   const getCategoryIcon = (category: string) => {
     switch (category) {
-      case 'Architecture': return <Layers className="w-4 h-4" />;
+      case 'Platform': return <Layers className="w-4 h-4" />;
+      case 'NLQ': return <MessageSquare className="w-4 h-4" />;
       case 'Discovery': return <Search className="w-4 h-4" />;
       case 'Connectivity': return <Cable className="w-4 h-4" />;
+      case 'Data': return <Database className="w-4 h-4" />;
       case 'Orchestration': return <Activity className="w-4 h-4" />;
       default: return <BookOpen className="w-4 h-4" />;
     }
@@ -102,7 +129,7 @@ export default function FAQPage() {
           <h1 className="text-3xl font-bold text-white">Help & FAQ</h1>
         </div>
         <p className="text-gray-400 text-lg">
-          Find answers to common questions about AutonomOS
+          Learn how AutonomOS unifies your enterprise data for AI-powered operations
         </p>
       </div>
 
@@ -176,11 +203,20 @@ export default function FAQPage() {
       )}
 
       <div className="bg-gradient-to-r from-cyan-900/30 to-blue-900/30 rounded-xl p-6 border border-cyan-800/50 mt-8">
-        <h2 className="text-xl font-semibold text-white mb-3">Need More Help?</h2>
-        <p className="text-gray-400">
-          Visit the <span className="text-cyan-400">Guide</span> page for comprehensive platform documentation,
-          or check out the <span className="text-cyan-400">Demo</span> to see AutonomOS in action.
+        <h2 className="text-xl font-semibold text-white mb-3 flex items-center gap-2">
+          <Mail className="w-5 h-5 text-cyan-400" />
+          Need More Help?
+        </h2>
+        <p className="text-gray-400 mb-4">
+          Have questions not covered here? Our team is ready to help you understand how AutonomOS can transform your enterprise operations.
         </p>
+        <a
+          href="mailto:ilya.cantor@autonomos.tech?subject=AutonomOS%20Support%20Request"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors"
+        >
+          <Mail className="w-4 h-4" />
+          Contact Support
+        </a>
       </div>
     </div>
   );
