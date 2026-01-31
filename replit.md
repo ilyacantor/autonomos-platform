@@ -27,11 +27,20 @@ This creates a foundation where AI agents can finally get reliable, consistent a
 ## Platform Modules
 
 ### NLQ - Natural Language Query
-**What it does**: Ask questions in plain English across all your unified data.
+**What it does**: Ask questions in plain English across all your unified data and get instant, interactive dashboards.
 
 - Query across Salesforce, Stripe, NetSuite, and more with natural language
 - AI understands business context (e.g., "Show me at-risk customers" combines usage, billing, and support data)
 - Persona-aware responses (CFO sees financial impact, CRO sees pipeline risk)
+
+**Self-Generating Dashboard Features:**
+- **Galaxy View**: Interactive visualization with center node (main answer) and connected nodes (related metrics)
+- **Dashboard View**: For overview questions like "2025 results" or "CFO dashboard" - generates full KPI dashboards
+- **Customizable Widgets**: Drag to reposition, resize by dragging corners, refine with natural language
+- **Refinement Box**: Modify dashboards with commands like "Add a pipeline chart" or "Make the revenue card bigger"
+- **Save/Load**: Save customized layouts and create reusable templates
+- **Confidence Indicators**: Green (high), Yellow (medium), Red (lower) confidence scoring on all answers
+- **Trend Arrows**: Visual indicators showing if metrics are improving, declining, or stable
 
 ### AOD - Asset & Observability Discovery
 **What it does**: Automatically discover, catalog, and score everything running in your environment.
@@ -64,13 +73,6 @@ This creates a foundation where AI agents can finally get reliable, consistent a
 - RACI compliance ensures every action has clear accountability
 - Stress testing and simulation modes for validating workflows before production
 - Real-time monitoring of agent execution and performance
-
-### Demo - End-to-End Pipeline
-**What it does**: Demonstrates the full AOD → AAM → DCL → Agent data flow.
-
-- Simulates discovery, connection, normalization, and agent action
-- Shows how data transforms at each stage
-- Validates pipeline health and performance
 
 ---
 
@@ -146,7 +148,7 @@ Track data as it flows through the system:
 The frontend provides access to all modules:
 
 ```
-Overview → NLQ → AOD → AAM → DCL → AOA → Demo → Help
+Overview → NLQ → AOD → AAM → DCL → AOA → Help
 ```
 
 Each module embeds its specialized interface:
