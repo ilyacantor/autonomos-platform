@@ -4,14 +4,12 @@ interface AppLayoutProps {
   children: React.ReactNode;
   currentPage: string;
   onNavigate: (page: string) => void;
-  onAuthOpen: (mode: 'login' | 'signup') => void;
 }
 
-export default function AppLayout({ children, currentPage, onNavigate, onAuthOpen }: AppLayoutProps) {
+export default function AppLayout({ children, currentPage, onNavigate }: AppLayoutProps) {
   return (
     <div className="h-screen flex flex-col bg-gray-950">
       <TopBar 
-        onAuthOpen={onAuthOpen}
         currentPage={currentPage}
         onNavigate={onNavigate}
       />

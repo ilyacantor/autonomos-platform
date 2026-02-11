@@ -1,14 +1,14 @@
 import DemoIframeContainer from './DemoIframeContainer';
 
-const AAM_IFRAME_URL = 'https://aam.autonomos.software/ui/topology';
+const FARM_IFRAME_URL = 'https://autonomos.farm';
 
-export default function ConnectPage() {
+export default function FarmPage() {
   return (
     <div className="h-full flex flex-col">
       <div className="flex-1 min-h-0">
         <DemoIframeContainer
-          src={AAM_IFRAME_URL}
-          title="AAM Mesh Interface"
+          src={FARM_IFRAME_URL}
+          title="Farm"
           allow="fullscreen"
           minHeight="700px"
         />

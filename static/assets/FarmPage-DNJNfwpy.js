@@ -1,0 +1,1 @@
+import{j as e}from"./ui-vendor-DgJf12sI.js";import{D as r}from"./DemoIframeContainer-BxoZKYS-.js";import"./react-vendor-D3F3s8fL.js";const s="https://autonomos.farm";function m(){return e.jsx("div",{className:"h-full flex flex-col",children:e.jsx("div",{className:"flex-1 min-h-0",children:e.jsx(r,{src:s,title:"Farm",allow:"fullscreen",minHeight:"700px"})})})}export{m as default};

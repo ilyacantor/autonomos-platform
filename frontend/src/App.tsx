@@ -1,20 +1,16 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { AutonomyProvider, useAutonomy } from './contexts/AutonomyContext';
-import { AuthProvider } from './context/AuthContext';
-import { useAuth } from './hooks/useAuth';
 import AppLayout from './components/AppLayout';
-import AuthModal from './components/AuthModal';
 
-// Lazy load all page components for faster initial load
 const AOSOverviewPage = lazy(() => import('./components/AOSOverviewPage'));
 const DiscoverPage = lazy(() => import('./components/DiscoverPage'));
 const ConnectPage = lazy(() => import('./components/ConnectPage'));
 const UnifyAskPage = lazy(() => import('./components/UnifyAskPage'));
 const NLQPage = lazy(() => import('./components/NLQPage'));
 const OrchestrationDashboard = lazy(() => import('./components/orchestration/OrchestrationDashboard'));
+const FarmPage = lazy(() => import('./components/FarmPage'));
 const FAQPage = lazy(() => import('./components/FAQPage'));
 
-// Loading spinner for lazy-loaded pages
 function PageLoader() {
   return (
     <div className="flex items-center justify-center min-h-[400px]">
@@ -27,26 +23,21 @@ function PageLoader() {
 }
 
 function AppContent() {
-  // Initialize page from URL path
   const getInitialPage = () => {
-    const path = window.location.pathname.slice(1); // Remove leading slash
-    const validPages = ['aos-overview', 'nlq', 'discover', 'connect', 'unify-ask', 'orchestration', 'faq'];
+    const path = window.location.pathname.slice(1);
+    const validPages = ['aos-overview', 'nlq', 'discover', 'connect', 'unify-ask', 'orchestration', 'farm', 'faq'];
     return validPages.includes(path) ? path : 'aos-overview';
   };
 
   const [currentPage, setCurrentPage] = useState(getInitialPage());
-  const [authModalOpen, setAuthModalOpen] = useState(false);
-  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const { legacyMode } = useAutonomy();
 
-  // Listen for navigation events from components
   useEffect(() => {
     const handleNavigation = (event: Event) => {
       const customEvent = event as CustomEvent;
       const page = customEvent.detail?.page;
       if (page) {
         setCurrentPage(page);
-        // Update URL to match page
         window.history.pushState({}, '', `/${page}`);
       }
     };
@@ -57,11 +48,10 @@ function AppContent() {
     };
   }, []);
 
-  // Sync URL changes (browser back/forward) with currentPage
   useEffect(() => {
     const handlePopState = () => {
       const path = window.location.pathname.slice(1);
-      const validPages = ['aos-overview', 'nlq', 'discover', 'connect', 'unify-ask', 'orchestration', 'faq'];
+      const validPages = ['aos-overview', 'nlq', 'discover', 'connect', 'unify-ask', 'orchestration', 'farm', 'faq'];
       if (validPages.includes(path)) {
         setCurrentPage(path);
       }
@@ -72,15 +62,6 @@ function AppContent() {
       window.removeEventListener('popstate', handlePopState);
     };
   }, []);
-
-  const handleAuthOpen = (mode: 'login' | 'signup') => {
-    setAuthMode(mode);
-    setAuthModalOpen(true);
-  };
-
-  const handleAuthClose = () => {
-    setAuthModalOpen(false);
-  };
 
   const renderPage = () => {
     switch (currentPage) {
@@ -96,6 +77,8 @@ function AppContent() {
         return <UnifyAskPage />;
       case 'orchestration':
         return <OrchestrationDashboard />;
+      case 'farm':
+        return <FarmPage />;
       case 'faq':
         return <FAQPage />;
       default:
@@ -104,32 +87,19 @@ function AppContent() {
   };
 
   return (
-    <>
-      <AppLayout currentPage={currentPage} onNavigate={setCurrentPage} onAuthOpen={handleAuthOpen}>
-        <Suspense fallback={<PageLoader />}>
-          {renderPage()}
-        </Suspense>
-      </AppLayout>
-
-      {/* Auth modal only shows when user clicks Login or Sign Up */}
-      {authModalOpen && (
-        <AuthModal
-          isOpen={authModalOpen}
-          onClose={handleAuthClose}
-          initialMode={authMode}
-        />
-      )}
-    </>
+    <AppLayout currentPage={currentPage} onNavigate={setCurrentPage}>
+      <Suspense fallback={<PageLoader />}>
+        {renderPage()}
+      </Suspense>
+    </AppLayout>
   );
 }
 
 function App() {
   return (
-    <AuthProvider>
-      <AutonomyProvider>
-        <AppContent />
-      </AutonomyProvider>
-    </AuthProvider>
+    <AutonomyProvider>
+      <AppContent />
+    </AutonomyProvider>
   );
 }
 
