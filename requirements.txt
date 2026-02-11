@@ -38,8 +38,3 @@ psycopg[async]
 requests
 psycopg-binary
 slowapi
-fakeredis==2.21.1
-fakeredis
-syrupy
-pytest-timeout
-aiosqlite
