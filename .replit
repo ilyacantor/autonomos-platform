@@ -35,6 +35,6 @@ localPort = 5000
 externalPort = 80
 
 [deployment]
-run = ["bash", "start.sh"]
+run = ["bash", "start-prod.sh"]
 deploymentTarget = "vm"
 build = ["bash", "build.sh"]
