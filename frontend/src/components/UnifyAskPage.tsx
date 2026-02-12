@@ -9,8 +9,6 @@ export default function UnifyAskPage() {
         <DemoIframeContainer
           src={DCL_IFRAME_URL}
           title="DCL - Data Connectivity Layer"
-          allow="fullscreen"
-          minHeight="700px"
         />
       </div>
     </div>

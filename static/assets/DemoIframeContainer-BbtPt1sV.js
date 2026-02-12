@@ -1,0 +1,1 @@
+import{j as a}from"./ui-vendor-DgJf12sI.js";function l({src:r,title:e,allow:o="fullscreen"}){return a.jsx("iframe",{src:r,className:"w-full h-full",title:e,allow:o,style:{border:"none",backgroundColor:"#1a1a1a"}})}export{l as D};

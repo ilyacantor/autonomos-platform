@@ -9,8 +9,6 @@ export default function NLQPage() {
         <DemoIframeContainer
           src={NLQ_IFRAME_URL}
           title="NLQ - Natural Language Query"
-          allow="fullscreen"
-          minHeight="700px"
         />
       </div>
     </div>

@@ -9,8 +9,6 @@ export default function FarmPage() {
         <DemoIframeContainer
           src={FARM_IFRAME_URL}
           title="Farm"
-          allow="fullscreen"
-          minHeight="700px"
         />
       </div>
     </div>

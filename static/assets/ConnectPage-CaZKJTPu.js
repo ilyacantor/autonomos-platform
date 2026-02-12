@@ -1,0 +1,1 @@
+import{j as e}from"./ui-vendor-DgJf12sI.js";import{D as o}from"./DemoIframeContainer-BbtPt1sV.js";import"./react-vendor-D3F3s8fL.js";const t="https://aam.autonomos.software/ui/topology";function n(){return e.jsx("div",{className:"h-full flex flex-col",children:e.jsx("div",{className:"flex-1 min-h-0",children:e.jsx(o,{src:t,title:"AAM Mesh Interface"})})})}export{n as default};

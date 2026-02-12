@@ -9,8 +9,6 @@ export default function ConnectPage() {
         <DemoIframeContainer
           src={AAM_IFRAME_URL}
           title="AAM Mesh Interface"
-          allow="fullscreen"
-          minHeight="700px"
         />
       </div>
     </div>

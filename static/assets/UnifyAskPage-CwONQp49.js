@@ -1,0 +1,1 @@
+import{j as t}from"./ui-vendor-DgJf12sI.js";import{D as e}from"./DemoIframeContainer-BbtPt1sV.js";import"./react-vendor-D3F3s8fL.js";const s="https://dcl.autonomos.software";function i(){return t.jsx("div",{className:"h-full flex flex-col",children:t.jsx("div",{className:"flex-1 min-h-0",children:t.jsx(e,{src:s,title:"DCL - Data Connectivity Layer"})})})}export{i as default};

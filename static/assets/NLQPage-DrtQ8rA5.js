@@ -1,0 +1,1 @@
+import{j as e}from"./ui-vendor-DgJf12sI.js";import{D as t}from"./DemoIframeContainer-BbtPt1sV.js";import"./react-vendor-D3F3s8fL.js";const a="https://nlq.autonomos.software";function l(){return e.jsx("div",{className:"h-full flex flex-col",children:e.jsx("div",{className:"flex-1 min-h-0",children:e.jsx(t,{src:a,title:"NLQ - Natural Language Query"})})})}export{l as default};

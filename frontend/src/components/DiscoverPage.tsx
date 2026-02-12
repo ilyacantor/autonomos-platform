@@ -9,8 +9,6 @@ export default function DiscoverPage() {
         <DemoIframeContainer
           src={DISCOVER_IFRAME_URL}
           title="AOD Discovery"
-          allow="fullscreen"
-          minHeight="700px"
         />
       </div>
     </div>
