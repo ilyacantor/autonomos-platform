@@ -15,9 +15,7 @@ export default function AppLayout({ children, currentPage, onNavigate }: AppLayo
       />
 
       <div className="flex-1 overflow-auto">
-        <div className="p-6">
-          {children}
-        </div>
+        {children}
       </div>
     </div>
   );
