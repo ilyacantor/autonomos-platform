@@ -34,20 +34,8 @@ function AppContent() {
   };
 
   const [currentPage, setCurrentPage] = useState(getInitialPage());
-  const [visitedIframes, setVisitedIframes] = useState<Set<string>>(() => {
-    const initial = getInitialPage();
-    return IFRAME_PAGES[initial] ? new Set([initial]) : new Set();
-  });
   const { legacyMode } = useAutonomy();
-
-  useEffect(() => {
-    if (IFRAME_PAGES[currentPage]) {
-      setVisitedIframes(prev => {
-        if (prev.has(currentPage)) return prev;
-        return new Set(prev).add(currentPage);
-      });
-    }
-  }, [currentPage]);
+  const allIframeKeys = Object.keys(IFRAME_PAGES);
 
   useEffect(() => {
     const handleNavigation = (event: Event) => {
@@ -103,9 +91,8 @@ function AppContent() {
         </Suspense>
       )}
 
-      {Array.from(visitedIframes).map(pageKey => {
+      {allIframeKeys.map(pageKey => {
         const config = IFRAME_PAGES[pageKey];
-        if (!config) return null;
         return (
           <div
             key={pageKey}
