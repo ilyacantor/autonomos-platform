@@ -43,9 +43,9 @@ from slowapi.errors import RateLimitExceeded
 # Initialize database tables - with error handling for resilience
 try:
     models.Base.metadata.create_all(bind=engine)
-    print("✅ Database tables initialized successfully")
+    logger.info("✅ Database tables initialized successfully")
 except Exception as e:
-    print(f"⚠️ Database initialization failed: {e}. Continuing without database...")
+    logger.warning(f"⚠️ Database initialization failed: {e}. Continuing without database...")
 
 # Import AAM orchestration components
 # No sys.path manipulation needed - package installed via pip install -e .
@@ -58,11 +58,11 @@ try:
     from aam_hybrid.services.orchestrator.service import handle_status_update, manager
     from aam_hybrid.shared.event_bus import event_bus
     AAM_AVAILABLE = True
-    print("✅ AAM Hybrid orchestration modules imported successfully")
+    logger.info("✅ AAM Hybrid orchestration modules imported successfully")
 except ImportError as e:
-    print(f"⚠️ AAM Hybrid orchestration not available: {e}")
+    logger.warning(f"⚠️ AAM Hybrid orchestration not available: {e}")
 except Exception as e:
-    print(f"⚠️ AAM Hybrid orchestration initialization error: {e}")
+    logger.warning(f"⚠️ AAM Hybrid orchestration initialization error: {e}")
 
 async def deferred_initialization():
     """
@@ -204,10 +204,13 @@ logger.info("✅ SlowAPI rate limiter registered for granular endpoint protectio
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     """Catch all unhandled exceptions and return JSON (not plain text)"""
-    logger.error(f"Unhandled exception on {request.url}: {exc}", exc_info=True)
+    try:
+        logger.error(f"Unhandled exception on {request.url}: {exc}", exc_info=True)
+    except Exception:
+        pass
     return JSONResponse(
         status_code=500,
-        content={"detail": "Internal server error", "error": str(exc), "path": str(request.url.path)}
+        content={"detail": "Internal server error", "path": str(request.url.path)}
     )
 
 # Configure CORS to allow both dev and production origins
@@ -248,9 +251,9 @@ try:
     # app.middleware("http")(idempotency_middleware)
     # app.middleware("http")(audit_middleware)
 
-    print("✅ Gateway middleware registered successfully (Audit & Idempotency disabled until blocking issues resolved)")
+    logger.info("✅ Gateway middleware registered successfully (Audit & Idempotency disabled until blocking issues resolved)")
 except Exception as e:
-    print(f"⚠️ Gateway middleware not available: {e}")
+    logger.warning(f"⚠️ Gateway middleware not available: {e}")
 
 # Use REDIS_URL if available (production), otherwise use host/port (development)
 # Redis is optional - if not available, task queue features will be disabled
@@ -270,18 +273,18 @@ try:
                 ssl_cert_reqs=ssl_module.CERT_REQUIRED,
                 ssl_ca_certs=CA_CERT_PATH
             )
-            print(f"🔒 Using TLS/SSL for Redis connection with certificate validation")
+            logger.info("🔒 Using TLS/SSL for Redis connection with certificate validation")
         else:
             # Plain connection
             redis_conn = Redis.from_url(REDIS_URL, decode_responses=False)
-            print("⚠️ Using non-TLS Redis connection - ensure this is intentional for dev/local only")
+            logger.warning("⚠️ Using non-TLS Redis connection - ensure this is intentional for dev/local only")
     else:
         redis_conn = Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB)
 
     task_queue = Queue(connection=redis_conn)
-    print("✅ Redis connected successfully")
+    logger.info("✅ Redis connected successfully")
 except Exception as e:
-    print(f"⚠️ Redis not available: {e}. Task queue features disabled.")
+    logger.warning(f"⚠️ Redis not available: {e}. Task queue features disabled.")
     redis_conn = None
     task_queue = None
 
@@ -299,13 +302,13 @@ if redis_conn:
             decode_responses=False
         )
         flow_publisher = FlowEventPublisher(async_redis_client)
-        print("✅ FlowEventPublisher initialized for real-time telemetry")
+        logger.info("✅ FlowEventPublisher initialized for real-time telemetry")
     except Exception as e:
-        print(f"⚠️ FlowEventPublisher initialization failed: {e}. Telemetry disabled.")
+        logger.warning(f"⚠️ FlowEventPublisher initialization failed: {e}. Telemetry disabled.")
         flow_publisher = None
         async_redis_client = None
 else:
-    print("⚠️ Redis not available - FlowEventPublisher disabled")
+    logger.warning("⚠️ Redis not available - FlowEventPublisher disabled")
 
 
 
@@ -353,9 +356,9 @@ try:
         # Inject shared async Redis client into flow_monitor API
         flow_monitor.set_async_redis(async_redis_client)
     app.include_router(flow_monitor.router, prefix="/api/v1", tags=["Flow Monitoring"])
-    print("✅ Flow Monitor API registered")
+    logger.info("✅ Flow Monitor API registered")
 except Exception as e:
-    print(f"⚠️ Failed to register Flow Monitor API: {e}")
+    logger.warning(f"⚠️ Failed to register Flow Monitor API: {e}")
 
 class NoCacheStaticFiles(StaticFiles):
     """StaticFiles with no-cache headers to prevent Replit CDN caching"""
@@ -370,7 +373,7 @@ class NoCacheStaticFiles(StaticFiles):
 @app.get("/_ping")
 async def ping():
     """Ultra-simple endpoint to test if server is responding"""
-    print("[PING] Endpoint called")
+    logger.debug("[PING] Endpoint called")
     return {"status": "ok"}
 
 STATIC_DIR = "static"
