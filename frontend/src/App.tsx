@@ -1,15 +1,19 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { AutonomyProvider, useAutonomy } from './contexts/AutonomyContext';
 import AppLayout from './components/AppLayout';
+import DemoIframeContainer from './components/DemoIframeContainer';
 
 const AOSOverviewPage = lazy(() => import('./components/AOSOverviewPage'));
-const DiscoverPage = lazy(() => import('./components/DiscoverPage'));
-const ConnectPage = lazy(() => import('./components/ConnectPage'));
-const UnifyAskPage = lazy(() => import('./components/UnifyAskPage'));
-const NLQPage = lazy(() => import('./components/NLQPage'));
 const OrchestrationDashboard = lazy(() => import('./components/orchestration/OrchestrationDashboard'));
-const FarmPage = lazy(() => import('./components/FarmPage'));
 const FAQPage = lazy(() => import('./components/FAQPage'));
+
+const IFRAME_PAGES: Record<string, { src: string; title: string }> = {
+  'nlq': { src: 'https://nlq.autonomos.software', title: 'NLQ - Natural Language Query' },
+  'discover': { src: 'https://discover.autonomos.software/', title: 'AOD Discovery' },
+  'connect': { src: 'https://aam.autonomos.software/ui/topology', title: 'AAM Mesh Interface' },
+  'unify-ask': { src: 'https://dcl.autonomos.software', title: 'DCL - Data Connectivity Layer' },
+  'farm': { src: 'https://autonomos.farm', title: 'Farm' },
+};
 
 function PageLoader() {
   return (
@@ -30,7 +34,20 @@ function AppContent() {
   };
 
   const [currentPage, setCurrentPage] = useState(getInitialPage());
+  const [visitedIframes, setVisitedIframes] = useState<Set<string>>(() => {
+    const initial = getInitialPage();
+    return IFRAME_PAGES[initial] ? new Set([initial]) : new Set();
+  });
   const { legacyMode } = useAutonomy();
+
+  useEffect(() => {
+    if (IFRAME_PAGES[currentPage]) {
+      setVisitedIframes(prev => {
+        if (prev.has(currentPage)) return prev;
+        return new Set(prev).add(currentPage);
+      });
+    }
+  }, [currentPage]);
 
   useEffect(() => {
     const handleNavigation = (event: Event) => {
@@ -63,22 +80,14 @@ function AppContent() {
     };
   }, []);
 
-  const renderPage = () => {
+  const isIframePage = IFRAME_PAGES[currentPage] !== undefined;
+
+  const renderNonIframePage = () => {
     switch (currentPage) {
       case 'aos-overview':
         return <AOSOverviewPage />;
-      case 'nlq':
-        return <NLQPage />;
-      case 'discover':
-        return <DiscoverPage />;
-      case 'connect':
-        return <ConnectPage />;
-      case 'unify-ask':
-        return <UnifyAskPage />;
       case 'orchestration':
         return <OrchestrationDashboard />;
-      case 'farm':
-        return <FarmPage />;
       case 'faq':
         return <FAQPage />;
       default:
@@ -88,9 +97,25 @@ function AppContent() {
 
   return (
     <AppLayout currentPage={currentPage} onNavigate={setCurrentPage}>
-      <Suspense fallback={<PageLoader />}>
-        {renderPage()}
-      </Suspense>
+      {!isIframePage && (
+        <Suspense fallback={<PageLoader />}>
+          {renderNonIframePage()}
+        </Suspense>
+      )}
+
+      {Array.from(visitedIframes).map(pageKey => {
+        const config = IFRAME_PAGES[pageKey];
+        if (!config) return null;
+        return (
+          <div
+            key={pageKey}
+            className="h-full"
+            style={{ display: currentPage === pageKey ? 'block' : 'none' }}
+          >
+            <DemoIframeContainer src={config.src} title={config.title} />
+          </div>
+        );
+      })}
     </AppLayout>
   );
 }

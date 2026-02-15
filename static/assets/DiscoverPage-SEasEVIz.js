@@ -1,1 +1,0 @@
-import{j as e}from"./ui-vendor-DgJf12sI.js";import{D as s}from"./DemoIframeContainer-BbtPt1sV.js";import"./react-vendor-D3F3s8fL.js";const o="https://discover.autonomos.software/";function a(){return e.jsx("div",{className:"h-full flex flex-col",children:e.jsx("div",{className:"flex-1 min-h-0",children:e.jsx(s,{src:o,title:"AOD Discovery"})})})}export{a as default};
