@@ -293,7 +293,7 @@ export default function AOSOverviewPage() {
               <div className="flex items-start gap-3">
                 <Search className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
                 <div>
-                  <h3 className="font-bold text-cyan-400 mb-1">Discover (AOD) <span className="text-cyan-300 font-normal">— this demo</span></h3>
+                  <h3 className="font-bold text-cyan-400 mb-1">Discover (AOD)</h3>
                   <p className="text-slate-400 text-xs leading-relaxed">
                     Builds a centralized, continuously updated source-of-truth catalog for all digital assets. Automatically deduplicates entries, infers ownership, and enriches asset profiles with comprehensive infrastructure and network metadata.
                   </p>
@@ -363,29 +363,27 @@ export default function AOSOverviewPage() {
       </section>
 
       {/* --- SECTION 5: CALL TO ACTION --- */}
-      <section id="section-cta" className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 py-20 px-6 relative overflow-hidden">
+      <section id="section-cta" className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 py-10 px-6 relative overflow-hidden">
         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20" />
 
-        <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-8 relative z-10">
-          <div className="space-y-2 text-center md:text-left">
-            <h2 className="text-3xl md:text-4xl font-bold text-white">
+        <div className="max-w-3xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 relative z-10">
+          <div className="space-y-1 text-center sm:text-left">
+            <h2 className="text-xl md:text-2xl font-bold text-white">
               Ready to see it in action?
             </h2>
-            <p className="text-cyan-100 font-medium">
+            <p className="text-cyan-100 text-sm font-medium">
               Schedule a personalized demo with our team.
             </p>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto flex-wrap justify-center md:justify-end">
-            <Button
-              size="lg"
-              className="bg-white text-blue-600 hover:bg-slate-100 border-none font-bold text-base px-8 h-14 rounded-full shadow-lg hover:translate-y-[-2px] transition-transform"
-              onClick={() => setShowContactForm(true)}
-            >
-              <Mail className="w-4 h-4 mr-2" />
-              Contact for Demo
-            </Button>
-          </div>
+          <Button
+            size="default"
+            className="bg-white text-blue-600 hover:bg-slate-100 border-none font-bold text-sm px-6 h-10 rounded-full shadow-lg hover:translate-y-[-2px] transition-transform"
+            onClick={() => setShowContactForm(true)}
+          >
+            <Mail className="w-4 h-4 mr-2" />
+            Contact for Demo
+          </Button>
         </div>
       </section>
 
