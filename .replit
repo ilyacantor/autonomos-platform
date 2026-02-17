@@ -36,5 +36,5 @@ externalPort = 80
 
 [deployment]
 run = ["bash", "start-prod.sh"]
-deploymentTarget = "vm"
+deploymentTarget = "autoscale"
 build = ["bash", "build.sh"]

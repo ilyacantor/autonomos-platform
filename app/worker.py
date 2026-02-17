@@ -243,17 +243,17 @@ if __name__ == "__main__":
                 ssl_cert_reqs=ssl_module.CERT_REQUIRED,
                 ssl_ca_certs=CA_CERT_PATH
             )
-            print(f"✅ Worker using external Redis with TLS/SSL certificate validation")
+            logger.info("Worker using external Redis with TLS/SSL certificate validation")
         else:
             # Plain connection
             redis_conn = Redis.from_url(REDIS_URL, decode_responses=False)
-            print(f"⚠️ Worker using non-TLS Redis - ensure this is intentional for dev/local only")
+            logger.warning("Worker using non-TLS Redis - ensure this is intentional for dev/local only")
     else:
-        print(f"✅ Worker using local Redis at {settings.REDIS_HOST}:{settings.REDIS_PORT}")
+        logger.info(f"Worker using local Redis at {settings.REDIS_HOST}:{settings.REDIS_PORT}")
         redis_conn = Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB)
     
     queue = Queue(connection=redis_conn)
     worker = Worker([queue], connection=redis_conn)
     
-    print("Starting RQ worker...")
+    logger.info("Starting RQ worker...")
     worker.work()

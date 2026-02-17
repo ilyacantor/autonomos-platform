@@ -1,7 +1,10 @@
 import os
+import logging
 from dotenv import load_dotenv
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 class Settings:
     # Priority: SUPABASE_DB_URL or SUPABASE_DATABASE_URL (custom) > DATABASE_URL (Replit-managed)
@@ -29,10 +32,10 @@ class Settings:
                 "Please ensure your PostgreSQL database is configured."
             )
         if not self.SECRET_KEY:
-            raise ValueError(
-                "SECRET_KEY environment variable is required but not set. "
-                "Please add a secure random string (32+ characters) to Replit Secrets. "
-                "This key is used for JWT token signing."
+            self.SECRET_KEY = os.urandom(32).hex()
+            logger.warning(
+                "SECRET_KEY not set - using auto-generated fallback. "
+                "Set SECRET_KEY in environment/secrets for stable JWT signing across restarts."
             )
         if not self.JWT_SECRET_KEY:
             self.JWT_SECRET_KEY = self.SECRET_KEY
