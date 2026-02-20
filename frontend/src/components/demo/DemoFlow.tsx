@@ -34,6 +34,7 @@ interface DemoStep {
 }
 
 const STEPS: DemoStep[] = [
+  // ── Step 1: NLQ ──────────────────────────────────────────────────────
   {
     id: 'nlq-start',
     iframeSrc: 'https://nlq.autonomos.software',
@@ -57,6 +58,7 @@ const STEPS: DemoStep[] = [
     nextLabel: 'See how this works under the hood →',
     pointer: { x: 50, y: 18, label: 'Click "Why did revenue increase…"' },
   },
+  // ── Step 2: AOD Discovery ────────────────────────────────────────────
   {
     id: 'aod',
     iframeSrc: 'https://discover.autonomos.software/',
@@ -81,6 +83,7 @@ const STEPS: DemoStep[] = [
     nextLabel: 'How do we connect to them? →',
     pointer: { x: 50, y: 22, label: 'Scroll down to Results' },
   },
+  // ── Step 3: AOD Handoff ──────────────────────────────────────────────
   {
     id: 'aod-handoff',
     iframeSrc: 'https://discover.autonomos.software/#handoff',
@@ -114,8 +117,9 @@ const STEPS: DemoStep[] = [
     nextLabel: 'See the connections AAM builds →',
     pointer: { x: 80, y: 35, label: 'Press Export to AAM' },
   },
+  // ── Step 4: AAM — Reset topology ─────────────────────────────────────
   {
-    id: 'aam',
+    id: 'aam-reset',
     iframeSrc: 'https://aam.autonomos.software/ui/topology',
     iframeTitle: 'AAM Mesh Interface',
     label: 'AAM',
@@ -142,15 +146,50 @@ const STEPS: DemoStep[] = [
         </p>
       </>
     ),
-    nextLabel: 'How does the data get meaning? →',
+    nextLabel: 'Now run the full pipeline →',
     pointer: { x: 4, y: 50, label: 'Click Reset' },
   },
+  // ── Step 5: AAM — Full Pipeline + Dispatch ───────────────────────────
+  {
+    id: 'aam-dispatch',
+    iframeSrc: 'https://aam.autonomos.software/ui/topology',
+    iframeTitle: 'AAM Mesh Interface',
+    label: 'Dispatch',
+    modalTitle: 'Step 5 — Dispatch the Pipeline',
+    modalBody: (
+      <>
+        <p className="text-gray-300 text-sm leading-relaxed mb-3">
+          With the topology loaded, click <span className="text-cyan-400 font-medium">Full Pipeline</span> to
+          trigger a live dispatch across every connected system.
+        </p>
+        <div className="bg-cyan-900/30 border border-cyan-700/40 rounded p-2.5 mb-3">
+          <p className="text-cyan-300 text-xs font-medium mb-1">Action required</p>
+          <p className="text-gray-300 text-xs leading-relaxed">
+            Click the green <span className="text-green-400 font-semibold">Full Pipeline</span> button
+            in the left panel.
+          </p>
+        </div>
+        <p className="text-gray-400 text-sm leading-relaxed mb-3">
+          This opens the Dispatch details panel — a real-time view of AAM
+          orchestrating work across every pipe. Each runner authenticates,
+          fetches, and normalizes data independently, then reports status
+          back to the mesh coordinator.
+        </p>
+        <p className="text-gray-500 text-xs">
+          Dispatches are idempotent — safe to re-run at any time.
+        </p>
+      </>
+    ),
+    nextLabel: 'How does the data get meaning? →',
+    pointer: { x: 4, y: 60, label: 'Click Full Pipeline' },
+  },
+  // ── Step 6: DCL ──────────────────────────────────────────────────────
   {
     id: 'dcl',
     iframeSrc: 'https://dcl.autonomos.software',
     iframeTitle: 'DCL - Data Connectivity Layer',
     label: 'DCL',
-    modalTitle: 'Step 5 — Map Fields to Business Concepts',
+    modalTitle: 'Step 6 — Map Fields to Business Concepts',
     modalBody: (
       <>
         <p className="text-gray-300 text-sm leading-relaxed mb-3">
@@ -169,40 +208,46 @@ const STEPS: DemoStep[] = [
     nextLabel: 'Back to the answer →',
     pointer: { x: 50, y: 50, label: 'Explore the field mappings' },
   },
+  // ── Step 7: NLQ return ───────────────────────────────────────────────
   {
     id: 'nlq-return',
     iframeSrc: 'https://nlq.autonomos.software',
     iframeTitle: 'NLQ - Natural Language Query',
     label: 'NLQ',
-    modalTitle: 'Step 6 — The Complete Answer',
+    modalTitle: 'Step 7 — The Complete Answer',
     modalBody: (
       <>
         <p className="text-gray-300 text-sm leading-relaxed mb-3">
-          All of that happened in under 2 seconds to answer the question.
+          The full loop — from question to verified, sourced answer — completes in seconds.
         </p>
         <div className="bg-gray-800/60 border border-gray-700 rounded p-3 mb-4">
-          <p className="text-xs text-gray-500 mb-2 font-medium uppercase tracking-wide">Provenance trail</p>
+          <p className="text-xs text-gray-500 mb-2 font-medium uppercase tracking-wide">What just happened</p>
           <div className="space-y-1.5 text-xs">
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-cyan-400 shrink-0" />
-              <span className="text-gray-400"><span className="text-gray-300">AOD</span> discovered 4 connected systems</span>
+              <span className="text-gray-400"><span className="text-gray-300">AOD</span> scanned and catalogued every reachable system</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-cyan-400 shrink-0" />
+              <span className="text-gray-400"><span className="text-gray-300">Handoff</span> exported connection candidates to AAM</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-green-400 shrink-0" />
-              <span className="text-gray-400"><span className="text-gray-300">AAM</span> pulled revenue data via 3 pipes</span>
+              <span className="text-gray-400"><span className="text-gray-300">AAM</span> built pipes, dispatched runners, and fetched live data</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-orange-400 shrink-0" />
-              <span className="text-gray-400"><span className="text-gray-300">DCL</span> unified 12 fields into canonical revenue</span>
+              <span className="text-gray-400"><span className="text-gray-300">DCL</span> mapped raw fields to canonical business concepts</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-purple-400 shrink-0" />
-              <span className="text-gray-400"><span className="text-gray-300">NLQ</span> composed the answer with citations</span>
+              <span className="text-gray-400"><span className="text-gray-300">NLQ</span> composed a cited, auditable answer</span>
             </div>
           </div>
         </div>
-        <p className="text-gray-500 text-xs">
-          Every answer in AOS carries full provenance — no black boxes.
+        <p className="text-gray-400 text-sm leading-relaxed">
+          Every answer in AOS carries full provenance — no black boxes, no hallucinations,
+          every claim traceable to a source system and timestamp.
         </p>
       </>
     ),
