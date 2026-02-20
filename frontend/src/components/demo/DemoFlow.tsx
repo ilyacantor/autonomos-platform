@@ -56,7 +56,7 @@ const STEPS: DemoStep[] = [
       </>
     ),
     nextLabel: 'See how this works under the hood →',
-    pointer: { x: 50, y: 18, label: 'Click "Why did revenue increase…"' },
+    pointer: { x: 30, y: 42, label: 'Click "Why did revenue increase…"' },
   },
   // ── Step 2: AOD Discovery ────────────────────────────────────────────
   {
@@ -81,7 +81,7 @@ const STEPS: DemoStep[] = [
       </>
     ),
     nextLabel: 'How do we connect to them? →',
-    pointer: { x: 50, y: 22, label: 'Scroll down to Results' },
+    pointer: { x: 50, y: 38, label: 'Results start here' },
   },
   // ── Step 3: AOD Handoff ──────────────────────────────────────────────
   {
@@ -115,7 +115,7 @@ const STEPS: DemoStep[] = [
       </>
     ),
     nextLabel: 'See the connections AAM builds →',
-    pointer: { x: 80, y: 35, label: 'Press Export to AAM' },
+    pointer: { x: 50, y: 60, label: 'Press Export to AAM' },
   },
   // ── Step 4: AAM — Reset topology ─────────────────────────────────────
   {
@@ -147,7 +147,7 @@ const STEPS: DemoStep[] = [
       </>
     ),
     nextLabel: 'Now run the full pipeline →',
-    pointer: { x: 4, y: 50, label: 'Click Reset' },
+    pointer: { x: 8, y: 72, label: 'Click Reset' },
   },
   // ── Step 5: AAM — Full Pipeline + Dispatch ───────────────────────────
   {
