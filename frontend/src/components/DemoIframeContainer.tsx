@@ -15,6 +15,7 @@ export default function DemoIframeContainer({
       className="w-full h-full"
       title={title}
       allow={allow}
+      loading="lazy"
       style={{
         border: 'none',
         backgroundColor: '#1a1a1a'

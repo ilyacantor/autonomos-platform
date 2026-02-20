@@ -188,6 +188,8 @@ interface DemoFlowProps {
 export default function DemoFlow({ onExit }: DemoFlowProps) {
   const [stepIndex, setStepIndex] = useState(0);
   const [modalVisible, setModalVisible] = useState(true);
+  // Track which steps have been visited so we can lazy-mount iframes
+  const [visited, setVisited] = useState<Set<number>>(() => new Set([0]));
 
   const step = STEPS[stepIndex];
   const isFirst = stepIndex === 0;
@@ -196,17 +198,21 @@ export default function DemoFlow({ onExit }: DemoFlowProps) {
   // ---- Navigation helpers ----
   const goNext = useCallback(() => {
     if (!isLast) {
-      setStepIndex(i => i + 1);
+      const next = stepIndex + 1;
+      setStepIndex(next);
+      setVisited(prev => new Set(prev).add(next));
       setModalVisible(true);
     }
-  }, [isLast]);
+  }, [isLast, stepIndex]);
 
   const goBack = useCallback(() => {
     if (!isFirst) {
-      setStepIndex(i => i - 1);
+      const prev = stepIndex - 1;
+      setStepIndex(prev);
+      setVisited(v => new Set(v).add(prev));
       setModalVisible(true);
     }
-  }, [isFirst]);
+  }, [isFirst, stepIndex]);
 
   const closeModal = useCallback(() => {
     setModalVisible(false);
@@ -265,7 +271,7 @@ export default function DemoFlow({ onExit }: DemoFlowProps) {
           {STEPS.map((s, i) => (
             <button
               key={s.id}
-              onClick={() => { setStepIndex(i); setModalVisible(true); }}
+              onClick={() => { setStepIndex(i); setVisited(v => new Set(v).add(i)); setModalVisible(true); }}
               className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all ${
                 i === stepIndex
                   ? 'bg-cyan-500/20 text-cyan-400 ring-1 ring-cyan-500/40'
@@ -324,9 +330,9 @@ export default function DemoFlow({ onExit }: DemoFlowProps) {
 
       {/* ---- Iframe area + modal overlay ---- */}
       <div className="flex-1 relative min-h-0">
-        {/* Render all iframes, show only the current step's.
-            We dedupe by src so NLQ (used twice) doesn't double-mount. */}
-        {getUniqueIframes(STEPS).map(({ src, title }) => (
+        {/* Lazy-mount iframes: only mount when the step has been visited.
+            Dedupe by src so NLQ (used in steps 1 & 5) isn't mounted twice. */}
+        {getVisitedIframes(STEPS, visited).map(({ src, title }) => (
           <div
             key={src}
             className="absolute inset-0"
@@ -336,14 +342,24 @@ export default function DemoFlow({ onExit }: DemoFlowProps) {
           </div>
         ))}
 
-        {/* Laser pointer — visible when modal is closed and step has a target */}
+        {/* Overlay layer — sits above the iframe to host the laser pointer.
+            pointer-events:none so clicks pass through to the iframe. */}
         {step.pointer && (
-          <LaserPointer
-            x={step.pointer.x}
-            y={step.pointer.y}
-            label={step.pointer.label}
-            visible={!modalVisible}
-          />
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              zIndex: 40,
+              pointerEvents: 'none',
+            }}
+          >
+            <LaserPointer
+              x={step.pointer.x}
+              y={step.pointer.y}
+              label={step.pointer.label}
+              visible
+            />
+          </div>
         )}
 
         {/* Modal overlay — shell-owned, on top of iframe */}
@@ -383,10 +399,13 @@ export default function DemoFlow({ onExit }: DemoFlowProps) {
 // Helpers — dedupe iframes by src URL so NLQ isn't mounted twice
 // ---------------------------------------------------------------------------
 
-function getUniqueIframes(steps: DemoStep[]): { src: string; title: string }[] {
+/** Only mount iframes for steps the user has actually visited (dedupe by src). */
+function getVisitedIframes(steps: DemoStep[], visited: Set<number>): { src: string; title: string }[] {
   const seen = new Set<string>();
   const result: { src: string; title: string }[] = [];
-  for (const s of steps) {
+  for (let i = 0; i < steps.length; i++) {
+    if (!visited.has(i)) continue;
+    const s = steps[i];
     if (!seen.has(s.iframeSrc)) {
       seen.add(s.iframeSrc);
       result.push({ src: s.iframeSrc, title: s.iframeTitle });

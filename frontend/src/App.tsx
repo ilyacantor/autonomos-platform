@@ -2,11 +2,10 @@ import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { AutonomyProvider, useAutonomy } from './contexts/AutonomyContext';
 import AppLayout from './components/AppLayout';
 import DemoIframeContainer from './components/DemoIframeContainer';
-import DemoFlow from './components/demo/DemoFlow';
-
 const AOSOverviewPage = lazy(() => import('./components/AOSOverviewPage'));
 const OrchestrationDashboard = lazy(() => import('./components/orchestration/OrchestrationDashboard'));
 const FAQPage = lazy(() => import('./components/FAQPage'));
+const DemoFlow = lazy(() => import('./components/demo/DemoFlow'));
 
 const IFRAME_PAGES: Record<string, { src: string; title: string }> = {
   'nlq': { src: 'https://nlq.autonomos.software', title: 'NLQ - Natural Language Query' },
@@ -36,19 +35,30 @@ function AppContent() {
 
   const [currentPage, setCurrentPage] = useState(getInitialPage());
   const { legacyMode } = useAutonomy();
-  const allIframeKeys = Object.keys(IFRAME_PAGES);
+  // Track visited iframe pages so we only mount them when first navigated to
+  const [visitedIframes, setVisitedIframes] = useState<Set<string>>(() => {
+    const initial = getInitialPage();
+    return IFRAME_PAGES[initial] ? new Set([initial]) : new Set();
+  });
+
+  const navigateTo = useCallback((page: string) => {
+    setCurrentPage(page);
+    if (IFRAME_PAGES[page]) {
+      setVisitedIframes(prev => new Set(prev).add(page));
+    }
+  }, []);
 
   const handleExitDemo = useCallback(() => {
-    setCurrentPage('nlq');
+    navigateTo('nlq');
     window.history.pushState({}, '', '/nlq');
-  }, []);
+  }, [navigateTo]);
 
   useEffect(() => {
     const handleNavigation = (event: Event) => {
       const customEvent = event as CustomEvent;
       const page = customEvent.detail?.page;
       if (page) {
-        setCurrentPage(page);
+        navigateTo(page);
         window.history.pushState({}, '', `/${page}`);
       }
     };
@@ -57,14 +67,14 @@ function AppContent() {
     return () => {
       window.removeEventListener('navigate', handleNavigation);
     };
-  }, []);
+  }, [navigateTo]);
 
   useEffect(() => {
     const handlePopState = () => {
       const path = window.location.pathname.slice(1);
       const validPages = ['aos-overview', 'nlq', 'discover', 'connect', 'unify-ask', 'orchestration', 'farm', 'faq', 'demo'];
       if (validPages.includes(path)) {
-        setCurrentPage(path);
+        navigateTo(path);
       }
     };
 
@@ -72,13 +82,15 @@ function AppContent() {
     return () => {
       window.removeEventListener('popstate', handlePopState);
     };
-  }, []);
+  }, [navigateTo]);
 
   // Demo mode — takes over the full viewport below TopBar
   if (currentPage === 'demo') {
     return (
-      <AppLayout currentPage={currentPage} onNavigate={setCurrentPage}>
-        <DemoFlow onExit={handleExitDemo} />
+      <AppLayout currentPage={currentPage} onNavigate={navigateTo}>
+        <Suspense fallback={<PageLoader />}>
+          <DemoFlow onExit={handleExitDemo} />
+        </Suspense>
       </AppLayout>
     );
   }
@@ -99,14 +111,15 @@ function AppContent() {
   };
 
   return (
-    <AppLayout currentPage={currentPage} onNavigate={setCurrentPage}>
+    <AppLayout currentPage={currentPage} onNavigate={navigateTo}>
       {!isIframePage && (
         <Suspense fallback={<PageLoader />}>
           {renderNonIframePage()}
         </Suspense>
       )}
 
-      {allIframeKeys.map(pageKey => {
+      {/* Only mount iframes the user has actually navigated to */}
+      {Object.keys(IFRAME_PAGES).filter(k => visitedIframes.has(k)).map(pageKey => {
         const config = IFRAME_PAGES[pageKey];
         return (
           <div
