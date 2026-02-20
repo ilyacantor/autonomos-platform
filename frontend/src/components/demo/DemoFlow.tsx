@@ -1,11 +1,21 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, Play } from 'lucide-react';
 import DemoModal from './DemoModal';
+import LaserPointer from './LaserPointer';
 import DemoIframeContainer from '../DemoIframeContainer';
 
 // ---------------------------------------------------------------------------
 // Step definitions — the shell owns ALL narrative
 // ---------------------------------------------------------------------------
+
+interface PointerTarget {
+  /** X position as percentage of iframe area (0-100) */
+  x: number;
+  /** Y position as percentage of iframe area (0-100) */
+  y: number;
+  /** Hint label shown next to the dot */
+  label?: string;
+}
 
 interface DemoStep {
   id: string;
@@ -19,6 +29,8 @@ interface DemoStep {
   modalBody: React.ReactNode;
   /** Button label to advance (omitted on last step) */
   nextLabel?: string;
+  /** Laser pointer target — where the user should click */
+  pointer?: PointerTarget;
 }
 
 const STEPS: DemoStep[] = [
@@ -43,6 +55,7 @@ const STEPS: DemoStep[] = [
       </>
     ),
     nextLabel: 'See how this works under the hood →',
+    pointer: { x: 50, y: 35, label: 'Select a preset query' },
   },
   {
     id: 'aod',
@@ -66,6 +79,7 @@ const STEPS: DemoStep[] = [
       </>
     ),
     nextLabel: 'How do we connect to them? →',
+    pointer: { x: 50, y: 45, label: 'View scan results' },
   },
   {
     id: 'aam',
@@ -83,12 +97,20 @@ const STEPS: DemoStep[] = [
           The topology view shows live pipe configurations and dispatch runners.
           AAM handles auth, rate limiting, and schema negotiation.
         </p>
+        <div className="bg-cyan-900/30 border border-cyan-700/40 rounded p-2.5 mb-3">
+          <p className="text-cyan-300 text-xs font-medium mb-1">Action required</p>
+          <p className="text-gray-300 text-xs leading-relaxed">
+            Click the <span className="text-white font-semibold">Reset</span> button on the left
+            side panel to load the topology visualization.
+          </p>
+        </div>
         <p className="text-gray-500 text-xs">
           Each connection is a managed pipe — not a point-to-point integration.
         </p>
       </>
     ),
     nextLabel: 'How does the data get meaning? →',
+    pointer: { x: 4, y: 50, label: 'Click Reset' },
   },
   {
     id: 'dcl',
@@ -112,6 +134,7 @@ const STEPS: DemoStep[] = [
       </>
     ),
     nextLabel: 'Back to the answer →',
+    pointer: { x: 50, y: 50, label: 'Explore the field mappings' },
   },
   {
     id: 'nlq-return',
@@ -150,7 +173,7 @@ const STEPS: DemoStep[] = [
         </p>
       </>
     ),
-    // No nextLabel — this is the last step
+    // No nextLabel or pointer — this is the summary step
   },
 ];
 
@@ -312,6 +335,16 @@ export default function DemoFlow({ onExit }: DemoFlowProps) {
             <DemoIframeContainer src={src} title={title} />
           </div>
         ))}
+
+        {/* Laser pointer — visible when modal is closed and step has a target */}
+        {step.pointer && (
+          <LaserPointer
+            x={step.pointer.x}
+            y={step.pointer.y}
+            label={step.pointer.label}
+            visible={!modalVisible}
+          />
+        )}
 
         {/* Modal overlay — shell-owned, on top of iframe */}
         <DemoModal
