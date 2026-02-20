@@ -55,7 +55,7 @@ const STEPS: DemoStep[] = [
       </>
     ),
     nextLabel: 'See how this works under the hood →',
-    pointer: { x: 50, y: 35, label: 'Select a preset query' },
+    pointer: { x: 50, y: 18, label: 'Click "Why did revenue increase…"' },
   },
   {
     id: 'aod',
@@ -79,14 +79,47 @@ const STEPS: DemoStep[] = [
       </>
     ),
     nextLabel: 'How do we connect to them? →',
-    pointer: { x: 50, y: 45, label: 'View scan results' },
+    pointer: { x: 50, y: 22, label: 'Scroll down to Results' },
+  },
+  {
+    id: 'aod-handoff',
+    iframeSrc: 'https://discover.autonomos.software/#handoff',
+    iframeTitle: 'AOD Discovery — Handoff',
+    label: 'Handoff',
+    modalTitle: 'Step 3 — Hand Off to AAM',
+    modalBody: (
+      <>
+        <p className="text-gray-300 text-sm leading-relaxed mb-3">
+          Once discovery is complete, <span className="text-cyan-400 font-medium">AOD</span> identifies
+          candidates that need live API connections and hands them off to the
+          Adaptive API Mesh.
+        </p>
+        <p className="text-gray-400 text-sm leading-relaxed mb-4">
+          The Handoff tab lists every discovered endpoint ready for connection.
+          One click exports the full manifest — schemas, auth requirements, and
+          rate-limit metadata — so AAM can begin building pipes immediately.
+        </p>
+        <div className="bg-cyan-900/30 border border-cyan-700/40 rounded p-2.5 mb-3">
+          <p className="text-cyan-300 text-xs font-medium mb-1">Action required</p>
+          <p className="text-gray-300 text-xs leading-relaxed">
+            Press the <span className="text-white font-semibold">Export to AAM</span> button
+            to hand off the discovered endpoints.
+          </p>
+        </div>
+        <p className="text-gray-500 text-xs">
+          This is a one-way handoff — AOD never writes to downstream systems.
+        </p>
+      </>
+    ),
+    nextLabel: 'See the connections AAM builds →',
+    pointer: { x: 80, y: 35, label: 'Press Export to AAM' },
   },
   {
     id: 'aam',
     iframeSrc: 'https://aam.autonomos.software/ui/topology',
     iframeTitle: 'AAM Mesh Interface',
     label: 'AAM',
-    modalTitle: 'Step 3 — Blueprint the Connections',
+    modalTitle: 'Step 4 — Blueprint the Connections',
     modalBody: (
       <>
         <p className="text-gray-300 text-sm leading-relaxed mb-3">
@@ -117,7 +150,7 @@ const STEPS: DemoStep[] = [
     iframeSrc: 'https://dcl.autonomos.software',
     iframeTitle: 'DCL - Data Connectivity Layer',
     label: 'DCL',
-    modalTitle: 'Step 4 — Map Fields to Business Concepts',
+    modalTitle: 'Step 5 — Map Fields to Business Concepts',
     modalBody: (
       <>
         <p className="text-gray-300 text-sm leading-relaxed mb-3">
@@ -141,7 +174,7 @@ const STEPS: DemoStep[] = [
     iframeSrc: 'https://nlq.autonomos.software',
     iframeTitle: 'NLQ - Natural Language Query',
     label: 'NLQ',
-    modalTitle: 'Step 5 — The Complete Answer',
+    modalTitle: 'Step 6 — The Complete Answer',
     modalBody: (
       <>
         <p className="text-gray-300 text-sm leading-relaxed mb-3">
