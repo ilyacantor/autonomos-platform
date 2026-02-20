@@ -1,7 +1,8 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { AutonomyProvider, useAutonomy } from './contexts/AutonomyContext';
 import AppLayout from './components/AppLayout';
 import DemoIframeContainer from './components/DemoIframeContainer';
+import DemoFlow from './components/demo/DemoFlow';
 
 const AOSOverviewPage = lazy(() => import('./components/AOSOverviewPage'));
 const OrchestrationDashboard = lazy(() => import('./components/orchestration/OrchestrationDashboard'));
@@ -29,13 +30,18 @@ function PageLoader() {
 function AppContent() {
   const getInitialPage = () => {
     const path = window.location.pathname.slice(1);
-    const validPages = ['aos-overview', 'nlq', 'discover', 'connect', 'unify-ask', 'orchestration', 'farm', 'faq'];
+    const validPages = ['aos-overview', 'nlq', 'discover', 'connect', 'unify-ask', 'orchestration', 'farm', 'faq', 'demo'];
     return validPages.includes(path) ? path : 'nlq';
   };
 
   const [currentPage, setCurrentPage] = useState(getInitialPage());
   const { legacyMode } = useAutonomy();
   const allIframeKeys = Object.keys(IFRAME_PAGES);
+
+  const handleExitDemo = useCallback(() => {
+    setCurrentPage('nlq');
+    window.history.pushState({}, '', '/nlq');
+  }, []);
 
   useEffect(() => {
     const handleNavigation = (event: Event) => {
@@ -56,7 +62,7 @@ function AppContent() {
   useEffect(() => {
     const handlePopState = () => {
       const path = window.location.pathname.slice(1);
-      const validPages = ['aos-overview', 'nlq', 'discover', 'connect', 'unify-ask', 'orchestration', 'farm', 'faq'];
+      const validPages = ['aos-overview', 'nlq', 'discover', 'connect', 'unify-ask', 'orchestration', 'farm', 'faq', 'demo'];
       if (validPages.includes(path)) {
         setCurrentPage(path);
       }
@@ -67,6 +73,15 @@ function AppContent() {
       window.removeEventListener('popstate', handlePopState);
     };
   }, []);
+
+  // Demo mode — takes over the full viewport below TopBar
+  if (currentPage === 'demo') {
+    return (
+      <AppLayout currentPage={currentPage} onNavigate={setCurrentPage}>
+        <DemoFlow onExit={handleExitDemo} />
+      </AppLayout>
+    );
+  }
 
   const isIframePage = IFRAME_PAGES[currentPage] !== undefined;
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Cable, Menu, X, HelpCircle, Search, Sparkles, Database, Activity, Wheat } from 'lucide-react';
+import { Cable, Menu, X, HelpCircle, Search, Sparkles, Database, Activity, Wheat, Play } from 'lucide-react';
 import autonomosLogo from '../assets/autonomos-logo.png';
 
 interface TopBarProps {
@@ -18,6 +18,7 @@ export default function TopBar({ currentPage, onNavigate }: TopBarProps) {
   const [showMobileMenu, setShowMobileMenu] = useState(false);
 
   const navItems: NavItem[] = [
+    { id: 'demo', label: 'Demo', icon: <Play className="w-5 h-5" />, tooltip: 'Guided product walkthrough' },
     { id: 'aos-overview', label: 'Overview', icon: <Sparkles className="w-5 h-5" />, tooltip: 'Interactive platform overview' },
     { id: 'nlq', label: 'NLQ', icon: <Search className="w-5 h-5" />, tooltip: 'Natural Language Query' },
     { id: 'discover', label: 'AOD', icon: <Search className="w-5 h-5" />, tooltip: 'Asset & Observability Discovery' },
@@ -54,6 +55,10 @@ export default function TopBar({ currentPage, onNavigate }: TopBarProps) {
                 currentPage === item.id
                   ? 'bg-blue-600 text-white'
                   : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
+              } ${
+                item.id === 'demo' && currentPage !== 'demo'
+                  ? 'ring-1 ring-cyan-500/50 text-cyan-400 hover:bg-cyan-900/30'
+                  : ''
               } ${
                 item.id === 'faq'
                   ? 'ring-2 ring-[#0BCAD9]/50 shadow-lg shadow-[#0BCAD9]/30 animate-pulse'
