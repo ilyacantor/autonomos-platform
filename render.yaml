@@ -18,9 +18,13 @@ services:
         sync: false
       - key: PINECONE_API_KEY
         sync: false
+      - key: OPENAI_API_KEY
+        sync: false
       - key: SECRET_KEY
         sync: false
       - key: API_KEY
+        sync: false
+      - key: ENCRYPTION_KEY
         sync: false
       - key: ALLOWED_WEB_ORIGIN
         sync: false
@@ -54,9 +58,13 @@ services:
         sync: false
       - key: PINECONE_API_KEY
         sync: false
+      - key: OPENAI_API_KEY
+        sync: false
       - key: SECRET_KEY
         generateValue: true
       - key: API_KEY
+        generateValue: true
+      - key: ENCRYPTION_KEY
         generateValue: true
       - key: ALLOWED_WEB_ORIGIN
         fromService:
