@@ -3,7 +3,6 @@ AI Gateway Client
 
 Unified LLM access layer supporting:
 - Direct Anthropic API calls
-- Portkey AI Gateway (optional)
 - Automatic fallback to OpenAI
 - Request/response logging
 """
@@ -23,7 +22,6 @@ class LLMProvider(str, Enum):
     """Supported LLM providers."""
     ANTHROPIC = "anthropic"
     OPENAI = "openai"
-    PORTKEY = "portkey"
 
 
 class ModelTier(str, Enum):
@@ -57,10 +55,6 @@ class GatewayConfig:
     # API keys (from env if not provided)
     anthropic_api_key: Optional[str] = None
     openai_api_key: Optional[str] = None
-    portkey_api_key: Optional[str] = None
-
-    # Portkey settings
-    portkey_virtual_key: Optional[str] = None
 
     # Defaults
     default_model_tier: ModelTier = ModelTier.BALANCED
@@ -80,7 +74,6 @@ class GatewayConfig:
         # Load from environment if not provided
         self.anthropic_api_key = self.anthropic_api_key or os.getenv("ANTHROPIC_API_KEY")
         self.openai_api_key = self.openai_api_key or os.getenv("OPENAI_API_KEY")
-        self.portkey_api_key = self.portkey_api_key or os.getenv("PORTKEY_API_KEY")
 
 
 @dataclass
@@ -114,7 +107,7 @@ class AIGateway:
     Unified AI Gateway for LLM access.
 
     Features:
-    - Multi-provider support (Anthropic, OpenAI, Portkey)
+    - Multi-provider support (Anthropic, OpenAI)
     - Automatic fallback on failure
     - Cost tracking
     - Optional semantic caching
@@ -124,7 +117,6 @@ class AIGateway:
         self.config = config or GatewayConfig()
         self._anthropic_client = None
         self._openai_client = None
-        self._portkey_client = None
         self._cache = None
         self._cost_tracker = None
 
@@ -137,9 +129,6 @@ class AIGateway:
         if self.config.primary_provider == LLMProvider.OPENAI or \
            self.config.fallback_provider == LLMProvider.OPENAI:
             await self._init_openai()
-
-        if self.config.primary_provider == LLMProvider.PORTKEY:
-            await self._init_portkey()
 
         if self.config.enable_cache:
             from app.agentic.gateway.cache import SemanticCache
@@ -177,22 +166,6 @@ class AIGateway:
             logger.info("OpenAI client initialized")
         except ImportError:
             logger.warning("openai package not installed")
-
-    async def _init_portkey(self):
-        """Initialize Portkey client."""
-        if not self.config.portkey_api_key:
-            logger.warning("Portkey API key not configured")
-            return
-
-        try:
-            from portkey_ai import AsyncPortkey
-            self._portkey_client = AsyncPortkey(
-                api_key=self.config.portkey_api_key,
-                virtual_key=self.config.portkey_virtual_key
-            )
-            logger.info("Portkey client initialized")
-        except ImportError:
-            logger.warning("portkey-ai package not installed")
 
     async def complete(
         self,
@@ -306,10 +279,6 @@ class AIGateway:
             )
         elif provider == LLMProvider.OPENAI:
             return await self._call_openai(
-                messages, model_tier, model, max_tokens, temperature, tools, system
-            )
-        elif provider == LLMProvider.PORTKEY:
-            return await self._call_portkey(
                 messages, model_tier, model, max_tokens, temperature, tools, system
             )
         else:
@@ -443,50 +412,6 @@ class AIGateway:
             tool_calls=tool_calls,
             stop_reason="tool_use" if tool_calls else "end_turn",
             raw_response=response.model_dump() if hasattr(response, 'model_dump') else None
-        )
-
-    async def _call_portkey(
-        self,
-        messages: list[dict],
-        model_tier: ModelTier,
-        model: Optional[str],
-        max_tokens: int,
-        temperature: float,
-        tools: Optional[list[dict]],
-        system: Optional[str],
-    ) -> LLMResponse:
-        """Call via Portkey gateway."""
-        if not self._portkey_client:
-            raise RuntimeError("Portkey client not initialized")
-
-        # Portkey uses Anthropic format by default
-        model_name = model or ANTHROPIC_MODELS[model_tier]
-
-        kwargs = {
-            "model": model_name,
-            "max_tokens": max_tokens,
-            "temperature": temperature,
-            "messages": messages,
-        }
-
-        if system:
-            kwargs["system"] = system
-
-        if tools:
-            kwargs["tools"] = tools
-
-        response = await self._portkey_client.chat.completions.create(**kwargs)
-
-        # Parse similar to Anthropic
-        content = response.choices[0].message.content or ""
-
-        return LLMResponse(
-            content=content,
-            model=model_name,
-            provider=LLMProvider.PORTKEY,
-            input_tokens=response.usage.prompt_tokens if response.usage else 0,
-            output_tokens=response.usage.completion_tokens if response.usage else 0,
-            stop_reason="end_turn",
         )
 
     async def quick_complete(
