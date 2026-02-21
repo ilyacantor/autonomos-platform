@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     
     REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379")
     
-    SECRET_KEY: str = "your-secret-key-change-in-production"
+    SECRET_KEY: str  # Required — no default. Set SECRET_KEY in Render dashboard or .env. Service will not start without it.
     
     SALESFORCE_CLIENT_ID: Optional[str] = None
     SALESFORCE_CLIENT_SECRET: Optional[str] = None
