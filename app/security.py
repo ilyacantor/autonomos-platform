@@ -21,13 +21,6 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 pwd_context = CryptContext(schemes=["argon2", "bcrypt"], deprecated="auto")
 
-# Configuration check - enable/disable authentication
-DCL_AUTH_ENABLED_RAW = os.getenv('DCL_AUTH_ENABLED', 'true')
-AUTH_ENABLED = DCL_AUTH_ENABLED_RAW.lower() == 'true'
-
-# DIAGNOSTIC: Log the auth configuration at startup
-logger.warning(f"🔍 STARTUP DIAGNOSTIC: DCL_AUTH_ENABLED='{DCL_AUTH_ENABLED_RAW}' → AUTH_ENABLED={AUTH_ENABLED}")
-
 # auto_error=False allows us to handle missing tokens manually
 security_scheme = HTTPBearer(auto_error=False)
 
@@ -96,12 +89,7 @@ async def get_current_user(
     When AUTH_ENABLED=false (development mode), returns a MockUser for seamless local development.
     When AUTH_ENABLED=true (production mode), validates JWT and returns real user.
     """
-    # Development mode - return mock user for frictionless local dev
-    if not AUTH_ENABLED:
-        logger.warning("⚠️  Authentication disabled (DCL_AUTH_ENABLED=false). Using MockUser for development.")
-        return MockUser()  # type: ignore[return-value]  # MockUser duck-types User for development
-    
-    # Production mode - require valid JWT token
+    # Require valid JWT token
     if credentials is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
