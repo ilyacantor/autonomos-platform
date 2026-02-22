@@ -12,7 +12,7 @@ const IFRAME_PAGES: Record<string, { src: string; title: string }> = {
   'discover': { src: 'https://discover.autonomos.software/', title: 'AOD Discovery' },
   'connect': { src: 'https://aam.autonomos.software/ui/topology', title: 'AAM Mesh Interface' },
   'unify-ask': { src: 'https://dcl.autonomos.software', title: 'DCL - Data Connectivity Layer' },
-  'farm': { src: 'https://autonomos.farm', title: 'Farm' },
+  'farm': { src: 'https://farmv2.onrender.com', title: 'Farm' },
 };
 
 function PageLoader() {

@@ -1,6 +1,6 @@
 import DemoIframeContainer from './DemoIframeContainer';
 
-const FARM_IFRAME_URL = 'https://autonomos.farm';
+const FARM_IFRAME_URL = 'https://farmv2.onrender.com';
 
 export default function FarmPage() {
   return (
