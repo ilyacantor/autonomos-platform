@@ -8,10 +8,10 @@ const OrchestrationDashboard = lazy(() => import('./components/orchestration/Orc
 const FAQPage = lazy(() => import('./components/FAQPage'));
 
 const IFRAME_PAGES: Record<string, { src: string; title: string }> = {
-  'nlq': { src: 'https://nlq.autonomos.software', title: 'NLQ - Natural Language Query' },
-  'discover': { src: 'https://discover.autonomos.software/', title: 'AOD Discovery' },
-  'connect': { src: 'https://aam.autonomos.software/ui/topology', title: 'AAM Mesh Interface' },
-  'unify-ask': { src: 'https://dcl.autonomos.software', title: 'DCL - Data Connectivity Layer' },
+  'nlq': { src: 'https://aos-nlq.onrender.com', title: 'NLQ - Natural Language Query' },
+  'discover': { src: 'https://aodv3-1.onrender.com/', title: 'AOD Discovery' },
+  'connect': { src: 'https://aos-aam.onrender.com/ui/topology', title: 'AAM Mesh Interface' },
+  'unify-ask': { src: 'https://aos-dclv2.onrender.com', title: 'DCL - Data Connectivity Layer' },
   'farm': { src: 'https://farmv2.onrender.com', title: 'Farm' },
 };
 

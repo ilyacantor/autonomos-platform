@@ -1,6 +1,6 @@
 import DemoIframeContainer from './DemoIframeContainer';
 
-const DISCOVER_IFRAME_URL = 'https://discover.autonomos.software/';
+const DISCOVER_IFRAME_URL = 'https://aodv3-1.onrender.com/';
 
 export default function DiscoverPage() {
   return (
