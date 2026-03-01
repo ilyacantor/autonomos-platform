@@ -66,16 +66,14 @@ export default function TopBar({ currentPage, onNavigate }: TopBarProps) {
               <span className="font-medium text-sm whitespace-nowrap">{item.label}</span>
             </button>
           ))}
-
-          {/* Demos dropdown — inside nav so it flows with items */}
-          <div className="ml-1 border-l border-gray-700 pl-2">
-            <DemoDropdown />
-          </div>
         </nav>
 
         <div className="flex-1 sm:hidden"></div>
 
         <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+          <div className="hidden sm:block">
+            <DemoDropdown />
+          </div>
           <button
             onClick={() => setShowMobileMenu(!showMobileMenu)}
             className="sm:hidden p-2 hover:bg-gray-800 rounded-lg transition-colors touch-target mobile-tap-highlight"
