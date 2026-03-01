@@ -1,5 +1,8 @@
 import type { DemoDefinition } from '../demoTypes';
 
+// ── AAM base URL (must match IFRAME_PAGES in App.tsx) ────────────────
+const AAM_BASE = 'https://aos-aam.onrender.com';
+
 export const e2eDataFlowDemo: DemoDefinition = {
   id: 'e2e-data-flow',
   name: 'E2E Data Flow',
@@ -13,6 +16,10 @@ export const e2eDataFlowDemo: DemoDefinition = {
       title: 'Discovering Enterprise Assets',
       body: 'AOS Discover performs deep discovery across 7 observation planes, building a comprehensive IT asset catalog. The Console shows real-time discovery activity and observation sources.',
       page: 'discover',
+      iframeMessage: {
+        targetPage: 'discover',
+        payload: { action: 'switchToConsole' },
+      },
       apiTrigger: {
         path: '/aoa/demo-scan',
         method: 'POST',
@@ -25,14 +32,25 @@ export const e2eDataFlowDemo: DemoDefinition = {
       title: 'Discovery Complete',
       body: 'The catalog shows all discovered IT assets with classification, governance status, and confidence scores. You can view as-is or perform asset-level triage.',
       page: 'discover',
+      iframeMessage: {
+        targetPage: 'discover',
+        payload: { action: 'switchToConsole' },
+      },
     },
 
     // ── Phase 2: Triage & Handoff ────────────────────────────────────
     {
+      id: 'triage-start',
+      phase: 'Triage & Handoff',
+      title: 'Asset Triage',
+      body: 'Click the Triage tab above to see asset classification. Each asset is evaluated as a System of Record, Fabric Plane, or connectivity target — with governance readiness and data quality scores.',
+      page: 'discover',
+    },
+    {
       id: 'triage-handoff',
       phase: 'Triage & Handoff',
-      title: 'Triaged Catalog Ready for Export',
-      body: 'The triaged catalog identifies Systems of Record, Fabric Planes, and connectivity patterns. These curated assets are ready to export to AAM. The Handoff tab shows the export summary.',
+      title: 'Handoff to AAM',
+      body: 'Click the Handoff tab to see the export summary. The triaged catalog identifies Systems of Record, Fabric Planes, and connectivity patterns — curated assets ready to export to AAM.',
       page: 'discover',
     },
 
@@ -43,23 +61,7 @@ export const e2eDataFlowDemo: DemoDefinition = {
       title: 'AAM Receives Curated Assets',
       body: 'AAM receives the curated catalog and begins provisioning — validating credentials, discovering schemas, and establishing fabric plane connectivity.',
       page: 'connect',
-    },
-    {
-      id: 'aam-pipeline-running',
-      phase: 'AAM Connection',
-      title: 'Running Provisioning Pipeline',
-      body: 'Running the full provisioning pipeline. Assets dispatch through credential resolution, health checks, and schema discovery. This typically takes up to a minute.',
-      page: 'connect',
-      apiTrigger: {
-        path: '/demo/run_pipeline',
-        method: 'POST',
-        pollForCompletion: {
-          statusPath: '/demo/pipeline_status',
-          intervalMs: 3000,
-          timeoutMs: 90000,
-        },
-      },
-      blocksOnApi: true,
+      iframeSrc: `${AAM_BASE}/ui/topology`,
     },
     {
       id: 'aam-candidates',
@@ -67,6 +69,7 @@ export const e2eDataFlowDemo: DemoDefinition = {
       title: 'Exploring: Candidates',
       body: 'Connection candidates are evaluated for schema compatibility, credential validity, and risk posture before admission.',
       page: 'connect',
+      iframeSrc: `${AAM_BASE}/ui/candidates`,
     },
     {
       id: 'aam-declared-pipes',
@@ -74,6 +77,7 @@ export const e2eDataFlowDemo: DemoDefinition = {
       title: 'Exploring: Declared Pipes',
       body: 'Logical channels between systems — each defines source, destination, schema contract, and transport modality.',
       page: 'connect',
+      iframeSrc: `${AAM_BASE}/ui/pipes`,
     },
     {
       id: 'aam-topology',
@@ -81,6 +85,7 @@ export const e2eDataFlowDemo: DemoDefinition = {
       title: 'Topology & Dispatch',
       body: 'The full connectivity mesh — active connections, healing connections, and dispatch details showing real-time provisioning activity.',
       page: 'connect',
+      iframeSrc: `${AAM_BASE}/ui/topology`,
     },
     {
       id: 'aam-pipeline-complete',
@@ -88,6 +93,7 @@ export const e2eDataFlowDemo: DemoDefinition = {
       title: 'Pipeline Complete',
       body: 'Provisioned data structures are now transferring to DCL for semantic intelligence. All connections validated and schemas discovered.',
       page: 'connect',
+      iframeSrc: `${AAM_BASE}/ui/topology`,
     },
 
     // ── Phase 4: DCL Unification ─────────────────────────────────────

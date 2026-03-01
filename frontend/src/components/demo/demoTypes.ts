@@ -16,6 +16,14 @@ export interface DemoStepApiTrigger {
   };
 }
 
+/** postMessage payload to send into an iframe */
+export interface DemoIframeMessage {
+  /** Page key whose iframe should receive the message */
+  targetPage: string;
+  /** The message payload (sent via postMessage) */
+  payload: Record<string, unknown>;
+}
+
 /** A single step in a guided demo */
 export interface DemoStep {
   id: string;
@@ -24,6 +32,10 @@ export interface DemoStep {
   body: string;
   /** Target iframe/page key to navigate to */
   page: string;
+  /** Override the iframe src URL for this step (e.g. AAM sub-route) */
+  iframeSrc?: string;
+  /** Optional postMessage to send into an iframe on this step */
+  iframeMessage?: DemoIframeMessage;
   /** Optional API call to fire when entering this step */
   apiTrigger?: DemoStepApiTrigger;
   /** If true, Next button is disabled until the API trigger resolves */
