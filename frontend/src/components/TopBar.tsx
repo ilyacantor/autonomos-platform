@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Cable, Menu, X, HelpCircle, Search, Sparkles, Database, Activity, Wheat } from 'lucide-react';
+import { Cable, Menu, X, HelpCircle, Search, Sparkles, Database, Activity, Wheat, DollarSign } from 'lucide-react';
 import autonomosLogo from '../assets/autonomos-logo.png';
 
 interface TopBarProps {
@@ -25,6 +25,7 @@ export default function TopBar({ currentPage, onNavigate }: TopBarProps) {
     { id: 'unify-ask', label: 'DCL', icon: <Database className="w-5 h-5" />, tooltip: 'Data Connectivity Layer' },
     { id: 'orchestration', label: 'AOA', icon: <Activity className="w-5 h-5" />, tooltip: 'Agentic Orchestration Architecture' },
     { id: 'farm', label: 'Farm', icon: <Wheat className="w-5 h-5" />, tooltip: 'Agent Farm' },
+    { id: 'finops', label: 'FinOps', icon: <DollarSign className="w-5 h-5" />, tooltip: 'FinOps Agent' },
     { id: 'faq', label: 'Help', icon: <HelpCircle className="w-5 h-5" /> },
   ];
 

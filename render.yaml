@@ -1,9 +1,11 @@
 services:
+  # Production Service
   - type: web
     name: autonomos-platform
     runtime: python
     plan: starter
-    buildCommand: pip install -r requirements.txt
+    branch: main
+    buildCommand: pip install -r requirements-cpu.txt && pip install -r requirements.txt && cd frontend && npm ci && npm run build && cd ..
     startCommand: bash start.sh
     envVars:
       - key: PORT
@@ -16,13 +18,19 @@ services:
         sync: false
       - key: PINECONE_API_KEY
         sync: false
+      - key: OPENAI_API_KEY
+        sync: false
       - key: SECRET_KEY
         sync: false
       - key: API_KEY
+        sync: false
+      - key: ENCRYPTION_KEY
         sync: false
       - key: ALLOWED_WEB_ORIGIN
         sync: false
       - key: SLACK_WEBHOOK_URL
         sync: false
+      - key: ENVIRONMENT
+        value: production
     healthCheckPath: /
     autoDeploy: true

@@ -13,6 +13,7 @@ const IFRAME_PAGES: Record<string, { src: string; title: string }> = {
   'connect': { src: 'https://aos-aam.onrender.com/ui/topology', title: 'AAM Mesh Interface' },
   'unify-ask': { src: 'https://aos-dclv2.onrender.com', title: 'DCL - Data Connectivity Layer' },
   'farm': { src: 'https://farmv2.onrender.com', title: 'Farm' },
+  'finops': { src: 'https://aosfinopsagent.onrender.com', title: 'FinOps Agent' },
 };
 
 function PageLoader() {
@@ -29,7 +30,7 @@ function PageLoader() {
 function AppContent() {
   const getInitialPage = () => {
     const path = window.location.pathname.slice(1);
-    const validPages = ['aos-overview', 'nlq', 'discover', 'connect', 'unify-ask', 'orchestration', 'farm', 'faq'];
+    const validPages = ['aos-overview', 'nlq', 'discover', 'connect', 'unify-ask', 'orchestration', 'farm', 'finops', 'faq'];
     return validPages.includes(path) ? path : 'nlq';
   };
 
@@ -56,7 +57,7 @@ function AppContent() {
   useEffect(() => {
     const handlePopState = () => {
       const path = window.location.pathname.slice(1);
-      const validPages = ['aos-overview', 'nlq', 'discover', 'connect', 'unify-ask', 'orchestration', 'farm', 'faq'];
+      const validPages = ['aos-overview', 'nlq', 'discover', 'connect', 'unify-ask', 'orchestration', 'farm', 'finops', 'faq'];
       if (validPages.includes(path)) {
         setCurrentPage(path);
       }
