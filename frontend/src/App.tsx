@@ -1,10 +1,7 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { AutonomyProvider, useAutonomy } from './contexts/AutonomyContext';
-import { DemoProvider } from './contexts/DemoContext';
 import AppLayout from './components/AppLayout';
 import DemoIframeContainer from './components/DemoIframeContainer';
-import DemoRunner from './components/demo/DemoRunner';
-import DemoModal from './components/demo/DemoModal';
 
 const AOSOverviewPage = lazy(() => import('./components/AOSOverviewPage'));
 const OrchestrationDashboard = lazy(() => import('./components/orchestration/OrchestrationDashboard'));
@@ -88,41 +85,33 @@ function AppContent() {
   };
 
   return (
-    <>
-      <AppLayout currentPage={currentPage} onNavigate={setCurrentPage}>
-        {!isIframePage && (
-          <Suspense fallback={<PageLoader />}>
-            {renderNonIframePage()}
-          </Suspense>
-        )}
+    <AppLayout currentPage={currentPage} onNavigate={setCurrentPage}>
+      {!isIframePage && (
+        <Suspense fallback={<PageLoader />}>
+          {renderNonIframePage()}
+        </Suspense>
+      )}
 
-        {allIframeKeys.map(pageKey => {
-          const config = IFRAME_PAGES[pageKey];
-          return (
-            <div
-              key={pageKey}
-              className="h-full"
-              style={{ display: currentPage === pageKey ? 'block' : 'none' }}
-            >
-              <DemoIframeContainer src={config.src} title={config.title} />
-            </div>
-          );
-        })}
-      </AppLayout>
-
-      {/* Demo system — fixed overlay, outside AppLayout to avoid overflow clipping */}
-      <DemoRunner onNavigate={setCurrentPage} />
-      <DemoModal />
-    </>
+      {allIframeKeys.map(pageKey => {
+        const config = IFRAME_PAGES[pageKey];
+        return (
+          <div
+            key={pageKey}
+            className="h-full"
+            style={{ display: currentPage === pageKey ? 'block' : 'none' }}
+          >
+            <DemoIframeContainer src={config.src} title={config.title} />
+          </div>
+        );
+      })}
+    </AppLayout>
   );
 }
 
 function App() {
   return (
     <AutonomyProvider>
-      <DemoProvider>
-        <AppContent />
-      </DemoProvider>
+      <AppContent />
     </AutonomyProvider>
   );
 }

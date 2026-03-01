@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Cable, Menu, X, HelpCircle, Search, Sparkles, Database, Activity, Wheat, DollarSign } from 'lucide-react';
 import autonomosLogo from '../assets/autonomos-logo.png';
-import DemoDropdown from './demo/DemoDropdown';
 
 interface TopBarProps {
   currentPage: string;
@@ -71,9 +70,6 @@ export default function TopBar({ currentPage, onNavigate }: TopBarProps) {
         <div className="flex-1 sm:hidden"></div>
 
         <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-          <div className="hidden sm:block">
-            <DemoDropdown />
-          </div>
           <button
             onClick={() => setShowMobileMenu(!showMobileMenu)}
             className="sm:hidden p-2 hover:bg-gray-800 rounded-lg transition-colors touch-target mobile-tap-highlight"
