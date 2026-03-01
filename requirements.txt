@@ -34,6 +34,7 @@ PyJWT
 openai
 
 # Database connectors
+pymongo
 psycopg[async]
 psycopg-binary
 requests
