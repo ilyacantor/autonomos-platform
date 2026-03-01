@@ -120,8 +120,14 @@ export default function DemoRunner({ onNavigate }: DemoRunnerProps) {
         })
         .catch((err) => {
           if (err.name === 'AbortError') return;
-          console.error('[DemoRunner] API error:', err);
-          setApiError(err.message || 'API request failed');
+          console.warn('[DemoRunner] API error:', err);
+          if (step.blocksOnApi) {
+            // Only surface errors to UI for blocking calls
+            setApiError(err.message || 'API request failed');
+          } else {
+            // Fire-and-forget — log and continue silently
+            setApiLoading(false);
+          }
         });
     }
 
