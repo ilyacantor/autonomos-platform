@@ -24,6 +24,10 @@ class Settings:
     
     # AOS Discover service (AOD) configuration
     AOD_BASE_URL: str = os.getenv("AOD_BASE_URL", "http://localhost:8000")
+
+    # AAM and DCL service URLs
+    AAM_BASE_URL: str = os.getenv("AAM_BASE_URL", "")
+    DCL_V2_BASE_URL: str = os.getenv("DCL_V2_BASE_URL", "")
     
     def __init__(self):
         if not self.DATABASE_URL:

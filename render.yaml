@@ -32,5 +32,11 @@ services:
         sync: false
       - key: ENVIRONMENT
         value: production
+      - key: AOD_BASE_URL
+        value: https://aodv3-1.onrender.com
+      - key: AAM_BASE_URL
+        value: https://aos-aam.onrender.com
+      - key: DCL_V2_BASE_URL
+        value: https://aos-dclv2.onrender.com
     healthCheckPath: /
     autoDeploy: true

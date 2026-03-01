@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useDemo } from '../../contexts/DemoContext';
-import { API_CONFIG, AUTH_TOKEN_KEY } from '../../config/api';
+import { API_CONFIG } from '../../config/api';
 
 // ── DemoRunner: invisible orchestrator for navigation + API triggers ─
 
@@ -23,16 +23,6 @@ export default function DemoRunner({ onNavigate }: DemoRunnerProps) {
   const abortRef = useRef<AbortController | null>(null);
 
   // ── Helpers ──────────────────────────────────────────────────────
-  const getAuthHeaders = (): Record<string, string> => {
-    const token = localStorage.getItem(AUTH_TOKEN_KEY);
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-    return headers;
-  };
-
-  const hasAuthToken = (): boolean => {
-    return !!localStorage.getItem(AUTH_TOKEN_KEY);
-  };
 
   const cleanup = () => {
     if (pollIntervalRef.current) {
@@ -49,7 +39,6 @@ export default function DemoRunner({ onNavigate }: DemoRunnerProps) {
   const sendIframeMessage = (targetPage: string, payload: Record<string, unknown>) => {
     const iframes = document.querySelectorAll('iframe');
     for (const iframe of iframes) {
-      // Match iframe by checking if its parent container is visible
       const container = iframe.closest('[style]');
       if (container && (container as HTMLElement).style.display !== 'none') {
         try {
@@ -66,19 +55,14 @@ export default function DemoRunner({ onNavigate }: DemoRunnerProps) {
 
   /** Change an iframe's src URL by page key */
   const changeIframeSrc = (targetPage: string, newSrc: string) => {
-    // Find all iframes, match the one in the container for targetPage
-    const containers = document.querySelectorAll('[style*="display"]');
-    // The iframes are in div[key=pageKey] containers; find by iterating
     const allIframes = document.querySelectorAll('iframe');
     for (const iframe of allIframes) {
       const parentDiv = iframe.closest('div.h-full');
       if (parentDiv) {
-        // Check the iframe's current src to identify which page it belongs to
         const currentSrc = iframe.getAttribute('src') || iframe.src;
-        // For the connect page, match on AAM URL
         if (targetPage === 'connect' && currentSrc.includes('aos-aam')) {
           if (iframe.src !== newSrc) {
-            console.log(`[DemoRunner] Changing iframe src: ${currentSrc} → ${newSrc}`);
+            console.log(`[DemoRunner] Changing iframe src → ${newSrc}`);
             iframe.src = newSrc;
           }
           return;
@@ -101,25 +85,19 @@ export default function DemoRunner({ onNavigate }: DemoRunnerProps) {
 
     // Change iframe src if specified (e.g. AAM sub-routes)
     if (step.iframeSrc) {
-      // Small delay to ensure the page container is visible before changing src
       setTimeout(() => changeIframeSrc(step.page, step.iframeSrc!), 100);
     }
 
     // Send postMessage to iframe if specified (e.g. AOD tab switching)
     if (step.iframeMessage) {
-      // Small delay to ensure iframe is visible and ready
       setTimeout(() => {
         sendIframeMessage(step.iframeMessage!.targetPage, step.iframeMessage!.payload);
       }, 300);
     }
 
-    // Fire API trigger if present AND we have an auth token
+    // Fire API trigger if present
+    // Demo pipeline endpoints don't require auth — call them directly
     if (step.apiTrigger) {
-      if (!hasAuthToken()) {
-        console.log(`[DemoRunner] Skipping API ${step.apiTrigger.method} ${step.apiTrigger.path} — no auth token`);
-        return;
-      }
-
       cleanup();
       const controller = new AbortController();
       abortRef.current = controller;
@@ -132,7 +110,7 @@ export default function DemoRunner({ onNavigate }: DemoRunnerProps) {
 
       fetch(url, {
         method,
-        headers: getAuthHeaders(),
+        headers: { 'Content-Type': 'application/json' },
         signal: controller.signal,
       })
         .then(async (res) => {
@@ -154,7 +132,6 @@ export default function DemoRunner({ onNavigate }: DemoRunnerProps) {
 
             pollIntervalRef.current = setInterval(async () => {
               try {
-                // Timeout check
                 if (Date.now() - startTime > timeoutMs) {
                   cleanup();
                   setApiLoading(false);
@@ -163,24 +140,26 @@ export default function DemoRunner({ onNavigate }: DemoRunnerProps) {
                 }
 
                 const statusUrl = `${API_CONFIG.buildApiUrl(statusPath)}?job_id=${data.job_id}`;
-                const statusRes = await fetch(statusUrl, { headers: getAuthHeaders() });
-                if (!statusRes.ok) return; // Retry on next interval
+                const statusRes = await fetch(statusUrl);
+                if (!statusRes.ok) return;
 
                 const statusData = await statusRes.json();
-                console.log('[DemoRunner] Poll status →', statusData);
+                console.log('[DemoRunner] Poll →', statusData.status, statusData.message);
 
-                if (statusData.status === 'completed' || statusData.status === 'done') {
+                const done = statusData.status === 'completed' ||
+                             statusData.status === 'completed_with_errors' ||
+                             statusData.status === 'failed';
+
+                if (done) {
                   cleanup();
                   setStepResult(step.id, statusData);
                   setApiLoading(false);
                 }
               } catch (err) {
-                // Silently retry on poll errors
                 console.warn('[DemoRunner] Poll error:', err);
               }
             }, intervalMs);
           } else {
-            // Fire-and-forget — mark complete immediately
             setApiLoading(false);
           }
         })
@@ -199,11 +178,9 @@ export default function DemoRunner({ onNavigate }: DemoRunnerProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, currentStepIndex]);
 
-  // ── Cleanup on unmount or demo exit ─────────────────────────────
   useEffect(() => {
     return cleanup;
   }, []);
 
-  // Invisible component — no rendered output
   return null;
 }
