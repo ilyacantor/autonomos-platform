@@ -29,7 +29,7 @@ router = APIRouter()
 AOD_BASE_URL = os.getenv("AOD_BASE_URL", "")
 AAM_BASE_URL = os.getenv("AAM_BASE_URL", "")
 DCL_V2_BASE_URL = os.getenv("DCL_V2_BASE_URL", "")
-SERVICE_API_KEY = os.getenv("API_KEY", "")
+AOD_API_KEY = os.getenv("AOD_API_KEY", "")
 
 
 # ── Models ────────────────────────────────────────────────────────────
@@ -68,12 +68,17 @@ PIPELINE_JOBS: Dict[str, PipelineJob] = {}
 
 # ── Helpers ───────────────────────────────────────────────────────────
 
-def _api_headers() -> Dict[str, str]:
-    """Headers for calling external services."""
+def _aod_headers() -> Dict[str, str]:
+    """Headers for calling AOD (requires X-API-Key)."""
     headers = {"Content-Type": "application/json"}
-    if SERVICE_API_KEY:
-        headers["X-API-Key"] = SERVICE_API_KEY
+    if AOD_API_KEY:
+        headers["X-API-Key"] = AOD_API_KEY
     return headers
+
+
+def _aam_headers() -> Dict[str, str]:
+    """Headers for calling AAM (no API key required)."""
+    return {"Content-Type": "application/json"}
 
 
 def _now() -> str:
@@ -133,7 +138,7 @@ async def run_pipeline_background(job_id: str):
                     # Try to get latest snapshot from Farm via AOD
                     snap_res = await client.get(
                         f"{AOD_BASE_URL}/api/farm/all-snapshots",
-                        headers=_api_headers()
+                        headers=_aod_headers()
                     )
 
                     if snap_res.status_code == 200:
@@ -146,7 +151,7 @@ async def run_pipeline_background(job_id: str):
                             # Trigger actual discovery scan from Farm snapshot
                             scan_res = await client.post(
                                 f"{AOD_BASE_URL}/api/runs/from-farm",
-                                headers=_api_headers(),
+                                headers=_aod_headers(),
                                 json={"tenant_id": tenant_id, "snapshot_id": snapshot_id}
                             )
 
@@ -160,7 +165,7 @@ async def run_pipeline_background(job_id: str):
                                 # Scan failed — try using latest existing run
                                 runs_res = await client.get(
                                     f"{AOD_BASE_URL}/api/runs",
-                                    headers=_api_headers()
+                                    headers=_aod_headers()
                                 )
                                 if runs_res.status_code == 200:
                                     runs = runs_res.json()
@@ -179,7 +184,7 @@ async def run_pipeline_background(job_id: str):
                             # No snapshots — try existing runs
                             runs_res = await client.get(
                                 f"{AOD_BASE_URL}/api/runs",
-                                headers=_api_headers()
+                                headers=_aod_headers()
                             )
                             if runs_res.status_code == 200:
                                 runs = runs_res.json()
@@ -206,7 +211,7 @@ async def run_pipeline_background(job_id: str):
                     # Export candidates to AAM
                     export_res = await client.post(
                         f"{AOD_BASE_URL}/api/handoff/aam/export",
-                        headers=_api_headers(),
+                        headers=_aod_headers(),
                         params={"run_id": run_id, "status_filter": "all"}
                     )
 
@@ -234,7 +239,7 @@ async def run_pipeline_background(job_id: str):
 
                     infer_res = await client.post(
                         f"{AAM_BASE_URL}/api/aam/infer",
-                        headers=_api_headers()
+                        headers=_aam_headers()
                     )
 
                     if infer_res.status_code == 200:
@@ -254,7 +259,7 @@ async def run_pipeline_background(job_id: str):
 
                     push_res = await client.post(
                         f"{AAM_BASE_URL}/api/export/dcl/push",
-                        headers=_api_headers()
+                        headers=_aam_headers()
                     )
 
                     if push_res.status_code == 200:
@@ -345,6 +350,6 @@ async def get_demo_config():
             "aam": {"configured": bool(AAM_BASE_URL), "url": AAM_BASE_URL[:40] + "..." if len(AAM_BASE_URL) > 40 else AAM_BASE_URL},
             "dcl_v2": {"configured": bool(DCL_V2_BASE_URL), "url": DCL_V2_BASE_URL[:40] + "..." if len(DCL_V2_BASE_URL) > 40 else DCL_V2_BASE_URL},
         },
-        "api_key_set": bool(SERVICE_API_KEY),
+        "aod_api_key_set": bool(AOD_API_KEY),
         "ready": bool(AOD_BASE_URL and AAM_BASE_URL),
     }
