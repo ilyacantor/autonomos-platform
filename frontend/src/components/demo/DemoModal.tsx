@@ -12,6 +12,7 @@ export default function DemoModal() {
     currentStepIndex,
     isApiLoading,
     apiError,
+    stepResults,
     nextStep,
     prevStep,
     goToStep,
@@ -132,12 +133,60 @@ export default function DemoModal() {
                 <p className="text-gray-300 text-sm leading-relaxed">{step.body}</p>
 
                 {/* Loading indicator */}
-                {isApiLoading && step.blocksOnApi && (
+                {isApiLoading && step.blocksOnApi && !(stepResults[step.id] as any)?.steps && (
                   <div className="flex items-center gap-2 mt-3 text-blue-400 text-sm">
                     <Loader2 className="w-4 h-4 animate-spin" />
                     <span>Pipeline running...</span>
                   </div>
                 )}
+
+                {/* Pipeline step results — live progress */}
+                {(() => {
+                  const result = stepResults[step.id] as any;
+                  if (!result?.steps) return null;
+                  const pipelineStatus = result.status as string;
+                  return (
+                    <div className="mt-3 space-y-1.5">
+                      {isApiLoading && step.blocksOnApi && (
+                        <div className="flex items-center gap-2 text-blue-400 text-xs mb-2">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>
+                            Step {result.current_step}/{result.total_steps}: {result.message}
+                          </span>
+                        </div>
+                      )}
+                      {!isApiLoading && pipelineStatus === 'completed' && (
+                        <div className="flex items-center gap-2 text-green-400 text-xs mb-2">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>{result.message}</span>
+                        </div>
+                      )}
+                      {!isApiLoading && pipelineStatus === 'completed_with_errors' && (
+                        <div className="flex items-center gap-2 text-amber-400 text-xs mb-2">
+                          <AlertCircle className="w-3.5 h-3.5" />
+                          <span>{result.message}</span>
+                        </div>
+                      )}
+                      {result.steps.map((s: any) => (
+                        <div key={s.name} className="flex items-center gap-2 text-xs">
+                          {s.status === 'success' && <CheckCircle2 className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />}
+                          {s.status === 'running' && <Loader2 className="w-3.5 h-3.5 text-blue-400 animate-spin flex-shrink-0" />}
+                          {s.status === 'failed' && <AlertCircle className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />}
+                          {s.status === 'pending' && <span className="w-3.5 h-3.5 rounded-full border border-gray-600 inline-block flex-shrink-0" />}
+                          {s.status === 'skipped' && <span className="w-3.5 h-3.5 text-gray-500 flex-shrink-0">⏭</span>}
+                          <span className={s.status === 'pending' ? 'text-gray-500' : 'text-gray-300'}>
+                            {s.display_name}
+                          </span>
+                          {s.message && s.status !== 'pending' && (
+                            <span className="text-gray-500 ml-auto truncate max-w-[180px]" title={s.message}>
+                              {s.message.slice(0, 50)}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
 
                 {/* Error banner */}
                 {apiError && (

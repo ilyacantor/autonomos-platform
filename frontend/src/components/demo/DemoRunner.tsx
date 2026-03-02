@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useDemo } from '../../contexts/DemoContext';
 import { API_CONFIG } from '../../config/api';
 
@@ -21,6 +21,7 @@ export default function DemoRunner({ onNavigate }: DemoRunnerProps) {
 
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const pipelineCompleteRef = useRef(false);
 
   // ── Helpers ──────────────────────────────────────────────────────
 
@@ -72,6 +73,23 @@ export default function DemoRunner({ onNavigate }: DemoRunnerProps) {
     console.warn(`[DemoRunner] No iframe found for page "${targetPage}" to change src`);
   };
 
+  /** Force-reload an iframe so it picks up fresh post-pipeline data */
+  const reloadIframe = useCallback((targetPage: string) => {
+    const iframes = document.querySelectorAll('iframe');
+    for (const iframe of iframes) {
+      const src = iframe.getAttribute('src') || '';
+      if (
+        (targetPage === 'discover' && src.includes('aodv3')) ||
+        (targetPage === 'connect' && src.includes('aos-aam'))
+      ) {
+        const base = src.split('?')[0];
+        iframe.src = base + '?refresh=' + Date.now();
+        console.log(`[DemoRunner] Reloaded iframe for ${targetPage}`);
+        return;
+      }
+    }
+  }, []);
+
   // ── Main effect: react to step changes ──────────────────────────
   useEffect(() => {
     if (status !== 'running' || !activeDemo) return;
@@ -82,6 +100,11 @@ export default function DemoRunner({ onNavigate }: DemoRunnerProps) {
     // Navigate to the target page
     onNavigate(step.page);
     window.history.pushState({}, '', `/${step.page}`);
+
+    // After pipeline completes, reload iframes so they show fresh data
+    if (pipelineCompleteRef.current && !step.apiTrigger) {
+      setTimeout(() => reloadIframe(step.page), 200);
+    }
 
     // Change iframe src if specified (e.g. AAM sub-routes)
     if (step.iframeSrc) {
@@ -146,13 +169,17 @@ export default function DemoRunner({ onNavigate }: DemoRunnerProps) {
                 const statusData = await statusRes.json();
                 console.log('[DemoRunner] Poll →', statusData.status, statusData.message);
 
+                // Stream intermediate results on every tick so the UI
+                // can show live per-step progress
+                setStepResult(step.id, statusData);
+
                 const done = statusData.status === 'completed' ||
                              statusData.status === 'completed_with_errors' ||
                              statusData.status === 'failed';
 
                 if (done) {
                   cleanup();
-                  setStepResult(step.id, statusData);
+                  pipelineCompleteRef.current = true;
                   setApiLoading(false);
                 }
               } catch (err) {
