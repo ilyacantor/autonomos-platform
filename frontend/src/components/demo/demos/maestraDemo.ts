@@ -1,8 +1,5 @@
 import type { DemoDefinition } from '../demoTypes';
 
-// ── AAM base URL (must match IFRAME_PAGES in App.tsx) ────────────────
-const AAM_BASE = 'https://aos-aam.onrender.com';
-
 export const maestraDemo: DemoDefinition = {
   id: 'maestra-guided-tour',
   name: 'Maestra Guided Tour',
@@ -18,10 +15,6 @@ export const maestraDemo: DemoDefinition = {
       title: 'Environment Scan',
       body: 'Pre-loaded scan results showing discovered systems and their classification.',
       page: 'discover',
-      iframeMessage: {
-        targetPage: 'discover',
-        payload: { action: 'switchToConsole' },
-      },
       messages: [
         {
           text: "I've already scanned your environment. Here's what I found — 6 source systems across 4 integration layers.",
@@ -39,12 +32,8 @@ export const maestraDemo: DemoDefinition = {
       id: 'maestra-handoff',
       phase: 'Handoff',
       title: 'Catalog Handoff',
-      body: 'Running discovery and handing the catalog off to the connection engine.',
+      body: 'Running discovery and handing the full catalog off to the connection engine.',
       page: 'discover',
-      iframeMessage: {
-        targetPage: 'discover',
-        payload: { action: 'switchToConsole' },
-      },
       apiTrigger: {
         path: '/demo/run_pipeline',
         method: 'POST',
@@ -61,7 +50,7 @@ export const maestraDemo: DemoDefinition = {
           delay: 0,
         },
         {
-          text: "Once the catalog is built, it's automatically handed off to the connection engine — every system, every data source, ready to be wired up.",
+          text: "Once the catalog is complete, every system and data source is automatically handed off to the connection engine — ready to be mapped and wired up.",
           delay: 1200,
         },
       ],
@@ -72,12 +61,11 @@ export const maestraDemo: DemoDefinition = {
       id: 'maestra-connection',
       phase: 'Connection',
       title: 'Connection Mapping',
-      body: 'Every connection between your systems — mapped automatically.',
+      body: 'Visual topology of every connection between your systems.',
       page: 'connect',
-      iframeSrc: `${AAM_BASE}/ui/pipes`,
       messages: [
         {
-          text: "Here's every connection between your systems. Each row is a data pathway — where information flows from one system to another.",
+          text: "This is the topology view — a visual map of every connection between your systems.",
           delay: 0,
         },
         {
@@ -85,7 +73,7 @@ export const maestraDemo: DemoDefinition = {
           delay: 1200,
         },
         {
-          text: "Each connection knows its source, its destination, and what kind of data travels through it. Click any row to see the details.",
+          text: "Click any object in the visual to see details — source, destination, and what kind of data travels through it.",
           delay: 2400,
         },
       ],
@@ -96,20 +84,24 @@ export const maestraDemo: DemoDefinition = {
       id: 'maestra-semantic',
       phase: 'Semantic Layer',
       title: 'Unified Data Model',
-      body: 'Flow diagram showing how source systems map into common business concepts.',
+      body: 'Context graph showing how source systems map into common business concepts.',
       page: 'unify-ask',
       messages: [
         {
-          text: "What you're seeing is a flow diagram. On the left side are your source systems — CRM, ERP, HR, and so on. On the right side are unified business concepts like Revenue, Customer, and Product.",
+          text: "This is the context graph. On the left side is the pipeline from AAM — the mapped connections you just saw. On the right side are unified business concepts like Revenue, Customer, and Product.",
           delay: 0,
         },
         {
-          text: "Each node is a data entity. The lines between them show how raw data from each source system gets mapped into those common concepts.",
+          text: "Each node is a data entity. The lines between them show how metadata from each source system gets mapped into those common concepts.",
           delay: 1500,
         },
         {
-          text: "This is what makes it work — disparate systems are unified into common data entities so that information is always relevant, contextual, and consistent, regardless of which system it originally came from.",
+          text: "This graph represents the actual unification of the various metadata concepts issued by often disparate systems — so that information is always relevant, contextual, and consistent, regardless of where it originally came from.",
           delay: 3000,
+        },
+        {
+          text: "The unified data entities are then available to humans and agents to consume — without risk of hallucinations.",
+          delay: 4500,
         },
       ],
     },
@@ -121,6 +113,10 @@ export const maestraDemo: DemoDefinition = {
       title: 'Ask Anything',
       body: 'Natural language query interface — click a preset or type your own question.',
       page: 'nlq',
+      iframeMessage: {
+        targetPage: 'nlq',
+        payload: { action: 'navigateTo', tab: 'galaxy' },
+      },
       messages: [
         {
           text: "This is the query interface. Click on any preset question, or type your own — plain English, no SQL required.",
@@ -156,7 +152,7 @@ export const maestraDemo: DemoDefinition = {
       ],
     },
 
-    // ── Step 7: Reports / Convergence ──────────────────────────────────
+    // ── Step 7: Reports / Convergence — Combined ───────────────────────
     {
       id: 'maestra-reports',
       phase: 'Reports',
@@ -165,7 +161,7 @@ export const maestraDemo: DemoDefinition = {
       page: 'nlq',
       iframeMessage: {
         targetPage: 'nlq',
-        payload: { action: 'navigateTo', tab: 'reports' },
+        payload: { action: 'reportNavigate', entity: 'combined', tab: 'crosssell' },
       },
       messages: [
         {
@@ -177,8 +173,35 @@ export const maestraDemo: DemoDefinition = {
           delay: 1400,
         },
         {
-          text: "You'll find cross-sell and upsell opportunities, normalized EBITDA with automated quality of earnings, and much more — all generated from the same unified data layer.",
+          text: "Click through the tabs — Cross-Sell for revenue synergy opportunities, EBITDA Bridge for normalized earnings, What-If for sensitivity analysis, and QofE for automated quality of earnings.",
           delay: 2800,
+        },
+      ],
+    },
+
+    // ── Step 8: Maestra Onboarding — Demo Conclusion ───────────────────
+    {
+      id: 'maestra-onboarding',
+      phase: 'Maestra',
+      title: 'Onboarding Portal',
+      body: 'Maestra AI onboarding — start an engagement and explore the deal.',
+      page: 'nlq',
+      iframeMessage: {
+        targetPage: 'nlq',
+        payload: { action: 'reportNavigate', entity: 'combined', tab: 'maestra' },
+      },
+      messages: [
+        {
+          text: "And this is my onboarding portal. This is where every new engagement starts.",
+          delay: 0,
+        },
+        {
+          text: "Click Start Engagement, then in the chat click 'Tell me about the deal' — I'll walk you through everything I know about the Meridian-Cascadia acquisition.",
+          delay: 1400,
+        },
+        {
+          text: "This concludes the guided tour. Everything you've seen — discovery, connection mapping, semantic unification, natural language query, dashboards, and M&A reporting — is one integrated platform.",
+          delay: 3000,
         },
       ],
     },
