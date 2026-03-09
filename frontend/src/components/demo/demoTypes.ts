@@ -43,6 +43,8 @@ export interface DemoStep {
   iframeSrc?: string;
   /** Optional postMessage to send into an iframe on this step */
   iframeMessage?: DemoIframeMessage;
+  /** Multiple postMessages with delays (used by Maestra demo for sequenced actions) */
+  iframeMessages?: (DemoIframeMessage & { delay?: number })[];
   /** Optional API call to fire when entering this step */
   apiTrigger?: DemoStepApiTrigger;
   /** If true, Next button is disabled until the API trigger resolves */

@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useDemo } from '../../contexts/DemoContext';
-import DemoIframeContainer from '../DemoIframeContainer';
 import type { MaestraMessage } from './demoTypes';
 
 // ── Iframe pages (same source of truth as App.tsx) ───────────────────
@@ -97,6 +96,36 @@ export default function MaestraDemo() {
 
     return clearTimers;
   }, [currentStepIndex, currentMessages, clearTimers]);
+
+  // Send sequenced postMessages for steps with iframeMessages[]
+  useEffect(() => {
+    const msgs = step?.iframeMessages;
+    if (!msgs?.length) return;
+
+    const msgTimers: ReturnType<typeof setTimeout>[] = [];
+
+    msgs.forEach((msg) => {
+      const timer = setTimeout(() => {
+        // Find the visible iframe and send the message
+        const iframes = document.querySelectorAll('iframe');
+        for (const iframe of iframes) {
+          const wrapper = iframe.parentElement;
+          if (wrapper && wrapper.style.display !== 'none') {
+            try {
+              iframe.contentWindow?.postMessage(msg.payload, '*');
+              console.log(`[MaestraDemo] postMessage to ${msg.targetPage} →`, msg.payload);
+            } catch (err) {
+              console.warn('[MaestraDemo] postMessage failed:', err);
+            }
+            return;
+          }
+        }
+      }, msg.delay ?? 0);
+      msgTimers.push(timer);
+    });
+
+    return () => msgTimers.forEach(clearTimeout);
+  }, [currentStepIndex, step]);
 
   // Auto-scroll chat to bottom when new messages appear
   useEffect(() => {
@@ -245,6 +274,9 @@ export default function MaestraDemo() {
         </div>
 
         {/* ── Right: Iframe panel ─────────────────────────────────── */}
+        {/* Iframes rendered WITHOUT inline styles so DemoRunner's
+            sendIframeMessage (which uses iframe.closest('[style]'))
+            correctly targets the parent wrapper div for visibility. */}
         <div className="flex-1 min-h-0 relative bg-gray-950">
           {Object.entries(IFRAME_PAGES).map(([pageKey, config]) => (
             <div
@@ -252,7 +284,12 @@ export default function MaestraDemo() {
               className="absolute inset-0 h-full"
               style={{ display: activePage === pageKey ? 'block' : 'none' }}
             >
-              <DemoIframeContainer src={config.src} title={config.title} />
+              <iframe
+                src={config.src}
+                className="w-full h-full border-0"
+                title={config.title}
+                allow="fullscreen"
+              />
             </div>
           ))}
         </div>

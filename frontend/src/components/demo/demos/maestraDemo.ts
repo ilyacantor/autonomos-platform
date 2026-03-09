@@ -15,22 +15,42 @@ export const maestraDemo: DemoDefinition = {
       title: 'Meet Maestra',
       body: 'Maestra introduces herself and the live environment you are about to explore.',
       page: 'discover',
-      iframeMessage: {
-        targetPage: 'discover',
-        payload: { action: 'switchToConsole' },
-      },
       messages: [
         {
-          text: "Hi, I'm Maestra — I'm the onboarding and engagement manager for autonomOS. I handle everything from initial discovery through deployment and ongoing customer development. Think of me as the person who actually understands your enterprise before the first meeting — and keeps understanding it as things change.",
+          text: "Hi, I'm Maestra — I'm the onboarding and engagement manager for autonomOS.",
           delay: 0,
         },
         {
-          text: "Everything you're about to see is running live against synthetic data that represents a messy, realistic enterprise environment. Our data farm generated tens of thousands of signals — ingesting over 400 raw assets and cataloging roughly 100 into structured records across 6 sources of record and 4 fabric planes. Real conflicts, real naming mismatches, real hierarchy gaps. Nothing is hardcoded or staged.",
-          delay: 2000,
+          text: "I handle everything from initial discovery through deployment and ongoing customer development.",
+          delay: 1200,
         },
         {
-          text: "I'm going to walk you through the full platform end to end — how we discover what's in your environment, map the connections, resolve the conflicts, and build a unified context layer that humans and AI agents can both query with confidence. At the end, I'll give you a quick look at Convergence, our multi-entity product for M&A and post-merger integration — which I'm really excited about. Let's start with what I found when I scanned this environment.",
-          delay: 4000,
+          text: "Think of me as the person who actually understands your enterprise before the first meeting — and keeps understanding it as things change.",
+          delay: 2400,
+        },
+        {
+          text: "Everything you're about to see is running live against synthetic data that represents a messy, realistic enterprise environment.",
+          delay: 3800,
+        },
+        {
+          text: "Our data farm generated tens of thousands of signals — ingesting over 400 raw assets and cataloging roughly 100 into structured records across 6 sources of record and 4 fabric planes.",
+          delay: 5000,
+        },
+        {
+          text: "Real conflicts, real naming mismatches, real hierarchy gaps. Nothing is hardcoded or staged.",
+          delay: 6200,
+        },
+        {
+          text: "I'm going to walk you through the full platform end to end — how we discover what's in your environment, map the connections, resolve the conflicts, and build a unified context layer that humans and AI agents can both query with confidence.",
+          delay: 7600,
+        },
+        {
+          text: "At the end, I'll give you a quick look at Convergence, our multi-entity product for M&A and post-merger integration — which I'm really excited about.",
+          delay: 9000,
+        },
+        {
+          text: "Let's start with what I found when I scanned this environment.",
+          delay: 10200,
         },
       ],
     },
@@ -42,23 +62,17 @@ export const maestraDemo: DemoDefinition = {
       title: 'Catalog Handoff',
       body: 'Running discovery and handing the full catalog off to the connection engine.',
       page: 'discover',
-      iframeMessage: {
-        targetPage: 'discover',
-        payload: { action: 'switchToConsole' },
-      },
-      apiTrigger: {
-        path: '/demo/run_pipeline',
-        method: 'POST',
-        pollForCompletion: {
-          statusPath: '/demo/pipeline_status',
-          intervalMs: 2000,
-          timeoutMs: 120000,
-        },
-      },
-      blocksOnApi: true,
+      iframeMessages: [
+        // First: switch to Console tab
+        { targetPage: 'discover', payload: { action: 'switchToConsole' }, delay: 300 },
+        // Then: trigger Run Discovery
+        { targetPage: 'discover', payload: { action: 'runDiscovery' }, delay: 1500 },
+        // Then: trigger Handoff to AAM (after discovery has time to complete)
+        { targetPage: 'discover', payload: { action: 'triggerHandoff' }, delay: 25000 },
+      ],
       messages: [
         {
-          text: "Now I'm running a full discovery scan and building the catalog in real time. You can see the progress below.",
+          text: "Now I'm running a full discovery scan and building the catalog in real time. Watch the console — you'll see the pipeline execute.",
           delay: 0,
         },
         {
