@@ -1,10 +1,11 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { AutonomyProvider, useAutonomy } from './contexts/AutonomyContext';
-import { DemoProvider } from './contexts/DemoContext';
+import { DemoProvider, useDemo } from './contexts/DemoContext';
 import AppLayout from './components/AppLayout';
 import DemoIframeContainer from './components/DemoIframeContainer';
 import DemoRunner from './components/demo/DemoRunner';
 import DemoModal from './components/demo/DemoModal';
+import MaestraDemo from './components/demo/MaestraDemo';
 
 const AOSOverviewPage = lazy(() => import('./components/AOSOverviewPage'));
 const OrchestrationDashboard = lazy(() => import('./components/orchestration/OrchestrationDashboard'));
@@ -39,7 +40,10 @@ function AppContent() {
 
   const [currentPage, setCurrentPage] = useState(getInitialPage());
   const { legacyMode } = useAutonomy();
+  const { status, activeDemo } = useDemo();
   const allIframeKeys = Object.keys(IFRAME_PAGES);
+
+  const isMaestraActive = status === 'running' && activeDemo?.layout === 'maestra';
 
   useEffect(() => {
     const handleNavigation = (event: Event) => {
@@ -86,6 +90,16 @@ function AppContent() {
         return <AOSOverviewPage />;
     }
   };
+
+  // Maestra demo: full-screen split panel replaces normal layout
+  if (isMaestraActive) {
+    return (
+      <>
+        <MaestraDemo />
+        <DemoRunner onNavigate={setCurrentPage} />
+      </>
+    );
+  }
 
   return (
     <>

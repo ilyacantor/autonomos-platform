@@ -57,8 +57,9 @@ export default function DemoModal() {
     dragState.current.dragging = false;
   }, []);
 
-  // ── Bail early if not running ────────────────────────────────────
+  // ── Bail early if not running or if Maestra demo (has its own UI) ─
   if (status !== 'running' || !activeDemo) return null;
+  if (activeDemo.layout === 'maestra') return null;
 
   const step = activeDemo.steps[currentStepIndex];
   const totalSteps = activeDemo.steps.length;

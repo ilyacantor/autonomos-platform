@@ -16,6 +16,13 @@ export interface DemoStepApiTrigger {
   };
 }
 
+/** A single Maestra narration message */
+export interface MaestraMessage {
+  text: string;
+  /** ms before appearing (default 0 for first message, ~1200ms for subsequent) */
+  delay?: number;
+}
+
 /** postMessage payload to send into an iframe */
 export interface DemoIframeMessage {
   /** Page key whose iframe should receive the message */
@@ -40,6 +47,8 @@ export interface DemoStep {
   apiTrigger?: DemoStepApiTrigger;
   /** If true, Next button is disabled until the API trigger resolves */
   blocksOnApi?: boolean;
+  /** Maestra narration messages for this step (used by Maestra guided demo) */
+  messages?: MaestraMessage[];
 }
 
 /** A complete demo definition */
@@ -49,6 +58,8 @@ export interface DemoDefinition {
   description: string;
   icon: string;
   steps: DemoStep[];
+  /** Layout mode: 'modal' (default floating overlay) or 'maestra' (full-screen split panel) */
+  layout?: 'modal' | 'maestra';
 }
 
 /** Runtime state for the demo system */
