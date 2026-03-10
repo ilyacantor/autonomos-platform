@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   loadNarrative,
   saveNarrative,
@@ -17,10 +17,15 @@ export default function DemoEditor() {
   const [dirty, setDirty] = useState(false);
   const [saved, setSaved] = useState(false);
   const { startDemo } = useDemo();
+  const selfSaveRef = useRef(false);
 
-  // Reload if another tab resets
+  // Reload if another tab resets (skip events triggered by our own saves)
   useEffect(() => {
     const handler = () => {
+      if (selfSaveRef.current) {
+        selfSaveRef.current = false;
+        return;
+      }
       setNarrative(loadNarrative());
       setDirty(false);
     };
@@ -132,6 +137,7 @@ export default function DemoEditor() {
   }, []);
 
   const handleSave = () => {
+    selfSaveRef.current = true;
     saveNarrative(narrative);
     setDirty(false);
     setSaved(true);
@@ -146,6 +152,7 @@ export default function DemoEditor() {
   };
 
   const handlePreview = () => {
+    selfSaveRef.current = true;
     saveNarrative(narrative);
     setDirty(false);
     startDemo(buildMaestraDemo());
