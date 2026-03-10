@@ -97,16 +97,27 @@ export default function MaestraDemo() {
     return clearTimers;
   }, [currentStepIndex, currentMessages, clearTimers]);
 
-  // Send sequenced postMessages for steps with iframeMessages[]
+  // Send postMessages into the visible iframe (handles both singular and plural)
   useEffect(() => {
-    const msgs = step?.iframeMessages;
-    if (!msgs?.length) return;
+    const allMsgs: { targetPage: string; payload: Record<string, unknown>; delay: number }[] = [];
 
-    const msgTimers: ReturnType<typeof setTimeout>[] = [];
+    // Singular iframeMessage
+    if (step?.iframeMessage) {
+      allMsgs.push({ ...step.iframeMessage, delay: 300 });
+    }
+    // Plural iframeMessages (sequenced with delays)
+    if (step?.iframeMessages?.length) {
+      step.iframeMessages.forEach((msg) => {
+        allMsgs.push({ targetPage: msg.targetPage, payload: msg.payload, delay: msg.delay ?? 0 });
+      });
+    }
 
-    msgs.forEach((msg) => {
+    if (!allMsgs.length) return;
+
+    const timers: ReturnType<typeof setTimeout>[] = [];
+
+    allMsgs.forEach((msg) => {
       const timer = setTimeout(() => {
-        // Find the visible iframe and send the message
         const iframes = document.querySelectorAll('iframe');
         for (const iframe of iframes) {
           const wrapper = iframe.parentElement;
@@ -120,11 +131,11 @@ export default function MaestraDemo() {
             return;
           }
         }
-      }, msg.delay ?? 0);
-      msgTimers.push(timer);
+      }, msg.delay);
+      timers.push(timer);
     });
 
-    return () => msgTimers.forEach(clearTimeout);
+    return () => timers.forEach(clearTimeout);
   }, [currentStepIndex, step]);
 
   // Auto-scroll chat to bottom when new messages appear
