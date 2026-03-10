@@ -101,6 +101,15 @@ export const DEFAULT_NARRATIVE: DemoNarrativeData = [
       { text: "That's the full platform — discovery, connection mapping, semantic unification, natural language query, role-based dashboards, and M&A reporting. One system, end to end.", delay: 3000 },
     ],
   },
+  {
+    id: 'maestra-handover',
+    phase: 'Handover',
+    title: 'Chat with Maestra',
+    body: 'Tour complete — continue the conversation directly with Maestra.',
+    messages: [
+      { text: "Now that the tour is complete, I'll introduce you to my onboarding process. Click the M on the bottom right of the screen, and chat with me either with presets or with your own words. See you soon!", delay: 0 },
+    ],
+  },
 ];
 
 /** Load narrative from localStorage, falling back to defaults */

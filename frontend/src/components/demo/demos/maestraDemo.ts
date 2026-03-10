@@ -55,6 +55,9 @@ const STEP_STRUCTURE: Record<string, StepStructure> = {
       payload: { action: 'reportNavigate', entity: 'combined', tab: 'maestra' },
     },
   },
+  'maestra-handover': {
+    page: 'nlq',
+  },
 };
 
 /** Build the Maestra demo definition, merging current narrative with structural config */

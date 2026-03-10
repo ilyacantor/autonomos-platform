@@ -91,6 +91,31 @@ export default function DemoEditor() {
     setSaved(false);
   }, []);
 
+  const insertStep = useCallback((afterIdx: number) => {
+    const newId = `maestra-custom-${Date.now()}`;
+    const newStep: StepNarrative = {
+      id: newId,
+      phase: 'New Phase',
+      title: 'New Step',
+      body: '',
+      messages: [{ text: '', delay: 0 }],
+    };
+    setNarrative((prev) => {
+      const next = [...prev];
+      next.splice(afterIdx + 1, 0, newStep);
+      return next;
+    });
+    setExpandedSteps((prev) => new Set([...prev, newId]));
+    setDirty(true);
+    setSaved(false);
+  }, []);
+
+  const removeStep = useCallback((stepIdx: number) => {
+    setNarrative((prev) => prev.filter((_, i) => i !== stepIdx));
+    setDirty(true);
+    setSaved(false);
+  }, []);
+
   const moveMessage = useCallback((stepIdx: number, msgIdx: number, direction: -1 | 1) => {
     setNarrative((prev) =>
       prev.map((s, i) => {
@@ -174,32 +199,43 @@ export default function DemoEditor() {
       </div>
 
       {/* ── Steps ─────────────────────────────────────────────────── */}
-      <div className="max-w-5xl mx-auto px-6 py-6 space-y-4">
+      <div className="max-w-5xl mx-auto px-6 py-6 space-y-2">
         {narrative.map((step, stepIdx) => {
           const isExpanded = expandedSteps.has(step.id);
           return (
+            <div key={step.id}>
             <div
-              key={step.id}
               className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden"
             >
               {/* Step header */}
-              <button
-                onClick={() => toggleStep(step.id)}
-                className="w-full flex items-center gap-3 px-5 py-3.5 text-left hover:bg-gray-800/50 transition-colors"
-              >
-                {isExpanded ? (
-                  <ChevronDown className="w-4 h-4 text-purple-400 flex-shrink-0" />
-                ) : (
-                  <ChevronRight className="w-4 h-4 text-gray-500 flex-shrink-0" />
-                )}
-                <span className="text-[10px] text-purple-400 uppercase tracking-wider font-medium bg-purple-600/10 px-2 py-0.5 rounded flex-shrink-0">
-                  Step {stepIdx + 1}
-                </span>
-                <span className="font-semibold text-sm text-white">{step.title}</span>
-                <span className="text-xs text-gray-500 ml-auto flex-shrink-0">
-                  {step.phase} — {step.messages.length} message{step.messages.length !== 1 ? 's' : ''}
-                </span>
-              </button>
+              <div className="flex items-center">
+                <button
+                  onClick={() => toggleStep(step.id)}
+                  className="flex-1 flex items-center gap-3 px-5 py-3.5 text-left hover:bg-gray-800/50 transition-colors"
+                >
+                  {isExpanded ? (
+                    <ChevronDown className="w-4 h-4 text-purple-400 flex-shrink-0" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                  )}
+                  <span className="text-[10px] text-purple-400 uppercase tracking-wider font-medium bg-purple-600/10 px-2 py-0.5 rounded flex-shrink-0">
+                    Step {stepIdx + 1}
+                  </span>
+                  <span className="font-semibold text-sm text-white">{step.title}</span>
+                  <span className="text-xs text-gray-500 ml-auto flex-shrink-0">
+                    {step.phase} — {step.messages.length} message{step.messages.length !== 1 ? 's' : ''}
+                  </span>
+                </button>
+                <button
+                  onClick={() => {
+                    if (window.confirm(`Delete step "${step.title}"?`)) removeStep(stepIdx);
+                  }}
+                  className="px-3 py-3.5 text-gray-600 hover:text-red-400 transition-colors flex-shrink-0"
+                  title="Delete step"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
 
               {/* Expanded content */}
               {isExpanded && (
@@ -311,6 +347,19 @@ export default function DemoEditor() {
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Insert step button */}
+            <div className="flex justify-center py-1">
+              <button
+                onClick={() => insertStep(stepIdx)}
+                className="flex items-center gap-1 px-3 py-1 text-[10px] text-gray-600 hover:text-purple-400 hover:bg-gray-800/50 rounded-full border border-transparent hover:border-purple-600/30 transition-all"
+                title="Insert step below"
+              >
+                <Plus className="w-3 h-3" />
+                Insert Step
+              </button>
+            </div>
             </div>
           );
         })}

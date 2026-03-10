@@ -79,3 +79,11 @@ All demo narration text in one place. Edit via the Demo Editor at `/demo-editor`
 1. And this is where every engagement starts — my onboarding portal.
 2. This is a live conversation, not a recording. Start an engagement and ask me about the deal — I'll walk you through what I know about both entities, what I've found, and what still needs to be confirmed with stakeholders.
 3. That's the full platform — discovery, connection mapping, semantic unification, natural language query, role-based dashboards, and M&A reporting. One system, end to end.
+
+---
+
+## Step 9: Chat with Maestra (Handover)
+
+> Tour complete — continue the conversation directly with Maestra.
+
+1. Now that the tour is complete, I'll introduce you to my onboarding process. Click the M on the bottom right of the screen, and chat with me either with presets or with your own words. See you soon!
