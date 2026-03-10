@@ -134,34 +134,18 @@ export default function MaestraDemo() {
 
     allMsgs.forEach((msg) => {
       const timer = setTimeout(() => {
-        // Find the iframe for the target page by matching its src against IFRAME_PAGES
-        const targetSrc = IFRAME_PAGES[msg.targetPage]?.src;
-        const iframes = document.querySelectorAll('iframe');
-        for (const iframe of iframes) {
-          if (targetSrc && iframe.src.startsWith(targetSrc)) {
-            try {
-              iframe.contentWindow?.postMessage(msg.payload, '*');
-              console.log(`[MaestraDemo] postMessage to ${msg.targetPage} →`, msg.payload);
-            } catch (err) {
-              console.warn('[MaestraDemo] postMessage failed:', err);
-            }
-            return;
+        // Find iframe by data-page attribute (most reliable)
+        const target = document.querySelector(`iframe[data-page="${msg.targetPage}"]`) as HTMLIFrameElement | null;
+        if (target?.contentWindow) {
+          try {
+            target.contentWindow.postMessage(msg.payload, '*');
+            console.log(`[MaestraDemo] postMessage to ${msg.targetPage} →`, msg.payload);
+          } catch (err) {
+            console.warn('[MaestraDemo] postMessage failed:', err);
           }
+        } else {
+          console.warn(`[MaestraDemo] No iframe found for ${msg.targetPage}`);
         }
-        // Fallback: send to first visible iframe
-        for (const iframe of iframes) {
-          const wrapper = iframe.parentElement;
-          if (wrapper && wrapper.style.display !== 'none') {
-            try {
-              iframe.contentWindow?.postMessage(msg.payload, '*');
-              console.log(`[MaestraDemo] postMessage (fallback) to ${msg.targetPage} →`, msg.payload);
-            } catch (err) {
-              console.warn('[MaestraDemo] postMessage failed:', err);
-            }
-            return;
-          }
-        }
-        console.warn(`[MaestraDemo] No iframe found for ${msg.targetPage}`);
       }, msg.delay);
       timers.push(timer);
     });
@@ -328,6 +312,7 @@ export default function MaestraDemo() {
             >
               <iframe
                 src={config.src}
+                data-page={pageKey}
                 className="w-full h-full border-0"
                 title={config.title}
                 allow="fullscreen"

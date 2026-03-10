@@ -13,6 +13,8 @@ export interface StepNarrative {
 export type DemoNarrativeData = StepNarrative[];
 
 const STORAGE_KEY = 'maestra-demo-narrative';
+const NARRATIVE_VERSION = 2;
+const VERSION_KEY = 'maestra-demo-narrative-version';
 
 export const DEFAULT_NARRATIVE: DemoNarrativeData = [
   {
@@ -101,11 +103,19 @@ export const DEFAULT_NARRATIVE: DemoNarrativeData = [
   },
 ];
 
-/** Load narrative from localStorage, falling back to defaults */
+/** Load narrative from localStorage, falling back to defaults.
+ *  Invalidates stale cache when NARRATIVE_VERSION bumps. */
 export function loadNarrative(): DemoNarrativeData {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) return JSON.parse(stored);
+    const storedVersion = localStorage.getItem(VERSION_KEY);
+    if (storedVersion && Number(storedVersion) === NARRATIVE_VERSION) {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) return JSON.parse(stored);
+    } else {
+      // Version mismatch — clear stale cache
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.setItem(VERSION_KEY, String(NARRATIVE_VERSION));
+    }
   } catch {
     // corrupt data — fall back
   }
@@ -115,12 +125,13 @@ export function loadNarrative(): DemoNarrativeData {
 /** Save narrative overrides to localStorage */
 export function saveNarrative(data: DemoNarrativeData): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  // Dispatch event so running demos pick up changes immediately
+  localStorage.setItem(VERSION_KEY, String(NARRATIVE_VERSION));
   window.dispatchEvent(new CustomEvent('narrative-updated'));
 }
 
 /** Reset to defaults */
 export function resetNarrative(): void {
   localStorage.removeItem(STORAGE_KEY);
+  localStorage.setItem(VERSION_KEY, String(NARRATIVE_VERSION));
   window.dispatchEvent(new CustomEvent('narrative-updated'));
 }
