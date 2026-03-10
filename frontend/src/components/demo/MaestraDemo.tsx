@@ -26,6 +26,22 @@ function TypingIndicator() {
   );
 }
 
+// ── Render formatted text ─────────────────────────────────────────────
+// Supports: *text* → teal highlight, **text** → bold
+function renderFormatted(text: string) {
+  // Split on **bold** and *highlight* markers, preserving delimiters
+  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={i} className="font-semibold text-white">{part.slice(2, -2)}</strong>;
+    }
+    if (part.startsWith('*') && part.endsWith('*')) {
+      return <span key={i} className="text-teal-400 font-medium">{part.slice(1, -1)}</span>;
+    }
+    return part;
+  });
+}
+
 // ── Single chat bubble ───────────────────────────────────────────────
 function ChatBubble({ text, dimmed }: { text: string; dimmed?: boolean }) {
   return (
@@ -34,7 +50,7 @@ function ChatBubble({ text, dimmed }: { text: string; dimmed?: boolean }) {
         dimmed ? 'opacity-40' : 'text-gray-100'
       }`}
     >
-      {text}
+      {renderFormatted(text)}
     </div>
   );
 }
