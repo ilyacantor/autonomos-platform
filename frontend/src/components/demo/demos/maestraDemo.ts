@@ -55,29 +55,29 @@ export const maestraDemo: DemoDefinition = {
       ],
     },
 
-    // ── Step 2: Run Discovery + Handoff ────────────────────────────────
+    // ── Step 2: Console + Catalog Handoff ───────────────────────────────
     {
       id: 'maestra-handoff',
       phase: 'Handoff',
       title: 'Catalog Handoff',
-      body: 'Running discovery and handing the full catalog off to the connection engine.',
+      body: 'The Console view — where discovery runs and the catalog is handed off.',
       page: 'discover',
-      iframeMessages: [
-        // First: switch to Console tab
-        { targetPage: 'discover', payload: { action: 'switchToConsole' }, delay: 300 },
-        // Then: trigger Run Discovery
-        { targetPage: 'discover', payload: { action: 'runDiscovery' }, delay: 1500 },
-        // Then: trigger Handoff to AAM (after discovery has time to complete)
-        { targetPage: 'discover', payload: { action: 'triggerHandoff' }, delay: 25000 },
-      ],
+      iframeMessage: {
+        targetPage: 'discover',
+        payload: { action: 'switchToConsole' },
+      },
       messages: [
         {
-          text: "Now I'm running a full discovery scan and building the catalog in real time. Watch the console — you'll see the pipeline execute.",
+          text: "This is the Console — the operational hub where discovery scans run and results are cataloged.",
           delay: 0,
         },
         {
-          text: "Once the catalog is complete, every system and data source is automatically handed off to the connection engine — ready to be mapped and wired up.",
+          text: "You can hit Run Discovery to trigger a live scan. The pipeline ingests signals from Farm, classifies every asset, and builds the catalog automatically.",
           delay: 1200,
+        },
+        {
+          text: "Once the catalog is built, it's handed off to the connection engine — every system and data source, ready to be mapped and wired up.",
+          delay: 2400,
         },
       ],
     },
