@@ -10,6 +10,7 @@ import MaestraDemo from './components/demo/MaestraDemo';
 const AOSOverviewPage = lazy(() => import('./components/AOSOverviewPage'));
 const OrchestrationDashboard = lazy(() => import('./components/orchestration/OrchestrationDashboard'));
 const FAQPage = lazy(() => import('./components/FAQPage'));
+const DemoEditor = lazy(() => import('./components/demo/DemoEditor'));
 
 const IFRAME_PAGES: Record<string, { src: string; title: string }> = {
   'nlq': { src: 'https://aos-nlq.onrender.com', title: 'NLQ - Natural Language Query' },
@@ -34,7 +35,7 @@ function PageLoader() {
 function AppContent() {
   const getInitialPage = () => {
     const path = window.location.pathname.slice(1);
-    const validPages = ['aos-overview', 'nlq', 'discover', 'connect', 'unify-ask', 'orchestration', 'farm', 'finops', 'faq'];
+    const validPages = ['aos-overview', 'nlq', 'discover', 'connect', 'unify-ask', 'orchestration', 'farm', 'finops', 'faq', 'demo-editor'];
     return validPages.includes(path) ? path : 'nlq';
   };
 
@@ -64,7 +65,7 @@ function AppContent() {
   useEffect(() => {
     const handlePopState = () => {
       const path = window.location.pathname.slice(1);
-      const validPages = ['aos-overview', 'nlq', 'discover', 'connect', 'unify-ask', 'orchestration', 'farm', 'finops', 'faq'];
+      const validPages = ['aos-overview', 'nlq', 'discover', 'connect', 'unify-ask', 'orchestration', 'farm', 'finops', 'faq', 'demo-editor'];
       if (validPages.includes(path)) {
         setCurrentPage(path);
       }
@@ -86,6 +87,8 @@ function AppContent() {
         return <OrchestrationDashboard />;
       case 'faq':
         return <FAQPage />;
+      case 'demo-editor':
+        return <DemoEditor />;
       default:
         return <AOSOverviewPage />;
     }

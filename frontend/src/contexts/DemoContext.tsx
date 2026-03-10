@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 import type { DemoDefinition, DemoState } from '../components/demo/demoTypes';
+import { buildMaestraDemo } from '../components/demo/demos/maestraDemo';
 
 // ── Context shape ────────────────────────────────────────────────────
 
@@ -35,10 +36,12 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<DemoState>(INITIAL_STATE);
 
   const startDemo = useCallback((demo: DemoDefinition) => {
+    // Rebuild Maestra demo from latest narrative (picks up editor changes)
+    const resolved = demo.id === 'maestra-guided-tour' ? buildMaestraDemo() : demo;
     setState({
       ...INITIAL_STATE,
       status: 'running',
-      activeDemo: demo,
+      activeDemo: resolved,
       currentStepIndex: 0,
     });
   }, []);
