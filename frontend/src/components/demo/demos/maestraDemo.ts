@@ -48,13 +48,6 @@ const STEP_STRUCTURE: Record<string, StepStructure> = {
       payload: { action: 'reportNavigate', entity: 'combined', tab: 'pl' },
     },
   },
-  'maestra-onboarding': {
-    page: 'nlq',
-    iframeMessage: {
-      targetPage: 'nlq',
-      payload: { action: 'reportNavigate', entity: 'combined', tab: 'maestra' },
-    },
-  },
   'maestra-handover': {
     page: 'nlq',
   },

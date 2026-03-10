@@ -91,17 +91,6 @@ export const DEFAULT_NARRATIVE: DemoNarrativeData = [
     ],
   },
   {
-    id: 'maestra-onboarding',
-    phase: 'Engagement Start',
-    title: 'Maestra Onboarding',
-    body: 'Start a new engagement and see Maestra work live.',
-    messages: [
-      { text: "And this is where every engagement starts — my onboarding portal.", delay: 0 },
-      { text: "This is a live conversation, not a recording. Start an engagement and ask me about the deal — I'll walk you through what I know about both entities, what I've found, and what still needs to be confirmed with stakeholders.", delay: 1400 },
-      { text: "That's the full platform — discovery, connection mapping, semantic unification, natural language query, role-based dashboards, and M&A reporting. One system, end to end.", delay: 3000 },
-    ],
-  },
-  {
     id: 'maestra-handover',
     phase: 'Handover',
     title: 'Chat with Maestra',
