@@ -77,7 +77,7 @@ export function buildMaestraDemo(): DemoDefinition {
 
   return {
     id: 'maestra-guided-tour',
-    name: 'Maestra Guided Tour',
+    name: 'Guided Tour',
     description:
       'Investor-grade narrated walkthrough — Maestra walks you through live module UIs with AI-guided narration.',
     icon: '\uD83C\uDF99\uFE0F',
