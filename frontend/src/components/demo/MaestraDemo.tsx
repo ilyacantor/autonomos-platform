@@ -134,10 +134,11 @@ export default function MaestraDemo() {
 
     allMsgs.forEach((msg) => {
       const timer = setTimeout(() => {
+        // Find the iframe for the target page by matching its src against IFRAME_PAGES
+        const targetSrc = IFRAME_PAGES[msg.targetPage]?.src;
         const iframes = document.querySelectorAll('iframe');
         for (const iframe of iframes) {
-          const wrapper = iframe.parentElement;
-          if (wrapper && wrapper.style.display !== 'none') {
+          if (targetSrc && iframe.src.startsWith(targetSrc)) {
             try {
               iframe.contentWindow?.postMessage(msg.payload, '*');
               console.log(`[MaestraDemo] postMessage to ${msg.targetPage} →`, msg.payload);
@@ -147,6 +148,20 @@ export default function MaestraDemo() {
             return;
           }
         }
+        // Fallback: send to first visible iframe
+        for (const iframe of iframes) {
+          const wrapper = iframe.parentElement;
+          if (wrapper && wrapper.style.display !== 'none') {
+            try {
+              iframe.contentWindow?.postMessage(msg.payload, '*');
+              console.log(`[MaestraDemo] postMessage (fallback) to ${msg.targetPage} →`, msg.payload);
+            } catch (err) {
+              console.warn('[MaestraDemo] postMessage failed:', err);
+            }
+            return;
+          }
+        }
+        console.warn(`[MaestraDemo] No iframe found for ${msg.targetPage}`);
       }, msg.delay);
       timers.push(timer);
     });
