@@ -1,11 +1,16 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { AutonomyProvider, useAutonomy } from './contexts/AutonomyContext';
+import { DemoProvider, useDemo } from './contexts/DemoContext';
 import AppLayout from './components/AppLayout';
 import DemoIframeContainer from './components/DemoIframeContainer';
+import DemoRunner from './components/demo/DemoRunner';
+import DemoModal from './components/demo/DemoModal';
+import MaestraDemo from './components/demo/MaestraDemo';
 
 const AOSOverviewPage = lazy(() => import('./components/AOSOverviewPage'));
 const OrchestrationDashboard = lazy(() => import('./components/orchestration/OrchestrationDashboard'));
 const FAQPage = lazy(() => import('./components/FAQPage'));
+const DemoEditor = lazy(() => import('./components/demo/DemoEditor'));
 
 const IFRAME_PAGES: Record<string, { src: string; title: string }> = {
   'nlq': { src: 'https://aos-nlq.onrender.com', title: 'NLQ - Natural Language Query' },
@@ -30,13 +35,16 @@ function PageLoader() {
 function AppContent() {
   const getInitialPage = () => {
     const path = window.location.pathname.slice(1);
-    const validPages = ['aos-overview', 'nlq', 'discover', 'connect', 'unify-ask', 'orchestration', 'farm', 'finops', 'faq'];
+    const validPages = ['aos-overview', 'nlq', 'discover', 'connect', 'unify-ask', 'orchestration', 'farm', 'finops', 'faq', 'demo-editor'];
     return validPages.includes(path) ? path : 'nlq';
   };
 
   const [currentPage, setCurrentPage] = useState(getInitialPage());
   const { legacyMode } = useAutonomy();
+  const { status, activeDemo } = useDemo();
   const allIframeKeys = Object.keys(IFRAME_PAGES);
+
+  const isMaestraActive = status === 'running' && activeDemo?.layout === 'maestra';
 
   useEffect(() => {
     const handleNavigation = (event: Event) => {
@@ -57,7 +65,7 @@ function AppContent() {
   useEffect(() => {
     const handlePopState = () => {
       const path = window.location.pathname.slice(1);
-      const validPages = ['aos-overview', 'nlq', 'discover', 'connect', 'unify-ask', 'orchestration', 'farm', 'finops', 'faq'];
+      const validPages = ['aos-overview', 'nlq', 'discover', 'connect', 'unify-ask', 'orchestration', 'farm', 'finops', 'faq', 'demo-editor'];
       if (validPages.includes(path)) {
         setCurrentPage(path);
       }
@@ -79,39 +87,59 @@ function AppContent() {
         return <OrchestrationDashboard />;
       case 'faq':
         return <FAQPage />;
+      case 'demo-editor':
+        return <DemoEditor />;
       default:
         return <AOSOverviewPage />;
     }
   };
 
-  return (
-    <AppLayout currentPage={currentPage} onNavigate={setCurrentPage}>
-      {!isIframePage && (
-        <Suspense fallback={<PageLoader />}>
-          {renderNonIframePage()}
-        </Suspense>
-      )}
+  // Maestra demo: full-screen split panel replaces normal layout
+  if (isMaestraActive) {
+    return (
+      <>
+        <MaestraDemo />
+        <DemoRunner onNavigate={setCurrentPage} />
+      </>
+    );
+  }
 
-      {allIframeKeys.map(pageKey => {
-        const config = IFRAME_PAGES[pageKey];
-        return (
-          <div
-            key={pageKey}
-            className="h-full"
-            style={{ display: currentPage === pageKey ? 'block' : 'none' }}
-          >
-            <DemoIframeContainer src={config.src} title={config.title} />
-          </div>
-        );
-      })}
-    </AppLayout>
+  return (
+    <>
+      <AppLayout currentPage={currentPage} onNavigate={setCurrentPage}>
+        {!isIframePage && (
+          <Suspense fallback={<PageLoader />}>
+            {renderNonIframePage()}
+          </Suspense>
+        )}
+
+        {allIframeKeys.map(pageKey => {
+          const config = IFRAME_PAGES[pageKey];
+          return (
+            <div
+              key={pageKey}
+              className="h-full"
+              style={{ display: currentPage === pageKey ? 'block' : 'none' }}
+            >
+              <DemoIframeContainer src={config.src} title={config.title} />
+            </div>
+          );
+        })}
+      </AppLayout>
+
+      {/* Demo system — fixed overlay, outside AppLayout to avoid overflow clipping */}
+      <DemoRunner onNavigate={setCurrentPage} />
+      <DemoModal />
+    </>
   );
 }
 
 function App() {
   return (
     <AutonomyProvider>
-      <AppContent />
+      <DemoProvider>
+        <AppContent />
+      </DemoProvider>
     </AutonomyProvider>
   );
 }

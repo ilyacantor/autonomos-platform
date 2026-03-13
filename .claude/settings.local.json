@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(which claude 2>/dev/null; claude --version 2>/dev/null | head -3)",
+      "Bash(bash -n ~/code/aos-launch.sh && echo \"Syntax OK\")"
+    ]
+  }
+}
