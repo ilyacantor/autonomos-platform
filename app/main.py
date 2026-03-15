@@ -35,6 +35,7 @@ from app.security import (
     ACCESS_TOKEN_EXPIRE_MINUTES
 )
 from app.api.v1 import auth, aoa, aam_monitoring, aam_mesh, aam_connections, platform_stubs, filesource, debug, mesh_test, events, aod_mock, aam_onboarding, admin_feature_flags, demo_pipeline, demo_orchestrator, agents, scheduler, memory, bundles, stress_test, certification, a2a, scaling, orchestration
+from app.maestra.routes import router as maestra_router
 from app.api.v1 import aam_connectors, aam_drift, aam_schema
 from app import nlp_simple
 from app.middleware.rate_limit import limiter, rate_limit_exceeded_handler
@@ -348,6 +349,9 @@ app.include_router(scaling.router, prefix="/api/v1", tags=["Horizontal Scaling"]
 
 # Orchestration Dashboard API
 app.include_router(orchestration.router, prefix="/api/v1", tags=["Orchestration Dashboard"])
+
+# Maestra Orchestration Foundation
+app.include_router(maestra_router, prefix="/api", tags=["Maestra Orchestration"])
 
 # P4-6: Flow Monitor API
 try:
