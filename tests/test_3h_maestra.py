@@ -1,6 +1,7 @@
 """
 Stage 3H Harness — Maestra Foundation
 Tests engagement lifecycle, run ledger, constitution, and human review.
+All stores use Supabase PG (shared with DCL).
 """
 import os
 import sys
@@ -10,21 +11,22 @@ import uuid
 # Ensure platform root is on path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+# Load .env for SUPABASE_DB_URL and TENANT_ID if not already set
+from dotenv import load_dotenv
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
+
 from app.maestra.engagement import EngagementManager
 from app.maestra.run_ledger import RunLedger
 from app.maestra.constitution import Constitution
 from app.maestra.tools import MaestraTools
 from app.maestra.human_review import HumanReviewPipeline
 
-TENANT_ID = "400aa910-a6b4-5d44-ab9f-e6aecde37721"
-
-# Use a unique test DB file per test run to avoid cross-run pollution
-_TEST_DB = f"/tmp/maestra_test_{uuid.uuid4().hex[:8]}.db"
+TENANT_ID = os.environ.get("TENANT_ID", "400aa910-a6b4-5d44-ab9f-e6aecde37721")
 
 
 @pytest.fixture
 def engagement_mgr():
-    return EngagementManager(db_url=_TEST_DB)
+    return EngagementManager()
 
 @pytest.fixture
 def constitution():
@@ -72,8 +74,8 @@ async def test_invalid_transition(engagement_mgr):
 async def test_engagement_persists(engagement_mgr):
     eid = f"eng-{uuid.uuid4().hex[:8]}"
     await engagement_mgr.create_engagement(eid, "x", "y", "X", "Y")
-    # New instance should find it (same DB path)
-    mgr2 = EngagementManager(db_url=_TEST_DB)
+    # New instance should find it (same PG database)
+    mgr2 = EngagementManager()
     eng = await mgr2.get_engagement(eid)
     assert eng["entity_a"] == "x"
 
@@ -81,10 +83,10 @@ async def test_engagement_persists(engagement_mgr):
 @pytest.mark.asyncio
 async def test_run_ledger_idempotency():
     eid = f"eng-{uuid.uuid4().hex[:8]}"
-    ledger = RunLedger(eid, db_url=_TEST_DB)
-    step1 = await ledger.record_step("discover", "disc-001", "hash-abc")
+    ledger = RunLedger(eid)
+    step1 = await ledger.record_step("discover", f"disc-001-{eid}", "hash-abc")
     assert step1["is_new"] is True
-    step2 = await ledger.record_step("discover", "disc-001", "hash-abc")
+    step2 = await ledger.record_step("discover", f"disc-001-{eid}", "hash-abc")
     assert step2["is_new"] is False
     assert step1["step_id"] == step2["step_id"]
 
@@ -92,8 +94,8 @@ async def test_run_ledger_idempotency():
 @pytest.mark.asyncio
 async def test_run_ledger_lifecycle():
     eid = f"eng-{uuid.uuid4().hex[:8]}"
-    ledger = RunLedger(eid, db_url=_TEST_DB)
-    step = await ledger.record_step("ingest", "ing-001", "hash-xyz")
+    ledger = RunLedger(eid)
+    step = await ledger.record_step("ingest", f"ing-001-{eid}", "hash-xyz")
     started = await ledger.start_step(step["step_id"])
     assert started["status"] == "running"
     completed = await ledger.complete_step(step["step_id"], outputs_ref="s3://bucket/output")
@@ -103,11 +105,11 @@ async def test_run_ledger_lifecycle():
 @pytest.mark.asyncio
 async def test_downstream_invalidation():
     eid = f"eng-{uuid.uuid4().hex[:8]}"
-    ledger = RunLedger(eid, db_url=_TEST_DB)
-    step_a = await ledger.record_step("discover", "a-001", "hash-a")
-    step_b = await ledger.record_step("ingest", "b-001", "hash-b",
+    ledger = RunLedger(eid)
+    step_a = await ledger.record_step("discover", f"a-001-{eid}", "hash-a")
+    step_b = await ledger.record_step("ingest", f"b-001-{eid}", "hash-b",
                                        upstream_deps=[step_a["step_id"]])
-    step_c = await ledger.record_step("combine", "c-001", "hash-c",
+    step_c = await ledger.record_step("combine", f"c-001-{eid}", "hash-c",
                                        upstream_deps=[step_b["step_id"]])
     await ledger.start_step(step_b["step_id"])
     await ledger.complete_step(step_b["step_id"])
@@ -150,7 +152,7 @@ def test_tool_definitions(tools):
 # --- Test 11: Human review 4-tier classification ---
 @pytest.mark.asyncio
 async def test_review_classification():
-    pipeline = HumanReviewPipeline(db_url=_TEST_DB)
+    pipeline = HumanReviewPipeline()
     # Tier 1: auto-approve
     result = await pipeline.classify_review("log_entry", {"severity": "info"})
     assert result["tier"] == 1
@@ -162,7 +164,7 @@ async def test_review_classification():
 # --- Test 12: Human review lifecycle ---
 @pytest.mark.asyncio
 async def test_review_lifecycle():
-    pipeline = HumanReviewPipeline(db_url=_TEST_DB)
+    pipeline = HumanReviewPipeline()
     eid = f"eng-{uuid.uuid4().hex[:8]}"
     review = await pipeline.create_review(eid, "approve_cofa", {"cofa_id": "COFA-001"}, tier=3)
     assert review["status"] == "pending"
@@ -173,7 +175,7 @@ async def test_review_lifecycle():
 # --- Test 13: Pending reviews ---
 @pytest.mark.asyncio
 async def test_pending_reviews():
-    pipeline = HumanReviewPipeline(db_url=_TEST_DB)
+    pipeline = HumanReviewPipeline()
     eid = f"eng-{uuid.uuid4().hex[:8]}"
     await pipeline.create_review(eid, "action_1", {}, tier=2)
     await pipeline.create_review(eid, "action_2", {}, tier=3)
@@ -190,9 +192,9 @@ async def test_missing_engagement_raises(engagement_mgr):
 @pytest.mark.asyncio
 async def test_idempotency_different_hash():
     eid = f"eng-{uuid.uuid4().hex[:8]}"
-    ledger = RunLedger(eid, db_url=_TEST_DB)
-    step1 = await ledger.record_step("discover", "disc-002", "hash-v1")
-    step2 = await ledger.record_step("discover", "disc-002", "hash-v2")
+    ledger = RunLedger(eid)
+    step1 = await ledger.record_step("discover", f"disc-002-{eid}", "hash-v1")
+    step2 = await ledger.record_step("discover", f"disc-002-{eid}", "hash-v2")
     # Different hash = should create new step or update
     # Implementation decision: either new step or re-run with new hash
     assert step2 is not None

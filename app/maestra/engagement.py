@@ -2,19 +2,17 @@
 Maestra Engagement Manager — manages M&A engagement lifecycle in the Platform layer.
 
 Engagement states: draft -> active -> review -> closed
-All state persisted to SQLite (testing) or PostgreSQL (production).
+All state persisted to Supabase PG (shared engagement_state table with DCL).
 """
 
-import uuid
+import asyncio
+import json
 import logging
 from datetime import datetime, timezone
 
-import aiosqlite
+from app.maestra.db import get_connection, get_tenant_id
 
 logger = logging.getLogger(__name__)
-
-# Shared default DB path for cross-instance persistence in tests
-_DEFAULT_DB_PATH = "/tmp/maestra_platform.db"
 
 VALID_TRANSITIONS = {
     "draft": {"active"},
@@ -22,6 +20,24 @@ VALID_TRANSITIONS = {
     "review": {"closed", "active"},
     "closed": set(),
 }
+
+
+def _row_to_dict(row: dict) -> dict:
+    """Convert PG engagement_state row to Maestra's API format."""
+    config = row.get("config") or {}
+    if isinstance(config, str):
+        config = json.loads(config)
+    return {
+        "engagement_id": row["engagement_id"],
+        "entity_a": row["entity_a_id"],
+        "entity_b": row.get("entity_b_id") or "",
+        "entity_a_name": config.get("entity_a_name", ""),
+        "entity_b_name": config.get("entity_b_name", ""),
+        "state": row["status"],
+        "created_by": config.get("created_by", "system"),
+        "created_at": row["created_at"].isoformat() if row.get("created_at") else "",
+        "updated_at": row["updated_at"].isoformat() if row.get("updated_at") else "",
+    }
 
 
 class EngagementManager:
@@ -32,33 +48,8 @@ class EngagementManager:
     Each engagement has entity_a, entity_b, and a set of enabled modules.
     """
 
-    def __init__(self, db_url: str | None = None):
-        """
-        Initialize with database connection.
-        Uses PG (same as Platform's main DB) or SQLite for testing.
-        """
-        self._db_path = db_url or _DEFAULT_DB_PATH
-        self._initialized = False
-
-    async def _ensure_tables(self) -> None:
-        if self._initialized:
-            return
-        async with aiosqlite.connect(self._db_path) as db:
-            await db.execute("""
-                CREATE TABLE IF NOT EXISTS engagements (
-                    engagement_id TEXT PRIMARY KEY,
-                    entity_a TEXT NOT NULL,
-                    entity_b TEXT NOT NULL,
-                    entity_a_name TEXT NOT NULL,
-                    entity_b_name TEXT NOT NULL,
-                    state TEXT NOT NULL DEFAULT 'draft',
-                    created_by TEXT NOT NULL DEFAULT 'system',
-                    created_at TEXT NOT NULL,
-                    updated_at TEXT NOT NULL
-                )
-            """)
-            await db.commit()
-        self._initialized = True
+    def __init__(self):
+        pass
 
     async def create_engagement(
         self,
@@ -73,20 +64,33 @@ class EngagementManager:
         Create a new engagement. Initial state = "draft".
         Returns engagement dict.
         """
-        await self._ensure_tables()
-        now = datetime.now(timezone.utc).isoformat()
-        async with aiosqlite.connect(self._db_path) as db:
-            await db.execute(
-                """
-                INSERT INTO engagements
-                    (engagement_id, entity_a, entity_b, entity_a_name, entity_b_name,
-                     state, created_by, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, 'draft', ?, ?, ?)
-                """,
-                (engagement_id, entity_a, entity_b, entity_a_name, entity_b_name,
-                 created_by, now, now),
-            )
-            await db.commit()
+        tenant_id = get_tenant_id()
+        now = datetime.now(timezone.utc)
+        config = {
+            "entity_a_name": entity_a_name,
+            "entity_b_name": entity_b_name,
+            "created_by": created_by,
+        }
+
+        def _insert():
+            conn = get_connection()
+            try:
+                with conn:
+                    with conn.cursor() as cur:
+                        cur.execute(
+                            """
+                            INSERT INTO engagement_state
+                                (tenant_id, engagement_id, entity_a_id, entity_b_id,
+                                 status, config, created_at, updated_at)
+                            VALUES (%s, %s, %s, %s, 'draft', %s, %s, %s)
+                            """,
+                            (tenant_id, engagement_id, entity_a, entity_b,
+                             json.dumps(config), now, now),
+                        )
+            finally:
+                conn.close()
+
+        await asyncio.to_thread(_insert)
 
         return {
             "engagement_id": engagement_id,
@@ -96,25 +100,30 @@ class EngagementManager:
             "entity_b_name": entity_b_name,
             "state": "draft",
             "created_by": created_by,
-            "created_at": now,
-            "updated_at": now,
+            "created_at": now.isoformat(),
+            "updated_at": now.isoformat(),
         }
 
     async def get_engagement(self, engagement_id: str) -> dict:
         """Get engagement by ID. Raises ValueError if not found."""
-        await self._ensure_tables()
-        async with aiosqlite.connect(self._db_path) as db:
-            db.row_factory = aiosqlite.Row
-            cursor = await db.execute(
-                "SELECT * FROM engagements WHERE engagement_id = ?",
-                (engagement_id,),
-            )
-            row = await cursor.fetchone()
+        def _query():
+            conn = get_connection()
+            try:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "SELECT * FROM engagement_state WHERE engagement_id = %s",
+                        (engagement_id,),
+                    )
+                    return cur.fetchone()
+            finally:
+                conn.close()
+
+        row = await asyncio.to_thread(_query)
         if row is None:
             raise ValueError(
                 f"Engagement not found: engagement_id={engagement_id}"
             )
-        return dict(row)
+        return _row_to_dict(row)
 
     async def update_state(
         self,
@@ -135,33 +144,49 @@ class EngagementManager:
                 f"invalid transition: cannot move from '{current}' to '{new_state}'. "
                 f"Allowed transitions from '{current}': {sorted(allowed) if allowed else 'none'}"
             )
-        now = datetime.now(timezone.utc).isoformat()
-        async with aiosqlite.connect(self._db_path) as db:
-            await db.execute(
-                "UPDATE engagements SET state = ?, updated_at = ? WHERE engagement_id = ?",
-                (new_state, now, engagement_id),
-            )
-            await db.commit()
+        now = datetime.now(timezone.utc)
+
+        def _update():
+            conn = get_connection()
+            try:
+                with conn:
+                    with conn.cursor() as cur:
+                        cur.execute(
+                            "UPDATE engagement_state SET status = %s, updated_at = %s WHERE engagement_id = %s",
+                            (new_state, now, engagement_id),
+                        )
+            finally:
+                conn.close()
+
+        await asyncio.to_thread(_update)
         eng["state"] = new_state
-        eng["updated_at"] = now
+        eng["updated_at"] = now.isoformat()
         return eng
 
     async def list_engagements(self, state: str | None = None) -> list[dict]:
         """List all engagements, optionally filtered by state."""
-        await self._ensure_tables()
-        async with aiosqlite.connect(self._db_path) as db:
-            db.row_factory = aiosqlite.Row
-            if state:
-                cursor = await db.execute(
-                    "SELECT * FROM engagements WHERE state = ? ORDER BY created_at",
-                    (state,),
-                )
-            else:
-                cursor = await db.execute(
-                    "SELECT * FROM engagements ORDER BY created_at"
-                )
-            rows = await cursor.fetchall()
-        return [dict(r) for r in rows]
+        tenant_id = get_tenant_id()
+
+        def _query():
+            conn = get_connection()
+            try:
+                with conn.cursor() as cur:
+                    if state:
+                        cur.execute(
+                            "SELECT * FROM engagement_state WHERE tenant_id = %s AND status = %s ORDER BY created_at",
+                            (tenant_id, state),
+                        )
+                    else:
+                        cur.execute(
+                            "SELECT * FROM engagement_state WHERE tenant_id = %s ORDER BY created_at",
+                            (tenant_id,),
+                        )
+                    return cur.fetchall()
+            finally:
+                conn.close()
+
+        rows = await asyncio.to_thread(_query)
+        return [_row_to_dict(r) for r in rows]
 
     async def get_active_engagement(self) -> dict | None:
         """Get the currently active engagement (at most one)."""
