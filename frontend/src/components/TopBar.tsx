@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Cable, Menu, X, HelpCircle, Search, Database, Wheat, DollarSign, Play } from 'lucide-react';
+import { Cable, Menu, X, HelpCircle, Search, Database, Wheat, DollarSign, Play, Eye } from 'lucide-react';
 import autonomosLogo from '../assets/autonomos-logo.png';
 import { useDemo } from '../contexts/DemoContext';
 import { buildMaestraDemo } from './demo/demos/maestraDemo';
@@ -30,6 +30,7 @@ export default function TopBar({ currentPage, onNavigate }: TopBarProps) {
     { id: 'connect', label: 'AAM', icon: <Cable className="w-5 h-5" />, tooltip: 'Adaptive API Mesh' },
     { id: 'unify-ask', label: 'DCL', icon: <Database className="w-5 h-5" />, tooltip: 'Data Connectivity Layer' },
     { id: 'farm', label: 'Farm', icon: <Wheat className="w-5 h-5" />, tooltip: 'Agent Farm' },
+    { id: 'maestra-monitor', label: 'Maestra', icon: <Eye className="w-5 h-5" />, tooltip: 'Maestra Orchestration Monitor' },
     { id: 'finops', label: 'FinOps', icon: <DollarSign className="w-5 h-5" />, tooltip: 'FinOps Agent' },
     { id: 'faq', label: 'Help', icon: <HelpCircle className="w-5 h-5" /> },
   ];

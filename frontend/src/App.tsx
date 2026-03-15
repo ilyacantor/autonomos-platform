@@ -9,6 +9,7 @@ import MaestraDemo from './components/demo/MaestraDemo';
 
 const AOSOverviewPage = lazy(() => import('./components/AOSOverviewPage'));
 const OrchestrationDashboard = lazy(() => import('./components/orchestration/OrchestrationDashboard'));
+const MaestraMonitor = lazy(() => import('./components/maestra/MaestraMonitor'));
 const FAQPage = lazy(() => import('./components/FAQPage'));
 const DemoEditor = lazy(() => import('./components/demo/DemoEditor'));
 
@@ -35,7 +36,7 @@ function PageLoader() {
 function AppContent() {
   const getInitialPage = () => {
     const path = window.location.pathname.slice(1);
-    const validPages = ['aos-overview', 'nlq', 'discover', 'connect', 'unify-ask', 'orchestration', 'farm', 'finops', 'faq', 'demo-editor'];
+    const validPages = ['aos-overview', 'nlq', 'discover', 'connect', 'unify-ask', 'orchestration', 'maestra-monitor', 'farm', 'finops', 'faq', 'demo-editor'];
     return validPages.includes(path) ? path : 'nlq';
   };
 
@@ -65,7 +66,7 @@ function AppContent() {
   useEffect(() => {
     const handlePopState = () => {
       const path = window.location.pathname.slice(1);
-      const validPages = ['aos-overview', 'nlq', 'discover', 'connect', 'unify-ask', 'orchestration', 'farm', 'finops', 'faq', 'demo-editor'];
+      const validPages = ['aos-overview', 'nlq', 'discover', 'connect', 'unify-ask', 'orchestration', 'maestra-monitor', 'farm', 'finops', 'faq', 'demo-editor'];
       if (validPages.includes(path)) {
         setCurrentPage(path);
       }
@@ -85,6 +86,8 @@ function AppContent() {
         return <AOSOverviewPage />;
       case 'orchestration':
         return <OrchestrationDashboard />;
+      case 'maestra-monitor':
+        return <MaestraMonitor />;
       case 'faq':
         return <FAQPage />;
       case 'demo-editor':
