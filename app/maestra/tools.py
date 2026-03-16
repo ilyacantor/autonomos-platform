@@ -51,6 +51,20 @@ class MaestraTools:
                 "outputs_ref": "str|None",
             },
         },
+        {
+            "name": "write_cofa_mapping",
+            "description": "Write COFA mapping table, conflict register, and unified account structure to DCL. Called after COFA unification reasoning is complete. Posts structured mapping data to DCL's /api/dcl/cofa-mapping endpoint.",
+            "parameters": {
+                "engagement_id": "str (required)",
+                "acquirer_entity_id": "str (required)",
+                "target_entity_id": "str (required)",
+                "tenant_id": "str (required)",
+                "run_id": "str (required)",
+                "mappings": "list[dict] (required) — each with unified_account, acquirer_account, target_account, confidence, mapping_basis",
+                "conflicts": "list[dict] (required) — each with conflict_id, conflict_type, severity, dollar_impact, description, acquirer_treatment, target_treatment, resolution_status",
+                "unified_accounts": "list[dict] (required) — each with account_name, account_type, hierarchy_parent, source_entities",
+            },
+        },
     ]
 
     def get_tools(self) -> list[dict]:

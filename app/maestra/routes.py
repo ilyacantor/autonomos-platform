@@ -218,10 +218,25 @@ async def update_ledger_step(step_id: str, req: UpdateStepRequest):
                 detail="error field is required when setting status to 'failed'",
             )
         return await ledger.fail_step(step_id, req.error)
+    elif req.status == "stale":
+        # Manual downstream invalidation
+        def _mark_stale():
+            conn = get_connection()
+            try:
+                with conn:
+                    with conn.cursor() as cur:
+                        cur.execute(
+                            "UPDATE run_ledger SET status = 'stale' WHERE id = %s",
+                            (step_id,),
+                        )
+            finally:
+                conn.close()
+        await asyncio.to_thread(_mark_stale)
+        return await ledger.get_step(step_id)
     else:
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid status: '{req.status}'. Must be one of: running, complete, failed",
+            detail=f"Invalid status: '{req.status}'. Must be one of: running, complete, failed, stale",
         )
 
 
