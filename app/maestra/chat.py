@@ -7,12 +7,57 @@ module health, human review requests.
 """
 
 import logging
+from pathlib import Path
 
 from app.maestra.engagement import EngagementManager
 from app.maestra.run_ledger import RunLedger
 from app.maestra.constitution import Constitution
 
 logger = logging.getLogger(__name__)
+
+# Layer 3 entity policy documents directory
+_POLICIES_DIR = Path(__file__).parent / "constitution" / "policies"
+
+
+def load_entity_policies(entity_a_id: str, entity_b_id: str) -> list[str]:
+    """
+    Load Layer 3 entity policy documents for the engagement's entity pair.
+
+    Returns a list of context strings to inject between Layers 0-2 and Layer 4.
+    If a policy file is not found for an entity, a no-GAAP-inference warning
+    is returned instead — the agent must not infer accounting policies from
+    GAAP training data when no explicit policy document exists.
+    """
+    context_parts: list[str] = []
+    for label, entity_id in [("Entity A", entity_a_id), ("Entity B", entity_b_id)]:
+        if not entity_id:
+            continue
+        policy_path = _POLICIES_DIR / f"{entity_id}_policy.md"
+        if policy_path.exists():
+            content = policy_path.read_text(encoding="utf-8")
+            context_parts.append(
+                f"## {label} Policy: {entity_id}\n\n{content}"
+            )
+            logger.info(
+                "Loaded Layer 3 policy for %s (%s): %s",
+                label, entity_id, policy_path,
+            )
+        else:
+            warning = (
+                f"## {label} Policy: {entity_id}\n\n"
+                f"**WARNING: No Layer 3 policy document found for entity '{entity_id}'.**\n\n"
+                f"Do not infer accounting policies from GAAP training data. "
+                f"Any accounting treatment question for this entity must be flagged as "
+                f"'policy not documented' and escalated for human review. "
+                f"Per Axiom 7 (No GAAP Inference), absence of a policy means halt — not guess."
+            )
+            context_parts.append(warning)
+            logger.warning(
+                "No Layer 3 policy document for %s (%s) at %s — "
+                "injecting no-GAAP-fallback warning into context",
+                label, entity_id, policy_path,
+            )
+    return context_parts
 
 
 class MaestraChat:
@@ -84,6 +129,14 @@ class MaestraChat:
                 {"type": "warning", "message": w} for w in compliance["warnings"]
             )
 
+        # Load Layer 3 entity policy documents for context assembly.
+        # These inject AFTER Layers 0-2 (constitution, P&L/BS rules, COFA ontology)
+        # and BEFORE Layer 4 (industry profile), per v7 §3.4.
+        entity_policies = load_entity_policies(
+            engagement.get("entity_a", ""),
+            engagement.get("entity_b", ""),
+        )
+
         response = (
             f"Acknowledged. Engagement '{engagement['engagement_id']}' "
             f"is in state '{engagement['state']}'. "
@@ -95,4 +148,7 @@ class MaestraChat:
             "tool_calls": tool_calls,
             "requires_review": requires_review,
             "review_items": review_items,
+            "context_layers": {
+                "layer_3_entity_policies": entity_policies,
+            },
         }
