@@ -30,7 +30,8 @@ passlib[argon2]
 python-jose[cryptography]
 PyJWT
 
-# LLM (conditional — AOA gateway fallback)
+# LLM
+anthropic
 openai
 
 # Database connectors

@@ -396,11 +396,13 @@ class AIGateway:
         tool_calls = []
 
         if choice.message.tool_calls:
+            import json as _json
             for tc in choice.message.tool_calls:
+                raw_args = tc.function.arguments
                 tool_calls.append({
                     "id": tc.id,
                     "name": tc.function.name,
-                    "input": tc.function.arguments
+                    "input": _json.loads(raw_args) if isinstance(raw_args, str) else raw_args,
                 })
 
         return LLMResponse(

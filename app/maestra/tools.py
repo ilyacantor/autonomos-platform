@@ -67,10 +67,95 @@ class MaestraTools:
         },
     ]
 
-    def get_tools(self) -> list[dict]:
-        """Return tool definitions in Claude tool format."""
+    # Explicit JSON Schema for write_cofa_mapping — the generic builder
+    # can't express nested arrays/objects, and the LLM needs precise types.
+    _WRITE_COFA_MAPPING_SCHEMA: dict = {
+        "type": "object",
+        "properties": {
+            "engagement_id": {"type": "string", "description": "Engagement identifier"},
+            "acquirer_entity_id": {"type": "string", "description": "Acquirer entity identifier"},
+            "target_entity_id": {"type": "string", "description": "Target entity identifier"},
+            "tenant_id": {"type": "string", "description": "Tenant identifier"},
+            "run_id": {"type": "string", "description": "Unique run identifier (uuid4)"},
+            "mappings": {
+                "type": "array",
+                "description": "Account mapping rows — one per unified account",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "unified_account": {"type": "string"},
+                        "acquirer_account": {"type": "string"},
+                        "target_account": {"type": "string"},
+                        "confidence": {"type": "number", "description": "0-1 confidence score"},
+                        "mapping_basis": {"type": "string", "description": "Rationale for the mapping"},
+                    },
+                    "required": ["unified_account", "acquirer_account", "target_account", "confidence", "mapping_basis"],
+                },
+            },
+            "conflicts": {
+                "type": "array",
+                "description": "COFA conflicts detected between acquirer and target accounting policies",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "conflict_id": {"type": "string"},
+                        "conflict_type": {"type": "string"},
+                        "severity": {"type": "string", "enum": ["low", "medium", "high", "critical"]},
+                        "dollar_impact": {"type": "number", "description": "Estimated dollar impact"},
+                        "description": {"type": "string"},
+                        "acquirer_treatment": {"type": "string"},
+                        "target_treatment": {"type": "string"},
+                        "resolution_status": {"type": "string", "enum": ["unresolved", "resolved", "deferred"]},
+                    },
+                    "required": ["conflict_id", "conflict_type", "severity", "dollar_impact", "description",
+                                 "acquirer_treatment", "target_treatment", "resolution_status"],
+                },
+            },
+            "unified_accounts": {
+                "type": "array",
+                "description": "Unified chart of accounts structure",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "account_name": {"type": "string"},
+                        "account_type": {"type": "string"},
+                        "hierarchy_parent": {"type": "string"},
+                        "source_entities": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Entity IDs that contribute to this account",
+                        },
+                    },
+                    "required": ["account_name", "account_type", "hierarchy_parent", "source_entities"],
+                },
+            },
+        },
+        "required": ["engagement_id", "acquirer_entity_id", "target_entity_id",
+                      "tenant_id", "run_id", "mappings", "conflicts", "unified_accounts"],
+    }
+
+    def get_tools(self, filter_names: list[str] | None = None) -> list[dict]:
+        """
+        Return tool definitions in Claude tool format.
+
+        Args:
+            filter_names: If provided, only return tools whose name is in this list.
+        """
         tools = []
         for defn in self.TOOL_DEFINITIONS:
+            if filter_names and defn["name"] not in filter_names:
+                continue
+
+            # Use explicit schema for write_cofa_mapping
+            if defn["name"] == "write_cofa_mapping":
+                tools.append({
+                    "name": defn["name"],
+                    "description": defn["description"],
+                    "input_schema": self._WRITE_COFA_MAPPING_SCHEMA,
+                })
+                continue
+
+            # Generic builder for simple string-param tools
             tool = {
                 "name": defn["name"],
                 "description": defn["description"],
