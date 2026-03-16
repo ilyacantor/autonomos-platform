@@ -80,6 +80,12 @@ class ReviewActionRequest(BaseModel):
     reason: str | None = None
 
 
+class ReviewDecideRequest(BaseModel):
+    decision: str  # "approve" or "reject"
+    reasoning: str
+    decided_by: str = "operator"
+
+
 # ============================================================================
 # Engagement Endpoints
 # ============================================================================
@@ -136,6 +142,21 @@ async def update_engagement_state(engagement_id: str, req: UpdateStateRequest):
 # Run Ledger Endpoints
 # ============================================================================
 
+@router.get("/run-ledger")
+async def list_all_ledger_steps(status: str | None = None):
+    """List run ledger steps across all engagements."""
+    engagements = await _engagement_mgr.list_engagements()
+    all_steps = []
+    for eng in engagements:
+        eid = eng.get("engagement_id") or eng.get("id")
+        if not eid:
+            continue
+        ledger = RunLedger(str(eid))
+        steps = await ledger.list_steps(status=status)
+        all_steps.extend(steps)
+    return all_steps
+
+
 @router.get("/run-ledger/{engagement_id}")
 async def list_ledger_steps(engagement_id: str, status: str | None = None):
     """List run ledger steps for an engagement."""
@@ -155,15 +176,53 @@ async def record_ledger_step(engagement_id: str, req: RecordStepRequest):
 
 @router.patch("/run-ledger/steps/{step_id}")
 async def update_ledger_step(step_id: str, req: UpdateStepRequest):
-    """Update a step's status."""
-    # We need to find which engagement this step belongs to
-    # For now, create a ledger with a placeholder — get_step works without engagement filter
-    # This is a routing convenience; the actual DB query uses step_id directly
-    raise HTTPException(
-        status_code=501,
-        detail="Use engagement-scoped endpoints for step updates. "
-               "PATCH /run-ledger/steps/{step_id} requires engagement context.",
-    )
+    """Update a step's status with downstream invalidation.
+
+    When status transitions to 'complete' or 'failed', downstream steps
+    that depend on this step are marked as 'stale'.
+    """
+    # Look up the step to find its engagement_id
+    import asyncio
+    from app.maestra.db import get_connection
+
+    def _find_engagement():
+        conn = get_connection()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT engagement_id FROM run_ledger WHERE id = %s",
+                    (step_id,),
+                )
+                row = cur.fetchone()
+                return row["engagement_id"] if row else None
+        finally:
+            conn.close()
+
+    engagement_id = await asyncio.to_thread(_find_engagement)
+    if engagement_id is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Step not found: step_id={step_id}",
+        )
+
+    ledger = RunLedger(engagement_id)
+
+    if req.status == "running":
+        return await ledger.start_step(step_id)
+    elif req.status == "complete":
+        return await ledger.complete_step(step_id, outputs_ref=req.outputs_ref)
+    elif req.status == "failed":
+        if not req.error:
+            raise HTTPException(
+                status_code=400,
+                detail="error field is required when setting status to 'failed'",
+            )
+        return await ledger.fail_step(step_id, req.error)
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid status: '{req.status}'. Must be one of: running, complete, failed",
+        )
 
 
 # ============================================================================
@@ -217,6 +276,30 @@ async def list_reviews(
     if status == "pending" or status is None:
         return await _review_pipeline.list_pending_reviews(engagement_id)
     raise HTTPException(status_code=400, detail=f"Unsupported status filter: {status}")
+
+
+@router.get("/review-queue")
+async def review_queue(engagement_id: str | None = None):
+    """Get pending reviews (spec-aligned alias for GET /reviews?status=pending)."""
+    return await _review_pipeline.list_pending_reviews(engagement_id)
+
+
+@router.post("/review/{review_id}/decide")
+async def decide_review(review_id: str, req: ReviewDecideRequest):
+    """Unified review decision endpoint. Accepts {decision: "approve"|"reject", reasoning: "..."}."""
+    if req.decision not in ("approve", "reject"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid decision: '{req.decision}'. Must be 'approve' or 'reject'.",
+        )
+
+    try:
+        if req.decision == "approve":
+            return await _review_pipeline.approve_review(review_id, req.decided_by)
+        else:
+            return await _review_pipeline.reject_review(review_id, req.decided_by, req.reasoning)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 @router.patch("/reviews/{review_id}/approve")
