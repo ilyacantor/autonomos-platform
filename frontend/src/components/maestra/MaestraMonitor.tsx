@@ -5,7 +5,7 @@
  * Four panels: Engagement Status, Run Ledger, Human Review Queue, Constitution & Tools.
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, Fragment } from 'react';
 import {
   Activity,
   CheckCircle,
@@ -224,19 +224,29 @@ function EngagementStatusPanel({
           <Activity className="w-5 h-5 text-cyan-400" />
           Engagement Status
         </h2>
-        {engagements.length > 1 && (
-          <select
-            value={selectedEngagementId || displayEngagement?.engagement_id || ''}
-            onChange={(e) => onSelectEngagement(e.target.value)}
-            className="bg-slate-700 text-gray-300 text-sm rounded-lg px-3 py-1.5 border border-slate-600"
+        <div className="flex items-center gap-3">
+          {engagements.length > 1 && (
+            <select
+              value={selectedEngagementId || displayEngagement?.engagement_id || ''}
+              onChange={(e) => onSelectEngagement(e.target.value)}
+              className="bg-slate-700 text-gray-300 text-sm rounded-lg px-3 py-1.5 border border-slate-600"
+            >
+              {engagements.map((e) => (
+                <option key={e.engagement_id} value={e.engagement_id}>
+                  {e.engagement_id} ({e.state})
+                </option>
+              ))}
+            </select>
+          )}
+          <button
+            onClick={onCreateEngagement}
+            disabled={creating}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 disabled:bg-gray-600 text-white text-xs font-medium rounded-lg transition-colors"
           >
-            {engagements.map((e) => (
-              <option key={e.engagement_id} value={e.engagement_id}>
-                {e.engagement_id} ({e.state})
-              </option>
-            ))}
-          </select>
-        )}
+            <Plus className="w-3.5 h-3.5" />
+            {creating ? 'Creating...' : 'New Engagement'}
+          </button>
+        </div>
       </div>
 
       {displayEngagement && (
@@ -346,73 +356,109 @@ function RunLedgerPanel({
               <tr className="text-gray-500 text-xs uppercase tracking-wider border-b border-slate-700/50">
                 <th className="text-left py-2 px-3">Step Name</th>
                 <th className="text-left py-2 px-3">Status</th>
-                <th className="text-left py-2 px-3">Attempt</th>
+                <th className="text-left py-2 px-3">Source Run Tag</th>
                 <th className="text-left py-2 px-3">Started</th>
                 <th className="text-left py-2 px-3">Completed</th>
                 <th className="text-left py-2 px-3">Duration</th>
-                <th className="text-left py-2 px-3">Idempotency Key</th>
                 <th className="text-left py-2 px-3">Error</th>
               </tr>
             </thead>
             <tbody>
               {steps.map((step) => {
                 const isExpanded = expandedSteps.has(step.step_id);
+                // All rows are expandable for drill-through
                 const hasError = step.status === 'failed' && step.error;
-                const isExpandable = hasError || (step.upstream_deps && step.upstream_deps.length > 0);
+                const hasDeps = step.upstream_deps && step.upstream_deps.length > 0;
 
                 return (
-                  <tr
-                    key={step.step_id}
-                    className={`border-b border-slate-700/30 hover:bg-slate-700/20 transition-colors ${
-                      isExpandable ? 'cursor-pointer' : ''
-                    }`}
-                    onClick={() => isExpandable && toggleStep(step.step_id)}
-                  >
-                    <td className="py-2.5 px-3">
-                      <div className="flex items-center gap-2">
-                        {isExpandable && (
-                          isExpanded
+                  <Fragment key={step.step_id}>
+                    <tr
+                      className="border-b border-slate-700/30 hover:bg-slate-700/20 transition-colors cursor-pointer"
+                      onClick={() => toggleStep(step.step_id)}
+                    >
+                      <td className="py-2.5 px-3">
+                        <div className="flex items-center gap-2">
+                          {isExpanded
                             ? <ChevronDown className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
                             : <ChevronRight className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
-                        )}
-                        <span className="text-white font-medium">{step.step_name}</span>
-                        {step.upstream_deps && step.upstream_deps.length > 0 && (
-                          <span className="flex items-center gap-1 text-xs text-gray-500">
-                            &larr;
-                            {step.upstream_deps.map((dep) => (
-                              <span key={dep} className="bg-slate-700 px-1.5 py-0.5 rounded text-gray-400">
-                                {dep}
-                              </span>
-                            ))}
-                          </span>
-                        )}
-                      </div>
-                      {isExpanded && hasError && (
-                        <div className="mt-2 ml-5 bg-red-500/10 border border-red-500/20 rounded p-2 text-red-400 text-xs font-mono whitespace-pre-wrap">
-                          {step.error}
+                          }
+                          <span className="text-white font-medium">{step.step_name}</span>
                         </div>
-                      )}
-                    </td>
-                    <td className="py-2.5 px-3">
-                      <StatusBadge status={step.status} pulse={step.status === 'running'} />
-                    </td>
-                    <td className="py-2.5 px-3 text-gray-400">{step.started_at ? '1' : '\u2014'}</td>
-                    <td className="py-2.5 px-3 text-gray-400 font-mono text-xs">{formatTime(step.started_at)}</td>
-                    <td className="py-2.5 px-3 text-gray-400 font-mono text-xs">{formatTime(step.completed_at)}</td>
-                    <td className="py-2.5 px-3 text-gray-400">{durationBetween(step.started_at, step.completed_at)}</td>
-                    <td className="py-2.5 px-3 text-gray-400 font-mono text-xs truncate max-w-[200px]" title={step.idempotency_key}>
-                      {step.idempotency_key}
-                    </td>
-                    <td className="py-2.5 px-3">
-                      {step.error ? (
-                        <span className="text-red-400 text-xs truncate block max-w-[150px]" title={step.error}>
-                          {step.error}
-                        </span>
-                      ) : (
-                        <span className="text-gray-600">\u2014</span>
-                      )}
-                    </td>
-                  </tr>
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <StatusBadge status={step.status} pulse={step.status === 'running'} />
+                      </td>
+                      <td className="py-2.5 px-3">
+                        {step.outputs_ref ? (
+                          <span className="text-amber-400 font-mono text-xs bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded">
+                            {step.outputs_ref}
+                          </span>
+                        ) : (
+                          <span className="text-gray-600">{'\u2014'}</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-3 text-gray-400 font-mono text-xs">{formatTime(step.started_at)}</td>
+                      <td className="py-2.5 px-3 text-gray-400 font-mono text-xs">{formatTime(step.completed_at)}</td>
+                      <td className="py-2.5 px-3 text-gray-400">{durationBetween(step.started_at, step.completed_at)}</td>
+                      <td className="py-2.5 px-3">
+                        {step.error ? (
+                          <span className="text-red-400 text-xs truncate block max-w-[150px]" title={step.error}>
+                            {step.error}
+                          </span>
+                        ) : (
+                          <span className="text-gray-600">{'\u2014'}</span>
+                        )}
+                      </td>
+                    </tr>
+                    {isExpanded && (
+                      <tr key={`${step.step_id}-detail`} className="bg-slate-700/10">
+                        <td colSpan={7} className="px-6 py-3">
+                          <div className="space-y-3">
+                            {/* Step details */}
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                              <div className="bg-slate-700/30 rounded p-2">
+                                <div className="text-gray-500 mb-0.5">Step ID</div>
+                                <div className="text-white font-mono">{step.step_id}</div>
+                              </div>
+                              <div className="bg-slate-700/30 rounded p-2">
+                                <div className="text-gray-500 mb-0.5">Idempotency Key</div>
+                                <div className="text-white font-mono truncate" title={step.idempotency_key}>{step.idempotency_key}</div>
+                              </div>
+                              <div className="bg-slate-700/30 rounded p-2">
+                                <div className="text-gray-500 mb-0.5">Inputs Hash</div>
+                                <div className="text-white font-mono truncate" title={step.inputs_hash}>{step.inputs_hash || '\u2014'}</div>
+                              </div>
+                              <div className="bg-slate-700/30 rounded p-2">
+                                <div className="text-gray-500 mb-0.5">Outputs Ref</div>
+                                <div className="text-amber-400 font-mono truncate" title={step.outputs_ref || ''}>{step.outputs_ref || '\u2014'}</div>
+                              </div>
+                            </div>
+                            {/* Upstream dependencies */}
+                            {hasDeps && (
+                              <div className="bg-slate-700/30 rounded p-2">
+                                <div className="text-xs text-gray-500 mb-1">Upstream Dependencies</div>
+                                <div className="flex flex-wrap gap-1">
+                                  {step.upstream_deps!.map((dep) => (
+                                    <span key={dep} className="bg-slate-600 px-2 py-0.5 rounded text-xs text-gray-300 font-mono">
+                                      {dep}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {/* Error details */}
+                            {hasError && (
+                              <div className="bg-red-500/10 border border-red-500/20 rounded p-3">
+                                <div className="text-xs text-red-400 font-mono whitespace-pre-wrap">
+                                  {step.error}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
                 );
               })}
             </tbody>
@@ -563,9 +609,13 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
 function ConstitutionToolsPanel({
   constitution,
   constitutionError,
+  onExecuteTool,
+  toolResults,
 }: {
   constitution: Constitution | null;
   constitutionError: string | null;
+  onExecuteTool: (toolName: string) => void;
+  toolResults: Record<string, { status: string; result?: unknown; error?: string }>;
 }) {
   return (
     <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 p-6">
@@ -600,21 +650,47 @@ function ConstitutionToolsPanel({
         <div>
           <h3 className="text-sm font-medium text-gray-400 mb-3">Available Tools</h3>
           <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-            {TOOL_DEFINITIONS.map((tool) => (
-              <div key={tool.name} className="bg-slate-700/30 rounded-lg p-3">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-sm text-white font-mono">{tool.name}</span>
-                </div>
-                <div className="text-xs text-gray-400">{tool.description}</div>
-                <div className="mt-1.5 flex flex-wrap gap-1">
-                  {Object.entries(tool.parameters).map(([k, v]) => (
-                    <span key={k} className="text-xs bg-slate-600/50 text-gray-400 px-1.5 py-0.5 rounded font-mono">
-                      {k}: {v}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            ))}
+            {TOOL_DEFINITIONS.map((tool) => {
+              const result = toolResults[tool.name];
+              const isRunning = result?.status === 'running';
+              return (
+                <button
+                  key={tool.name}
+                  onClick={() => onExecuteTool(tool.name)}
+                  disabled={isRunning}
+                  className="w-full text-left bg-slate-700/30 rounded-lg p-3 hover:bg-slate-700/50 transition-colors border border-transparent hover:border-cyan-500/30 disabled:opacity-50 disabled:cursor-wait"
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-sm text-white font-mono">{tool.name}</span>
+                    {isRunning && (
+                      <div className="w-3 h-3 border border-cyan-400 border-t-transparent rounded-full animate-spin" />
+                    )}
+                    {result?.status === 'done' && (
+                      <CheckCircle className="w-3.5 h-3.5 text-green-400" />
+                    )}
+                    {result?.status === 'error' && (
+                      <XCircle className="w-3.5 h-3.5 text-red-400" />
+                    )}
+                  </div>
+                  <div className="text-xs text-gray-400">{tool.description}</div>
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {Object.entries(tool.parameters).map(([k, v]) => (
+                      <span key={k} className="text-xs bg-slate-600/50 text-gray-400 px-1.5 py-0.5 rounded font-mono">
+                        {k}: {v}
+                      </span>
+                    ))}
+                  </div>
+                  {result?.status === 'done' && result.result && (
+                    <pre className="mt-2 bg-slate-800 rounded p-2 text-xs text-gray-300 font-mono overflow-x-auto max-h-24">
+                      {typeof result.result === 'string' ? result.result : JSON.stringify(result.result, null, 2)}
+                    </pre>
+                  )}
+                  {result?.status === 'error' && result.error && (
+                    <div className="mt-2 text-xs text-red-400">{result.error}</div>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -646,6 +722,9 @@ export default function MaestraMonitor() {
   // Constitution state
   const [constitution, setConstitution] = useState<Constitution | null>(null);
   const [constitutionError, setConstitutionError] = useState<string | null>(null);
+
+  // Tool execution state
+  const [toolResults, setToolResults] = useState<Record<string, { status: string; result?: unknown; error?: string }>>({});
 
   // Loading state
   const [initialLoading, setInitialLoading] = useState(true);
@@ -814,6 +893,60 @@ export default function MaestraMonitor() {
     }
   };
 
+  // Execute a tool — maps tool name to its API action with default params
+  const handleExecuteTool = async (toolName: string) => {
+    setToolResults((prev) => ({ ...prev, [toolName]: { status: 'running' } }));
+    try {
+      let result: unknown;
+      switch (toolName) {
+        case 'check_module_status': {
+          // Check all modules in sequence
+          const modules = ['dcl', 'farm', 'nlq', 'aod', 'aam'];
+          const statuses: Record<string, string> = {};
+          for (const mod of modules) {
+            try {
+              const res = await fetch(`/api/${mod === 'farm' ? 'business-data' : mod}/health`);
+              statuses[mod] = res.ok ? 'healthy' : `HTTP ${res.status}`;
+            } catch {
+              statuses[mod] = 'unreachable';
+            }
+          }
+          result = statuses;
+          break;
+        }
+        case 'get_engagement_state': {
+          if (currentEngagementId) {
+            result = await apiFetch(`/engagements/${currentEngagementId}`);
+          } else {
+            result = { message: 'No engagement selected' };
+          }
+          break;
+        }
+        case 'trigger_pipeline_run': {
+          result = { message: 'Pipeline trigger requires Farm service. Use Farm UI to generate triples.' };
+          break;
+        }
+        case 'request_human_review': {
+          result = { message: 'Human review requests are created by Maestra during COFA unification.' };
+          break;
+        }
+        case 'update_run_ledger': {
+          if (currentEngagementId) {
+            result = await apiFetch<LedgerStep[]>(`/run-ledger/${currentEngagementId}`);
+          } else {
+            result = { message: 'No engagement selected' };
+          }
+          break;
+        }
+        default:
+          result = { message: `Unknown tool: ${toolName}` };
+      }
+      setToolResults((prev) => ({ ...prev, [toolName]: { status: 'done', result } }));
+    } catch (err: any) {
+      setToolResults((prev) => ({ ...prev, [toolName]: { status: 'error', error: err.message } }));
+    }
+  };
+
   if (initialLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -878,6 +1011,8 @@ export default function MaestraMonitor() {
       <ConstitutionToolsPanel
         constitution={constitution}
         constitutionError={constitutionError}
+        onExecuteTool={handleExecuteTool}
+        toolResults={toolResults}
       />
 
       {/* Footer */}

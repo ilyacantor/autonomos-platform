@@ -48,7 +48,7 @@ function AppContent() {
   const getInitialPage = () => {
     const path = window.location.pathname.slice(1);
     const validPages = ['aos-overview', 'nlq', 'discover', 'connect', 'unify-ask', 'orchestration', 'maestra-monitor', 'farm', 'finops', 'faq', 'demo-editor'];
-    return validPages.includes(path) ? path : 'nlq';
+    return validPages.includes(path) ? path : 'maestra-monitor';
   };
 
   const [currentPage, setCurrentPage] = useState(getInitialPage());
