@@ -2,13 +2,15 @@
 Maestra API Routes — mount at /api/maestra
 
 Provides endpoints for engagement lifecycle, run ledger, constitution,
-chat, and human review.
+chat (general context-aware + COFA-specific), and human review.
 """
 
+import json
 import logging
-from typing import Optional
+from typing import AsyncGenerator, Optional
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from app.maestra.engagement import EngagementManager
@@ -17,6 +19,8 @@ from app.maestra.constitution import Constitution
 from app.maestra.tools import MaestraTools
 from app.maestra.human_review import HumanReviewPipeline
 from app.maestra.chat import MaestraChat
+from app.maestra.assembler import assemble_prompt_async
+from app.agentic.gateway.client import ModelTier, get_ai_gateway
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +64,15 @@ class UpdateStepRequest(BaseModel):
     error: str | None = None
 
 
+class ContextChatRequest(BaseModel):
+    """Request for general-purpose Maestra context-aware chat (WP-1)."""
+    message: str
+    module_context: str | None = None
+    session_id: str
+
+
 class ChatRequest(BaseModel):
+    """Request for COFA engagement-specific chat."""
     message: str
     engagement_id: str
     session_id: str
@@ -241,12 +253,73 @@ async def update_ledger_step(step_id: str, req: UpdateStepRequest):
 
 
 # ============================================================================
-# Chat Endpoint
+# Chat Endpoint — General-purpose context-aware (WP-1)
 # ============================================================================
 
 @router.post("/chat")
-async def maestra_chat(req: ChatRequest):
-    """Process a message in the Maestra orchestration context."""
+async def maestra_context_chat(req: ContextChatRequest):
+    """General-purpose Maestra chat with context assembly.
+
+    Assembles constitution + module doc + triple store data into a grounded
+    prompt, sends to Claude via the existing AI Gateway, and streams the
+    response back as Server-Sent Events.
+    """
+    # Assemble the full context prompt (constitution + module doc + triples).
+    system_prompt, matched_domains, entity_id = await assemble_prompt_async(
+        req.message, req.module_context,
+    )
+
+    logger.info(
+        "Maestra context chat — session=%s, module=%s, domains=%s, entity=%s",
+        req.session_id, req.module_context, matched_domains, entity_id,
+    )
+
+    # Call Claude via the existing AI Gateway (reuses Platform's LLM infra).
+    gateway = await get_ai_gateway()
+    response = await gateway.complete(
+        messages=[{"role": "user", "content": req.message}],
+        system=system_prompt,
+        model_tier=ModelTier.BALANCED,
+        temperature=0.3,
+        max_tokens=4096,
+        use_cache=False,
+    )
+
+    logger.info(
+        "Maestra LLM response — model=%s, tokens_in=%d, tokens_out=%d, "
+        "latency=%dms",
+        response.model, response.input_tokens, response.output_tokens,
+        response.latency_ms,
+    )
+
+    async def generate_sse() -> AsyncGenerator[str, None]:
+        """Yield SSE events for the Maestra response."""
+        yield f"data: {json.dumps({'type': 'content', 'text': response.content})}\n\n"
+        yield (
+            f"data: {json.dumps({'type': 'done', 'model': response.model, 'domains': matched_domains, 'entity': entity_id, 'tokens': {'input': response.input_tokens, 'output': response.output_tokens}})}\n\n"
+        )
+
+    return StreamingResponse(
+        generate_sse(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+# ============================================================================
+# COFA Chat Endpoint — Engagement-specific
+# ============================================================================
+
+@router.post("/cofa-chat")
+async def maestra_cofa_chat(req: ChatRequest):
+    """Process a message in the Maestra COFA unification context.
+
+    This is the engagement-specific chat that drives COFA mapping with tools.
+    Requires an active engagement with entity_a and entity_b.
+    """
     try:
         engagement = await _engagement_mgr.get_engagement(req.engagement_id)
     except ValueError as e:

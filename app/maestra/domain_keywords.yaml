@@ -1,0 +1,139 @@
+# Maps user-language terms to triple store concept domain prefixes.
+# The concept column uses dot-separated hierarchy: domain.subdomain.property
+# This file maps keywords -> the first segment (domain prefix).
+#
+# Domains verified against live triple store (19 domains active).
+# Last verified: 2026-03-17
+
+gl:
+  - general ledger
+  - gl
+  - journal
+  - ledger
+  - account balance
+  - trial balance
+  - ending balance
+
+customer:
+  - customer
+  - client
+  - buyer
+  - account receivable
+  - customer overlap
+  - customer concentration
+
+vendor:
+  - vendor
+  - supplier
+  - procurement
+  - accounts payable
+  - vendor overlap
+
+coa:
+  - chart of accounts
+  - coa
+  - account structure
+  - account hierarchy
+
+cofa:
+  - cofa
+  - chart of accounts unification
+  - unification
+
+cofa_unified:
+  - unified chart
+  - combined chart
+  - merged chart
+
+cofa_mapping:
+  - cofa mapping
+  - account mapping
+
+cofa_conflict:
+  - cofa conflict
+  - accounting conflict
+  - recognition timing
+  - measurement basis
+
+cash_flow:
+  - cash flow
+  - operating activities
+  - investing activities
+  - financing activities
+  - cash position
+
+cogs:
+  - cogs
+  - cost of goods
+  - cost of sales
+  - direct cost
+  - cost of revenue
+
+asset:
+  - asset
+  - property
+  - equipment
+  - fixed asset
+  - current asset
+  - tangible asset
+  - intangible asset
+
+opex:
+  - opex
+  - operating expense
+  - selling expense
+  - general and administrative
+  - research and development
+
+pnl:
+  - pnl
+  - income statement
+  - profit and loss
+  - net income
+  - earnings
+
+revenue:
+  - revenue
+  - sales
+  - top line
+  - consulting revenue
+  - fixed fee
+  - managed services
+
+liability:
+  - liability
+  - debt
+  - obligation
+  - payable
+  - loan
+  - current liability
+  - long-term debt
+
+ebitda_adjustment:
+  - ebitda
+  - adjustment
+  - add-back
+  - normalization
+  - ebitda bridge
+
+equity:
+  - equity
+  - stockholder
+  - shareholder
+  - retained earnings
+  - book value
+
+employee:
+  - employee
+  - staff
+  - headcount
+  - workforce
+  - people
+  - human resources
+  - personnel
+
+service:
+  - service line
+  - managed service
+  - service delivery
+  - service category
