@@ -10,8 +10,10 @@ import logging
 import uuid
 from pathlib import Path
 
+import asyncio
+
 from app.agentic.gateway.client import ModelTier, get_ai_gateway
-from app.maestra.db import get_tenant_id
+from app.maestra.db import get_connection, get_tenant_id
 from app.maestra.engagement import EngagementManager
 from app.maestra.run_ledger import RunLedger
 from app.maestra.constitution import Constitution
@@ -76,6 +78,31 @@ def load_entity_policies(entity_a_id: str, entity_b_id: str) -> list[str]:
                 label, entity_id, policy_path,
             )
     return context_parts
+
+
+def _load_coa_accounts_from_db(entity_id: str) -> list[dict]:
+    """Load CoA accounts from the shared Supabase DB for a given entity.
+
+    Returns a list of dicts with account_number and account_name.
+    """
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT split_part(concept, '.', 2) AS acct_num, "
+                "       value #>> '{}' AS acct_name "
+                "FROM semantic_triples "
+                "WHERE concept LIKE 'coa.%%' AND entity_id = %(eid)s "
+                "  AND property = 'account_name' AND is_active = true "
+                "ORDER BY split_part(concept, '.', 2)",
+                {"eid": entity_id},
+            )
+            return [
+                {"account_number": row["acct_num"], "account_name": row["acct_name"]}
+                for row in cur.fetchall()
+            ]
+    finally:
+        conn.close()
 
 
 class MaestraChat:
@@ -160,6 +187,18 @@ class MaestraChat:
         run_id = str(uuid.uuid4())
         tenant_id = get_tenant_id()
 
+        # Load CoA accounts from DCL's DB so Maestra knows every account to cover
+        acquirer_coa = await asyncio.to_thread(
+            _load_coa_accounts_from_db, acquirer_entity_id
+        )
+        target_coa = await asyncio.to_thread(
+            _load_coa_accounts_from_db, target_entity_id
+        )
+        logger.info(
+            "Loaded CoA accounts from DB: acquirer=%d, target=%d",
+            len(acquirer_coa), len(target_coa),
+        )
+
         # Build system prompt: Layer 0 axioms + constitution + entity policies + instructions
         constitution_rules = self._constitution.get_rules()
         system_prompt = self._build_system_prompt(
@@ -171,6 +210,8 @@ class MaestraChat:
             tenant_id=tenant_id,
             run_id=run_id,
             engagement_state=engagement.get("state", "unknown"),
+            acquirer_coa=acquirer_coa,
+            target_coa=target_coa,
         )
 
         # Get tools — only write_cofa_mapping for COFA unification context
@@ -196,7 +237,7 @@ class MaestraChat:
                 tools=tools,
                 system=system_prompt,
                 temperature=0.2,
-                max_tokens=8192,
+                max_tokens=16384,
                 use_cache=False,
             )
 
@@ -296,6 +337,8 @@ class MaestraChat:
         tenant_id: str,
         run_id: str,
         engagement_state: str,
+        acquirer_coa: list[dict] | None = None,
+        target_coa: list[dict] | None = None,
     ) -> str:
         """Assemble the full system prompt for COFA unification."""
         parts = [
@@ -312,6 +355,38 @@ class MaestraChat:
             f"- Target entity ID: {target_entity_id}\n",
             f"- Tenant ID: {tenant_id}\n",
             f"- Run ID: {run_id}\n",
+        ]
+
+        # Inject CoA account lists from DCL — Maestra must cover every account
+        if acquirer_coa:
+            parts.append(
+                f"\n\n# Acquirer Chart of Accounts ({acquirer_entity_id}) — "
+                f"{len(acquirer_coa)} accounts\n\n"
+                "These are the actual CoA accounts from DCL. Your mapping MUST "
+                "reference every account_name as `acquirer_account` in at least one "
+                "mapping entry. The COFACompletionGate will reject if any are missing.\n\n"
+                "| Account # | Account Name |\n|---|---|\n"
+            )
+            for acct in acquirer_coa:
+                parts.append(
+                    f"| {acct['account_number']} | {acct['account_name']} |\n"
+                )
+
+        if target_coa:
+            parts.append(
+                f"\n\n# Target Chart of Accounts ({target_entity_id}) — "
+                f"{len(target_coa)} accounts\n\n"
+                "These are the actual CoA accounts from DCL. Your mapping MUST "
+                "reference every account_name as `target_account` in at least one "
+                "mapping entry. The COFACompletionGate will reject if any are missing.\n\n"
+                "| Account # | Account Name |\n|---|---|\n"
+            )
+            for acct in target_coa:
+                parts.append(
+                    f"| {acct['account_number']} | {acct['account_name']} |\n"
+                )
+
+        parts.extend([
             "\n# Instructions\n\n",
             "You are performing COFA (Chart of Accounts) unification for a merger/acquisition engagement. "
             "Analyze the acquirer and target entity accounting policies, identify conflicts in accounting "
@@ -320,10 +395,17 @@ class MaestraChat:
             "You MUST call `write_cofa_mapping` with the engagement context fields provided above "
             f"(engagement_id: {engagement_id}, acquirer_entity_id: {acquirer_entity_id}, "
             f"target_entity_id: {target_entity_id}, tenant_id: {tenant_id}, run_id: {run_id}).\n\n",
+            "## Completeness Requirement\n\n"
+            "Your mapping MUST include EVERY account from both CoA lists above. "
+            "For each acquirer account, set `acquirer_account` to the exact account_name. "
+            "For each target account, set `target_account` to the exact account_name. "
+            "If an account is entity-specific with no counterpart, use null for the other side. "
+            "Many-to-one mappings are allowed (multiple source accounts can map to one unified account). "
+            "The COFACompletionGate WILL reject your mapping if any account_name is missing.\n\n",
             "## No-GAAP-Inference Constraint\n\n",
             "If an entity policy has an Explicit Gaps section listing undocumented items, output null "
             "with a flag for those items. Do not infer accounting treatment from general GAAP training "
             "data. Absence of a policy means halt — not guess. Any undocumented accounting treatment "
             "must be flagged with resolution_status='deferred' and escalated for human review.\n",
-        ]
+        ])
         return "".join(parts)
