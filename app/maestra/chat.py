@@ -7,6 +7,7 @@ module health, human review requests.
 """
 
 import logging
+import time
 import uuid
 from pathlib import Path
 
@@ -35,8 +36,10 @@ _LAYER_0_AXIOMS = _AXIOMS_PATH.read_text(encoding="utf-8")
 # Layer 3 entity policy documents directory
 _POLICIES_DIR = Path(__file__).parent / "constitution" / "policies"
 
-# Maximum agentic loop iterations (tool call → result → re-call)
-_MAX_TOOL_ITERATIONS = 5
+# Maximum agentic loop iterations (tool call → result → re-call).
+# COFA mapping should complete in 1-2 iterations (tool call + final response).
+# 3 iterations provides one retry if first attempt is incomplete.
+_MAX_TOOL_ITERATIONS = 3
 
 
 def load_entity_policies(entity_a_id: str, entity_b_id: str) -> list[str]:
@@ -226,29 +229,38 @@ class MaestraChat:
         # Build conversation messages
         messages = [{"role": "user", "content": message}]
 
+        merge_t0 = time.monotonic()
+
         logger.info(
             "Maestra COFA unification starting — engagement=%s, run_id=%s, "
-            "acquirer=%s, target=%s",
-            engagement_id, run_id, acquirer_entity_id, target_entity_id,
+            "acquirer=%s (%d accts), target=%s (%d accts)",
+            engagement_id, run_id, acquirer_entity_id, len(acquirer_coa),
+            target_entity_id, len(target_coa),
         )
 
-        # Agentic loop: call LLM, execute tools, feed results back
+        # Agentic loop: call LLM, execute tools, feed results back.
+        # COFA should complete in 1 LLM call (tool call) + 1 follow-up (text).
+        # max_tokens=16000 ensures the full mapping JSON fits without truncation.
         for iteration in range(_MAX_TOOL_ITERATIONS):
+            llm_t0 = time.monotonic()
             response = await gateway.complete(
                 messages=messages,
                 model_tier=ModelTier.BALANCED,
                 tools=tools,
                 system=system_prompt,
                 temperature=0.0,
-                max_tokens=10000,
+                max_tokens=16000,
                 use_cache=False,
             )
+            llm_elapsed = time.monotonic() - llm_t0
 
             logger.info(
-                "Maestra LLM response — iteration=%d, stop_reason=%s, "
-                "tool_calls=%d, model=%s, tokens_in=%d, tokens_out=%d",
+                "Maestra LLM call — iteration=%d, stop_reason=%s, "
+                "tool_calls=%d, model=%s, tokens_in=%d, tokens_out=%d, "
+                "llm_wall_sec=%.1f, total_wall_sec=%.1f",
                 iteration, response.stop_reason, len(response.tool_calls),
                 response.model, response.input_tokens, response.output_tokens,
+                llm_elapsed, time.monotonic() - merge_t0,
             )
 
             if response.stop_reason != "tool_use" or not response.tool_calls:
@@ -285,11 +297,18 @@ class MaestraChat:
                     tool_result = {"status": "validation_error", "error": validation["error"]}
                 else:
                     # Execute the tool
+                    tool_t0 = time.monotonic()
                     tool_result = await execute_tool_call(
                         tool_name=tool_name,
                         params=tool_params,
                         engagement_id=engagement_id,
                         run_ledger=self._run_ledger,
+                    )
+                    logger.info(
+                        "Maestra tool executed — tool=%s, status=%s, "
+                        "tool_wall_sec=%.1f, total_wall_sec=%.1f",
+                        tool_name, tool_result.get("status", "unknown"),
+                        time.monotonic() - tool_t0, time.monotonic() - merge_t0,
                     )
 
                 tool_call_results.append({
@@ -304,20 +323,24 @@ class MaestraChat:
                     "content": str(tool_result),
                 })
 
-                logger.info(
-                    "Maestra tool executed — tool=%s, status=%s",
-                    tool_name, tool_result.get("status", "unknown"),
-                )
-
             # Append tool results to messages for next LLM iteration
             messages.append({"role": "user", "content": tool_results_for_message})
         else:
             # Exhausted max iterations — this is not a silent fallback, we report it
             logger.warning(
                 "Maestra agentic loop exhausted %d iterations — "
-                "engagement=%s, run_id=%s",
+                "engagement=%s, run_id=%s, total_wall_sec=%.1f",
                 _MAX_TOOL_ITERATIONS, engagement_id, run_id,
+                time.monotonic() - merge_t0,
             )
+
+        total_elapsed = time.monotonic() - merge_t0
+        logger.info(
+            "Maestra COFA unification complete — engagement=%s, run_id=%s, "
+            "iterations=%d, tool_calls=%d, total_wall_sec=%.1f",
+            engagement_id, run_id, iteration + 1,
+            len(tool_call_results), total_elapsed,
+        )
 
         return {
             "response": response.content,
@@ -360,46 +383,52 @@ class MaestraChat:
             f"- Run ID: {run_id}\n",
         ]
 
-        # Inject CoA account lists from DCL — Maestra must cover every account
+        # Inject CoA account lists from DCL as numbered tables for efficient LLM processing
         if acquirer_coa:
-            acct_list = ", ".join(a["account_name"] for a in acquirer_coa)
+            acct_lines = "\n".join(
+                f"  {i+1}. {a['account_name']}" for i, a in enumerate(acquirer_coa)
+            )
             parts.append(
                 f"\n\n# Acquirer CoA ({acquirer_entity_id}) — "
-                f"{len(acquirer_coa)} accounts\n\n"
-                f"Use these exact names as `acquirer_account`: {acct_list}\n"
+                f"{len(acquirer_coa)} accounts\n"
+                f"{acct_lines}\n"
             )
 
         if target_coa:
-            acct_list = ", ".join(a["account_name"] for a in target_coa)
+            acct_lines = "\n".join(
+                f"  {i+1}. {a['account_name']}" for i, a in enumerate(target_coa)
+            )
             parts.append(
                 f"\n\n# Target CoA ({target_entity_id}) — "
-                f"{len(target_coa)} accounts\n\n"
-                f"Use these exact names as `target_account`: {acct_list}\n"
+                f"{len(target_coa)} accounts\n"
+                f"{acct_lines}\n"
             )
 
         parts.extend([
-            "\n# Instructions\n\n",
-            "You are performing COFA (Chart of Accounts) unification for a merger/acquisition engagement. "
-            "Analyze the acquirer and target entity accounting policies, identify conflicts in accounting "
-            "treatment, map accounts to a unified chart of accounts, and write the results using the "
-            "`write_cofa_mapping` tool.\n\n",
-            "You MUST call `write_cofa_mapping` with the engagement context fields provided above "
-            f"(engagement_id: {engagement_id}, acquirer_entity_id: {acquirer_entity_id}, "
-            f"target_entity_id: {target_entity_id}, tenant_id: {tenant_id}, run_id: {run_id}).\n\n",
-            "## Completeness Requirement\n\n"
-            "Your mapping MUST include EVERY account from both CoA lists above. "
-            "For each acquirer account, set `acquirer_account` to the exact account_name. "
-            "For each target account, set `target_account` to the exact account_name. "
-            "If an account is entity-specific with no counterpart, use null for the other side. "
-            "Many-to-one mappings are allowed (multiple source accounts can map to one unified account). "
-            "The COFACompletionGate WILL reject your mapping if any account_name is missing.\n\n",
-            "## No-GAAP-Inference Constraint\n\n",
-            "If an entity policy has an Explicit Gaps section listing undocumented items, output null "
-            "with a flag for those items. Do not infer accounting treatment from general GAAP training "
-            "data. Absence of a policy means halt — not guess. Any undocumented accounting treatment "
-            "must be flagged with resolution_status='deferred' and escalated for human review.\n\n",
-            "## Output Format\n\n",
-            "Call `write_cofa_mapping` immediately with all data. Do not explain your reasoning — "
-            "the tool call IS the deliverable. Minimize text output.\n",
+            "\n# CRITICAL: Single-Call COFA Unification\n\n",
+            "You MUST produce the ENTIRE COFA mapping in ONE `write_cofa_mapping` tool call. "
+            "Do NOT output any reasoning text before the tool call — the tool call IS the deliverable.\n\n",
+            "## Tool Call Parameters (pre-filled)\n\n",
+            f"- engagement_id: \"{engagement_id}\"\n",
+            f"- acquirer_entity_id: \"{acquirer_entity_id}\"\n",
+            f"- target_entity_id: \"{target_entity_id}\"\n",
+            f"- tenant_id: \"{tenant_id}\"\n",
+            f"- run_id: \"{run_id}\"\n\n",
+            "## Mapping Rules\n\n",
+            "- EVERY account from BOTH CoA lists must appear in mappings[]. The COFACompletionGate rejects orphans.\n",
+            "- Use exact account_name strings from the lists above.\n",
+            "- Entity-specific accounts with no counterpart: use null for the other side.\n",
+            "- Many-to-one mappings allowed (multiple source accounts → one unified account).\n",
+            "- Keep mapping_basis values SHORT (e.g. \"exact match\", \"semantic: both are revenue\", \"hierarchy: subcategory\").\n\n",
+            "## Conflict Detection\n\n",
+            "- Identify conflicts from the entity policies (recognition timing, measurement basis, classification, scope).\n",
+            "- Each conflict needs: conflict_id (COFA-NNN), conflict_type, severity, dollar_impact, description, "
+            "acquirer_treatment, target_treatment, resolution_status (\"unresolved\").\n",
+            "- If an entity policy has Explicit Gaps, flag those items with resolution_status=\"deferred\".\n",
+            "- Do NOT infer accounting treatment from general GAAP training data. Absence of policy = halt, not guess.\n\n",
+            "## Output Compactness\n\n",
+            "- No reasoning text. No explanation. Just the tool call.\n",
+            "- Keep description strings under 80 characters.\n",
+            "- Use concise mapping_basis values.\n",
         ])
         return "".join(parts)
