@@ -239,8 +239,8 @@ class MaestraChat:
                 model_tier=ModelTier.BALANCED,
                 tools=tools,
                 system=system_prompt,
-                temperature=0.2,
-                max_tokens=16384,
+                temperature=0.0,
+                max_tokens=10000,
                 use_cache=False,
             )
 
@@ -362,32 +362,20 @@ class MaestraChat:
 
         # Inject CoA account lists from DCL — Maestra must cover every account
         if acquirer_coa:
+            acct_list = ", ".join(a["account_name"] for a in acquirer_coa)
             parts.append(
-                f"\n\n# Acquirer Chart of Accounts ({acquirer_entity_id}) — "
+                f"\n\n# Acquirer CoA ({acquirer_entity_id}) — "
                 f"{len(acquirer_coa)} accounts\n\n"
-                "These are the actual CoA accounts from DCL. Your mapping MUST "
-                "reference every account_name as `acquirer_account` in at least one "
-                "mapping entry. The COFACompletionGate will reject if any are missing.\n\n"
-                "| Account # | Account Name |\n|---|---|\n"
+                f"Use these exact names as `acquirer_account`: {acct_list}\n"
             )
-            for acct in acquirer_coa:
-                parts.append(
-                    f"| {acct['account_number']} | {acct['account_name']} |\n"
-                )
 
         if target_coa:
+            acct_list = ", ".join(a["account_name"] for a in target_coa)
             parts.append(
-                f"\n\n# Target Chart of Accounts ({target_entity_id}) — "
+                f"\n\n# Target CoA ({target_entity_id}) — "
                 f"{len(target_coa)} accounts\n\n"
-                "These are the actual CoA accounts from DCL. Your mapping MUST "
-                "reference every account_name as `target_account` in at least one "
-                "mapping entry. The COFACompletionGate will reject if any are missing.\n\n"
-                "| Account # | Account Name |\n|---|---|\n"
+                f"Use these exact names as `target_account`: {acct_list}\n"
             )
-            for acct in target_coa:
-                parts.append(
-                    f"| {acct['account_number']} | {acct['account_name']} |\n"
-                )
 
         parts.extend([
             "\n# Instructions\n\n",
@@ -409,6 +397,9 @@ class MaestraChat:
             "If an entity policy has an Explicit Gaps section listing undocumented items, output null "
             "with a flag for those items. Do not infer accounting treatment from general GAAP training "
             "data. Absence of a policy means halt — not guess. Any undocumented accounting treatment "
-            "must be flagged with resolution_status='deferred' and escalated for human review.\n",
+            "must be flagged with resolution_status='deferred' and escalated for human review.\n\n",
+            "## Output Format\n\n",
+            "Call `write_cofa_mapping` immediately with all data. Do not explain your reasoning — "
+            "the tool call IS the deliverable. Minimize text output.\n",
         ])
         return "".join(parts)
