@@ -98,7 +98,10 @@ def _load_coa_accounts_from_db(entity_id: str) -> list[dict]:
                 {"eid": entity_id},
             )
             return [
-                {"account_number": row["acct_num"], "account_name": row["acct_name"]}
+                {
+                    "account_number": row["acct_num"],
+                    "account_name": row["acct_name"].strip('"'),
+                }
                 for row in cur.fetchall()
             ]
     finally:
