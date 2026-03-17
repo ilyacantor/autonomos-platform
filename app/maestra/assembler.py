@@ -446,6 +446,30 @@ def assemble_prompt(
     if module_doc:
         parts.append(f"\n\n# Module Context: {module_context}\n\n{module_doc}")
 
+    # RACI module scope — injected when Maestra operates within a specific
+    # module context.  Actions are scoped; knowledge questions are not.
+    if module_context and module_context.strip().lower() in _KNOWN_MODULES:
+        mc = module_context.strip().upper()
+        parts.append(
+            f"\n\n# Module Action Scope (RACI)\n\n"
+            f"You are currently operating within the **{mc}** module context. "
+            f"The AOS platform enforces strict RACI boundaries between modules:\n\n"
+            f"- **Actions are scoped to the current module.** You may discuss, "
+            f"explain, and answer questions about {mc} operations. You must not "
+            f"perform, promise, or simulate actions that belong to other modules "
+            f"(e.g., modifying data in DCL while in AAM context, remapping "
+            f"connections from DCL context, deleting triples from AAM context).\n"
+            f"- **Knowledge is not restricted.** You can explain what any module "
+            f"does, define its concepts, and answer factual questions about the "
+            f"platform — but with less depth for modules outside your current "
+            f"context, since only the {mc} module knowledge doc is loaded.\n"
+            f"- **If a user requests an action outside {mc} scope**, explain that "
+            f"the action belongs to the relevant module and suggest they navigate "
+            f"there. Be specific about which module owns the action.\n"
+            f"- **Do not announce module transitions.** Never say 'I see you've "
+            f"moved to {mc}' or similar. Just operate with {mc} depth."
+        )
+
     # (b) Triple retrieval.
     domains, from_keywords = extract_domains(message, module_context)
     entity_id = detect_entity(message)

@@ -1,17 +1,28 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { AutonomyProvider, useAutonomy } from './contexts/AutonomyContext';
 import { DemoProvider, useDemo } from './contexts/DemoContext';
+import { MaestraChatProvider } from './contexts/MaestraChatContext';
 import AppLayout from './components/AppLayout';
 import DemoIframeContainer from './components/DemoIframeContainer';
 import DemoRunner from './components/demo/DemoRunner';
 import DemoModal from './components/demo/DemoModal';
 import MaestraDemo from './components/demo/MaestraDemo';
+import MaestraChat from './components/maestra/MaestraChat';
 
 const AOSOverviewPage = lazy(() => import('./components/AOSOverviewPage'));
 const OrchestrationDashboard = lazy(() => import('./components/orchestration/OrchestrationDashboard'));
 const MaestraMonitor = lazy(() => import('./components/maestra/MaestraMonitor'));
 const FAQPage = lazy(() => import('./components/FAQPage'));
 const DemoEditor = lazy(() => import('./components/demo/DemoEditor'));
+
+/** Map of page keys to module_context values for Maestra chat panel. */
+const PAGE_MODULE_CONTEXT: Record<string, string> = {
+  nlq: 'nlq',
+  discover: 'aod',
+  connect: 'aam',
+  'unify-ask': 'dcl',
+  farm: 'farm',
+};
 
 const IFRAME_PAGES: Record<string, { src: string; title: string }> = {
   'nlq': { src: 'https://aos-nlq.onrender.com', title: 'NLQ - Natural Language Query' },
@@ -79,6 +90,8 @@ function AppContent() {
   }, []);
 
   const isIframePage = IFRAME_PAGES[currentPage] !== undefined;
+  const moduleContext = PAGE_MODULE_CONTEXT[currentPage] || null;
+  const showMaestraPanel = moduleContext !== null;
 
   const renderNonIframePage = () => {
     switch (currentPage) {
@@ -110,24 +123,36 @@ function AppContent() {
   return (
     <>
       <AppLayout currentPage={currentPage} onNavigate={setCurrentPage}>
-        {!isIframePage && (
-          <Suspense fallback={<PageLoader />}>
-            {renderNonIframePage()}
-          </Suspense>
-        )}
+        <div className="flex h-full">
+          {/* Main content area */}
+          <div className={showMaestraPanel ? 'flex-1 min-w-0' : 'w-full'}>
+            {!isIframePage && (
+              <Suspense fallback={<PageLoader />}>
+                {renderNonIframePage()}
+              </Suspense>
+            )}
 
-        {allIframeKeys.map(pageKey => {
-          const config = IFRAME_PAGES[pageKey];
-          return (
-            <div
-              key={pageKey}
-              className="h-full"
-              style={{ display: currentPage === pageKey ? 'block' : 'none' }}
-            >
-              <DemoIframeContainer src={config.src} title={config.title} />
+            {allIframeKeys.map(pageKey => {
+              const config = IFRAME_PAGES[pageKey];
+              return (
+                <div
+                  key={pageKey}
+                  className="h-full"
+                  style={{ display: currentPage === pageKey ? 'block' : 'none' }}
+                >
+                  <DemoIframeContainer src={config.src} title={config.title} />
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Maestra chat panel — right side, ~35% width */}
+          {showMaestraPanel && (
+            <div className="w-[35%] min-w-[320px] max-w-[480px] flex-shrink-0">
+              <MaestraChat module_context={moduleContext} />
             </div>
-          );
-        })}
+          )}
+        </div>
       </AppLayout>
 
       {/* Demo system — fixed overlay, outside AppLayout to avoid overflow clipping */}
@@ -139,11 +164,13 @@ function AppContent() {
 
 function App() {
   return (
-    <AutonomyProvider>
-      <DemoProvider>
-        <AppContent />
-      </DemoProvider>
-    </AutonomyProvider>
+    <MaestraChatProvider>
+      <AutonomyProvider>
+        <DemoProvider>
+          <AppContent />
+        </DemoProvider>
+      </AutonomyProvider>
+    </MaestraChatProvider>
   );
 }
 

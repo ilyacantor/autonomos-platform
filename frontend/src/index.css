@@ -241,10 +241,113 @@
   .mobile-card {
     @apply rounded-lg p-4 bg-slate-800/60 border border-slate-700;
   }
-  
+
   @media (max-width: 640px) {
     .mobile-card {
       @apply rounded-lg p-3;
     }
   }
+}
+
+/* ========================================
+   MAESTRA MARKDOWN STYLES
+   ======================================== */
+
+.maestra-markdown p {
+  margin: 0.25em 0;
+  line-height: 1.5;
+}
+
+.maestra-markdown p:first-child {
+  margin-top: 0;
+}
+
+.maestra-markdown p:last-child {
+  margin-bottom: 0;
+}
+
+.maestra-markdown h1,
+.maestra-markdown h2,
+.maestra-markdown h3,
+.maestra-markdown h4 {
+  font-weight: 600;
+  margin: 0.75em 0 0.25em;
+  color: #e2e8f0;
+}
+
+.maestra-markdown h1 { font-size: 1.1em; }
+.maestra-markdown h2 { font-size: 1.05em; }
+.maestra-markdown h3 { font-size: 1em; }
+
+.maestra-markdown strong {
+  color: #f1f5f9;
+  font-weight: 600;
+}
+
+.maestra-markdown ul,
+.maestra-markdown ol {
+  margin: 0.25em 0;
+  padding-left: 1.25em;
+}
+
+.maestra-markdown li {
+  margin: 0.125em 0;
+}
+
+.maestra-markdown code {
+  background: rgba(148, 163, 184, 0.15);
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+  font-size: 0.9em;
+}
+
+.maestra-markdown pre {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 0.5em;
+  border-radius: 4px;
+  overflow-x: auto;
+  margin: 0.5em 0;
+}
+
+.maestra-markdown pre code {
+  background: none;
+  padding: 0;
+}
+
+.maestra-markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.5em 0;
+  font-size: 0.85em;
+}
+
+.maestra-markdown th,
+.maestra-markdown td {
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  padding: 0.35em 0.5em;
+  text-align: left;
+}
+
+.maestra-markdown th {
+  background: rgba(148, 163, 184, 0.1);
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.maestra-markdown blockquote {
+  border-left: 2px solid rgba(148, 163, 184, 0.3);
+  padding-left: 0.75em;
+  margin: 0.5em 0;
+  color: #94a3b8;
+}
+
+.maestra-markdown a {
+  color: #60a5fa;
+  text-decoration: underline;
+}
+
+.maestra-markdown hr {
+  border: none;
+  border-top: 1px solid rgba(148, 163, 184, 0.2);
+  margin: 0.75em 0;
 }
