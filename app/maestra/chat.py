@@ -11,6 +11,7 @@ import uuid
 from pathlib import Path
 
 from app.agentic.gateway.client import ModelTier, get_ai_gateway
+from app.maestra.db import get_tenant_id
 from app.maestra.engagement import EngagementManager
 from app.maestra.run_ledger import RunLedger
 from app.maestra.constitution import Constitution
@@ -157,7 +158,7 @@ class MaestraChat:
 
         # Generate a unique run_id for this COFA unification run
         run_id = str(uuid.uuid4())
-        tenant_id = engagement.get("tenant_id", "")
+        tenant_id = get_tenant_id()
 
         # Build system prompt: Layer 0 axioms + constitution + entity policies + instructions
         constitution_rules = self._constitution.get_rules()
