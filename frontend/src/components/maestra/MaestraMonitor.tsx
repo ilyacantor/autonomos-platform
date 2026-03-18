@@ -1,7 +1,7 @@
 /**
  * Maestra Monitoring Surface
  *
- * Dev/debugging monitoring page for Maestra orchestration.
+ * Operator monitoring page for Maestra orchestration.
  * Four panels: Engagement Status, Run Ledger, Human Review Queue, Constitution & Tools.
  */
 
@@ -56,6 +56,19 @@ interface LedgerStep {
   started_at: string | null;
   completed_at: string | null;
   created_at: string;
+}
+
+interface RunStats {
+  source_run_tag: string | null;
+  triple_count: number;
+  domain_count: number;
+  entity_count: number;
+  domain_breakdown: Record<string, number>;
+  conflict_count: number;
+  conflicts_resolved: number;
+  conflicts_pending: number;
+  mapped_count: number;
+  resolved_count: number;
 }
 
 interface Review {
@@ -134,6 +147,21 @@ function durationBetween(start: string | null, end: string | null): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
+/** Extract a display-friendly source tag from the step's outputs_ref.
+ *  Each step stores its own tag at write time — do not use a global value. */
+function displaySourceTag(outputsRef: string | null): string {
+  if (!outputsRef) return '\u2014';
+  if (outputsRef.startsWith('triples_')) return outputsRef;
+  const match = outputsRef.match(/run_id=([a-f0-9-]+)/);
+  if (match) return match[1].slice(0, 8);
+  return outputsRef.length > 20 ? outputsRef.slice(0, 16) + '\u2026' : outputsRef;
+}
+
+/** Format large numbers with locale separators */
+function fmtNum(n: number): string {
+  return n.toLocaleString();
+}
+
 // ============================================================================
 // Status badge
 // ============================================================================
@@ -157,7 +185,7 @@ const STATUS_COLORS: Record<string, string> = {
 function StatusBadge({ status, pulse }: { status: string; pulse?: boolean }) {
   const cls = STATUS_COLORS[status] || 'bg-gray-500/20 text-gray-400 border-gray-500/30';
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border ${cls}`}>
+    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded-full border ${cls}`}>
       {pulse && <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />}
       {status}
     </span>
@@ -173,7 +201,7 @@ const TIER_COLORS: Record<number, string> = {
 };
 
 // ============================================================================
-// Panel 1: Engagement Status
+// Panel 1: Engagement Status (compact inline)
 // ============================================================================
 
 function EngagementStatusPanel({
@@ -191,49 +219,66 @@ function EngagementStatusPanel({
   selectedEngagementId: string | null;
   onSelectEngagement: (id: string) => void;
 }) {
-  // Find the active engagement, or the first one, or the selected one
   const activeEngagement = engagements.find(e => e.state === 'active') || null;
   const displayEngagement = activeEngagement || engagements.find(e => e.engagement_id === selectedEngagementId) || engagements[0] || null;
 
   if (engagements.length === 0) {
     return (
-      <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 p-6">
-        <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-          <Activity className="w-5 h-5 text-cyan-400" />
-          Engagement Status
-        </h2>
-        <div className="text-center py-8">
-          <p className="text-gray-500 mb-4">No active engagement</p>
-          <button
-            onClick={onCreateEngagement}
-            disabled={creating}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:bg-gray-600 text-white text-sm font-medium rounded-lg transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            {creating ? 'Creating...' : 'Create Engagement'}
-          </button>
+      <div className="bg-slate-800/50 rounded-lg border border-slate-700/50 px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-2 text-gray-500 text-sm">
+          <Activity className="w-4 h-4 text-cyan-400" />
+          No active engagement
         </div>
+        <button
+          onClick={onCreateEngagement}
+          disabled={creating}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 disabled:bg-gray-600 text-white text-xs font-medium rounded-lg transition-colors"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          {creating ? 'Creating...' : 'Create Engagement'}
+        </button>
       </div>
     );
   }
 
+  const entityA = displayEngagement?.entity_a_name || displayEngagement?.entity_a || '';
+  const entityB = displayEngagement?.entity_b_name || displayEngagement?.entity_b || '';
+  const mStatus = maestraStatus?.status || '\u2014';
+
   return (
-    <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-          <Activity className="w-5 h-5 text-cyan-400" />
-          Engagement Status
-        </h2>
-        <div className="flex items-center gap-3">
+    <div className="bg-slate-800/50 rounded-lg border border-slate-700/50 px-4 py-3">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        {/* Compact inline status */}
+        <div className="flex items-center gap-2.5 text-sm min-w-0 flex-wrap">
+          <Activity className="w-4 h-4 text-cyan-400 flex-shrink-0" />
+          {displayEngagement && (
+            <>
+              <span className="text-white font-mono text-xs">{displayEngagement.engagement_id}</span>
+              <span className="text-gray-600">&middot;</span>
+              <StatusBadge status={displayEngagement.state} pulse={displayEngagement.state === 'active'} />
+              <span className="text-gray-600">&middot;</span>
+              <span className="text-gray-300 text-xs">{entityA}</span>
+              <span className="text-gray-500 text-xs">&harr;</span>
+              <span className="text-gray-300 text-xs">{entityB}</span>
+              <span className="text-gray-600">&middot;</span>
+              <span className="text-gray-500 text-xs">{relativeTime(displayEngagement.created_at)}</span>
+              <span className="text-gray-600">&middot;</span>
+              <StatusBadge status={mStatus} />
+            </>
+          )}
+        </div>
+
+        {/* Controls */}
+        <div className="flex items-center gap-2 flex-shrink-0">
           {engagements.length > 1 && (
             <select
               value={selectedEngagementId || displayEngagement?.engagement_id || ''}
               onChange={(e) => onSelectEngagement(e.target.value)}
-              className="bg-slate-700 text-gray-300 text-sm rounded-lg px-3 py-1.5 border border-slate-600"
+              className="bg-slate-700 text-gray-300 text-xs rounded px-2 py-1 border border-slate-600"
             >
               {engagements.map((e) => (
                 <option key={e.engagement_id} value={e.engagement_id}>
-                  {e.engagement_id} ({e.state})
+                  {e.engagement_id}
                 </option>
               ))}
             </select>
@@ -241,45 +286,13 @@ function EngagementStatusPanel({
           <button
             onClick={onCreateEngagement}
             disabled={creating}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 disabled:bg-gray-600 text-white text-xs font-medium rounded-lg transition-colors"
+            className="inline-flex items-center gap-1 px-2.5 py-1 bg-cyan-600 hover:bg-cyan-500 disabled:bg-gray-600 text-white text-xs font-medium rounded transition-colors"
           >
-            <Plus className="w-3.5 h-3.5" />
-            {creating ? 'Creating...' : 'New Engagement'}
+            <Plus className="w-3 h-3" />
+            {creating ? '...' : 'New'}
           </button>
         </div>
       </div>
-
-      {displayEngagement && (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          <StatusCard label="Engagement ID" value={displayEngagement.engagement_id} mono />
-          <StatusCard label="Status">
-            <StatusBadge status={displayEngagement.state} pulse={displayEngagement.state === 'active'} />
-          </StatusCard>
-          <StatusCard label="Entity A" value={displayEngagement.entity_a_name || displayEngagement.entity_a} />
-          <StatusCard label="Entity B" value={displayEngagement.entity_b_name || displayEngagement.entity_b} />
-          <StatusCard label="Created" value={relativeTime(displayEngagement.created_at)} />
-          <StatusCard label="Maestra Status">
-            {maestraStatus ? (
-              <StatusBadge status={maestraStatus.status} />
-            ) : (
-              <span className="text-gray-500 text-sm">\u2014</span>
-            )}
-          </StatusCard>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function StatusCard({ label, value, mono, children }: { label: string; value?: string; mono?: boolean; children?: React.ReactNode }) {
-  return (
-    <div className="bg-slate-700/30 rounded-lg p-3">
-      <div className="text-xs text-gray-500 mb-1">{label}</div>
-      {children || (
-        <div className={`text-sm text-white truncate ${mono ? 'font-mono' : ''}`} title={value}>
-          {value || '\u2014'}
-        </div>
-      )}
     </div>
   );
 }
@@ -295,6 +308,7 @@ function RunLedgerPanel({
   autoRefresh,
   onToggleAutoRefresh,
   onRefresh,
+  engagementId,
 }: {
   steps: LedgerStep[];
   loading: boolean;
@@ -302,6 +316,7 @@ function RunLedgerPanel({
   autoRefresh: boolean;
   onToggleAutoRefresh: () => void;
   onRefresh: () => void;
+  engagementId: string | null;
 }) {
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
 
@@ -366,9 +381,6 @@ function RunLedgerPanel({
             <tbody>
               {steps.map((step) => {
                 const isExpanded = expandedSteps.has(step.step_id);
-                // All rows are expandable for drill-through
-                const hasError = step.status === 'failed' && step.error;
-                const hasDeps = step.upstream_deps && step.upstream_deps.length > 0;
 
                 return (
                   <Fragment key={step.step_id}>
@@ -389,13 +401,9 @@ function RunLedgerPanel({
                         <StatusBadge status={step.status} pulse={step.status === 'running'} />
                       </td>
                       <td className="py-2.5 px-3">
-                        {step.outputs_ref ? (
-                          <span className="text-amber-400 font-mono text-xs bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded">
-                            {step.outputs_ref}
-                          </span>
-                        ) : (
-                          <span className="text-gray-600">{'\u2014'}</span>
-                        )}
+                        <span className="text-amber-400 font-mono text-xs bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded">
+                          {displaySourceTag(step.outputs_ref)}
+                        </span>
                       </td>
                       <td className="py-2.5 px-3 text-gray-400 font-mono text-xs">{formatTime(step.started_at)}</td>
                       <td className="py-2.5 px-3 text-gray-400 font-mono text-xs">{formatTime(step.completed_at)}</td>
@@ -413,48 +421,7 @@ function RunLedgerPanel({
                     {isExpanded && (
                       <tr key={`${step.step_id}-detail`} className="bg-slate-700/10">
                         <td colSpan={7} className="px-6 py-3">
-                          <div className="space-y-3">
-                            {/* Step details */}
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-                              <div className="bg-slate-700/30 rounded p-2">
-                                <div className="text-gray-500 mb-0.5">Step ID</div>
-                                <div className="text-white font-mono">{step.step_id}</div>
-                              </div>
-                              <div className="bg-slate-700/30 rounded p-2">
-                                <div className="text-gray-500 mb-0.5">Idempotency Key</div>
-                                <div className="text-white font-mono truncate" title={step.idempotency_key}>{step.idempotency_key}</div>
-                              </div>
-                              <div className="bg-slate-700/30 rounded p-2">
-                                <div className="text-gray-500 mb-0.5">Inputs Hash</div>
-                                <div className="text-white font-mono truncate" title={step.inputs_hash}>{step.inputs_hash || '\u2014'}</div>
-                              </div>
-                              <div className="bg-slate-700/30 rounded p-2">
-                                <div className="text-gray-500 mb-0.5">Outputs Ref</div>
-                                <div className="text-amber-400 font-mono truncate" title={step.outputs_ref || ''}>{step.outputs_ref || '\u2014'}</div>
-                              </div>
-                            </div>
-                            {/* Upstream dependencies */}
-                            {hasDeps && (
-                              <div className="bg-slate-700/30 rounded p-2">
-                                <div className="text-xs text-gray-500 mb-1">Upstream Dependencies</div>
-                                <div className="flex flex-wrap gap-1">
-                                  {step.upstream_deps!.map((dep) => (
-                                    <span key={dep} className="bg-slate-600 px-2 py-0.5 rounded text-xs text-gray-300 font-mono">
-                                      {dep}
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                            {/* Error details */}
-                            {hasError && (
-                              <div className="bg-red-500/10 border border-red-500/20 rounded p-3">
-                                <div className="text-xs text-red-400 font-mono whitespace-pre-wrap">
-                                  {step.error}
-                                </div>
-                              </div>
-                            )}
-                          </div>
+                          <StepDetail step={step} engagementId={engagementId} />
                         </td>
                       </tr>
                     )}
@@ -463,6 +430,122 @@ function RunLedgerPanel({
               })}
             </tbody>
           </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Expanded step detail — fetches per-step stats scoped to that step's source_run_tag */
+function StepDetail({ step, engagementId }: { step: LedgerStep; engagementId: string | null }) {
+  const tag = displaySourceTag(step.outputs_ref);
+  const duration = durationBetween(step.started_at, step.completed_at);
+  const isCofa = step.step_name === 'cofa-map';
+  const [stats, setStats] = useState<RunStats | null>(null);
+
+  useEffect(() => {
+    if (!engagementId) return;
+    // Pass the step's source_run_tag to scope stats to this specific run
+    const tagParam = step.outputs_ref?.startsWith('triples_') ? step.outputs_ref : null;
+    const params = new URLSearchParams();
+    if (tagParam) params.set('source_run_tag', tagParam);
+    // For cofa-map steps, use DCL merge overview (COFA triples have no source_run_tag)
+    if (step.step_name) params.set('step_type', step.step_name);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    apiFetch<RunStats>(`/run-stats/${engagementId}${qs}`)
+      .then(setStats)
+      .catch(() => setStats(null));
+  }, [engagementId, step.outputs_ref, step.step_name]);
+
+  // Domain breakdown — sorted by count descending
+  const domainEntries = stats?.domain_breakdown
+    ? Object.entries(stats.domain_breakdown).sort(([, a], [, b]) => b - a)
+    : [];
+
+  return (
+    <div className="space-y-3">
+      {/* Run statistics */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+        <div className="bg-slate-700/30 rounded p-2">
+          <div className="text-gray-500 mb-0.5">Source</div>
+          <div className="text-amber-400 font-mono">{tag}</div>
+        </div>
+        <div className="bg-slate-700/30 rounded p-2">
+          <div className="text-gray-500 mb-0.5">Triples</div>
+          <div className="text-white">
+            {stats ? (
+              <>
+                {fmtNum(stats.triple_count)}
+                {stats.domain_count > 0 && (
+                  <span className="text-gray-500 ml-1">
+                    ({stats.domain_count} domains, {stats.entity_count} entities)
+                  </span>
+                )}
+              </>
+            ) : (
+              <span className="text-gray-500">{'\u2014'}</span>
+            )}
+          </div>
+        </div>
+        <div className="bg-slate-700/30 rounded p-2">
+          <div className="text-gray-500 mb-0.5">Duration</div>
+          <div className="text-white">{duration}</div>
+        </div>
+        <div className="bg-slate-700/30 rounded p-2">
+          <div className="text-gray-500 mb-0.5">Conflicts</div>
+          <div className="text-white">
+            {stats ? (
+              <>
+                {stats.conflict_count} found
+                <span className="text-gray-500 ml-1">
+                  ({stats.conflicts_resolved} resolved, {stats.conflicts_pending} pending)
+                </span>
+              </>
+            ) : (
+              <span className="text-gray-500">{'\u2014'}</span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* COFA-specific stats (cofa-map steps only) */}
+      {isCofa && stats && (stats.mapped_count > 0 || stats.resolved_count > 0) && (
+        <div className="grid grid-cols-3 gap-3 text-xs">
+          <div className="bg-slate-700/30 rounded p-2">
+            <div className="text-gray-500 mb-0.5">Accounts Mapped</div>
+            <div className="text-white">{fmtNum(stats.mapped_count)}</div>
+          </div>
+          <div className="bg-slate-700/30 rounded p-2">
+            <div className="text-gray-500 mb-0.5">Conflicts Resolved</div>
+            <div className="text-white">{fmtNum(stats.resolved_count)}</div>
+          </div>
+          <div className="bg-slate-700/30 rounded p-2">
+            <div className="text-gray-500 mb-0.5">Conflicts Detected</div>
+            <div className="text-white">{fmtNum(stats.conflict_count)}</div>
+          </div>
+        </div>
+      )}
+
+      {/* Domain breakdown */}
+      {domainEntries.length > 0 && (
+        <div className="bg-slate-700/30 rounded p-2">
+          <div className="text-xs text-gray-500 mb-1.5">Domain Breakdown</div>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs font-mono">
+            {domainEntries.map(([domain, count]) => (
+              <span key={domain} className="text-gray-300">
+                <span className="text-gray-400">{domain}:</span> {fmtNum(count)}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Error details (if failed) */}
+      {step.status === 'failed' && step.error && (
+        <div className="bg-red-500/10 border border-red-500/20 rounded p-3">
+          <div className="text-xs text-red-400 font-mono whitespace-pre-wrap">
+            {step.error}
+          </div>
         </div>
       )}
     </div>
@@ -742,7 +825,6 @@ export default function MaestraMonitor() {
       const data = await apiFetch<Engagement[]>('/engagements');
       setEngagements(data);
     } catch {
-      // Engagements endpoint failing is not fatal — might just be empty
       setEngagements([]);
     }
   }, []);
@@ -766,7 +848,6 @@ export default function MaestraMonitor() {
     setStepsLoading(true);
     try {
       const data = await apiFetch<LedgerStep[]>(`/run-ledger/${currentEngagementId}`);
-      // Sort by created_at descending
       data.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       setSteps(data);
       setStepsError(null);
@@ -820,7 +901,6 @@ export default function MaestraMonitor() {
 
     if (!autoRefresh) return;
 
-    // Check if we should poll: any step running or pending
     const shouldPoll = steps.some(s => s.status === 'running' || s.status === 'pending') || autoRefresh;
 
     if (shouldPoll) {
@@ -829,6 +909,7 @@ export default function MaestraMonitor() {
         fetchStatus();
         fetchLedger();
         fetchReviews();
+        // runStats polled less frequently — every 3rd tick (15s)
       }, 5000);
     }
 
@@ -893,14 +974,13 @@ export default function MaestraMonitor() {
     }
   };
 
-  // Execute a tool — maps tool name to its API action with default params
+  // Execute a tool
   const handleExecuteTool = async (toolName: string) => {
     setToolResults((prev) => ({ ...prev, [toolName]: { status: 'running' } }));
     try {
       let result: unknown;
       switch (toolName) {
         case 'check_module_status': {
-          // Check all modules in sequence
           const modules = ['dcl', 'farm', 'nlq', 'aod', 'aam'];
           const statuses: Record<string, string> = {};
           for (const mod of modules) {
@@ -959,21 +1039,19 @@ export default function MaestraMonitor() {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="max-w-[1100px] mx-auto space-y-4 p-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/20">
-          <span className="text-white font-bold text-lg">M</span>
+      <div className="flex items-center gap-3 mb-2">
+        <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center shadow-lg shadow-purple-500/20">
+          <span className="text-white font-bold text-base">M</span>
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-white">Maestra Monitor</h1>
-          <p className="text-gray-400 text-sm">
-            Engagement orchestration, run ledger, human reviews, and constitution
-          </p>
+          <h1 className="text-xl font-bold text-white">Maestra Monitor</h1>
+          <p className="text-gray-500 text-xs">Engagement orchestration, run ledger, human reviews</p>
         </div>
       </div>
 
-      {/* Panel 1: Engagement Status */}
+      {/* Panel 1: Engagement Status (compact) */}
       <EngagementStatusPanel
         engagements={engagements}
         maestraStatus={maestraStatus}
@@ -996,6 +1074,7 @@ export default function MaestraMonitor() {
           fetchStatus();
           fetchReviews();
         }}
+        engagementId={currentEngagementId}
       />
 
       {/* Panel 3: Human Review Queue */}
@@ -1016,9 +1095,8 @@ export default function MaestraMonitor() {
       />
 
       {/* Footer */}
-      <div className="text-center py-4 text-xs text-slate-500">
-        {autoRefresh ? 'Auto-refreshing every 5 seconds.' : 'Auto-refresh paused.'}{' '}
-        All data from live Maestra endpoints.
+      <div className="text-center py-2 text-xs text-slate-600">
+        {autoRefresh ? 'Auto-refreshing every 5s' : 'Auto-refresh paused'}
       </div>
     </div>
   );

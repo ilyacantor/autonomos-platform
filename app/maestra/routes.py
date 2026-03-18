@@ -7,11 +7,14 @@ chat (general context-aware + COFA-specific), and human review.
 
 import json
 import logging
+import os
 from typing import AsyncGenerator, Optional
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
+
+import httpx
 
 from app.maestra.engagement import EngagementManager
 from app.maestra.run_ledger import RunLedger
@@ -21,6 +24,8 @@ from app.maestra.human_review import HumanReviewPipeline
 from app.maestra.chat import MaestraChat
 from app.maestra.assembler import assemble_prompt_async
 from app.agentic.gateway.client import ModelTier, get_ai_gateway
+
+DCL_BASE_URL = os.environ.get("DCL_BASE_URL", "http://localhost:8004")
 
 logger = logging.getLogger(__name__)
 
@@ -414,6 +419,128 @@ async def reject_review(review_id: str, req: ReviewActionRequest):
         )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+# ============================================================================
+# Run Stats Endpoint — enriched data from DCL for operator display
+# ============================================================================
+
+@router.get("/run-stats/{engagement_id}")
+async def get_run_stats(
+    engagement_id: str,
+    source_run_tag: str | None = None,
+    step_type: str | None = None,
+):
+    """Fetch enriched run statistics from DCL for operator display.
+
+    Returns triple count, top-level domain breakdown, conflict count,
+    and COFA-specific fields (mapped_count, resolved_count, conflict_count).
+
+    For cofa-map steps, triple count comes from /api/dcl/merge/overview
+    (total_cofa_count) because COFA triples have no source_run_tag.
+    """
+    stats: dict = {
+        "source_run_tag": source_run_tag,
+        "triple_count": 0,
+        "domain_count": 0,
+        "entity_count": 0,
+        "domain_breakdown": {},
+        "conflict_count": 0,
+        "conflicts_resolved": 0,
+        "conflicts_pending": 0,
+        "mapped_count": 0,
+        "resolved_count": 0,
+    }
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        if step_type == "cofa-map":
+            # COFA triples have no source_run_tag — use merge overview
+            resp = await client.get(
+                f"{DCL_BASE_URL}/api/dcl/merge/overview",
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                stats["triple_count"] = data.get("total_cofa_count", 0)
+                stats["mapped_count"] = data.get("mapped_count", 0)
+                stats["resolved_count"] = data.get("resolved_count", 0)
+                stats["conflict_count"] = data.get("conflict_count", 0)
+                stats["conflicts_pending"] = data.get("conflict_count", 0) - data.get("resolved_count", 0)
+                stats["conflicts_resolved"] = data.get("resolved_count", 0)
+                stats["entity_count"] = len(data.get("entities", []))
+            else:
+                error_detail = resp.text[:300]
+                raise HTTPException(
+                    status_code=502,
+                    detail=(
+                        f"DCL merge overview unavailable: HTTP {resp.status_code} "
+                        f"— GET {DCL_BASE_URL}/api/dcl/merge/overview "
+                        f"— response: {error_detail}"
+                    ),
+                )
+        else:
+            # Standard triples overview with optional source_run_tag filter
+            params: dict = {}
+            if source_run_tag:
+                params["source_run_tag"] = source_run_tag
+            resp = await client.get(
+                f"{DCL_BASE_URL}/api/dcl/triples/overview",
+                params=params,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                stats["triple_count"] = data.get("total_triples", 0)
+                stats["entity_count"] = len(data.get("entities", []))
+
+                # Top-level domain breakdown (already grouped by split_part)
+                domains_list = data.get("domains", [])
+                domain_breakdown: dict[str, int] = {}
+                for d in domains_list:
+                    domain_name = d.get("domain", "")
+                    if domain_name:
+                        domain_breakdown[domain_name] = d.get("count", 0)
+                stats["domain_breakdown"] = domain_breakdown
+                stats["domain_count"] = len(domain_breakdown)
+
+                # Conflict count from cofa_conflict triples.
+                # COFA conflicts are engagement-level artifacts (written by the
+                # mapping engine, not Farm ingest), so they don't carry the same
+                # source_run_tag.  Always fetch conflicts globally.
+                if source_run_tag:
+                    global_resp = await client.get(
+                        f"{DCL_BASE_URL}/api/dcl/triples/overview",
+                    )
+                    if global_resp.status_code == 200:
+                        stats["conflict_count"] = global_resp.json().get("conflict_count", 0)
+                    else:
+                        logger.error(
+                            "DCL triples/overview (global) returned HTTP %d — "
+                            "conflict count unavailable for engagement=%s",
+                            global_resp.status_code, engagement_id,
+                        )
+                else:
+                    stats["conflict_count"] = data.get("conflict_count", 0)
+                stats["conflicts_pending"] = stats["conflict_count"]
+            else:
+                error_detail = resp.text[:300]
+                raise HTTPException(
+                    status_code=502,
+                    detail=(
+                        f"DCL triples overview unavailable: HTTP {resp.status_code} "
+                        f"— GET {DCL_BASE_URL}/api/dcl/triples/overview "
+                        f"— response: {error_detail}"
+                    ),
+                )
+
+    # Supplement conflict count from local review queue
+    reviews = await _review_pipeline.list_pending_reviews(engagement_id)
+    if reviews:
+        resolved = sum(1 for r in reviews if r.get("status") == "approved")
+        stats["conflicts_resolved"] = max(stats["conflicts_resolved"], resolved)
+        if stats["conflict_count"] == 0:
+            stats["conflict_count"] = len(reviews)
+            stats["conflicts_pending"] = len(reviews) - resolved
+
+    return stats
 
 
 # ============================================================================

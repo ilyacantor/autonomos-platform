@@ -452,55 +452,34 @@ class CanonicalProcessor:
     
     def _infer_and_convert_type(self, value: Any) -> Any:
         """
-        Infer and convert data types for better consistency.
-        
-        Conversions (in order):
-        - "123" -> int (FIRST to prevent "0"/"1" being converted to bool)
-        - "123.45" -> float
-        - "true"/"false"/"yes"/"no" -> bool (excludes numeric "0"/"1")
-        - "null"/"None" -> None
-        - Empty strings -> None
-        
-        Args:
-            value: Value to convert
-            
-        Returns:
-            Converted value with inferred type
+        Normalize data types for consistency.
+
+        String values are preserved as strings — numeric strings like "123"
+        must NOT be auto-converted to int/float because fields like
+        account_number, zip_code, etc. are semantically strings even when
+        they look numeric.
+
+        Conversions:
+        - None / empty string -> None
+        - "null"/"None"/"n/a" -> None
+        - "true"/"false"/"yes"/"no" -> bool
+        - All other strings preserved as-is
+        - Non-string values returned unchanged
         """
-        # Handle None and null values
         if value is None or value == '':
             return None
-        
-        # If already not a string, return as-is
+
         if not isinstance(value, str):
             return value
-        
-        # Handle null strings
+
         if value.lower() in ('null', 'none', 'n/a', 'na'):
             return None
-        
-        # Try integer conversion FIRST (before boolean check)
-        # This ensures "0", "1", "123" etc. become integers, not booleans
-        try:
-            if '.' not in value and 'e' not in value.lower():
-                return int(value)
-        except (ValueError, AttributeError):
-            pass
-        
-        # Try float conversion
-        try:
-            return float(value)
-        except (ValueError, AttributeError):
-            pass
-        
-        # Handle boolean strings (AFTER numeric conversion)
-        # Only explicit boolean keywords, NOT numeric "0"/"1"
+
         if value.lower() in ('true', 'yes', 'y'):
             return True
         if value.lower() in ('false', 'no', 'n'):
             return False
-        
-        # Return as string if no conversion applies
+
         return value
 
 
