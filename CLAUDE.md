@@ -1,5 +1,5 @@
 # AutonomOS (AOS) — Agent Constitution
-> Version: 5.0 | Updated: March 2026 | Owner: Ilya (CEO)
+> Version: 5.3 | Updated: March 2026 | Owner: Ilya (CEO)
 
 ---
 
@@ -12,9 +12,11 @@ All rules in this file are non-negotiable. Rules agents violate most often:
 - **C10:** Latency ceilings mean the operation COMPLETES in time, not ABORTS in time. Timeouts are not performance fixes.
 - **C11:** If the prompt says fix it, fix it. Do not ask "want me to fix it?"
 - **C12:** After finding one instance of a bug pattern, audit the full codebase before fixing piecemeal.
-- **B17:** Frontend is the pass/fail gate. A correct API response that doesn't render in the browser is not a pass.
+- **B17:** Frontend is the pass/fail gate. Use Playwright headless to verify UI rendering. API/build evidence is not browser verification.
 - **B18:** Latency ceilings are absolute. 5% regression budget on everything else. Measure before and after.
 - **A2:** No bandaids. Fundamental fixes only. Progress spinners for latency violations are bandaids.
+
+**Before writing any code, answer 5 questions:** (1) Will new code produce identical results to what it replaces? (2) What happens at runtime when data is missing? (3) Is there a simpler existing path? (4) Does this solve the problem or make it look solved? (5) Is this a pattern — are there more instances?
 
 **Canonical governing document:** `maestra_platform_spec_v7.1.docx` — single source of truth for all AOS architecture. Pull it when: (a) scoping a new capability, (b) decision could contradict a locked ruling, (c) multi-repo build.
 
@@ -105,6 +107,26 @@ Every completed task must satisfy ALL of these:
 
 ---
 
+## BEFORE WRITING ANY CODE — ANTICIPATE BUGS
+Stop and answer these five questions while planning, before implementation:
+
+1. **Will the new code produce identical results to what it replaces?**
+   If you're rewriting a query, consolidating calls, or changing a data path — how will you verify equivalence? Plan the diff. If you can't describe how to prove old and new produce the same output, you don't understand the change well enough to make it.
+
+2. **What happens at runtime when a field is empty, a service is down, or the data doesn't match your assumption?**
+   For every input you're reading — what if it's None? What if the API returns empty? What if the triple has no `amount` property? Identify the failure modes in your plan, not after you've built on top of them.
+
+3. **Is there a simpler path you're not seeing?**
+   An existing endpoint that already does this. A single query instead of many. A field already computed upstream. Before designing new machinery, check what exists. Read the route registrations. Search for similar functions. The answer you need may already be built.
+
+4. **Does this solve the actual problem, or make it look solved?**
+   If you removed this change entirely, would the user still hit the same issue? If yes, you're planning to treat a symptom. An AbortController that kills a slow request doesn't make it fast. A progress spinner on a timeout doesn't fix the timeout. A default value on a missing field doesn't make the field exist. Redesign the approach.
+
+5. **Is this a pattern? Are there more instances?**
+   If you found one hardcoded value, one silent fallback, one missing null check — search the full codebase before planning to fix just this one. One grep, one audit, one fix pass. Plan for all instances, not just the one you tripped over.
+
+---
+
 ## SILENT FALLBACKS — ABSOLUTE PROHIBITION
 Silent fallbacks are the most dangerous failure mode in this codebase. They make broken features look working.
 
@@ -171,6 +193,66 @@ Silent fallbacks are the most dangerous failure mode in this codebase. They make
 - **Use Opus for all tasks** — Ilya is on the max plan. Opus is preferred for both implementation and architecture.
 - All agents report RACI violations to the lead — do not silently implement workarounds
 - After compaction, re-read this file from the top. Rules from early in the conversation get lost during compaction.
+
+---
+
+## UI VERIFICATION — MANDATORY FOR ALL FRONTEND WORK
+CC agents cannot open a browser GUI, but that does not exempt you from B17 (frontend is the pass/fail gate). Use Playwright headless to verify UI rendering.
+
+**Setup (once per session if not already installed):**
+```bash
+npm install -g playwright
+npx playwright install chromium
+```
+
+**Before declaring any UI work done, run the verification script:**
+```bash
+node tests/verify-ui.js <url> [checks...]
+```
+
+**Or write inline verification for the specific page:**
+```javascript
+const { chromium } = require('playwright');
+(async () => {
+  const browser = await chromium.launch();
+  const page = await browser.newPage();
+  await page.goto('http://localhost:3006');
+  await page.waitForLoadState('networkidle');
+
+  // Screenshot — attach to your results
+  await page.screenshot({ path: '/tmp/ui-verify.png', fullPage: true });
+
+  // Check for error banners
+  const errors = await page.locator('[class*="error"], [class*="Error"]').count();
+  console.log(`Error elements: ${errors}`);
+
+  // Check for specific text
+  const hasTag = await page.locator('text=triples_').count();
+  console.log(`Farm triples tag visible: ${hasTag > 0}`);
+
+  // Check no full UUIDs rendered (36-char pattern)
+  const bodyText = await page.locator('body').innerText();
+  const uuidPattern = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
+  const uuids = bodyText.match(uuidPattern) || [];
+  console.log(`Full UUIDs visible in UI: ${uuids.length}`, uuids.length > 0 ? uuids : '');
+
+  await browser.close();
+})();
+```
+
+**What counts as UI verification:**
+- Screenshot taken and described (what's visible, what's missing)
+- DOM assertions on rendered text (not API responses)
+- Error element count is zero
+- Expected content is present in rendered page
+
+**What does NOT count:**
+- "Vite HMR confirmed hot updates" — that's build verification, not UI verification
+- "TSC clean" — that's compilation, not rendering
+- "Backend endpoints returning correct data" — that's API testing, not UI testing
+- "Services healthy" — that's infrastructure, not UI
+
+If Playwright is unavailable or cannot be installed, explicitly state: "B17 NOT VERIFIED — requires Ilya to visually confirm at [url]." Do not substitute API evidence and call it browser verification.
 
 ---
 
@@ -292,7 +374,7 @@ The harness is only valid after a fresh pipeline run. Verify pipeline freshness 
 Every test hits the live system fresh. No memoization, no response caching.
 
 ## B17: Frontend is the pass/fail gate
-Backend queries and API responses are diagnostic tools, not proof of correctness. The UI rendering the correct data in the browser is the real test. Open the browser, look at the screen, verify what the user would see.
+Backend queries and API responses are diagnostic tools, not proof of correctness. The UI rendering the correct data in the browser is the real test. Use Playwright headless to verify (see UI VERIFICATION section above). Take a screenshot, assert on rendered DOM text, check for error elements. If Playwright is unavailable, explicitly state "B17 NOT VERIFIED — requires Ilya to visually confirm at [url]." Do not substitute API/build evidence and label it browser verification.
 
 ## B18: 5% latency budget
 Measure response time before and after every code change. More than 5% regression on any endpoint is a blocking issue. Hard latency ceilings stated in prompts are absolute and non-negotiable.
@@ -337,6 +419,9 @@ If the prompt says fix it, fix it. Do not ask for permission. That is stalling. 
 ## C12: No piecemeal discovery of the same bug pattern
 If you find a hardcoded value that should be dynamic, do not fix that one instance and rerun. Audit the entire codebase for the same pattern first. One grep, one audit, one fix pass.
 
+## C13: No restructuring code to dodge the pre-commit hook
+If the hook flags hardcoded confidence scores, fix the confidence scores — don't restructure the code so the AST scanner can't pattern-match it. If the hook flags a silent fallback, remove the fallback — don't rewrite the try/except into a regex check that does the same thing without triggering the scanner. The hook exists to catch real problems. Evading the scanner while preserving the problem is cheating.
+
 ---
 
 # SECTION D: HARNESS EXECUTION FORMAT
@@ -358,6 +443,9 @@ If one test fails and the fix touches shared code, all tests must rerun.
 
 ## D6: Pre-existing failures are not excuses
 All tests must pass at the end of your session — including tests that were failing before you started. If a test was already broken, fix it. If a service isn't running, start it. "That was already failing" is not an acceptable status. You are responsible for the state of the system when you hand back control, not just the delta of your changes.
+
+## D7: Retest completely after pre-commit hook changes
+If the pre-commit hook blocks your commit and you modify code to satisfy it, you must rerun ALL tests before declaring done. Hook-triggered changes are code changes — they can introduce bugs. "I already tested before the hook ran" is not valid. The final code state is what gets tested, not an intermediate state. Do not restructure code merely to dodge the AST scanner — fix the actual problem the scanner is flagging.
 
 ---
 
