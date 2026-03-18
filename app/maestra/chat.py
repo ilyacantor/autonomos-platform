@@ -6,6 +6,7 @@ Platform Maestra handles: engagement management, pipeline orchestration,
 module health, human review requests.
 """
 
+import hashlib
 import logging
 import time
 import uuid
@@ -238,101 +239,139 @@ class MaestraChat:
             target_entity_id, len(target_coa),
         )
 
-        # Agentic loop: call LLM, execute tools, feed results back.
-        # COFA should complete in 1 LLM call (tool call) + 1 follow-up (text).
-        # max_tokens=16000 ensures the full mapping JSON fits without truncation.
-        for iteration in range(_MAX_TOOL_ITERATIONS):
-            llm_t0 = time.monotonic()
-            response = await gateway.complete(
-                messages=messages,
-                model_tier=ModelTier.BALANCED,
-                tools=tools,
-                system=system_prompt,
-                temperature=0.0,
-                max_tokens=16000,
-                use_cache=False,
+        # --- Run Ledger: record and start BEFORE the agentic loop ---
+        # This captures the full duration (LLM reasoning + tool execution),
+        # not just the DCL POST.
+        idempotency_key = f"{engagement_id}:cofa-map:{run_id}"
+        inputs_hash = hashlib.sha256(
+            f"{engagement_id}:{acquirer_entity_id}:{target_entity_id}:{run_id}".encode()
+        ).hexdigest()[:16]
+
+        step = await self._run_ledger.record_step(
+            step_name="cofa-map",
+            idempotency_key=idempotency_key,
+            inputs_hash=inputs_hash,
+            upstream_deps=["ingest"],
+        )
+        step_id = step["step_id"]
+        await self._run_ledger.start_step(step_id)
+
+        # Track source_run_tag from tool results for outputs_ref
+        source_run_tag: str | None = None
+        step_error: str | None = None
+
+        try:
+            # Agentic loop: call LLM, execute tools, feed results back.
+            # COFA should complete in 1 LLM call (tool call) + 1 follow-up (text).
+            # max_tokens=16000 ensures the full mapping JSON fits without truncation.
+            for iteration in range(_MAX_TOOL_ITERATIONS):
+                llm_t0 = time.monotonic()
+                response = await gateway.complete(
+                    messages=messages,
+                    model_tier=ModelTier.BALANCED,
+                    tools=tools,
+                    system=system_prompt,
+                    temperature=0.0,
+                    max_tokens=16000,
+                    use_cache=False,
+                )
+                llm_elapsed = time.monotonic() - llm_t0
+
+                logger.info(
+                    "Maestra LLM call — iteration=%d, stop_reason=%s, "
+                    "tool_calls=%d, model=%s, tokens_in=%d, tokens_out=%d, "
+                    "llm_wall_sec=%.1f, total_wall_sec=%.1f",
+                    iteration, response.stop_reason, len(response.tool_calls),
+                    response.model, response.input_tokens, response.output_tokens,
+                    llm_elapsed, time.monotonic() - merge_t0,
+                )
+
+                if response.stop_reason != "tool_use" or not response.tool_calls:
+                    # LLM is done — return final response
+                    break
+
+                # Build assistant message with tool_use blocks for conversation history
+                assistant_content = []
+                if response.content:
+                    assistant_content.append({"type": "text", "text": response.content})
+                for tc in response.tool_calls:
+                    assistant_content.append({
+                        "type": "tool_use",
+                        "id": tc["id"],
+                        "name": tc["name"],
+                        "input": tc["input"],
+                    })
+                messages.append({"role": "assistant", "content": assistant_content})
+
+                # Execute each tool call and collect results
+                tool_results_for_message = []
+                for tc in response.tool_calls:
+                    tool_name = tc["name"]
+                    tool_params = tc["input"]
+                    tool_call_id = tc["id"]
+
+                    # Validate the tool call
+                    validation = self._tools.validate_tool_call(tool_name, tool_params)
+                    if not validation["valid"]:
+                        logger.warning(
+                            "Maestra tool call validation failed: %s — %s",
+                            tool_name, validation["error"],
+                        )
+                        tool_result = {"status": "validation_error", "error": validation["error"]}
+                    else:
+                        # Execute the tool
+                        tool_t0 = time.monotonic()
+                        tool_result = await execute_tool_call(
+                            tool_name=tool_name,
+                            params=tool_params,
+                            engagement_id=engagement_id,
+                        )
+                        logger.info(
+                            "Maestra tool executed — tool=%s, status=%s, "
+                            "tool_wall_sec=%.1f, total_wall_sec=%.1f",
+                            tool_name, tool_result.get("status", "unknown"),
+                            time.monotonic() - tool_t0, time.monotonic() - merge_t0,
+                        )
+
+                        # Capture source_run_tag from tool result for ledger outputs_ref
+                        if tool_result.get("source_run_tag"):
+                            source_run_tag = tool_result["source_run_tag"]
+
+                    tool_call_results.append({
+                        "tool": tool_name,
+                        "params": tool_params,
+                        "result": tool_result,
+                    })
+
+                    tool_results_for_message.append({
+                        "type": "tool_result",
+                        "tool_use_id": tool_call_id,
+                        "content": str(tool_result),
+                    })
+
+                # Append tool results to messages for next LLM iteration
+                messages.append({"role": "user", "content": tool_results_for_message})
+            else:
+                # Exhausted max iterations — this is not a silent fallback, we report it
+                logger.warning(
+                    "Maestra agentic loop exhausted %d iterations — "
+                    "engagement=%s, run_id=%s, total_wall_sec=%.1f",
+                    _MAX_TOOL_ITERATIONS, engagement_id, run_id,
+                    time.monotonic() - merge_t0,
+                )
+
+        except Exception as e:
+            step_error = (
+                f"COFA unification failed: {type(e).__name__}: {e} "
+                f"— engagement_id={engagement_id}, run_id={run_id}"
             )
-            llm_elapsed = time.monotonic() - llm_t0
+            logger.error(step_error)
+            await self._run_ledger.fail_step(step_id, step_error)
+            raise  # Do NOT swallow — HARNESS_RULES A1
 
-            logger.info(
-                "Maestra LLM call — iteration=%d, stop_reason=%s, "
-                "tool_calls=%d, model=%s, tokens_in=%d, tokens_out=%d, "
-                "llm_wall_sec=%.1f, total_wall_sec=%.1f",
-                iteration, response.stop_reason, len(response.tool_calls),
-                response.model, response.input_tokens, response.output_tokens,
-                llm_elapsed, time.monotonic() - merge_t0,
-            )
-
-            if response.stop_reason != "tool_use" or not response.tool_calls:
-                # LLM is done — return final response
-                break
-
-            # Build assistant message with tool_use blocks for conversation history
-            assistant_content = []
-            if response.content:
-                assistant_content.append({"type": "text", "text": response.content})
-            for tc in response.tool_calls:
-                assistant_content.append({
-                    "type": "tool_use",
-                    "id": tc["id"],
-                    "name": tc["name"],
-                    "input": tc["input"],
-                })
-            messages.append({"role": "assistant", "content": assistant_content})
-
-            # Execute each tool call and collect results
-            tool_results_for_message = []
-            for tc in response.tool_calls:
-                tool_name = tc["name"]
-                tool_params = tc["input"]
-                tool_call_id = tc["id"]
-
-                # Validate the tool call
-                validation = self._tools.validate_tool_call(tool_name, tool_params)
-                if not validation["valid"]:
-                    logger.warning(
-                        "Maestra tool call validation failed: %s — %s",
-                        tool_name, validation["error"],
-                    )
-                    tool_result = {"status": "validation_error", "error": validation["error"]}
-                else:
-                    # Execute the tool
-                    tool_t0 = time.monotonic()
-                    tool_result = await execute_tool_call(
-                        tool_name=tool_name,
-                        params=tool_params,
-                        engagement_id=engagement_id,
-                        run_ledger=self._run_ledger,
-                    )
-                    logger.info(
-                        "Maestra tool executed — tool=%s, status=%s, "
-                        "tool_wall_sec=%.1f, total_wall_sec=%.1f",
-                        tool_name, tool_result.get("status", "unknown"),
-                        time.monotonic() - tool_t0, time.monotonic() - merge_t0,
-                    )
-
-                tool_call_results.append({
-                    "tool": tool_name,
-                    "params": tool_params,
-                    "result": tool_result,
-                })
-
-                tool_results_for_message.append({
-                    "type": "tool_result",
-                    "tool_use_id": tool_call_id,
-                    "content": str(tool_result),
-                })
-
-            # Append tool results to messages for next LLM iteration
-            messages.append({"role": "user", "content": tool_results_for_message})
-        else:
-            # Exhausted max iterations — this is not a silent fallback, we report it
-            logger.warning(
-                "Maestra agentic loop exhausted %d iterations — "
-                "engagement=%s, run_id=%s, total_wall_sec=%.1f",
-                _MAX_TOOL_ITERATIONS, engagement_id, run_id,
-                time.monotonic() - merge_t0,
-            )
+        # --- Run Ledger: complete AFTER the agentic loop ---
+        outputs_ref = source_run_tag if source_run_tag else f"semantic_triples:run_id={run_id}"
+        await self._run_ledger.complete_step(step_id, outputs_ref=outputs_ref)
 
         total_elapsed = time.monotonic() - merge_t0
         logger.info(
