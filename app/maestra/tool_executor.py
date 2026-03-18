@@ -101,4 +101,11 @@ async def _execute_write_cofa_mapping(
                 f"— response: {error_detail}"
             )
             logger.error(error_msg)
-            raise RuntimeError(error_msg)
+            # Return structured error — do NOT raise. The agentic loop
+            # passes this back to the LLM as a tool result so it can
+            # retry with corrected params (e.g. non-empty mappings).
+            return {
+                "status": "failed",
+                "error": error_msg,
+                "http_status": resp.status_code,
+            }
