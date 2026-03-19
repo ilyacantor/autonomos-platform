@@ -61,7 +61,7 @@ class MaestraTools:
                 "tenant_id": "str (required)",
                 "run_id": "str (required)",
                 "mappings": "list[dict] (required) — each with unified_account, acquirer_account, target_account, confidence, mapping_basis",
-                "conflicts": "list[dict] (required) — each with conflict_id, conflict_type, severity, dollar_impact, description, acquirer_treatment, target_treatment, resolution_status",
+                "conflicts": "list[dict] (required) — each with conflict_id, conflict_type, severity, dollar_impact, description, acquirer_treatment, target_treatment, resolution_status, impact_area, revenue_impact, expense_impact, ebitda_impact, and optionally from_category/to_category for classification conflicts",
                 "unified_accounts": "list[dict] (required) — each with account_name, account_type, hierarchy_parent, source_entities",
             },
         },
@@ -99,16 +99,49 @@ class MaestraTools:
                     "type": "object",
                     "properties": {
                         "conflict_id": {"type": "string"},
-                        "conflict_type": {"type": "string"},
+                        "conflict_type": {"type": "string", "enum": ["recognition", "classification", "capitalization", "policy"]},
                         "severity": {"type": "string", "enum": ["low", "medium", "high", "critical"]},
-                        "dollar_impact": {"type": "number", "description": "Estimated dollar impact"},
+                        "dollar_impact": {"type": "number", "description": "Estimated annual dollar impact of this misalignment"},
                         "description": {"type": "string"},
                         "acquirer_treatment": {"type": "string"},
                         "target_treatment": {"type": "string"},
                         "resolution_status": {"type": "string", "enum": ["unresolved", "resolved", "deferred"]},
+                        "impact_area": {
+                            "type": "string",
+                            "enum": ["revenue", "expense_reclassification", "ebitda", "depreciation"],
+                            "description": "Which combined financial statement line this conflict primarily affects. "
+                                           "recognition = revenue + EBITDA; classification = expense reclassification only "
+                                           "(net-zero EBITDA); capitalization = EBITDA (expense removed from P&L); "
+                                           "policy = depreciation/EBITDA",
+                        },
+                        "revenue_impact": {
+                            "type": "number",
+                            "description": "Impact on combined revenue ($). Positive = increases combined revenue. "
+                                           "Typically non-zero only for recognition conflicts.",
+                        },
+                        "expense_impact": {
+                            "type": "number",
+                            "description": "Impact on combined total expenses ($). Positive = increases combined expenses. "
+                                           "For capitalization: negative (expense removed). For classification: zero (reclassification only).",
+                        },
+                        "ebitda_impact": {
+                            "type": "number",
+                            "description": "Impact on combined EBITDA ($). Positive = increases combined EBITDA.",
+                        },
+                        "from_category": {
+                            "type": "string",
+                            "description": "For classification conflicts: the expense category the amount moves FROM "
+                                           "(e.g. 'COGS', 'SGA', 'R&D'). Null for non-classification conflicts.",
+                        },
+                        "to_category": {
+                            "type": "string",
+                            "description": "For classification conflicts: the expense category the amount moves TO "
+                                           "(e.g. 'OpEx', 'Client Services'). Null for non-classification conflicts.",
+                        },
                     },
                     "required": ["conflict_id", "conflict_type", "severity", "dollar_impact", "description",
-                                 "acquirer_treatment", "target_treatment", "resolution_status"],
+                                 "acquirer_treatment", "target_treatment", "resolution_status",
+                                 "impact_area", "revenue_impact", "expense_impact", "ebitda_impact"],
                 },
             },
             "unified_accounts": {
