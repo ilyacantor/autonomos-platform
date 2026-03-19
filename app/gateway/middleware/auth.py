@@ -16,6 +16,16 @@ async def tenant_auth_middleware(request: Request, call_next: Callable):
     - Set request.state.tenant_id, request.state.agent_id
     - Return 401 if invalid
     """
+    # Service-to-service bypass — trusted callers with shared secret
+    internal_key = os.getenv("INTERNAL_SERVICE_KEY")
+    request_key = request.headers.get("x-internal-service-key")
+    if internal_key and request_key and request_key == internal_key:
+        request.state.tenant_id = "internal-service"
+        request.state.agent_id = "service-caller"
+        request.state.scopes = ["internal"]
+        request.state.internal_service = True
+        return await call_next(request)
+
     # Bypass auth for public endpoints
     public_paths = [
         "/docs",
@@ -26,6 +36,7 @@ async def tenant_auth_middleware(request: Request, call_next: Callable):
         "/users/register",           # Legacy registration endpoint
         "/api/v1/auth/login",        # JSON-based login endpoint
         "/api/v1/auth/register",     # JSON-based registration endpoint
+        "/api/health",               # Platform health (generic path)
         "/api/v1/health",            # Platform health endpoint (dev)
         "/api/v1/dcl/views/opportunities",  # DCL views (dev)
         "/api/v1/dcl/views/accounts",       # DCL views (dev)

@@ -53,7 +53,13 @@ async def rate_limit_middleware(request: Request, call_next: Callable):
     
     if not REDIS_AVAILABLE:
         return await call_next(request)
-    
+
+    # Bypass rate limiting for internal service calls
+    internal_key = os.getenv("INTERNAL_SERVICE_KEY")
+    request_key = request.headers.get("x-internal-service-key")
+    if internal_key and request_key and request_key == internal_key:
+        return await call_next(request)
+
     # Exempt critical read-only endpoints from rate limiting
     exempt_paths = [
         "/api/v1/health",
@@ -69,6 +75,7 @@ async def rate_limit_middleware(request: Request, call_next: Callable):
     exempt_prefixes = [
         "/api/v1/orchestration/",
         "/api/v1/aoa/",  # AOA dashboard & events (same functionality as orchestration)
+        "/api/maestra/",  # Maestra orchestration (service-to-service, frequently polled)
         "/static/",
     ]
 

@@ -242,8 +242,8 @@ try:
     from app.gateway.middleware.idempotency import idempotency_middleware
     from app.gateway.middleware.audit import audit_middleware
 
-    # Register middleware in correct order (FIRST = outermost, LAST = innermost)
-    # Order: Tracing → Auth → RateLimit → Idempotency → Audit
+    # Register middleware (Starlette LIFO: LAST registered = outermost = runs first)
+    # Execution order: RateLimit → Auth → Tracing → Route
     # PRODUCTION: All middleware enabled with non-blocking operations
     app.middleware("http")(tracing_middleware)
     app.middleware("http")(tenant_auth_middleware)
