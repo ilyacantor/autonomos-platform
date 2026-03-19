@@ -51,6 +51,7 @@ async def tenant_auth_middleware(request: Request, call_next: Callable):
         "/live-flow",                # Live Flow frontend page (demo access)
         "/discover",                 # Mock AOD service endpoint (temporary for E2E testing)
         "/api/v1/demo/",             # Demo pipeline endpoints (no auth for guided demos)
+        "/api/maestra/",             # Maestra orchestration (service-to-service from DCL)
     ]
     
     # Also bypass static frontend paths

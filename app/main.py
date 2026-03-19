@@ -254,7 +254,11 @@ try:
 
     logger.info("✅ Gateway middleware registered successfully (Audit & Idempotency disabled until blocking issues resolved)")
 except Exception as e:
-    logger.warning(f"⚠️ Gateway middleware not available: {e}")
+    raise RuntimeError(
+        f"Gateway middleware failed to load: {e} — "
+        f"install missing dependency (pip install PyJWT) or fix the import. "
+        f"Running without auth middleware is not allowed."
+    ) from e
 
 # Use REDIS_URL if available (production), otherwise use host/port (development)
 # Redis is optional - if not available, task queue features will be disabled
