@@ -332,7 +332,21 @@ async def maestra_cofa_chat(req: ChatRequest):
 
     ledger = RunLedger(req.engagement_id)
     chat = MaestraChat(_engagement_mgr, ledger, _constitution)
-    return await chat.process_message(req.message, req.engagement_id, req.session_id)
+    try:
+        return await chat.process_message(req.message, req.engagement_id, req.session_id)
+    except httpx.ConnectError as e:
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                f"Cannot reach DCL at {DCL_BASE_URL} — {e}. "
+                f"Check DCL_BASE_URL environment variable."
+            ),
+        )
+    except httpx.TimeoutException as e:
+        raise HTTPException(
+            status_code=504,
+            detail=f"DCL request timed out at {DCL_BASE_URL} — {e}",
+        )
 
 
 # ============================================================================

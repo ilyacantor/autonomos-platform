@@ -42,5 +42,7 @@ services:
         value: https://aos-aam.onrender.com
       - key: DCL_V2_BASE_URL
         value: https://aos-dclv2.onrender.com
+      - key: DCL_BASE_URL
+        value: https://aos-dclv2.onrender.com
     healthCheckPath: /
     autoDeploy: true
