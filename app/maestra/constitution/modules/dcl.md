@@ -18,7 +18,7 @@ Every triple also carries provenance: which source system produced it, which sou
 
 ## How Data Is Organized
 
-Concepts are grouped into domains — the first segment of the concept name. Examples: compensation, revenue, cofa, position, employee, engineering_work. As more data flows through the pipeline, new domains appear. The current store holds data across 17 domains, covering three entities (Meridian as acquirer, Cascadia as target, and BlueWave as Meridian's HR system), spanning 24 time periods.
+Concepts are grouped into domains — the first segment of the concept name. Examples: compensation, revenue, cofa, position, employee, engineering_work. As more data flows through the pipeline, new domains appear. The current store holds data across 17 domains, covering two entities (Meridian as acquirer, Cascadia as target), spanning 24 time periods.
 
 DCL validates everything that comes in. Schema-on-write validation checks that incoming data matches a known pipe definition. If data arrives without a matching pipe, DCL rejects it with a specific error explaining what is missing. Data that passes validation is stored with full provenance.
 

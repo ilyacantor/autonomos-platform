@@ -13,8 +13,6 @@ Two canonical configurations exist:
 - **Meridian Partners:** A $5B enterprise (the acquirer in the standard Convergence scenario). Full-scale financial model spanning 14 financial domains — revenue by type, cost structures, compensation, operating expenses, capital expenditures, balance sheet positions, and cash flows. Quarterly data across multiple periods.
 - **Cascadia Process Solutions:** A $1B enterprise (the target in the standard Convergence scenario). Same 14 financial domains at a different scale, with different accounting treatments and cost structures that create realistic differences for integration analysis.
 
-There is also **BlueWave-RR3T**, which is the HR and workforce dataset — positions, employees, compensation structures, and engineering work data. BlueWave contains 124,267 facts across 4 domains. It represents Meridian's HR system under a legacy system name.
-
 ## What Farm Produces
 
 Every piece of data Farm generates becomes a semantic triple in DCL: an entity identifier, a concept (using hierarchical naming like `compensation.base` or `revenue.consulting`), a property, a value, and a time period. Every triple carries provenance — which source system produced it, which source field it maps to, a confidence score, and the pipe and run that generated it.
