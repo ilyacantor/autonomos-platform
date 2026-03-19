@@ -460,13 +460,14 @@ async def get_run_stats(
             )
             if resp.status_code == 200:
                 data = resp.json()
-                stats["triple_count"] = data.get("total_cofa_count", 0)
+                overview = data.get("overview", {})
+                stats["triple_count"] = overview.get("total_cofa_count", 0)
                 stats["mapped_count"] = data.get("mapped_count", 0)
                 stats["resolved_count"] = data.get("resolved_count", 0)
                 stats["conflict_count"] = data.get("conflict_count", 0)
-                stats["conflicts_pending"] = data.get("conflict_count", 0) - data.get("resolved_count", 0)
-                stats["conflicts_resolved"] = data.get("resolved_count", 0)
-                stats["entity_count"] = len(data.get("entities", []))
+                stats["conflicts_pending"] = stats["conflict_count"] - stats["resolved_count"]
+                stats["conflicts_resolved"] = stats["resolved_count"]
+                stats["entity_count"] = len(overview.get("entities", []))
             else:
                 error_detail = resp.text[:300]
                 raise HTTPException(
